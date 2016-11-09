@@ -1,4 +1,4 @@
-# aes_stream_drivers
+# aes-stream-drivers
 Common repository for streaming kernel drivers (PGP, AxiStream, ExoTem)
 
 include/ contains top level application include files for all drivers
