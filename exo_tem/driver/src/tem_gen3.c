@@ -276,7 +276,7 @@ void TemG3_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
    reg = (struct TemG3Reg *)dev->reg;
 
    if ( dmaBufferToHw(buff) == 0 ) 
-      iowrite32(buff->buffHandle,&(reg->rxFree[buff->dest/4]));
+      iowrite32(buff->buffHandle,&(reg->rxFree[buff->dest]));
    else dev_warn(dev->device,"RetRxBuffer: Failed to map dma buffer.\n");
 }
 
