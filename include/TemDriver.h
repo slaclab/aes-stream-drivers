@@ -154,17 +154,17 @@ struct TemPromData {
 #include <sys/fcntl.h>
 
 // Enable command reads, call only once
-inline int32_t temEnableCmdRead(int32_t fd) {
+static inline int32_t temEnableCmdRead(int32_t fd) {
    return(ioctl(fd,DMA_Set_Mask,(1 << TEM_DEST_CMD)));
 }
 
 // Enable data reads, call only once
-inline int32_t temEnableDataRead(int32_t fd) {
+static inline int32_t temEnableDataRead(int32_t fd) {
    return(ioctl(fd,DMA_Set_Mask,(1 << TEM_DEST_DATA)));
 }
 
 // Write to TEM command channel
-inline ssize_t temWriteCmd(int32_t fd, const void *buf, size_t count) {
+static inline ssize_t temWriteCmd(int32_t fd, const void *buf, size_t count) {
    struct DmaWriteData w;
 
    memset(&w,0,sizeof(struct DmaWriteData));
@@ -177,7 +177,7 @@ inline ssize_t temWriteCmd(int32_t fd, const void *buf, size_t count) {
 }
 
 // Write to TEM data channel
-inline ssize_t temWriteData(int32_t fd, const void *buf, size_t count) {
+static inline ssize_t temWriteData(int32_t fd, const void *buf, size_t count) {
    struct DmaWriteData w;
 
    memset(&w,0,sizeof(struct DmaWriteData));
@@ -190,7 +190,7 @@ inline ssize_t temWriteData(int32_t fd, const void *buf, size_t count) {
 }
 
 // Read from TEM channel
-inline ssize_t temRead(int fd, void *buf, size_t count) {
+static inline ssize_t temRead(int fd, void *buf, size_t count) {
    struct DmaReadData r;
    ssize_t ret;
 
@@ -206,22 +206,22 @@ inline ssize_t temRead(int fd, void *buf, size_t count) {
 }
 
 // Read Card Info
-inline ssize_t temGetInfo(int32_t fd, struct TemInfo * info) {
+static inline ssize_t temGetInfo(int32_t fd, struct TemInfo * info) {
    return(ioctl(fd,TEM_Read_Info,info));
 }
 
 // Read PCI Status
-inline ssize_t temGetPci(int32_t fd, struct PciStatus * status) {
+static inline ssize_t temGetPci(int32_t fd, struct PciStatus * status) {
    return(ioctl(fd,TEM_Read_Pci,status));
 }
 
 // Set debug
-inline ssize_t temSetDebug(int32_t fd, uint32_t level) {
+static inline ssize_t temSetDebug(int32_t fd, uint32_t level) {
    return(ioctl(fd,DMA_Set_Debug,level));
 }
 
 // Set Loopback State
-inline ssize_t temSetLoop(int32_t fd, uint32_t state) {
+static inline ssize_t temSetLoop(int32_t fd, uint32_t state) {
    uint32_t temp;
 
    temp = 0x3;
@@ -231,7 +231,7 @@ inline ssize_t temSetLoop(int32_t fd, uint32_t state) {
 }
 
 // Write to PROM
-inline ssize_t temWriteProm(int32_t fd, uint32_t address, uint32_t cmd, uint32_t data) {
+static inline ssize_t temWriteProm(int32_t fd, uint32_t address, uint32_t cmd, uint32_t data) {
    struct TemPromData prom;
 
    prom.address = address;
@@ -241,7 +241,7 @@ inline ssize_t temWriteProm(int32_t fd, uint32_t address, uint32_t cmd, uint32_t
 }
 
 // Read from PROM
-inline ssize_t temReadProm(int32_t fd, uint32_t address, uint32_t cmd, uint32_t *data) {
+static inline ssize_t temReadProm(int32_t fd, uint32_t address, uint32_t cmd, uint32_t *data) {
    struct TemPromData prom;
    ssize_t res;
 

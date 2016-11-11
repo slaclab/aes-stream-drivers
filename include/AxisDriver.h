@@ -122,7 +122,7 @@ struct DmaReadData {
 #include <sys/fcntl.h>
 
 // Write Frame
-inline ssize_t axisWrite(int32_t fd, void * buf, size_t size, uint32_t fuser, uint32_t luser, uint32_t dest) {
+static inline ssize_t axisWrite(int32_t fd, void * buf, size_t size, uint32_t fuser, uint32_t luser, uint32_t dest) {
    struct DmaWriteData w;
 
    memset(&w,0,sizeof(struct DmaWriteData));
@@ -137,7 +137,7 @@ inline ssize_t axisWrite(int32_t fd, void * buf, size_t size, uint32_t fuser, ui
 }
 
 // Write Frame, memory mapped
-inline ssize_t axisWriteIndex(int32_t fd, uint32_t index, size_t size, uint32_t fuser, uint32_t luser, uint32_t dest) {
+static inline ssize_t axisWriteIndex(int32_t fd, uint32_t index, size_t size, uint32_t fuser, uint32_t luser, uint32_t dest) {
    struct DmaWriteData w;
 
    memset(&w,0,sizeof(struct DmaWriteData));
@@ -152,7 +152,7 @@ inline ssize_t axisWriteIndex(int32_t fd, uint32_t index, size_t size, uint32_t 
 }
 
 // Receive Frame
-inline ssize_t axisRead(int32_t fd, void * buf, size_t maxSize, uint32_t * fuser, uint32_t * luser, uint32_t * dest) {
+static inline ssize_t axisRead(int32_t fd, void * buf, size_t maxSize, uint32_t * fuser, uint32_t * luser, uint32_t * dest) {
    struct DmaReadData r;
    ssize_t ret;
 
@@ -173,7 +173,7 @@ inline ssize_t axisRead(int32_t fd, void * buf, size_t maxSize, uint32_t * fuser
 
 // Receive Frame, access memory mapped buffer
 // Returns receive size
-inline ssize_t axisReadIndex(int32_t fd, uint32_t * index, uint32_t * fuser, uint32_t * luser, uint32_t * dest) {
+static inline ssize_t axisReadIndex(int32_t fd, uint32_t * index, uint32_t * fuser, uint32_t * luser, uint32_t * dest) {
    struct DmaReadData r;
    size_t ret;
 
@@ -191,22 +191,22 @@ inline ssize_t axisReadIndex(int32_t fd, uint32_t * index, uint32_t * fuser, uin
 }
 
 // Post Index
-inline ssize_t axisRetIndex(int32_t fd, uint32_t index) {
+static inline ssize_t axisRetIndex(int32_t fd, uint32_t index) {
    return(ioctl(fd,DMA_Ret_Index,index));
 }
 
 // Get write buffer index
-inline uint32_t axisGetIndex(int32_t fd) {
+static inline uint32_t axisGetIndex(int32_t fd) {
    return(ioctl(fd,DMA_Get_Index,0));
 }
 
 // Get read ready status
-inline ssize_t axisReadReady(int32_t fd) {
+static inline ssize_t axisReadReady(int32_t fd) {
    return(ioctl(fd,DMA_Read_Ready,0));
 }
 
 // Return user space mapping to dma buffers
-inline void ** axisMapDma(int32_t fd, uint32_t *count, uint32_t *size) {
+static inline void ** axisMapDma(int32_t fd, uint32_t *count, uint32_t *size) {
    void *   temp;
    void **  ret;
    uint32_t bCount;
@@ -235,7 +235,7 @@ inline void ** axisMapDma(int32_t fd, uint32_t *count, uint32_t *size) {
 }
 
 // Free space mapping to dma buffers
-inline ssize_t axisUnMapDma(int32_t fd, void ** buffer) {
+static inline ssize_t axisUnMapDma(int32_t fd, void ** buffer) {
    uint32_t  bCount;
    uint32_t  bSize;
    uint32_t  x;;
@@ -251,17 +251,17 @@ inline ssize_t axisUnMapDma(int32_t fd, void ** buffer) {
 }
 
 // Set debug
-inline ssize_t axisSetDebug(int32_t fd, uint32_t level) {
+static inline ssize_t axisSetDebug(int32_t fd, uint32_t level) {
    return(ioctl(fd,DMA_Set_Debug,level));
 }
 
 // set lane/vc rx mask, one bit per vc
-inline ssize_t axisSetMask(int32_t fd, uint32_t mask) {
+static inline ssize_t axisSetMask(int32_t fd, uint32_t mask) {
    return(ioctl(fd,DMA_Set_Mask,mask));
 }
 
 // Assign interrupt handler
-inline void axisAssignHandler (int32_t fd, void (*handler)(int32_t)) {
+static inline void axisAssignHandler (int32_t fd, void (*handler)(int32_t)) {
    struct sigaction act;
    int32_t oflags;
 
@@ -276,7 +276,7 @@ inline void axisAssignHandler (int32_t fd, void (*handler)(int32_t)) {
 }
 
 // Read ACK
-inline void axisReadAck (int32_t fd) {
+static inline void axisReadAck (int32_t fd) {
    ioctl(fd,AXIS_Read_Ack,0);
 }
 

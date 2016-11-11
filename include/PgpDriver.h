@@ -269,7 +269,7 @@ struct PgpPromData {
 #include <sys/fcntl.h>
 
 // Write Frame
-inline ssize_t pgpWrite(int32_t fd, void * buf, size_t size, uint32_t lane, uint32_t vc, uint32_t cont=0) {
+static inline ssize_t pgpWrite(int32_t fd, void * buf, size_t size, uint32_t lane, uint32_t vc, uint32_t cont=0) {
    struct DmaWriteData w;
 
    memset(&w,0,sizeof(struct DmaWriteData));
@@ -285,7 +285,7 @@ inline ssize_t pgpWrite(int32_t fd, void * buf, size_t size, uint32_t lane, uint
 
 // Send Frame, memory mapped buffer
 // Returns transmit size
-inline ssize_t pgpWriteIndex(int32_t fd, uint32_t index, size_t size, uint32_t lane, uint32_t vc, uint32_t cont) {
+static inline ssize_t pgpWriteIndex(int32_t fd, uint32_t index, size_t size, uint32_t lane, uint32_t vc, uint32_t cont) {
    struct DmaWriteData w;
 
    memset(&w,0,sizeof(struct DmaWriteData));
@@ -300,7 +300,7 @@ inline ssize_t pgpWriteIndex(int32_t fd, uint32_t index, size_t size, uint32_t l
 }
 
 // Receive Frame
-inline ssize_t pgpRead(int32_t fd, void * buf, size_t maxSize, uint32_t * lane, uint32_t * vc, uint32_t * error, uint32_t * cont=NULL) {
+static inline ssize_t pgpRead(int32_t fd, void * buf, size_t maxSize, uint32_t * lane, uint32_t * vc, uint32_t * error, uint32_t * cont=NULL) {
    struct DmaReadData r;
    ssize_t ret;
 
@@ -321,7 +321,7 @@ inline ssize_t pgpRead(int32_t fd, void * buf, size_t maxSize, uint32_t * lane, 
 
 // Receive Frame, access memory mapped buffer
 // Returns receive size
-inline ssize_t pgpReadIndex(int32_t fd, uint32_t * index, uint32_t * lane, uint32_t * vc, uint32_t * error, uint32_t * cont=NULL) {
+static inline ssize_t pgpReadIndex(int32_t fd, uint32_t * index, uint32_t * lane, uint32_t * vc, uint32_t * error, uint32_t * cont=NULL) {
    struct DmaReadData r;
    size_t ret;
 
@@ -339,22 +339,22 @@ inline ssize_t pgpReadIndex(int32_t fd, uint32_t * index, uint32_t * lane, uint3
 }
 
 // Post Index
-inline ssize_t pgpRetIndex(int32_t fd, uint32_t index) {
+static inline ssize_t pgpRetIndex(int32_t fd, uint32_t index) {
    return(ioctl(fd,DMA_Ret_Index,index));
 }
 
 // Get write buffer index
-inline uint32_t pgpGetIndex(int32_t fd) {
+static inline uint32_t pgpGetIndex(int32_t fd) {
    return(ioctl(fd,DMA_Get_Index,0));
 }
 
 // Get read ready status
-inline ssize_t pgpReadReady(int32_t fd) {
+static inline ssize_t pgpReadReady(int32_t fd) {
    return(ioctl(fd,DMA_Read_Ready,0));
 }
 
 // Return user space mapping to dma buffers
-inline void ** pgpMapDma(int32_t fd, uint32_t *count, uint32_t *size) {
+static inline void ** pgpMapDma(int32_t fd, uint32_t *count, uint32_t *size) {
    void *   temp;
    void **  ret;
    uint32_t bCount;
@@ -383,7 +383,7 @@ inline void ** pgpMapDma(int32_t fd, uint32_t *count, uint32_t *size) {
 }
 
 // Free space mapping to dma buffers
-inline ssize_t pgpUnMapDma(int32_t fd, void ** buffer) {
+static inline ssize_t pgpUnMapDma(int32_t fd, void ** buffer) {
    uint32_t  bCount;
    uint32_t  bSize;
    uint32_t  x;;
@@ -399,29 +399,29 @@ inline ssize_t pgpUnMapDma(int32_t fd, void ** buffer) {
 }
 
 // Read Card Info
-inline ssize_t pgpGetInfo(int32_t fd, struct PgpInfo * info) {
+static inline ssize_t pgpGetInfo(int32_t fd, struct PgpInfo * info) {
    return(ioctl(fd,PGP_Read_Info,info));
 }
 
 // Read PCI Status
-inline ssize_t pgpGetPci(int32_t fd, struct PciStatus * status) {
+static inline ssize_t pgpGetPci(int32_t fd, struct PciStatus * status) {
    return(ioctl(fd,PGP_Read_Pci,status));
 }
 
 // Read Lane Status
-inline ssize_t pgpGetStatus(int32_t fd, uint32_t lane, struct PgpStatus * status) {
+static inline ssize_t pgpGetStatus(int32_t fd, uint32_t lane, struct PgpStatus * status) {
    status->lane = lane;
    return(ioctl(fd,PGP_Read_Status,status));
 }
 
 // Set debug
-inline ssize_t pgpSetDebug(int32_t fd, uint32_t level) {
+static inline ssize_t pgpSetDebug(int32_t fd, uint32_t level) {
    return(ioctl(fd,DMA_Set_Debug,level));
 }
 
 
 // Set Loopback State For Lane
-inline ssize_t pgpSetLoop(int32_t fd, uint32_t lane, uint32_t state) {
+static inline ssize_t pgpSetLoop(int32_t fd, uint32_t lane, uint32_t state) {
    uint32_t temp;
 
    temp = lane & 0xFF;
@@ -432,13 +432,13 @@ inline ssize_t pgpSetLoop(int32_t fd, uint32_t lane, uint32_t state) {
 
 
 // Reset counters
-inline ssize_t pgpCountReset(int32_t fd) {
+static inline ssize_t pgpCountReset(int32_t fd) {
    return(ioctl(fd,PGP_Count_Reset,0));
 }
 
 
 // Set Sideband Data
-inline ssize_t pgpSetData(int32_t fd, uint32_t lane, uint32_t data) {
+static inline ssize_t pgpSetData(int32_t fd, uint32_t lane, uint32_t data) {
    uint32_t temp;
 
    temp = lane & 0xFF;
@@ -448,43 +448,43 @@ inline ssize_t pgpSetData(int32_t fd, uint32_t lane, uint32_t data) {
 }
 
 // Send OpCode
-inline ssize_t pgpSendOpCode(int32_t fd, uint32_t code) {
+static inline ssize_t pgpSendOpCode(int32_t fd, uint32_t code) {
    return(ioctl(fd,PGP_Send_OpCode,code));
 }
 
 // set lane/vc rx mask, one bit per vc
-inline ssize_t pgpSetMask(int32_t fd, uint32_t mask) {
+static inline ssize_t pgpSetMask(int32_t fd, uint32_t mask) {
    return(ioctl(fd,DMA_Set_Mask,mask));
 }
 
 
 // Set EVR Control
-inline ssize_t pgpSetEvrControl(int32_t fd, uint32_t lane, struct PgpEvrControl * control) {
+static inline ssize_t pgpSetEvrControl(int32_t fd, uint32_t lane, struct PgpEvrControl * control) {
    control->lane = lane;
    return(ioctl(fd,PGP_Set_Evr_Cntrl,control));
 }
 
 
 // Get EVR Control
-inline ssize_t pgpGetEvrControl(int32_t fd, uint32_t lane, struct PgpEvrControl * control) {
+static inline ssize_t pgpGetEvrControl(int32_t fd, uint32_t lane, struct PgpEvrControl * control) {
    control->lane = lane;
    return(ioctl(fd,PGP_Get_Evr_Cntrl,control));
 }
 
 
 // Get EVR Status
-inline ssize_t pgpGetEvrStatus(int32_t fd, uint32_t lane, struct PgpEvrStatus * status) {
+static inline ssize_t pgpGetEvrStatus(int32_t fd, uint32_t lane, struct PgpEvrStatus * status) {
    status->lane = lane;
    return(ioctl(fd,PGP_Get_Evr_Status,status));
 }
 
 // Reset EVR Counters
-inline ssize_t pgpResetEvrCount(int32_t fd, uint32_t lane) {
+static inline ssize_t pgpResetEvrCount(int32_t fd, uint32_t lane) {
    return(ioctl(fd,PGP_Rst_Evr_Count,lane));
 }
 
 // Write to PROM
-inline ssize_t pgpWriteProm(int32_t fd, uint32_t address, uint32_t cmd, uint32_t data) {
+static inline ssize_t pgpWriteProm(int32_t fd, uint32_t address, uint32_t cmd, uint32_t data) {
    struct PgpPromData prom;
 
    prom.address = address;
@@ -494,7 +494,7 @@ inline ssize_t pgpWriteProm(int32_t fd, uint32_t address, uint32_t cmd, uint32_t
 }
 
 // Read from PROM
-inline ssize_t pgpReadProm(int32_t fd, uint32_t address, uint32_t cmd, uint32_t *data) {
+static inline ssize_t pgpReadProm(int32_t fd, uint32_t address, uint32_t cmd, uint32_t *data) {
    struct PgpPromData prom;
    ssize_t res;
 
@@ -509,7 +509,7 @@ inline ssize_t pgpReadProm(int32_t fd, uint32_t address, uint32_t cmd, uint32_t 
 }
 
 // Assign interrupt handler
-inline void pgpAssignHandler (int32_t fd, void (*handler)(int32_t)) {
+static inline void pgpAssignHandler (int32_t fd, void (*handler)(int32_t)) {
    struct sigaction act;
    int32_t oflags;
 
