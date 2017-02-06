@@ -30,7 +30,9 @@ ccflags-y += -I$(PWD)/$(COM_SRC)
 ccflags-y += -Wformat=0 -Wno-int-to-pointer-cast
 
 axistream-objs := $(COM_SRC)/dma_buffer.o $(COM_SRC)/dma_common.o 
-axistream-objs += $(LOC_SRC)/axis_gen1.o $(LOC_SRC)/axis_top.o
+axistream-objs += $(LOC_SRC)/axis_gen1.o 
+axistream-objs += $(LOC_SRC)/axis_gen2.o
+axistream-objs += $(LOC_SRC)/axis_top.o
 
 obj-m := axistream.o
 

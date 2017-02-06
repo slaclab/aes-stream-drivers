@@ -20,7 +20,7 @@
 #include "axis_gen2.h"
 #include <linux/seq_file.h>
 #include <linux/signal.h>
-#include <math.h>
+#include <linux/slab.h>
 
 // Set functions for gen2 card
 struct hardware_functions AxisG2_functions = {
@@ -33,182 +33,115 @@ struct hardware_functions AxisG2_functions = {
    .seqShow      = AxisG2_SeqShow,
 };
 
-   //uint32_t channelCount;    // 0x0034
-   //uint32_t readAddrWidth;   // 0x0038
-   //uint32_t writeAddrWidth;  // 0x003C
-
 // Get version
-uint8_t getVersion() {
+uint8_t AxisG2_GetVersion(struct DmaDevice *dev) {
+   struct AxisG2Reg  *reg;
    uint32_t temp;
+
+   reg = (struct AxisG2Reg *)dev->reg;
+
    temp = ioread32(&(reg->enableVer));
-   return((temp >> 24) & 0xFF));
+   return((temp >> 24) & 0xFF);
 }
-
-// Get channel count
-uint32_t getChannelCount() {
-   uint32_t temp;
-   temp = ioread32(&(reg->channelCount));
-   return(temp);
-}
-
-// Get read count
-uint32_t getReadCount() {
-   uint32_t temp;
-   temp = ioread32(&(reg->readAddrWidth));
-   return(pow(2,temp));
-}
-
-// Get write count
-uint32_t getWriteCount() {
-   uint32_t temp;
-   temp = ioread32(&(reg->writeAddrWidth));
-   return(pow(2,temp));
-}
-
 
 // Interrupt handler
 irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
-   uint32_t    stat;
-   uint32_t    handle;
-   uint32_t    size;
-   uint32_t    status;
+   uint32_t index;
+   uint32_t handleCount;
+   uint64_t dmaData;
 
    struct DmaDesc     * desc;
    struct DmaBuffer   * buff;
    struct DmaDevice   * dev;
    struct AxisG2Reg   * reg;
+   struct AxisG2Data  * hwData;
 
-   dev  = (struct DmaDevice *)dev_id;
-   reg  = (struct AxisG2Reg *)dev->reg;
+   dev    = (struct DmaDevice *)dev_id;
+   reg    = (struct AxisG2Reg *)dev->reg;
+   hwData = (struct AxisG2Data *)dev->hwData;
 
-   // Read IRQ Status
-   if ( ioread32(&(reg->intPendAck)) != 0 ) {
+   // Disable interrupt
+   iowrite32(0x0,&(reg->intEnable));
+   handleCount = 0;
 
-       // Ack interrupt
-      iowrite32(0x1,&(reg->intPendAck));
+   // Check read returns
+   while ( (dmaData = hwData->readAddr[hwData->readIndex]) != 0 ) {
+      index = (dmaData >> 4) & 0xFFF;
+      handleCount++;
 
-      // Disable interrupts
-      iowrite32(0x0,&(reg->intEnable));
+      if ( (buff = dmaGetBuffer(&(dev->rxBuffers),index)) != NULL ) {
+         dmaBufferFromHw(buff);
+         dmaQueuePushIrq(&(dev->tq),buff);
 
-      // Read from FIFOs
-      while ( (stat = ioread32(&(reg->fifoValid))) != 0 ) {
-
-         // Transmit return
-         if ( (stat & 0x2) != 0 ) {
-
-            // Read handle
-            if (((handle = ioread32(&(reg->txFree))) & 0x80000000) != 0 ) {
-               handle &= 0x7FFFFFFC;
-              
-               if ( dev->debug > 0 ) 
-                  dev_info(dev->device,"Irq: Return TX Status Value 0x%.8x.\n",handle);
-
-               // Find buffer and put back intp tx queue
-               if ((buff = dmaFindBuffer (&(dev->txBuffers),handle)) != NULL) {
-                  dmaBufferFromHw(buff);
-                  dmaQueuePushIrq(&(dev->tq),buff);
-               }
-
-               // Entry was not found
-               else 
-                  dev_warn(dev->device,"Irq: Failed to locate TX descriptor 0x%.8x.\n", handle);
-            }
-         }
-
-         // Receive data
-         if ( (stat & 0x1) != 0 ) {
-
-            // Read handle
-            while (((handle = ioread32(&(reg->rxPend))) & 0x80000000) != 0 ) {
-               handle &= 0x7FFFFFFC;
-
-               // Read size
-               do { 
-                  size = ioread32(&(reg->rxPend));
-               } while ((size & 0x80000000) == 0);
-
-               // Bad marker
-               if ( (size & 0xFF000000) != 0xE0000000 ) {
-                  dev_warn(dev->device,"Irq: Bad FIFO size marker 0x%.8x.\n", size);
-                  size = 0;
-               }
-               else size &= 0xFFFFFF;
-
-               // Get status
-               do { 
-                  status = ioread32(&(reg->rxPend));
-               } while ((status & 0x80000000) == 0);
-
-               // Bad marker
-               if ( (status & 0xF0000000) != 0xF0000000 ) {
-                  dev_warn(dev->device,"Irq: Bad FIFO status marker 0x%.8x.\n", status);
-                  size = 0;
-               }
-
-               // Find RX buffer entry
-               if ((buff = dmaFindBuffer (&(dev->rxBuffers),handle)) != NULL) {
-
-                  // Extract data from descriptor
-                  buff->count++;
-                  buff->size  = size;
-                  buff->flags = (status >>  8) & 0xFFFF; // 15:8 = luser, 7:0 = fuser
-                  buff->dest  = (status      ) & 0xFF;
-                  buff->error = (size == 0)?DMA_ERR_FIFO:0;
-
-                  // Check for errors
-                  if ( (status & 0x01000000) != 0 ) {
-                     dev_info(dev->device,"Irq: AXI write error detected.\n");
-                     buff->error |= DMA_ERR_BUS;
-                  }
-                  if ( (status & 0x02000000) != 0 ) {
-                     dev_info(dev->device,"Irq: DMA overflow error detected.\n");
-                     buff->error |= DMA_ERR_LEN;
-                  }
-               
-                  if ( dev->debug > 0 ) {
-                     dev_info(dev->device,"Irq: Rx size=%i, Dest=%i, Flags=0x%x, Error=0x%x.\n",
-                        buff->size, buff->dest, buff->flags, buff->error);
-                  }
-
-                  // Lock mask records
-                  // This ensures close does not occur while irq routine is 
-                  // pushing data to desc rx queue
-                  spin_lock(&dev->maskLock);
-
-                  // Find owner of lane/vc
-                  if ( buff->dest < DMA_MAX_DEST ) desc = dev->desc[buff->dest];
-                  else desc = NULL;
-
-                  // Return entry to FPGA if destc is not open
-                  if ( desc == NULL ) {
-                     if ( dev->debug > 0 ) {
-                        dev_info(dev->device,"Irq: Port not open return to free list.\n");
-                     }
-                     iowrite32(handle,&(reg->rxFree));
-                  }
-
-                  // lane/vc is open,  Add to RX Queue
-                  else {
-                     dmaBufferFromHw(buff);
-                     dmaQueuePushIrq(&(desc->q),buff);
-                     if (desc->async_queue) kill_fasync(&desc->async_queue, SIGIO, POLL_IN);
-                  }
-
-                  // Unlock
-                  spin_unlock(&dev->maskLock);
-               }
-
-               // Buffer was not found
-               else dev_warn(dev->device,"Irq: Failed to locate RX descriptor 0x%.8x.\n",handle);
-            }
-         }
+         if ( dev->debug > 0 ) 
+            dev_info(dev->device,"Irq: Return TX buffer index %i.\n",index);
       }
+      else 
+         dev_warn(dev->device,"Irq: Failed to locate TX buffer index %i.\n", index);
 
-      // Enable interrupts
-      iowrite32(0x1,&(reg->intEnable));
-      return(IRQ_HANDLED);
+      memset(&(hwData->readAddr[hwData->readIndex]),0,8);
+      hwData->readIndex = (hwData->readIndex+1) % hwData->readCount;
    }
-   return(IRQ_NONE);
+
+   // Check write descriptor
+   while ( (dmaData = hwData->writeAddr[hwData->writeIndex]) != 0 ) {
+      index = (dmaData >> 4) & 0xFFF;
+      handleCount++;
+
+      if ( (buff = dmaGetBuffer(&(dev->rxBuffers),index)) != NULL ) {
+         buff->count++;
+         buff->size  = (dmaData >> 32) & 0xFFFFFF;
+         buff->dest  = (dmaData >> 56) & 0xFF;
+         buff->error = (buff->size == 0)?DMA_ERR_FIFO:(dmaData & 0x3);
+
+         buff->flags =  (dmaData >> 24) & 0xFF; // Bits[31:24] = firstUser = flags[7:0]
+         buff->flags += (dmaData >> 8) & 0xFF; // Bits[23:16] = lastUser = flags[15:8]
+         buff->flags += (dmaData << 13) & 0x10000; // bit[3] = continue = flags[16]
+ 
+         if ( dev->debug > 0 ) {
+            dev_info(dev->device,"Irq: Rx size=%i, Dest=%i, Flags=0x%x, Error=0x%x.\n",
+               buff->size, buff->dest, buff->flags, buff->error);
+         }
+
+         // Lock mask records
+         // This ensures close does not occur while irq routine is 
+         // pushing data to desc rx queue
+         spin_lock(&dev->maskLock);
+
+         // Find owner of lane/vc
+         if ( buff->dest < DMA_MAX_DEST ) desc = dev->desc[buff->dest];
+         else desc = NULL;
+
+         // Return entry to FPGA if destc is not open
+         if ( desc == NULL ) {
+            if ( dev->debug > 0 ) {
+               dev_info(dev->device,"Irq: Port not open return to free list.\n");
+            }
+            iowrite32(buff->index,&(reg->writeFifo));
+         }
+
+         // lane/vc is open,  Add to RX Queue
+         else {
+            dmaBufferFromHw(buff);
+            dmaQueuePushIrq(&(desc->q),buff);
+            if (desc->async_queue) kill_fasync(&desc->async_queue, SIGIO, POLL_IN);
+         }
+
+         // Unlock
+         spin_unlock(&dev->maskLock);
+      }
+      else 
+         dev_warn(dev->device,"Irq: Failed to locate RX buffer index %i.\n", index);
+
+      memset(&(hwData->writeAddr[hwData->writeIndex]),0,8);
+      hwData->writeIndex = (hwData->writeIndex+1) % hwData->writeCount;
+   }
+
+   // Enable interrupt and update ack count
+   iowrite32(0x10000 + handleCount,&(reg->intAckAndEnable));
+
+   if ( handleCount ) return(IRQ_HANDLED);
+   else return(IRQ_NONE);
 }
 
 
@@ -218,12 +151,12 @@ void AxisG2_Init(struct DmaDevice *dev) {
 
    struct DmaBuffer  *buff;
    struct AxisG2Data *hwData;
+   struct AxisG2Reg  *reg;
 
-   struct AxisG2Reg *reg;
    reg = (struct AxisG2Reg *)dev->reg;
 
    // Init hw data
-   hwData = (struct AxisG2Data *)malloc(sizeof(struct AxisG2Data));
+   hwData = (struct AxisG2Data *)kmalloc(sizeof(struct AxisG2Data),GFP_KERNEL);
    dev->hwData = hwData;
 
    // Create read address ring
@@ -276,14 +209,14 @@ void AxisG2_Init(struct DmaDevice *dev) {
       iowrite32(buff->buffHandle,&(reg->readAddr[buff->index])); // Address table
    }
 
-   // Enable interrupt
-   iowrite32(0x1,&(reg->intEnable));
-
    // Online
    iowrite32(0x1,&(reg->online));
 
    // Set dest mask
    dev->destMask = 0xFF;
+
+   // Enable interrupt
+   iowrite32(0x1,&(reg->intEnable));
 
    dev_info(dev->device,"Init: Found device.\n");
 }
@@ -292,9 +225,10 @@ void AxisG2_Init(struct DmaDevice *dev) {
 // Clear card in top level Remove
 void AxisG2_Clear(struct DmaDevice *dev) {
    struct AxisG2Reg *reg;
-   reg = (struct AxisG2Reg *)dev->reg;
+   struct AxisG2Data * hwData;
 
-   struct AxisG2Data * hwData = (struct AxisG2Data *)dev->hwData;
+   reg = (struct AxisG2Reg *)dev->reg;
+   hwData = (struct AxisG2Data *)dev->hwData;
 
    // Disable interrupt
    iowrite32(0x0,&(reg->intEnable));
@@ -307,8 +241,10 @@ void AxisG2_Clear(struct DmaDevice *dev) {
    iowrite32(0x1,&(reg->fifoReset));
 
    // Free Buffers
-   dma_free_coherent(dev->device, dev->rxBuffers.size*8, hwData->writeAddr, hwData->writeHandle);
-   dma_free_coherent(dev->device, dev->txBuffers.size*8, hwData->readAddr, hwData->readHandle);
+   dma_free_coherent(dev->device, hwData->writeCount*8, hwData->writeAddr, hwData->writeHandle);
+   dma_free_coherent(dev->device, hwData->readCount*8, hwData->readAddr, hwData->readHandle);
+
+   kfree(hwData);
 }
 
 
@@ -345,7 +281,7 @@ int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
       return(-1);
    }
 
-   // Write to hardware
+   // Write to hardware, order of writes do not mapper
    spin_lock(&dev->writeHwLock);
    iowrite32(descLow,&(reg->readFifoLow));
    iowrite32(descHigh,&(reg->readFifoHigh));
@@ -381,13 +317,17 @@ int32_t AxisG2_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
 // Add data to proc dump
 void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    struct AxisG2Reg *reg;
+   struct AxisG2Data * hwData;
+
    reg = (struct AxisG2Reg *)dev->reg;
+   hwData = (struct AxisG2Data *)dev->hwData;
 
    seq_printf(s,"\n");
    seq_printf(s,"-------------- General HW -----------------\n");
-   //seq_printf(s,"             Writable : %i\n",((ioread32(&(reg->fifoValid)) >> 1) & 0x1));
-   //seq_printf(s,"             Readable : %i\n",(ioread32(&(reg->fifoValid)) & 0x1));
-   //seq_printf(s,"     Write Int Status : %i\n",((ioread32(&(reg->intPendAck)) >> 1) & 0x1));
-   //seq_printf(s,"      Read Int Status : %i\n",(ioread32(&(reg->intPendAck)) & 0x1));
+   seq_printf(s,"          Int Req Count : %i\n",(ioread32(&(reg->intReqCount))));
+   seq_printf(s,"            Hw Wr Index : %i\n",(ioread32(&(reg->hwWrIndex))));
+   seq_printf(s,"            Sw Wr Index : %i\n",hwData->writeIndex);
+   seq_printf(s,"            Hw Rd Index : %i\n",(ioread32(&(reg->hwRdIndex))));
+   seq_printf(s,"            Sw Rd Index : %i\n",hwData->readIndex);
 }
 

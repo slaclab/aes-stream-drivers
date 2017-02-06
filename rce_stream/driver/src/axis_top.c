@@ -22,6 +22,7 @@
 #include "axis_top.h"
 #include "dma_common.h"
 #include "axis_gen1.h"
+#include "axis_gen2.h"
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/types.h>
@@ -93,9 +94,6 @@ int Axis_Probe(struct platform_device *pdev) {
    const char * tmpName;
    int32_t      tmpIdx;
 
-   // Set hardware functions
-   hfunc = &(AxisG1_functions);
-
    // Extract name
    tmpName = pdev->name + 9;
 
@@ -130,6 +128,10 @@ int Axis_Probe(struct platform_device *pdev) {
    // Get Base Address of registers from pci structure.
    dev->baseAddr = pdev->resource[0].start;
    dev->baseSize = pdev->resource[0].end - pdev->resource[0].start + 1;
+
+   // Set hardware functions
+   if ( AxisG2_GetVersion(dev) == 2 ) hfunc = &(AxisG2_functions);
+   else hfunc = &(AxisG1_functions);
 
    // Set configuration
    dev->cfgTxCount = cfgTxCount[tmpIdx];

@@ -45,7 +45,11 @@ struct AxisG2Reg {
    uint32_t readFifoLow;     // 0x0040
    uint32_t readFifoHigh;    // 0x0044
    uint32_t writeFifo;       // 0x0048
-   uint32_t spareB[4077];    // 0x004C - 0x3FFC
+   uint32_t intAckAndEnable; // 0x004C
+   uint32_t intReqCount;     // 0x0050
+   uint32_t hwWrIndex;       // 0x0054
+   uint32_t hwRdIndex;       // 0x0058
+   uint32_t spareB[4073];    // 0x005C - 0x3FFC
    uint32_t writeAddr[4096]; // 0x4000 - 0x7FFC
    uint32_t readAddr[4096];  // 0x8000 - 0xFFFC
 };
@@ -63,16 +67,7 @@ struct AxisG2Data {
 };
 
 // Get version
-uint8_t getVersion();
-
-// Get channel count
-uint32_t getChannelCount();
-
-// Get read count
-uint32_t getReadCount();
-
-// Get write count
-uint32_t getWriteCount();
+uint8_t AxisG2_GetVersion(struct DmaDevice *dev);
 
 // Interrupt handler
 irqreturn_t AxisG2_Irq(int irq, void *dev_id);
