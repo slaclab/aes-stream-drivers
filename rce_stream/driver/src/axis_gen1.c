@@ -215,7 +215,7 @@ void AxisG1_Init(struct DmaDevice *dev) {
    // Set dest mask
    dev->destMask  = 0x3F;
 
-   dev_info(dev->device,"Init: Found device.\n");
+   dev_info(dev->device,"Init: Found Version 1 Device.\n");
 }
 
 

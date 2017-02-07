@@ -218,7 +218,7 @@ void AxisG2_Init(struct DmaDevice *dev) {
    // Enable interrupt
    iowrite32(0x1,&(reg->intEnable));
 
-   dev_info(dev->device,"Init: Found device.\n");
+   dev_info(dev->device,"Init: Found Version 2 Device.\n");
 }
 
 
