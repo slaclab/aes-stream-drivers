@@ -43,6 +43,7 @@ struct PrgArgs {
    uint32_t     count;
    uint32_t     prbsDis;
    uint32_t     idxEn;
+   uint32_t     rawEn;
 };
 
 static struct PrgArgs DefArgs = { "/dev/axi_stream_dma_0", 0, 1000, 0x2,0x0,1, 0, 0 };
@@ -58,6 +59,7 @@ static struct argp_option options[] = {
    { "fuser",   'f', "FUSER",  OPTION_ARG_OPTIONAL, "Value for first user field in hex. Default=0x2",0},
    { "luser",   'l', "LUSER",  OPTION_ARG_OPTIONAL, "Value for last user field in hex. Default=0x0",0},
    { "indexen", 'i', 0,        OPTION_ARG_OPTIONAL, "Use index based transmit buffers.",0},
+   { "rawEn",   'r', "COUNT",  OPTION_ARG_OPTIONAL, "Show raw data up to count.",0},
    {0}
 };
 
@@ -72,6 +74,7 @@ error_t parseArgs ( int key,  char *arg, struct argp_state *state ) {
       case 'f': args->fuser = strtol(arg,NULL,16); break;
       case 'l': args->luser = strtol(arg,NULL,16); break;
       case 'i': args->idxEn = 1; break;
+      case 'r': args->rawEn = strtol(arg,NULL,10); break;
       case ARGP_KEY_ARG: 
           switch (state->arg_num) {
              case 0: args->dest = strtol(arg,NULL,10); break;
@@ -100,6 +103,7 @@ int main (int argc, char **argv) {
    uint32_t      dmaCount;
    int32_t       dmaIndex;
    bool          prbValid;
+   uint32_t      x;
 
    struct timeval timeout;
    struct PrgArgs args;
@@ -113,7 +117,7 @@ int main (int argc, char **argv) {
    }
 
    if ( args.idxEn ) {
-      if ( (dmaBuffers = axisMapDma(s,&dmaCount,&dmaSize)) == NULL ) {
+      if ( (dmaBuffers = dmaMapDma(s,&dmaCount,&dmaSize)) == NULL ) {
          printf("Failed to map dma buffers!\n");
          return(0);
       }
@@ -145,7 +149,7 @@ int main (int argc, char **argv) {
       else {
 
          if ( args.idxEn ) {
-            dmaIndex = axisGetIndex(s);
+            dmaIndex = dmaGetIndex(s);
             if ( dmaIndex < 0 ) continue;
             txData = dmaBuffers[dmaIndex];
          }
@@ -164,11 +168,20 @@ int main (int argc, char **argv) {
             prbValid = false;
             count++;
             printf("Write ret=%i, Dest=%i, Fuser=0x%.2x, Luser=0x%.2x, count=%i\n",ret,args.dest,args.fuser,args.luser,count);
+            if ( args.rawEn ) {
+               printf("Raw Data: ");
+               for (x = 0; x < args.rawEn; x++) {
+                  printf("0x%.2x ",((uint8_t *)txData)[x]);
+                  if ( ((x+1) % 10) == 0 ) printf("\n          ");
+               }
+               printf("\n");
+            }
          }
+         else if ( ret < 0 ) printf("Write error!\n");
       }
    } while ( count < args.count );
 
-   if ( args.idxEn ) axisUnMapDma(s,dmaBuffers);
+   if ( args.idxEn ) dmaUnMapDma(s,dmaBuffers);
    else free(txData);
 
    close(s);

@@ -24,7 +24,7 @@
 
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
-#include <dma_include.h>
+#include <PgpDriver.h>
 #include <dma_common.h>
 
 struct pgpprom_reg {

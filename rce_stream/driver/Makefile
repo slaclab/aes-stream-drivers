@@ -27,11 +27,12 @@ LOC_SRC := src
 ccflags-y := -I$(PWD)/../../include
 ccflags-y += -I$(PWD)/$(LOC_SRC)
 ccflags-y += -I$(PWD)/$(COM_SRC)
+ccflags-y += -DDMA_IN_KERNEL=1
 ccflags-y += -Wformat=0 -Wno-int-to-pointer-cast
 
 axistream-objs := $(COM_SRC)/dma_buffer.o $(COM_SRC)/dma_common.o 
+axistream-objs += $(COM_SRC)/axis_gen2.o
 axistream-objs += $(LOC_SRC)/axis_gen1.o 
-axistream-objs += $(LOC_SRC)/axis_gen2.o
 axistream-objs += $(LOC_SRC)/axis_top.o
 
 obj-m := axistream.o

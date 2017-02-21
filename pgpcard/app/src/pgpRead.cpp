@@ -100,12 +100,12 @@ int main (int argc, char **argv) {
    }
    pgpGetInfo(s,&info);
 
-   pgpSetMask(s,args.lane & info.laneMask);
+   dmaSetMask(s,args.lane & info.laneMask);
 
    maxSize = 1024*1024*2;
 
    if ( args.idxEn ) {
-      if ( (dmaBuffers = pgpMapDma(s,&dmaCount,&dmaSize)) == NULL ) {
+      if ( (dmaBuffers = dmaMapDma(s,&dmaCount,&dmaSize)) == NULL ) {
          printf("Failed to map dma buffers!\n");
          return(0);
       }
@@ -145,7 +145,7 @@ int main (int argc, char **argv) {
 
          if ( ret > 0 ) {
             if ( args.prbsDis == 0 ) prbRes = prbs.processData(rxData,ret);
-            if ( args.idxEn ) pgpRetIndex(s,dmaIndex);
+            if ( args.idxEn ) dmaRetIndex(s,dmaIndex);
 
             count++;
             printf("Read ret=%i, Lane=%i, Vc=%i, error=%i, prbs=%i, count=%i\n",ret,rxLane,rxVc,rxError,prbRes,count);
@@ -153,7 +153,7 @@ int main (int argc, char **argv) {
       }
    } while ( 1 );
 
-   if ( args.idxEn ) pgpUnMapDma(s,dmaBuffers);
+   if ( args.idxEn ) dmaUnMapDma(s,dmaBuffers);
    else free(rxData);
 
    close(s);

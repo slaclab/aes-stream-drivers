@@ -19,7 +19,8 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
-#include "axis_gen1.h"
+#include <AxisDriver.h>
+#include <axis_gen1.h>
 #include <linux/seq_file.h>
 #include <linux/signal.h>
 
@@ -71,15 +72,10 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
                if ( dev->debug > 0 ) 
                   dev_info(dev->device,"Irq: Return TX Status Value 0x%.8x.\n",handle);
 
-               // Find buffer and put back intp tx queue
-               if ((buff = dmaFindBuffer (&(dev->txBuffers),handle)) != NULL) {
-                  dmaBufferFromHw(buff);
-                  dmaQueuePushIrq(&(dev->tq),buff);
+               // Attempt to find buffer in tx pool and return. otherwise return rx entry to hw.
+               if ((buff = dmaRetBufferIrq (dev,handle)) != NULL) {
+                  iowrite32(handle,&(reg->rxFree));
                }
-
-               // Entry was not found
-               else 
-                  dev_warn(dev->device,"Irq: Failed to locate TX descriptor 0x%.8x.\n", handle);
             }
          }
 
@@ -114,7 +110,7 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
                }
 
                // Find RX buffer entry
-               if ((buff = dmaFindBuffer (&(dev->rxBuffers),handle)) != NULL) {
+               if ((buff = dmaFindBufferList (&(dev->rxBuffers),handle)) != NULL) {
 
                   // Extract data from descriptor
                   buff->count++;
@@ -156,11 +152,7 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
                   }
 
                   // lane/vc is open,  Add to RX Queue
-                  else {
-                     dmaBufferFromHw(buff);
-                     dmaQueuePushIrq(&(desc->q),buff);
-                     if (desc->async_queue) kill_fasync(&desc->async_queue, SIGIO, POLL_IN);
-                  }
+                  else dmaRxBuffer(desc,buff);
 
                   // Unlock
                   spin_unlock(&dev->maskLock);
@@ -188,7 +180,7 @@ void AxisG1_Init(struct DmaDevice *dev) {
    reg = (struct AxisG1Reg *)dev->reg;
 
    // Set MAX RX                      
-   iowrite32(dev->rxBuffers.size,&(reg->maxRxSize));
+   iowrite32(dev->cfgSize,&(reg->maxRxSize));
                                       
    // Clear FIFOs                     
    iowrite32(0x1,&(reg->fifoClear)); 
@@ -200,9 +192,9 @@ void AxisG1_Init(struct DmaDevice *dev) {
 
    // Push RX buffers to hardware
    for (x=0; x < dev->rxBuffers.count; x++) {
-      if ( dmaBufferToHw(dev->rxBuffers.indexed[x]) == 0 ) 
-         iowrite32(dev->rxBuffers.indexed[x]->buffHandle,&(reg->rxFree));
-      else dev_warn(dev->device,"Init: Failed to map dma buffer.\n");
+      if ( dmaBufferToHw(dev->rxBuffers.indexed[x]) < 0 ) 
+         dev_warn(dev->device,"Init: Failed to map dma buffer.\n");
+      else iowrite32(dev->rxBuffers.indexed[x]->buffHandle,&(reg->rxFree));
    }
 
    // Enable interrupt
@@ -243,8 +235,9 @@ void AxisG1_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
    struct AxisG1Reg *reg;
    reg = (struct AxisG1Reg *)dev->reg;
 
-   if ( dmaBufferToHw(buff) == 0 ) iowrite32(buff->buffHandle,&(reg->rxFree));
-   else dev_warn(dev->device,"RetRxBuffer: Failed to map dma buffer.\n");
+   if ( dmaBufferToHw(buff) < 0 )
+      dev_warn(dev->device,"RetRxBuffer: Failed to map dma buffer.\n");
+   else iowrite32(buff->buffHandle,&(reg->rxFree));
 }
 
 
@@ -259,7 +252,7 @@ int32_t AxisG1_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
    control  = (buff->dest       ) & 0x000000FF;
    control += (buff->flags <<  8) & 0x00FFFF00; // flags[15:9] = luser, flags[7:0] = fuser
 
-   if ( dmaBufferToHw(buff) ) {
+   if ( dmaBufferToHw(buff) < 0 ) {
       dev_warn(dev->device,"SendBuffer: Failed to map dma buffer.\n");
       return(-1);
    }

@@ -19,10 +19,9 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
-
-#include <dma_include.h>
-#include "dma_common.h"
-#include "dma_buffer.h"
+#include <DmaDriver.h>
+#include <dma_common.h>
+#include <dma_buffer.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/interrupt.h>
@@ -38,8 +37,8 @@ struct file_operations DmaFunctions = {
    release:        Dma_Release,
    poll:           Dma_Poll,
    fasync:         Dma_Fasync,
-   unlocked_ioctl: Dma_Ioctl,
-   compat_ioctl:   Dma_Ioctl,
+   unlocked_ioctl: (void *)Dma_Ioctl,
+   compat_ioctl:   (void *)Dma_Ioctl,
    mmap:           Dma_Mmap
 };
 
@@ -76,15 +75,31 @@ char *Dma_DevNode(struct device *dev, umode_t *mode){
    return(NULL);
 }
 
+// Map address space in buffer
+int Dma_MapReg ( struct DmaDevice *dev ) {
+   if ( dev->reg == NULL ) {
+      dev_info(dev->device,"Init: Mapping Register space %p with size 0x%i.\n",(void *)dev->baseAddr,dev->baseSize);
+      dev->reg = ioremap_nocache(dev->baseAddr, dev->baseSize);
+      if (! dev->reg ) {
+         dev_err(dev->device,"Init: Could not remap memory.\n");
+         return -1;
+      }
+
+      // Hold memory region
+      if ( request_mem_region(dev->baseAddr, dev->baseSize, dev->devName) == NULL ) {
+         dev_err(dev->device,"Init: Memory in use.\n");
+         return -1;
+      }
+   }
+   else dev_info(dev->device,"Init: Register space already mapped.\n");
+   return(0);
+}
 
 // Create and init device, called from top level probe function
 int Dma_Init(struct DmaDevice *dev) {
-   struct hardware_functions *hfunc;
 
    int32_t x;
    int32_t res;
-
-   hfunc = (struct hardware_functions*)dev->hwFunctions;
 
    // Default debug disable
    dev->debug = 0;
@@ -103,7 +118,7 @@ int Dma_Init(struct DmaDevice *dev) {
          dev_err(dev->device,"Init: Failed to create device class\n");
          return(-1);
       }
-      gCl->devnode = Dma_DevNode;
+      gCl->devnode = (void *)Dma_DevNode;
    }
 
    // Attempt to create the device
@@ -126,17 +141,7 @@ int Dma_Init(struct DmaDevice *dev) {
    proc_create_data(dev->devName, 0, NULL, &DmaProcOps, dev);
 
    // Remap the I/O register block so that it can be safely accessed.
-   dev->reg = ioremap_nocache(dev->baseAddr, dev->baseSize);
-   if (! dev->reg ) {
-      dev_err(dev->device,"Init: Could not remap memory.\n");
-      return -1;
-   }
-
-   // Hold memory region
-   if ( request_mem_region(dev->baseAddr, dev->baseSize, dev->devName) == NULL ) {
-      dev_err(dev->device,"Init: Memory in use.\n");
-      return -1;
-   }
+   if ( Dma_MapReg(dev) < 0 ) return(-1);
 
    // Init descriptors
    for (x=0; x < DMA_MAX_DEST; x++) dev->desc[x] = NULL;
@@ -148,7 +153,7 @@ int Dma_Init(struct DmaDevice *dev) {
 
    // Set interrupt
    dev_info(dev->device,"Init: IRQ %d\n", dev->irq);
-   res = request_irq( dev->irq, hfunc->irq, IRQF_SHARED, dev->devName, (void*)dev);
+   res = request_irq( dev->irq, dev->hwFunc->irq, IRQF_SHARED, dev->devName, (void*)dev);
 
    // Result of request IRQ from OS.
    if (res < 0) {
@@ -158,8 +163,8 @@ int Dma_Init(struct DmaDevice *dev) {
 
    // Create tx buffers
    dev_info(dev->device,"Init: Creating %i TX Buffers. Size=%i Bytes. Mode=%i.\n",
-        dev->cfgTxCount,dev->cfgSize,dev->cfgTxMode);
-   res = dmaAllocBuffers (dev->device, &(dev->txBuffers), dev->cfgSize, dev->cfgTxCount, 0, dev->cfgTxMode,DMA_TO_DEVICE );
+        dev->cfgTxCount,dev->cfgSize,dev->cfgMode);
+   res = dmaAllocBuffers (dev, &(dev->txBuffers), dev->cfgTxCount, 0, DMA_TO_DEVICE );
    dev_info(dev->device,"Init: Created  %i out of %i TX Buffers. %i Bytes.\n",
         res,dev->cfgTxCount,(res*dev->cfgSize));
 
@@ -171,13 +176,13 @@ int Dma_Init(struct DmaDevice *dev) {
 
    // Create rx buffers
    dev_info(dev->device,"Init: Creating %i RX Buffers. Size=%i Bytes. Mode=%i.\n",
-        dev->cfgRxCount,dev->cfgSize,dev->cfgRxMode);
-   res = dmaAllocBuffers (dev->device, &(dev->rxBuffers), dev->cfgSize, dev->cfgRxCount, dev->txBuffers.count, dev->cfgRxMode, DMA_FROM_DEVICE);
+        dev->cfgRxCount,dev->cfgSize,dev->cfgMode);
+   res = dmaAllocBuffers (dev, &(dev->rxBuffers), dev->cfgRxCount, dev->txBuffers.count, DMA_FROM_DEVICE);
    dev_info(dev->device,"Init: Created  %i out of %i RX Buffers. %i Bytes.\n",
         res,dev->cfgRxCount,(res*dev->cfgSize));
 
    // Call card specific init
-   hfunc->init(dev);
+   dev->hwFunc->init(dev);
    return 0;
 }
 
@@ -185,10 +190,6 @@ int Dma_Init(struct DmaDevice *dev) {
 // Cleanup device, Called from top level remove function
 void  Dma_Clean(struct DmaDevice *dev) {
    uint32_t x;
-
-   struct hardware_functions *hfunc;
-
-   hfunc = (struct hardware_functions*)dev->hwFunctions;
 
    // Cleanup proc
    remove_proc_entry(dev->devName,NULL);
@@ -201,7 +202,7 @@ void  Dma_Clean(struct DmaDevice *dev) {
    unregister_chrdev_region(dev->devNum, 1);
 
    // Call card specific CLear
-   hfunc->clear(dev);
+   dev->hwFunc->clear(dev);
 
    // CLear tx queue
    dmaQueueFree(&(dev->tq));
@@ -259,7 +260,6 @@ int Dma_Release(struct inode *inode, struct file *filp) {
    struct DmaDesc   * desc;
    struct DmaDevice * dev;
    struct DmaBuffer * buff;
-   struct hardware_functions *hfunc;
 
    unsigned long iflags;
    uint32_t x;
@@ -267,14 +267,13 @@ int Dma_Release(struct inode *inode, struct file *filp) {
 
    desc = (struct DmaDesc *)filp->private_data;
    dev  = desc->dev;
-   hfunc = (struct hardware_functions*)dev->hwFunctions;
 
    // Make sure we can't receive data while adjusting mask flags
    spin_lock_irqsave(&dev->maskLock,iflags);
 
    // Clear pointers
    for (x=0; x < DMA_MAX_DEST; x++) {
-      if ( ((1 << x) & desc->mask) != 0 ) dev->desc[x] = NULL;
+      if ( (((uint64_t)1 << x) & desc->mask) != 0 ) dev->desc[x] = NULL;
    }
 
    spin_unlock_irqrestore(&dev->maskLock,iflags);
@@ -284,7 +283,7 @@ int Dma_Release(struct inode *inode, struct file *filp) {
    // Release buffers
    cnt = 0;
    while ( (buff = dmaQueuePop(&(desc->q))) != NULL ) {
-      hfunc->retRxBuffer(dev,buff);
+      dev->hwFunc->retRxBuffer(dev,buff);
       cnt++;
    }
    if ( cnt > 0 ) 
@@ -295,7 +294,7 @@ int Dma_Release(struct inode *inode, struct file *filp) {
    for (x=0; x < dev->rxBuffers.count; x++) {
       if ( dev->rxBuffers.indexed[x]->userHas == desc ) {
          dev->rxBuffers.indexed[x]->userHas = NULL;
-         hfunc->retRxBuffer(dev,dev->rxBuffers.indexed[x]);
+         dev->hwFunc->retRxBuffer(dev,dev->rxBuffers.indexed[x]);
          cnt++;
       }
    }
@@ -332,11 +331,9 @@ ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
    struct DmaReadData rd;
    struct DmaDesc   * desc;
    struct DmaDevice * dev;
-   struct hardware_functions *hfunc;
 
    desc = (struct DmaDesc *)filp->private_data;
    dev  = desc->dev;
-   hfunc = (struct hardware_functions*)dev->hwFunctions;
 
    // Verify that size of passed structure
    if ( count != sizeof(struct DmaReadData) ) {
@@ -392,7 +389,7 @@ ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
       }
 
       // Return entry to RX queue
-      hfunc->retRxBuffer(dev,buff);
+      dev->hwFunc->retRxBuffer(dev,buff);
    }
 
    // Debug if enabled
@@ -417,16 +414,15 @@ ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
 ssize_t Dma_Write(struct file *filp, const char* buffer, size_t count, loff_t* f_pos) {
    ssize_t             ret;
    ssize_t             res;
+   uint64_t            wDest;
    void *              dp;
    struct DmaWriteData wr;
    struct DmaBuffer *  buff;
    struct DmaDesc   *  desc;
    struct DmaDevice *  dev;
-   struct hardware_functions *hfunc;
 
    desc = (struct DmaDesc *)filp->private_data;
    dev  = desc->dev;
-   hfunc = (struct hardware_functions*)dev->hwFunctions;
 
    // Verify that size of passed structure
    if ( count != sizeof(struct DmaWriteData) ) {
@@ -443,7 +439,7 @@ ssize_t Dma_Write(struct file *filp, const char* buffer, size_t count, loff_t* f
    }
 
    // Bad size
-   if ( wr.size > dev->txBuffers.size ) {
+   if ( wr.size > dev->cfgSize ) {
       dev_warn(dev->device,"Write: passed size is too large for TX buffer.\n");
       return(-1);
    }
@@ -455,9 +451,10 @@ ssize_t Dma_Write(struct file *filp, const char* buffer, size_t count, loff_t* f
    }
 
    // Bad destinations
-   if ( ((1 << wr.dest) & dev->destMask) == 0 ) {
-      dev_warn(dev->device,"Write: Invalid destination. Got=0x%x. Mask=0x%llx.\n", 
-            wr.dest,dev->destMask);
+   wDest = ((uint64_t)1 << (uint64_t)wr.dest);
+   if ( (wDest & dev->destMask) == 0 ) {
+      dev_warn(dev->device,"Write: Invalid destination. Got=0x%llx. Mask=0x%llx.\n", 
+            wDest,dev->destMask);
       return(-1);
    }
 
@@ -467,7 +464,10 @@ ssize_t Dma_Write(struct file *filp, const char* buffer, size_t count, loff_t* f
 
    // if pointer is zero, index is used
    if ( dp == 0 ) {
-      if ( ( buff=dmaGetBuffer(&(dev->txBuffers),wr.index)) == NULL || buff->userHas != desc ) { 
+
+      // First look in tx buffer list then look in rx list 
+      // Rx list is alid if user is passing index of previously received buffer
+      if ( ((buff=dmaGetBuffer(dev,wr.index)) == NULL ) || buff->userHas != desc ) {
          dev_warn(dev->device,"Write: Invalid index posted: %i.\n", wr.index);
          return(-1);
       }
@@ -496,7 +496,7 @@ ssize_t Dma_Write(struct file *filp, const char* buffer, size_t count, loff_t* f
    buff->size   = wr.size;
 
    // board specific call 
-   res = hfunc->sendBuffer(dev,buff);
+   res = dev->hwFunc->sendBuffer(dev,buff);
 
    // Debug
    if ( dev->debug > 0 ) {
@@ -509,16 +509,13 @@ ssize_t Dma_Write(struct file *filp, const char* buffer, size_t count, loff_t* f
 
 // Perform commands
 ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
-   uint32_t           idx;
-   unsigned long      iflags;
+   uint64_t           temp;
    struct DmaDesc   * desc;
    struct DmaDevice * dev;
    struct DmaBuffer * buff;
-   struct hardware_functions *hfunc;
 
    desc = (struct DmaDesc *)filp->private_data;
    dev  = desc->dev;
-   hfunc = (struct hardware_functions*)dev->hwFunctions;
 
    // Determine command
    switch (cmd) {
@@ -530,7 +527,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
       // Get buffer size, same size for rx and tx
       case DMA_Get_Buff_Size: 
-         return(dev->rxBuffers.size);
+         return(dev->cfgSize);
          break;
 
       // Check if read is ready
@@ -547,60 +544,32 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
       // Attempt to reserve destination
       case DMA_Set_Mask:
+         return(Dma_SetMask(dev,desc,arg));
+         break;
 
-         // Can only be called once
-         if ( desc->mask != 0 ) return(-1);
-
-         // Make sure we can't receive data while adjusting mask flags
-         // Interrupts are disabled
-         spin_lock_irqsave(&dev->maskLock,iflags);
-
-         // First check if all lockable
-         for ( idx=0; idx < DMA_MAX_DEST; idx ++ ) {
-
-            // We want to get this one
-            if ( ((1 << idx) & arg) != 0 ) {
-               if ( dev->desc[idx] != NULL ) {
-                  spin_unlock_irqrestore(&dev->maskLock,iflags);
-                  return(-1);
-               }
-            }
-         }
-
-         // Next lock the ones we want
-         for ( idx=0; idx < DMA_MAX_DEST; idx ++ ) {
-
-            // We want to get this one
-            if ( ((1 << idx) & arg) != 0 ) {
-               dev->desc[idx] = desc;
-            }
-         }
-         desc->mask = arg;
-
-         spin_unlock_irqrestore(&dev->maskLock,iflags);
-
-         if (dev->debug > 0) 
-            dev_info(dev->device,"Setting mask to = %lx.\n", (long unsigned int)desc->mask);
-         return(0);
+      // Attempt to reserve destination
+      case DMA_Set_Mask64:
+         if ( copy_from_user(&temp,(void *)arg,sizeof(uint64_t)) ) return(-1);
+         return(Dma_SetMask(dev,desc,temp));
          break;
 
       // Return buffer index
       case DMA_Ret_Index:
 
          // Attempt to find buffer in RX list
-         if ( (buff = dmaGetBuffer(&(dev->rxBuffers),arg)) != NULL ) {
+         if ( (buff = dmaGetBufferList(&(dev->rxBuffers),arg)) != NULL ) {
 
             // Only return if owned by current desc
             if ( buff->userHas == desc ) {
                buff->userHas = NULL;
 
                // Return entry to RX queue
-               hfunc->retRxBuffer(dev,buff);
+               dev->hwFunc->retRxBuffer(dev,buff);
             }
          }
 
          // Attempt to find in tx list
-         else if ( (buff = dmaGetBuffer(&(dev->txBuffers),arg)) != NULL ) {
+         else if ( (buff = dmaGetBufferList(&(dev->txBuffers),arg)) != NULL ) {
 
             // Only return if owned by current desc
             if ( buff->userHas == desc ) {
@@ -633,7 +602,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
       // All other commands handled by card specific functions   
       default:
-         return(hfunc->command(dev,cmd,arg));
+         return(dev->hwFunc->command(dev,cmd,arg));
          break;
    }
    return(0);
@@ -666,7 +635,6 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
    struct DmaDevice * dev;
    struct DmaBuffer * buff;
 
-   uint32_t buffMode;
    uint32_t offset;
    uint32_t vsize;
    uint32_t idx;
@@ -684,28 +652,26 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
    vma->vm_pgoff = 0;
 
    // Compute index, rx and tx buffers are the same size
-   idx = offset / dev->rxBuffers.size;
+   idx = offset / dev->cfgSize;
 
    // Attempt to find buffer
-   if ( (buff = dmaGetBuffer(&(dev->rxBuffers),idx)) != NULL ) buffMode = dev->rxBuffers.buffMode;
-   else if ( (buff = dmaGetBuffer(&(dev->txBuffers),idx)) != NULL ) buffMode = dev->txBuffers.buffMode;
-   else {
+   if ( (buff = dmaGetBuffer(dev,idx)) == NULL ) {
       dev_warn(dev->device,"map: Invalid index posted: %i.\n", idx);
       return(-1);
    }
 
-   // Size must match the receive buffer size and offset must be size aligned
-   if ( vsize != dev->rxBuffers.size || (offset % dev->rxBuffers.size) != 0 ) {
+   // Size must match the buffer size and offset must be size aligned
+   if ( vsize != dev->cfgSize || (offset % dev->cfgSize) != 0 ) {
       dev_warn(dev->device,"map: Invalid map size (%i) and offset (%i).\n",
             vsize,offset);
       return(-1);
    }
 
    // Coherent buffer
-   if ( buffMode == BUFF_COHERENT ) {
+   if ( dev->cfgMode & BUFF_COHERENT ) {
 
 #ifdef dma_mmap_coherent
-      ret = dma_mmap_coherent(dev->device,vma,buff->buffAddr,buff->buffHandle,dev->rxBuffers.size);
+      ret = dma_mmap_coherent(dev->device,vma,buff->buffAddr,buff->buffHandle,dev->cfgSize);
 #else
       ret = remap_pfn_range(vma, vma->vm_start, 
                             virt_to_phys((void *)buff->buffAddr) >> PAGE_SHIFT,
@@ -716,7 +682,7 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
    }
 
    // Streaming buffer type or ARM ACP
-   else if ( buffMode == BUFF_STREAM || buffMode == BUFF_ARM_ACP ) {
+   else if ( (dev->cfgMode & BUFF_STREAM) || (dev->cfgMode & BUFF_ARM_ACP) ) {
       ret = remap_pfn_range(vma, vma->vm_start, 
                             virt_to_phys((void *)buff->buffAddr) >> PAGE_SHIFT,
                             vsize,
@@ -783,7 +749,6 @@ void Dma_SeqStop(struct seq_file *s, void *v) {
 // Sequence show
 int Dma_SeqShow(struct seq_file *s, void *v) {
    struct   DmaDevice * dev;
-   struct   hardware_functions *hfunc;
    uint32_t max;
    uint32_t min;
    uint32_t sum;
@@ -795,16 +760,15 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    uint32_t x;
 
    dev = (struct DmaDevice *)s->private;
-   hfunc = (struct hardware_functions*)dev->hwFunctions;
 
    // Call applications specific show function first
-   hfunc->seqShow(s,dev);
+   dev->hwFunc->seqShow(s,dev);
 
    seq_printf(s,"\n");
    seq_printf(s,"-------------- Read Buffers ---------------\n");
    seq_printf(s,"         Buffer Count : %i\n",dev->rxBuffers.count);
-   seq_printf(s,"          Buffer Size : %i\n",dev->rxBuffers.size);
-   seq_printf(s,"          Buffer Mode : %i\n",dev->rxBuffers.buffMode);
+   seq_printf(s,"          Buffer Size : %i\n",dev->cfgSize);
+   seq_printf(s,"          Buffer Mode : %i\n",dev->cfgMode);
 
    userCnt = 0;
    hwCnt   = 0;
@@ -844,8 +808,8 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    seq_printf(s,"\n");
    seq_printf(s,"-------------- Write Buffers ---------------\n");
    seq_printf(s,"         Buffer Count : %i\n",dev->txBuffers.count);
-   seq_printf(s,"          Buffer Size : %i\n",dev->txBuffers.size);
-   seq_printf(s,"          Buffer Mode : %i\n",dev->txBuffers.buffMode);
+   seq_printf(s,"          Buffer Size : %i\n",dev->cfgSize);
+   seq_printf(s,"          Buffer Mode : %i\n",dev->cfgMode);
 
    userCnt = 0;
    hwCnt   = 0;
@@ -884,5 +848,48 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    seq_printf(s,"\n");
 
    return 0;
+}
+
+// Set Mask
+int Dma_SetMask(struct DmaDevice *dev, struct DmaDesc *desc, uint64_t mask ) {
+   unsigned long iflags;
+   uint32_t idx;
+
+   // Can only be called once
+   if ( desc->mask != 0 ) return(-1);
+
+   // Make sure we can't receive data while adjusting mask flags
+   // Interrupts are disabled
+   spin_lock_irqsave(&dev->maskLock,iflags);
+
+   // First check if all lockable
+   for ( idx=0; idx < DMA_MAX_DEST; idx ++ ) {
+
+      // We want to get this one
+      if ( (((uint64_t)1 << idx) & mask) != 0 ) {
+         if ( dev->desc[idx] != NULL ) {
+            spin_unlock_irqrestore(&dev->maskLock,iflags);
+            if (dev->debug > 0) dev_info(dev->device,"Dma_SetMask: Dest %i already mapped\n",idx);
+            return(-1);
+         }
+      }
+   }
+
+   // Next lock the ones we want
+   for ( idx=0; idx < DMA_MAX_DEST; idx ++ ) {
+
+      // We want to get this one
+      if ( (((uint64_t)1 << idx) & mask) != 0 ) {
+         dev->desc[idx] = desc;
+         if (dev->debug > 0) dev_info(dev->device,"Dma_SetMask: Register dest for %i.\n", idx);
+      }
+   }
+   desc->mask = mask;
+
+   spin_unlock_irqrestore(&dev->maskLock,iflags);
+
+   if (dev->debug > 0) 
+      dev_info(dev->device,"Dma_SetMask: Setting mask to = %llx.\n", desc->mask);
+   return(0);
 }
 

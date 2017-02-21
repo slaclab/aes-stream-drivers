@@ -19,9 +19,9 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
-#include "tem_top.h"
-#include "dma_common.h"
-#include "tem_gen3.h"
+#include <tem_top.h>
+#include <dma_common.h>
+#include <tem_gen3.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/types.h>
@@ -33,8 +33,7 @@
 int cfgTxCount = 32;
 int cfgRxCount = 32;
 int cfgSize    = 2097152;
-int cfgRxMode  = 1; // BUFF_COHERENT
-int cfgTxMode  = 1; // BUFF_COHERENT
+int cfgMode    = BUFF_COHERENT;
 
 // PCI device IDs
 static struct pci_device_id Tem_Ids[] = {
@@ -91,6 +90,11 @@ int Tem_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    int32_t x;
    int32_t dummy;
 
+   if ( cfgMode != BUFF_COHERENT || cfgMode != BUFF_STREAM ) {
+      pr_warning("%s: Probe: Invalid buffer mode = %i.\n",MOD_NAME,cfgMode);
+      return(-1);
+   }
+
    // set hardware functions
    hfunc = &(TemG3_functions);
 
@@ -132,15 +136,14 @@ int Tem_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->cfgTxCount = cfgTxCount;
    dev->cfgRxCount = cfgRxCount;
    dev->cfgSize    = cfgSize;
-   dev->cfgRxMode  = cfgRxMode;
-   dev->cfgTxMode  = cfgTxMode;
+   dev->cfgMode    = cfgMode;
 
    // Get IRQ from pci_dev structure. 
    dev->irq = pcidev->irq;
 
    // Set device fields
-   dev->device       = &(pcidev->dev);
-   dev->hwFunctions  = hfunc;
+   dev->device = &(pcidev->dev);
+   dev->hwFunc = hfunc;
 
    // Call common dma init function
    return(Dma_Init(dev));
@@ -190,9 +193,6 @@ MODULE_PARM_DESC(cfgRxCount, "RX buffer count");
 module_param(cfgSize,int,0);
 MODULE_PARM_DESC(cfgSize, "Rx/TX Buffer size");
 
-module_param(cfgRxMode,int,0);
-MODULE_PARM_DESC(cfgRxMode, "RX buffer mode");
-
-module_param(cfgTxMode,int,0);
-MODULE_PARM_DESC(cfgTxMode, "TX buffer mode");
+module_param(cfgMode,int,0);
+MODULE_PARM_DESC(cfgMode, "RX buffer mode");
 

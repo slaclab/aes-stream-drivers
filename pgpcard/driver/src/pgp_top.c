@@ -19,10 +19,10 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
-#include "pgp_top.h"
-#include "dma_common.h"
-#include "pgp_gen2.h"
-#include "pgp_gen3.h"
+#include <pgp_top.h>
+#include <dma_common.h>
+#include <pgp_gen2.h>
+#include <pgp_gen3.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/types.h>
@@ -34,9 +34,8 @@
 int cfgTxCount = 32;
 int cfgRxCount = 32;
 int cfgSize    = 2097152;
-int cfgRxMode  = 1; // BUFF_COHERENT
-int cfgTxMode  = 1; // BUFF_COHERENT
-int cfgRxCont  = 1;
+int cfgMode    = BUFF_COHERENT;
+int cfgCont    = 1;
 
 // PCI device IDs
 static struct pci_device_id PgpCard_Ids[] = {
@@ -94,6 +93,11 @@ int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    int32_t x;
    int32_t dummy;
 
+   if ( cfgMode != BUFF_COHERENT || cfgMode != BUFF_STREAM ) {
+      pr_warning("%s: Probe: Invalid buffer mode = %i.\n",MOD_NAME,cfgMode);
+      return(-1);
+   }
+
    // First check for valid device
    switch ( pcidev->device ) {
       case PCI_DEVICE_ID_GEN2: hfunc = &(PgpCardG2_functions); break;
@@ -142,16 +146,15 @@ int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->cfgTxCount = cfgTxCount;
    dev->cfgRxCount = cfgRxCount;
    dev->cfgSize    = cfgSize;
-   dev->cfgRxMode  = cfgRxMode;
-   dev->cfgTxMode  = cfgTxMode;
-   dev->cfgRxCont  = cfgRxCont;
+   dev->cfgMode    = cfgMode;
+   dev->cfgCont    = cfgCont;
 
    // Get IRQ from pci_dev structure. 
    dev->irq = pcidev->irq;
 
    // Set device fields
-   dev->device       = &(pcidev->dev);
-   dev->hwFunctions  = hfunc;
+   dev->device = &(pcidev->dev);
+   dev->hwFunc = hfunc;
 
    // Call common dma init function
    return(Dma_Init(dev));
@@ -201,12 +204,9 @@ MODULE_PARM_DESC(cfgRxCount, "RX buffer count");
 module_param(cfgSize,int,0);
 MODULE_PARM_DESC(cfgSize, "Rx/TX Buffer size");
 
-module_param(cfgRxMode,int,0);
-MODULE_PARM_DESC(cfgRxMode, "RX buffer mode");
+module_param(cfgMode,int,0);
+MODULE_PARM_DESC(cfgMode, "RX buffer mode");
 
-module_param(cfgTxMode,int,0);
-MODULE_PARM_DESC(cfgTxMode, "TX buffer mode");
-
-module_param(cfgRxCont,int,0);
-MODULE_PARM_DESC(cfgRxCont, "RX continue enable");
+module_param(cfgCont,int,0);
+MODULE_PARM_DESC(cfgCont, "RX continue enable");
 

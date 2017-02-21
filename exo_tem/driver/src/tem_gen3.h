@@ -22,9 +22,9 @@
 #ifndef __TEM_GEN3_H__
 #define __TEM_GEN3_H__
 
-#include "dma_include.h"
-#include "dma_common.h"
-#include "dma_buffer.h"
+#include <TemDriver.h>
+#include <dma_common.h>
+#include <dma_buffer.h>
 #include <linux/interrupt.h>
 
 // Address Map, offset from base

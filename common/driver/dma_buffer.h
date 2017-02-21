@@ -28,19 +28,26 @@
 #include <linux/dma-mapping.h>
 
 // Buffer modes
-#define BUFF_COHERENT 1
-#define BUFF_STREAM   2
-#define BUFF_ARM_ACP  3
+// Primary modes are bits to enable app specific expansion
+#define BUFF_COHERENT  0x1
+#define BUFF_STREAM    0x2
+#define BUFF_ARM_ACP   0x4
+
+// Forward declaration
+struct DmaDevice;
+struct DmaDesc;
+struct DmaBufferList;
 
 // TX/RX Buffer
 struct DmaBuffer {
 
    // Internal tracking
-   uint32_t    index;
-   uint32_t    count;
-   void *      userHas;
-   uint8_t     inHw;
-   uint8_t     inQ;
+   uint32_t         index;
+   uint32_t         count;
+   struct DmaDesc * userHas;
+   uint8_t          inHw;
+   uint8_t          inQ;
+   uint8_t          owner;
 
    // Associated data
    uint8_t     dest;
@@ -49,7 +56,7 @@ struct DmaBuffer {
    uint32_t    size;
 
    // Pointers
-   void      * buffList;
+   struct DmaBufferList * buffList;
    void      * buffAddr;
    dma_addr_t  buffHandle;
 
@@ -61,14 +68,11 @@ struct DmaBufferList {
    // Base index
    uint32_t baseIdx;
 
-   // Memory allocation type & rx/tx type
-   uint8_t buffMode;
-
    // Buffer direction
    enum dma_data_direction direction;
 
    // Associated device
-   struct device *dev;
+   struct DmaDevice * dev;
 
    // Buffer list
    struct DmaBuffer ** indexed;
@@ -78,9 +82,6 @@ struct DmaBufferList {
 
    // Number of buffers in list
    uint32_t count;
-
-   // Size of each buffer in list
-   uint32_t size;
 };
 
 // DMA Queue
@@ -103,8 +104,8 @@ struct DmaQueue {
 
 // Create a list of buffer
 // Return number of buffers created
-size_t dmaAllocBuffers ( struct device *dev, struct DmaBufferList *list, uint32_t size, 
-                         uint32_t count, uint32_t baseIdx, uint8_t mode, enum dma_data_direction direction);
+size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
+                         uint32_t count, uint32_t baseIdx, enum dma_data_direction direction);
 
 // Free a list of buffer
 void dmaFreeBuffers ( struct DmaBufferList *list );
@@ -121,11 +122,28 @@ int32_t dmaSortComp (const void *p1, const void *p2);
 // Return comparison result, 1 if greater, -1 if less, 0 if equal
 int32_t dmaSearchComp (const void *key, const void *element);
 
-// Find a buffer, return buffer
-struct DmaBuffer * dmaFindBuffer ( struct DmaBufferList *list, dma_addr_t handle );
+// Find a buffer from specific list
+struct DmaBuffer * dmaFindBufferList ( struct DmaBufferList *list, dma_addr_t handle );
 
-// Get a buffer using index
-struct DmaBuffer * dmaGetBuffer ( struct DmaBufferList *list, uint32_t index );
+// Find a buffer from either list
+struct DmaBuffer * dmaFindBuffer ( struct DmaDevice *dev, dma_addr_t handle );
+
+// Get a buffer using index, in passed list
+struct DmaBuffer * dmaGetBufferList ( struct DmaBufferList *list, uint32_t index );
+
+// Get a buffer using index, in either list
+struct DmaBuffer * dmaGetBuffer ( struct DmaDevice *dev, uint32_t index );
+
+// Conditionally return buffer to transmit buffer. If buffer is not found in 
+// transmit list return a pointer to the buffer. Passed value is the dma handle.
+struct DmaBuffer * dmaRetBufferIrq ( struct DmaDevice *device, dma_addr_t handle );
+
+// Conditionally return buffer to transmit buffer. If buffer is not found in 
+// transmit list return a pointer to the buffer. Passed value is the dma handle.
+struct DmaBuffer * dmaRetBufferIdxIrq ( struct DmaDevice *device, uint32_t index );
+
+// Push buffer to descriptor receive queue
+void dmaRxBuffer ( struct DmaDesc *desc, struct DmaBuffer *buff );
 
 // Sort a buffer list
 void dmaSortBuffers ( struct DmaBufferList *list );

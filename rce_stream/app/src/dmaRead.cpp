@@ -36,9 +36,10 @@ const  char * argp_program_bug_address = "rherbst@slac.stanford.edu";
 
 struct PrgArgs {
    const char * path;
-   uint32_t     dest;
+   uint64_t     dest;
    uint32_t     prbsDis;
    uint32_t     idxEn;
+   uint32_t     rawEn;
 };
 
 static struct PrgArgs DefArgs = { "/dev/axi_stream_dma_0", 0x3F, 0x0, 0x0 };
@@ -51,6 +52,7 @@ static struct argp_option options[] = {
    { "dest",    'm', "MASK",   OPTION_ARG_OPTIONAL, "Mask of dests for read. 1 bit per dest in hex. i.e. 0x3F.",0},
    { "prbsdis", 'd', 0,        OPTION_ARG_OPTIONAL, "Disable PRBS checking.",0},
    { "indexen", 'i', 0,        OPTION_ARG_OPTIONAL, "Use index based receive buffers.",0},
+   { "rawEn",   'r', "COUNT",  OPTION_ARG_OPTIONAL, "Show raw data up to count.",0},
    {0}
 };
 
@@ -59,9 +61,10 @@ error_t parseArgs ( int key,  char *arg, struct argp_state *state ) {
 
    switch(key) {
       case 'p': args->path = arg; break;
-      case 'm': args->dest = strtol(arg,NULL,16); break;
+      case 'm': args->dest = strtoull(arg,NULL,16); break;
       case 'd': args->prbsDis = 1; break;
       case 'i': args->idxEn = 1; break;
+      case 'r': args->rawEn = strtol(arg,NULL,10); break;
       default: return ARGP_ERR_UNKNOWN; break;
    }
    return(0);
@@ -85,6 +88,7 @@ int main (int argc, char **argv) {
    uint32_t      dmaSize;
    uint32_t      dmaCount;
    uint32_t      dmaIndex;
+   uint32_t      x;
 
    struct PrgArgs args;
 
@@ -98,12 +102,13 @@ int main (int argc, char **argv) {
       return(1);
    }
 
-   axisSetMask(s,args.dest);
+   dmaSetMask64(s,args.dest);
+   printf("Setting mask=0x%llx\n",args.dest);
 
    maxSize = 1024*1024*2;
 
    if ( args.idxEn ) {
-      if ( (dmaBuffers = axisMapDma(s,&dmaCount,&dmaSize)) == NULL ) {
+      if ( (dmaBuffers = dmaMapDma(s,&dmaCount,&dmaSize)) == NULL ) {
          printf("Failed to map dma buffers!\n");
          return(0);
       }
@@ -143,15 +148,23 @@ int main (int argc, char **argv) {
 
          if ( ret > 0 ) {
             if ( args.prbsDis == 0 ) prbRes = prbs.processData(rxData,ret);
-            if ( args.idxEn ) axisRetIndex(s,dmaIndex);
+            if ( args.idxEn ) dmaRetIndex(s,dmaIndex);
 
             count++;
             printf("Read ret=%i, Dest=%i, Fuser=0x%.2x, Luser=0x%.2x, prbs=%i, count=%i\n",ret,rxDest,rxFuser,rxLuser,prbRes,count);
+            if ( args.rawEn ) {
+               printf("Raw Data: ");
+               for (x = 0; x < args.rawEn; x++) {
+                  printf("0x%.2x ",((uint8_t *)rxData)[x]);
+                  if ( ((x+1) % 10) == 0 ) printf("\n          ");
+               }
+               printf("\n");
+            }
          }
       }
    } while ( 1 );
 
-   if ( args.idxEn ) axisUnMapDma(s,dmaBuffers);
+   if ( args.idxEn ) dmaUnMapDma(s,dmaBuffers);
    else free(rxData);
 
    close(s);

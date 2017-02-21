@@ -27,13 +27,17 @@
 #include <linux/types.h>
 #include <linux/fs.h>
 #include <linux/interrupt.h>
-#include "dma_buffer.h"
+#include <dma_buffer.h>
 
 // Max number of devices to support
 #define MAX_DMA_DEVICES 4
 
 // Maximum number of open devices
 #define DMA_MAX_DEST 64
+
+// Forward declarations
+struct hardware_functions;
+struct DmaDesc;
 
 // Device structure
 struct DmaDevice {
@@ -47,9 +51,8 @@ struct DmaDevice {
    uint32_t cfgSize;
    uint32_t cfgTxCount;
    uint32_t cfgRxCount;
-   uint32_t cfgRxMode;
-   uint32_t cfgTxMode;
-   uint32_t cfgRxCont;
+   uint32_t cfgMode;
+   uint32_t cfgCont;
 
    // Device tracking
    uint32_t        index;
@@ -60,8 +63,8 @@ struct DmaDevice {
    struct device * device;
 
    // Card Info
+   struct hardware_functions * hwFunc;
    uint64_t destMask;
-   void *   hwFunctions;
    void *   hwData;
 
    // Debug flag
@@ -76,7 +79,7 @@ struct DmaDevice {
    spinlock_t maskLock;
 
    // Owners
-   void * desc[DMA_MAX_DEST];
+   struct DmaDesc * desc[DMA_MAX_DEST];
 
    // Transmit/receive buffer list
    struct DmaBufferList txBuffers;
@@ -132,6 +135,9 @@ extern struct file_operations DmaFunctions;
 // Devnode callback to set permissions of created devices
 char *Dma_DevNode(struct device *dev, umode_t *mode);
 
+// Map dma registers
+int Dma_MapReg ( struct DmaDevice *dev );
+
 // Create and init device
 int Dma_Init(struct DmaDevice *dev);
 
@@ -183,6 +189,9 @@ void Dma_SeqStop(struct seq_file *s, void *v);
 
 // Sequence show
 int Dma_SeqShow(struct seq_file *s, void *v);
+
+// Set Mask
+int Dma_SetMask(struct DmaDevice *dev, struct DmaDesc *desc, uint64_t mask );
 
 #endif
 

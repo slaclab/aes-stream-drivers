@@ -126,7 +126,7 @@ void *runWrite ( void *t ) {
    }
 
    if ( txData->idxEn ) {
-      if ((dmaBuffers = axisMapDma(fd,&dmaCount,&dmaSize)) == NULL ) {
+      if ((dmaBuffers = dmaMapDma(fd,&dmaCount,&dmaSize)) == NULL ) {
          printf("Write failed to map dma buffer\n");
          txData->running = false;
          return(NULL);
@@ -161,7 +161,7 @@ void *runWrite ( void *t ) {
       if ( ret != 0 ) {
 
          if ( txData->idxEn ) {
-            dmaIndex = axisGetIndex(fd);
+            dmaIndex = dmaGetIndex(fd);
             if ( dmaIndex < 0 ) continue;
             data = dmaBuffers[dmaIndex];
          }
@@ -188,7 +188,7 @@ void *runWrite ( void *t ) {
       }
    }
 
-   if ( txData->idxEn ) axisUnMapDma(fd,dmaBuffers);
+   if ( txData->idxEn ) dmaUnMapDma(fd,dmaBuffers);
    else free(data);
    close(fd);
 
@@ -232,7 +232,7 @@ void *runRead ( void *t ) {
    }
 
    if ( rxData->idxEn ) {
-      if ((dmaBuffers = axisMapDma(fd,&dmaCount,&dmaSize)) == NULL ) {
+      if ((dmaBuffers = dmaMapDma(fd,&dmaCount,&dmaSize)) == NULL ) {
          printf("Read failed to map dma buffer\n");
          rxData->running = false;
          return(NULL);
@@ -249,7 +249,7 @@ void *runRead ( void *t ) {
    mask = (1 << rxData->dest);
 
    usleep(100*rxData->dest);
-   if ( axisSetMask(fd,mask) != 0 ) {
+   if ( dmaSetMask(fd,mask) != 0 ) {
       printf("Error setting mask. Dest=%i\n",rxData->dest);
       rxData->running = false;
       close(fd);
@@ -283,7 +283,7 @@ void *runRead ( void *t ) {
                rxData->prbErr++;
                printf("Prbs mismatch. count=%lu, dest=%i, index=%i\n",rxData->count,rxData->dest,dmaIndex);
             }
-            if ( idxEn ) axisRetIndex(fd,dmaIndex);
+            if ( idxEn ) dmaRetIndex(fd,dmaIndex);
 
             // Stop on size mismatch or frame errors
             if ( ret != (int)rxData->size || rxDest != rxData->dest || rxData->fuser != rxFuser || rxData->luser != rxLuser) {
@@ -299,7 +299,7 @@ void *runRead ( void *t ) {
       }
    }
 
-   if ( idxEn ) axisUnMapDma(fd,dmaBuffers);
+   if ( idxEn ) dmaUnMapDma(fd,dmaBuffers);
    else free(data);
 
    close(fd);

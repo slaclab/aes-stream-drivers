@@ -27,6 +27,7 @@ LOC_SRC := src
 ccflags-y := -I$(PWD)/../../include
 ccflags-y += -I$(PWD)/$(LOC_SRC)
 ccflags-y += -I$(PWD)/$(COM_SRC)
+ccflags-y += -DDMA_IN_KERNEL=1
 
 pgpcard-objs := $(COM_SRC)/dma_buffer.o $(COM_SRC)/dma_common.o 
 pgpcard-objs += $(LOC_SRC)/pgp_common.o $(LOC_SRC)/pgp_gen2.o $(LOC_SRC)/pgp_gen3.o

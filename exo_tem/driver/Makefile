@@ -27,6 +27,7 @@ LOC_SRC := src
 ccflags-y := -I$(PWD)/../../include
 ccflags-y += -I$(PWD)/$(LOC_SRC)
 ccflags-y += -I$(PWD)/$(COM_SRC)
+ccflags-y += -DDMA_IN_KERNEL=1
 
 temcard-objs := $(COM_SRC)/dma_buffer.o $(COM_SRC)/dma_common.o 
 temcard-objs += $(LOC_SRC)/tem_gen3.o $(LOC_SRC)/tem_top.o

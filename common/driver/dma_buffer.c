@@ -19,23 +19,22 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
-#include "dma_buffer.h"
+#include <dma_buffer.h>
 #include <asm/io.h>
 #include <linux/dma-mapping.h>
 #include <linux/sort.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+#include <dma_common.h>
 
 // Create a list of buffer
 // Return number of buffers created
-size_t dmaAllocBuffers ( struct device *dev, struct DmaBufferList *list, uint32_t size, 
-                         uint32_t count, uint32_t baseIdx, uint8_t mode, enum dma_data_direction direction) {
+size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
+                         uint32_t count, uint32_t baseIdx, enum dma_data_direction direction) {
    uint32_t x;
 
    if ( count == 0 ) return(0);
-   list->size      = size;
    list->count     = 0;
-   list->buffMode  = mode;
    list->direction = direction;
    list->dev       = dev;
    list->baseIdx   = baseIdx;
@@ -52,22 +51,22 @@ size_t dmaAllocBuffers ( struct device *dev, struct DmaBufferList *list, uint32_
       memset(list->indexed[x],0,sizeof(struct DmaBuffer));
 
       // Setup pointer back to list
-      list->indexed[x]->buffList = (void *)list;
+      list->indexed[x]->buffList = list;
 
       // Coherent buffer, map dma coherent buffers
-      if ( list->buffMode == BUFF_COHERENT ) {
+      if ( list->dev->cfgMode & BUFF_COHERENT ) {
          list->indexed[x]->buffAddr = 
-            dma_alloc_coherent(list->dev, list->size, &(list->indexed[x]->buffHandle),GFP_KERNEL);
+            dma_alloc_coherent(list->dev->device, list->dev->cfgSize, &(list->indexed[x]->buffHandle),GFP_KERNEL);
       }
 
       // Streaming buffer type, standard kernel memory
-      else if ( list->buffMode == BUFF_STREAM ) {
-         list->indexed[x]->buffAddr = kmalloc(size, GFP_KERNEL);
+      else if ( list->dev->cfgMode & BUFF_STREAM ) {
+         list->indexed[x]->buffAddr = kmalloc(list->dev->cfgSize, GFP_KERNEL);
       }
 
       // ACP type with permament handle mapping, dma capable kernel memory
-      else if ( list->buffMode == BUFF_ARM_ACP ) {
-         list->indexed[x]->buffAddr = kmalloc(size, GFP_DMA | GFP_KERNEL);
+      else if ( list->dev->cfgMode & BUFF_ARM_ACP ) {
+         list->indexed[x]->buffAddr = kmalloc(list->dev->cfgSize, GFP_DMA | GFP_KERNEL);
          if (list->indexed[x]->buffAddr != NULL)
             list->indexed[x]->buffHandle = virt_to_phys(list->indexed[x]->buffAddr);
          if ( list->indexed[x]->buffHandle == 0 ) {
@@ -105,17 +104,17 @@ void dmaFreeBuffers ( struct DmaBufferList *list ) {
       if ( list->indexed[x]->buffAddr != NULL ) {
 
          // Coherent buffer
-         if ( list->buffMode == BUFF_COHERENT ) {
-            dma_free_coherent(list->dev, list->size,list->indexed[x]->buffAddr,list->indexed[x]->buffHandle);
+         if ( list->dev->cfgMode & BUFF_COHERENT ) {
+            dma_free_coherent(list->dev->device, list->dev->cfgSize,list->indexed[x]->buffAddr,list->indexed[x]->buffHandle);
          }
 
          // Streaming type still mapped to hardware
-         if ( list->buffMode == BUFF_STREAM && list->indexed[x]->buffHandle != 0 ) {
-            dma_unmap_single(list->dev,list->indexed[x]->buffHandle,list->size,list->direction);
+         if ( (list->dev->cfgMode & BUFF_STREAM) && (list->indexed[x]->buffHandle != 0) ) {
+            dma_unmap_single(list->dev->device,list->indexed[x]->buffHandle,list->dev->cfgSize,list->direction);
          }
 
          // Streaming buffer type or ARM ACP
-         if ( list->buffMode == BUFF_STREAM || list->buffMode == BUFF_ARM_ACP ) {
+         if ( (list->dev->cfgMode & BUFF_STREAM) || (list->dev->cfgMode & BUFF_ARM_ACP) ) {
             kfree(list->indexed[x]->buffAddr);
          }
       }
@@ -173,13 +172,12 @@ int32_t dmaSearchComp (const void *key, const void *element) {
    return(0);
 }
 
-
 // Find a buffer, return index, or -1 on error
-struct DmaBuffer * dmaFindBuffer ( struct DmaBufferList *list, dma_addr_t handle ) {
+struct DmaBuffer * dmaFindBufferList ( struct DmaBufferList *list, dma_addr_t handle ) {
    uint32_t x;
 
    // Stream buffers have to be found with a loop because entries are dynamic and unsorted
-   if ( list->buffMode == BUFF_STREAM ) {
+   if ( list->dev->cfgMode & BUFF_STREAM ) {
       for ( x=0; x < list->count; x++ ) {
          if ( list->indexed[x]->buffHandle == handle ) return(list->indexed[x]);
       }
@@ -198,13 +196,83 @@ struct DmaBuffer * dmaFindBuffer ( struct DmaBufferList *list, dma_addr_t handle
    }
 }
 
+// Find a buffer from either list
+struct DmaBuffer * dmaFindBuffer ( struct DmaDevice *dev, dma_addr_t handle ) {
+   struct DmaBuffer *buff;
 
-// Get a buffer using index
-struct DmaBuffer * dmaGetBuffer ( struct DmaBufferList *list, uint32_t index ) {
+   if ( (buff = dmaFindBufferList (&(dev->txBuffers),handle)) != NULL) return(buff);
+   if ( (buff = dmaFindBufferList (&(dev->rxBuffers),handle)) != NULL) return(buff);
+   return(NULL);
+}
+
+// Get a buffer using index, in passed list
+struct DmaBuffer * dmaGetBufferList ( struct DmaBufferList *list, uint32_t index ) {
    if ( index < list->baseIdx || index >= (list->baseIdx + list->count) ) return(NULL);
    else return(list->indexed[index - list->baseIdx]);
 }
 
+// Get a buffer using index, in either list
+struct DmaBuffer * dmaGetBuffer ( struct DmaDevice *dev, uint32_t index ) {
+   struct DmaBuffer *buff;
+   if ( ( buff = dmaGetBufferList(&(dev->txBuffers),index)) != NULL ) return(buff);
+   if ( ( buff = dmaGetBufferList(&(dev->rxBuffers),index)) != NULL ) return(buff);
+   return(NULL);
+}
+
+// Conditionally return buffer to transmit buffer. If buffer is not found in 
+// transmit list return a pointer to the buffer. Passed value is the dma handle.
+struct DmaBuffer * dmaRetBufferIrq ( struct DmaDevice *dev, dma_addr_t handle ) {
+   struct DmaBuffer *buff;
+
+   // Return buffer to transmit queue if it is found
+   if ( (buff = dmaFindBufferList (&(dev->txBuffers),handle)) != NULL) {
+      dmaBufferFromHw(buff);
+      dmaQueuePushIrq(&(dev->tq),buff);
+      return(NULL);
+   }
+
+   // Return rx buffer
+   else if ( (buff = dmaFindBufferList (&(dev->rxBuffers),handle)) != NULL) {
+      return(buff);
+   }
+
+   // Buffer is not found
+   else {
+      dev_warn(dev->device,"dmaRetBufferIrq: Failed to locate descriptor %.8x.\n",(uint32_t)handle);
+      return(NULL);
+   }
+}
+
+// Conditionally return buffer to transmit buffer. If buffer is not found in 
+// transmit list return a pointer to the buffer. Passed value is the dma handle.
+struct DmaBuffer * dmaRetBufferIdxIrq ( struct DmaDevice *dev, uint32_t index ) {
+   struct DmaBuffer *buff;
+
+   // Return buffer to transmit queue if it is found
+   if ( (buff = dmaGetBufferList (&(dev->txBuffers),index)) != NULL) {
+      dmaBufferFromHw(buff);
+      dmaQueuePushIrq(&(dev->tq),buff);
+      return(NULL);
+   }
+
+   // Return rx buffer
+   else if ( (buff = dmaGetBufferList (&(dev->rxBuffers),index)) != NULL) {
+      return(buff);
+   }
+
+   // Buffer is not found
+   else {
+      dev_warn(dev->device,"dmaRetBufferIdxIrq: Failed to locate descriptor %i.\n",index);
+      return(NULL);
+   }
+}
+
+// Push buffer to descriptor receive queue
+void dmaRxBuffer ( struct DmaDesc *desc, struct DmaBuffer *buff ) {
+   dmaBufferFromHw(buff);
+   dmaQueuePushIrq(&(desc->q),buff);
+   if (desc->async_queue) kill_fasync(&desc->async_queue, SIGIO, POLL_IN);
+}
 
 // Sort a buffer list
 void dmaSortBuffers ( struct DmaBufferList *list ) {
@@ -213,18 +281,19 @@ void dmaSortBuffers ( struct DmaBufferList *list ) {
 }
 
 // Buffer being passed to hardware
+// Return -1 on error
 int32_t dmaBufferToHw ( struct DmaBuffer *buff) {
 
-   struct DmaBufferList *list = (struct DmaBufferList *)buff->buffList;
-
    // Buffer is stream mode and does not have a handle
-   if ( list->buffMode == BUFF_STREAM && buff->buffHandle == 0 ) {
+   if ( (buff->buffList->dev->cfgMode) & BUFF_STREAM && buff->buffHandle == 0 ) {
 
       // Attempt to map
-      buff->buffHandle = dma_map_single(list->dev,buff->buffAddr,list->size,list->direction);
+      buff->buffHandle = dma_map_single(buff->buffList->dev->device,buff->buffAddr,
+                                        buff->buffList->dev->cfgSize,buff->buffList->direction);
 
       // Map error
-      if ( dma_mapping_error(list->dev,buff->buffHandle) ) return(1);
+      if ( dma_mapping_error(buff->buffList->dev->device,buff->buffHandle) ) return(-1);
+      return(1);
    }
    buff->inHw = 1;
    return(0);
@@ -232,14 +301,12 @@ int32_t dmaBufferToHw ( struct DmaBuffer *buff) {
 
 // Buffer being returned from hardware
 void dmaBufferFromHw ( struct DmaBuffer *buff ) {
-
-   struct DmaBufferList *list = (struct DmaBufferList *)buff->buffList;
-
    buff->inHw = 0;
 
    // Unmap buffer if in streaming mode
-   if ( list->buffMode == BUFF_STREAM && buff->buffHandle != 0 ) {
-      dma_unmap_single(list->dev,buff->buffHandle,list->size,list->direction);
+   if ( (buff->buffList->dev->cfgMode & BUFF_STREAM) && buff->buffHandle != 0 ) {
+      dma_unmap_single(buff->buffList->dev->device,buff->buffHandle,
+                       buff->buffList->dev->cfgSize, buff->buffList->direction);
       buff->buffHandle = 0;
    }
 }

@@ -84,7 +84,7 @@ int main (int argc, char **argv) {
    }
 
    printf("Setting debug level to %i\n",args.level);
-   pgpSetDebug(s,args.level);
+   dmaSetDebug(s,args.level);
    close(s);
 }
 

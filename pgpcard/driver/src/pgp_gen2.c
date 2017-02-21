@@ -19,8 +19,9 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
-#include "pgp_common.h"
-#include "pgp_gen2.h"
+#include <PgpDriver.h>
+#include <pgp_common.h>
+#include <pgp_gen2.h>
 #include <linux/seq_file.h>
 #include <linux/signal.h>
 #include <linux/slab.h>
@@ -82,16 +83,10 @@ irqreturn_t PgpCardG2_Irq(int irq, void *dev_id) {
             if ( dev->debug > 0 ) 
                dev_info(dev->device,"Irq: Return TX Status Value %.8x.\n",stat);
 
-            // Find buffer and put back into tx queue
-            if ((buff = dmaFindBuffer (&(dev->txBuffers),stat&0xFFFFFFFC)) != NULL) {
-               dmaBufferFromHw(buff);
-               dmaQueuePushIrq(&(dev->tq),buff);
+            // Attempt to find buffer in tx pool and return. otherwise return rx entry to hw.
+            if ((buff = dmaRetBufferIrq (dev,stat&0xFFFFFFFC)) != NULL) {
+               iowrite32((stat & 0xFFFFFFFC),&(reg->rxFree));
             }
-
-            // Entry was not found
-            else 
-               dev_warn(dev->device,"Irq: Failed to locate TX descriptor %.8x.\n",
-                     (uint32_t)(stat&0xFFFFFFFC));
 
          // Repeat while next valid flag is set
          } while ( (stat & 0x2) != 0 );
@@ -112,7 +107,7 @@ irqreturn_t PgpCardG2_Irq(int irq, void *dev_id) {
             asm("nop");
 
             // Find RX buffer entry
-            if ((buff = dmaFindBuffer (&(dev->rxBuffers),descB&0xFFFFFFFC)) != NULL) {
+            if ((buff = dmaFindBufferList (&(dev->rxBuffers),descB&0xFFFFFFFC)) != NULL) {
 
                // Extract data from descriptor
                buff->count++;
@@ -162,11 +157,7 @@ irqreturn_t PgpCardG2_Irq(int irq, void *dev_id) {
                }
 
                // lane/vc is open,  Add to RX Queue
-               else {
-                  dmaBufferFromHw(buff);
-                  dmaQueuePushIrq(&(desc->q),buff);
-                  if (desc->async_queue) kill_fasync(&desc->async_queue, SIGIO, POLL_IN);
-               }
+               else dmaRxBuffer(desc,buff);
 
                // Unlock
                spin_unlock(&dev->maskLock);
@@ -208,21 +199,21 @@ void PgpCardG2_Init(struct DmaDevice *dev) {
    iowrite32(tmp,&(reg->control));
 
    // Setup max frame value
-   maxFrame = dev->rxBuffers.size / 4;
+   maxFrame = dev->cfgSize / 4;
    maxFrame |= 0x80000000;
 
    // Continue enabled
-   if ( dev->cfgRxCont ) maxFrame |= 0x40000000;
-   dev_info(dev->device,"Init: Setting rx continue flag=%i.\n", dev->cfgRxCont);
+   if ( dev->cfgCont ) maxFrame |= 0x40000000;
+   dev_info(dev->device,"Init: Setting rx continue flag=%i.\n", dev->cfgCont);
 
    // Set to hardware 
    iowrite32(maxFrame,&(reg->rxMaxFrame));
 
    // Push receive buffers to hardware
    for (x=0; x < dev->rxBuffers.count; x++) {
-      if ( dmaBufferToHw(dev->rxBuffers.indexed[x]) == 0 ) 
-         iowrite32(dev->rxBuffers.indexed[x]->buffHandle,&(reg->rxFree));
-      else dev_warn(dev->device,"Init: Failed to map dma buffer.\n");
+      if ( dmaBufferToHw(dev->rxBuffers.indexed[x]) < 0 ) 
+         dev_warn(dev->device,"Init: Failed to map dma buffer.\n");
+      else iowrite32(dev->rxBuffers.indexed[x]->buffHandle,&(reg->rxFree));
    }
 
    // Init hardware info
@@ -302,8 +293,9 @@ void PgpCardG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
    struct PgpCardG2Reg *reg;
    reg = (struct PgpCardG2Reg *)dev->reg;
 
-   if ( dmaBufferToHw(buff) == 0 ) iowrite32(buff->buffHandle,&(reg->rxFree));
-   else dev_warn(dev->device,"RetRxBuffer: Failed to map dma buffer.\n");
+   if ( dmaBufferToHw(buff) < 0 ) 
+      dev_warn(dev->device,"RetRxBuffer: Failed to map dma buffer.\n");
+   else iowrite32(buff->buffHandle,&(reg->rxFree));
 }
 
 
@@ -329,7 +321,7 @@ int32_t PgpCardG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
       subId = buff->dest % 4;
    }
 
-   if ( dmaBufferToHw(buff) ) {
+   if ( dmaBufferToHw(buff) < 0 ) {
       dev_warn(dev->device,"SendBuffer: Failed to map dma buffer.\n");
       return(-1);
    }

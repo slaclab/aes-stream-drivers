@@ -20,10 +20,11 @@
 #ifndef __AXIS_GEN2_H__
 #define __AXIS_GEN2_H__
 
-#include "dma_include.h"
-#include "dma_common.h"
-#include "dma_buffer.h"
+#include <dma_common.h>
+#include <dma_buffer.h>
 #include <linux/interrupt.h>
+
+#define BUFF_ARM_MIXED 0x10
 
 struct AxisG2Reg {
    uint32_t enableVer;       // 0x0000
@@ -40,8 +41,8 @@ struct AxisG2Reg {
    uint32_t online;          // 0x002C
    uint32_t acknowledge;     // 0x0030
    uint32_t channelCount;    // 0x0034
-   uint32_t readAddrWidth;   // 0x0038
-   uint32_t writeAddrWidth;  // 0x003C
+   uint32_t addrWidth;       // 0x0038
+   uint32_t cacheConfig;     // 0x003C
    uint32_t readFifoLow;     // 0x0040
    uint32_t readFifoHigh;    // 0x0044
    uint32_t writeFifo;       // 0x0048
@@ -50,24 +51,23 @@ struct AxisG2Reg {
    uint32_t hwWrIndex;       // 0x0054
    uint32_t hwRdIndex;       // 0x0058
    uint32_t spareB[4073];    // 0x005C - 0x3FFC
-   uint32_t writeAddr[4096]; // 0x4000 - 0x7FFC
-   uint32_t readAddr[4096];  // 0x8000 - 0xFFFC
+   uint32_t dmaAddr[4096];   // 0x4000 - 0x7FFC
 };
 
 struct AxisG2Data {
    uint64_t  * readAddr;
    dma_addr_t  readHandle;
    uint32_t    readIndex;
-   uint32_t    readCount;
 
    uint64_t  * writeAddr;
    dma_addr_t  writeHandle;
    uint32_t    writeIndex;
-   uint32_t    writeCount;
-};
 
-// Get version
-uint8_t AxisG2_GetVersion(struct DmaDevice *dev);
+   uint32_t    addrCount;
+   uint32_t    chanBits;
+   uint32_t    chanCount;
+   uint32_t    destMask;
+};
 
 // Interrupt handler
 irqreturn_t AxisG2_Irq(int irq, void *dev_id);

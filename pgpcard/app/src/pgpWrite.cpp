@@ -116,7 +116,7 @@ int main (int argc, char **argv) {
    }
 
    if ( args.idxEn ) {
-      if ( (dmaBuffers = pgpMapDma(s,&dmaCount,&dmaSize)) == NULL ) {
+      if ( (dmaBuffers = dmaMapDma(s,&dmaCount,&dmaSize)) == NULL ) {
          printf("Failed to map dma buffers!\n");
          return(0);
       }
@@ -148,7 +148,7 @@ int main (int argc, char **argv) {
       else {
 
          if ( args.idxEn ) {
-            dmaIndex = pgpGetIndex(s);
+            dmaIndex = dmaGetIndex(s);
             if ( dmaIndex < 0 ) continue;
             txData = dmaBuffers[dmaIndex];
          }
@@ -171,7 +171,7 @@ int main (int argc, char **argv) {
       }
    } while ( count < args.count );
 
-   if ( args.idxEn ) pgpUnMapDma(s,dmaBuffers);
+   if ( args.idxEn ) dmaUnMapDma(s,dmaBuffers);
    else free(txData);
 
    close(s);

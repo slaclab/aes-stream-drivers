@@ -21,6 +21,7 @@
 **/
 #ifndef __PGP_DRIVER_H__
 #define __PGP_DRIVER_H__
+#include <DmaDriver.h>
 
 #ifdef DMA_IN_KERNEL
 #include <linux/types.h>
@@ -118,99 +119,9 @@ struct PgpEvrStatus {
 #define PGP_GEN3_VCI 0x13
 
 // Error values
-#define DMA_ERR_FIFO 0x01
-#define DMA_ERR_LEN  0x02
-#define DMA_ERR_MAX  0x04
-#define DMA_ERR_BUS  0x08
 #define PGP_ERR_EOFE 0x10
 
-// Send Frame
-// Returns transmit size
-// inline ssize_t pgpWrite(int32_t fd, void * buf, size_t size, uint32_t lane, uint32_t vc, uint32_t cont);
-
-// Send Frame, memory mapped buffer
-// Returns transmit size
-// inline ssize_t pgpWriteIndex(int32_t fd, uint32_t index, size_t size, uint32_t lane, uint32_t vc, uint32_t cont);
-
-// Receive Frame
-// Returns receive size
-// inline ssize_t pgpRead(int32_t fd, void * buf, size_t maxSize, uint32_t * lane, uint32_t * vc, uint32_t * error, uint32_t * cont);
-
-// Receive Frame, memory mapped buffer
-// Returns receive size
-// inline ssize_t pgpReadIndex(int32_t fd, uint32_t * index, uint32_t * lane, uint32_t * vc, uint32_t * error, uint32_t * cont);
-
-// Return Index
-// inline ssize_t pgpRetIndex(int32_t fd, uint32_t index);
-
-// Get write buffer index
-// inline uint32_t pgpGetIndex(int32_t fd);
-
-// Get read ready status
-// inline ssize_t pgpReadReady(int32_t fd);
-
-// Return user space mapping to dma buffers
-// inline void ** pgpMapDma(int32_t fd, uint32_t *count, uint32_t *size);
-
-// Free space mapping to dma buffers
-// inline ssize_t pgpUnMapDma(int2_t fd, void ** buffer);
-
-// Read Card Info
-// inline ssize_t pgpGetInfo(int32_t fd, struct PgpInfo * info);
-
-// Read PCI Status
-// inline ssize_t pgpGetPci(int32_t fd, struct PciStatus * status);
-
-// Read Lane Status
-// inline ssize_t pgpGetStatus(int32_t fd, uint32_t lane, struct PgpStatus * status);
-
-// Set debug
-// inline ssize_t pgpSetDebug(int32_t fd, uint32_t level);
-
-// Set Loopback State For Lane
-// inline ssize_t pgpSetLoop(int32_t fd, uint32_t lane, uint32_t state);
-
-// Reset counters
-// inline ssize_t pgpCountReset(int32_t fd);
-
-// Set Sideband Data
-// inline ssize_t pgpSetData(int32_t fd, uint32_t lane, uint32_t data);
-
-// Send OpCode
-// inline ssize_t pgpSendOpCode(int32_t fd, uint32_t code);
-
-// set lane/vc rx mask, one bit per vc
-// inline ssize_t pgpSetMask(int32_t fd, uint32_t mask);
-
-// Set EVR Control
-// inline ssize_t pgpSetEvrControl(int32_t fd, uint32_t lane, struct PgpEvrControl * control);
-
-// Get EVR Control
-// inline ssize_t pgpGetEvrControl(int32_t fd, uint32_t lane, struct PgpEvrControl * control);
-
-// Get EVR Status
-// inline ssize_t pgpGetEvrStatus(int32_t fd, uint32_t lane, struct PgpEvrStatus * status);
-
-// Reset EVR Counters
-// inline ssize_t pgpResetEvrCount(int32_t fd, uint32_t lane);
-
-// Write to PROM
-// inline ssize_t pgpWriteProm(int32_t fd, uint32_t address, uint32_t cmd, uint32_t data);
-
-// Read from PROM
-// inline ssize_t pgpReadProm(int32_t fd, uint32_t address, uint32_t cmd, uint32_t *data);
-
-// Assign interrupt handler
-// inline void pgpAssignHandler (int32_t fd, void (*handler)(int32_t))
-
 // Commands
-#define DMA_Get_Buff_Count 0x1001
-#define DMA_Get_Buff_Size  0x1002
-#define DMA_Set_Debug      0x1003
-#define DMA_Set_Mask       0x1004
-#define DMA_Ret_Index      0x1005
-#define DMA_Get_Index      0x1006
-#define DMA_Read_Ready     0x1007
 #define PGP_Read_Info      0x2001
 #define PGP_Read_Pci       0x2002
 #define PGP_Read_Status    0x2003
@@ -224,30 +135,6 @@ struct PgpEvrStatus {
 #define PGP_Get_Evr_Cntrl  0x3002
 #define PGP_Get_Evr_Status 0x3003
 #define PGP_Rst_Evr_Count  0x3004
-
-// TX Structure
-// Size = 0 for return index
-struct DmaWriteData {
-   uint64_t  data;
-   uint32_t  dest;
-   uint32_t  flags;
-   uint32_t  index;
-   uint32_t  size;
-   uint32_t  is32;
-   uint32_t  pad;
-};
-
-// RX Structure
-// Data = 0 for read index
-struct DmaReadData {
-   uint64_t   data;
-   uint32_t   dest;
-   uint32_t   flags;
-   uint32_t   index;
-   uint32_t   error;
-   uint32_t   size;
-   uint32_t   is32;
-};
 
 // Prom Programming 
 struct PgpPromData {
@@ -270,132 +157,60 @@ struct PgpPromData {
 
 // Write Frame
 static inline ssize_t pgpWrite(int32_t fd, void * buf, size_t size, uint32_t lane, uint32_t vc, uint32_t cont=0) {
-   struct DmaWriteData w;
+   uint32_t flags;
+   uint32_t dest;
 
-   memset(&w,0,sizeof(struct DmaWriteData));
-   w.dest    = lane * 4;
-   w.dest   += vc;
-   w.flags   = cont;
-   w.size    = size;
-   w.is32    = (sizeof(void *)==4);
-   w.data    = (uint64_t)buf;
+   flags = cont;
+   dest  = cont;
 
-   return(write(fd,&w,sizeof(struct DmaWriteData)));
+   dest  = lane * 4;
+   dest += vc;
+
+   return(dmaWrite(fd, buf, size, flags, dest));
 }
 
 // Send Frame, memory mapped buffer
 // Returns transmit size
 static inline ssize_t pgpWriteIndex(int32_t fd, uint32_t index, size_t size, uint32_t lane, uint32_t vc, uint32_t cont) {
-   struct DmaWriteData w;
+   uint32_t flags;
+   uint32_t dest;
 
-   memset(&w,0,sizeof(struct DmaWriteData));
-   w.dest    = lane * 4;
-   w.dest   += vc;
-   w.flags   = cont;
-   w.size    = size;
-   w.is32    = (sizeof(void *)==4);
-   w.index   = index;
+   flags = cont;
+   dest  = cont;
 
-   return(write(fd,&w,sizeof(struct DmaWriteData)));
+   dest  = lane * 4;
+   dest += vc;
+
+   return(dmaWriteIndex(fd, index, size, flags, dest));
 }
 
 // Receive Frame
 static inline ssize_t pgpRead(int32_t fd, void * buf, size_t maxSize, uint32_t * lane, uint32_t * vc, uint32_t * error, uint32_t * cont=NULL) {
-   struct DmaReadData r;
-   ssize_t ret;
+   uint32_t flags;
+   uint32_t dest;
+   ssize_t  ret;
 
-   memset(&r,0,sizeof(struct DmaReadData));
-   r.size = maxSize;
-   r.is32 = (sizeof(void *)==4);
-   r.data = (uint64_t)buf;
+   ret = dmaRead(fd,buf,maxSize,&flags,error,&dest);
 
-   ret = read(fd,&r,sizeof(struct DmaReadData));
-
-   if ( lane  != NULL ) *lane  = r.dest / 4;
-   if ( vc    != NULL ) *vc    = r.dest % 4;
-   if ( error != NULL ) *error = r.error;
-   if ( cont  != NULL ) *cont  = r.flags;
-
+   if ( lane  != NULL ) *lane  = dest / 4;
+   if ( vc    != NULL ) *vc    = dest % 4;
+   if ( cont  != NULL ) *cont  = flags;
    return(ret);
 }
 
 // Receive Frame, access memory mapped buffer
 // Returns receive size
 static inline ssize_t pgpReadIndex(int32_t fd, uint32_t * index, uint32_t * lane, uint32_t * vc, uint32_t * error, uint32_t * cont=NULL) {
-   struct DmaReadData r;
-   size_t ret;
+   uint32_t flags;
+   uint32_t dest;
+   ssize_t  ret;
 
-   memset(&r,0,sizeof(struct DmaReadData));
+   ret = dmaReadIndex(fd,index,&flags,error,&dest);
 
-   ret = read(fd,&r,sizeof(struct DmaReadData));
-
-   if ( lane  != NULL ) *lane  = r.dest / 4;
-   if ( vc    != NULL ) *vc    = r.dest % 4;
-   if ( error != NULL ) *error = r.error;
-   if ( cont  != NULL ) *cont  = r.flags;
-   if ( index != NULL ) *index = r.index;
-
+   if ( lane  != NULL ) *lane  = dest / 4;
+   if ( vc    != NULL ) *vc    = dest % 4;
+   if ( cont  != NULL ) *cont  = flags;
    return(ret);
-}
-
-// Post Index
-static inline ssize_t pgpRetIndex(int32_t fd, uint32_t index) {
-   return(ioctl(fd,DMA_Ret_Index,index));
-}
-
-// Get write buffer index
-static inline uint32_t pgpGetIndex(int32_t fd) {
-   return(ioctl(fd,DMA_Get_Index,0));
-}
-
-// Get read ready status
-static inline ssize_t pgpReadReady(int32_t fd) {
-   return(ioctl(fd,DMA_Read_Ready,0));
-}
-
-// Return user space mapping to dma buffers
-static inline void ** pgpMapDma(int32_t fd, uint32_t *count, uint32_t *size) {
-   void *   temp;
-   void **  ret;
-   uint32_t bCount;
-   uint32_t bSize;
-   uint32_t x;
-
-   bSize  = ioctl(fd,DMA_Get_Buff_Size,0);
-   bCount = ioctl(fd,DMA_Get_Buff_Count,0);
-
-   if ( count != NULL ) *count = bCount;
-   if ( size  != NULL ) *size  = bSize;
-
-   if ( (ret = (void **)malloc(sizeof(void *) * bCount)) == 0 ) return(NULL);
-
-   for (x=0; x < bCount; x++) {
-
-      if ( (temp = mmap (0, bSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, (bSize*x))) == MAP_FAILED) {
-         free(ret);
-         return(NULL);
-      }
-
-      ret[x] = temp;
-   }
-
-   return(ret);
-}
-
-// Free space mapping to dma buffers
-static inline ssize_t pgpUnMapDma(int32_t fd, void ** buffer) {
-   uint32_t  bCount;
-   uint32_t  bSize;
-   uint32_t  x;;
-
-   bCount = ioctl(fd,DMA_Get_Buff_Count,0);
-   bSize  = ioctl(fd,DMA_Get_Buff_Size,0);
-
-   // I don't think this is correct.....
-   for (x=0; x < bCount; x++) munmap (buffer, bSize);
-
-   free(buffer);
-   return(0);
 }
 
 // Read Card Info
@@ -414,12 +229,6 @@ static inline ssize_t pgpGetStatus(int32_t fd, uint32_t lane, struct PgpStatus *
    return(ioctl(fd,PGP_Read_Status,status));
 }
 
-// Set debug
-static inline ssize_t pgpSetDebug(int32_t fd, uint32_t level) {
-   return(ioctl(fd,DMA_Set_Debug,level));
-}
-
-
 // Set Loopback State For Lane
 static inline ssize_t pgpSetLoop(int32_t fd, uint32_t lane, uint32_t state) {
    uint32_t temp;
@@ -430,12 +239,10 @@ static inline ssize_t pgpSetLoop(int32_t fd, uint32_t lane, uint32_t state) {
    return(ioctl(fd,PGP_Set_Loop,temp));
 }
 
-
 // Reset counters
 static inline ssize_t pgpCountReset(int32_t fd) {
    return(ioctl(fd,PGP_Count_Reset,0));
 }
-
 
 // Set Sideband Data
 static inline ssize_t pgpSetData(int32_t fd, uint32_t lane, uint32_t data) {
@@ -451,12 +258,6 @@ static inline ssize_t pgpSetData(int32_t fd, uint32_t lane, uint32_t data) {
 static inline ssize_t pgpSendOpCode(int32_t fd, uint32_t code) {
    return(ioctl(fd,PGP_Send_OpCode,code));
 }
-
-// set lane/vc rx mask, one bit per vc
-static inline ssize_t pgpSetMask(int32_t fd, uint32_t mask) {
-   return(ioctl(fd,DMA_Set_Mask,mask));
-}
-
 
 // Set EVR Control
 static inline ssize_t pgpSetEvrControl(int32_t fd, uint32_t lane, struct PgpEvrControl * control) {
@@ -506,21 +307,6 @@ static inline ssize_t pgpReadProm(int32_t fd, uint32_t address, uint32_t cmd, ui
    if ( data != NULL ) *data = prom.data;
 
    return(res);
-}
-
-// Assign interrupt handler
-static inline void pgpAssignHandler (int32_t fd, void (*handler)(int32_t)) {
-   struct sigaction act;
-   int32_t oflags;
-
-   act.sa_handler = handler;
-   sigemptyset(&act.sa_mask);
-   act.sa_flags = 0;
-
-   sigaction(SIGIO, &act, NULL);
-   fcntl(fd, F_SETOWN, getpid());
-   oflags = fcntl(fd, F_GETFL);
-   fcntl(fd, F_SETFL, oflags | FASYNC);
 }
 
 #endif

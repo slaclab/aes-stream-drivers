@@ -20,7 +20,7 @@
  * ----------------------------------------------------------------------------
 **/
 #include <linux/types.h>
-#include "pgp_common.h"
+#include <pgp_common.h>
 
 // Display card Info
 void PgpCard_InfoShow(struct seq_file *s, struct PgpInfo *info) {

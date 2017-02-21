@@ -19,10 +19,11 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
-#include "axis_top.h"
-#include "dma_common.h"
-#include "axis_gen1.h"
-#include "axis_gen2.h"
+#include <axis_top.h>
+#include <dma_common.h>
+#include <dma_buffer.h>
+#include <axis_gen1.h>
+#include <axis_gen2.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/types.h>
@@ -36,18 +37,25 @@
 #include <linux/of_irq.h>
 
 // Init Configuration values
-int cfgTxCount[4] = {8,8,8,0};
-int cfgRxCount[4] = {8,8,1000,0};
-int cfgSize[4]    = {4096*4,4096,4096*4,4096};
-int cfgRxMode[4]  = {1,1,3,1}; // BUFF_COHERENT for 0,1,3, BUFF_ARM_ACP for 2
-int cfgTxMode[4]  = {1,1,3,1}; // BUFF_COHERENT for 0,1,3, BUFF_ARM_ACP for 2
+int cfgTxCount0 = 8;
+int cfgTxCount1 = 8;
+int cfgTxCount2 = 8;
+int cfgRxCount0 = 8;
+int cfgRxCount1 = 8;
+int cfgRxCount2 = 1000;
+int cfgSize0    = 4096*4;
+int cfgSize1    = 4096;
+int cfgSize2    = 4096*4;
+int cfgMode0    = BUFF_COHERENT;
+int cfgMode1    = BUFF_COHERENT;
+int cfgMode2    = BUFF_COHERENT;
 
 // Tables of device names
 const char * AxisDevNames[MAX_DMA_DEVICES] = {
    "axi_stream_dma_0",
    "axi_stream_dma_1",
    "axi_stream_dma_2",
-   "axi_stream_dma_3"
+   "axi_stream_dma_3",
 };
 
 // Module Name
@@ -88,7 +96,6 @@ module_platform_driver(Axis_DmaPdrv);
 // Create and init device
 int Axis_Probe(struct platform_device *pdev) {
    struct DmaDevice *dev;
-   struct hardware_functions *hfunc;
 
    int32_t      x;
    const char * tmpName;
@@ -129,28 +136,64 @@ int Axis_Probe(struct platform_device *pdev) {
    dev->baseAddr = pdev->resource[0].start;
    dev->baseSize = pdev->resource[0].end - pdev->resource[0].start + 1;
 
-   // Set hardware functions
-   if ( AxisG2_GetVersion(dev) == 2 ) hfunc = &(AxisG2_functions);
-   else hfunc = &(AxisG1_functions);
-
-   // Set configuration
-   dev->cfgTxCount = cfgTxCount[tmpIdx];
-   dev->cfgRxCount = cfgRxCount[tmpIdx];
-   dev->cfgSize    = cfgSize[tmpIdx];
-   dev->cfgRxMode  = cfgRxMode[tmpIdx];
-   dev->cfgTxMode  = cfgTxMode[tmpIdx];
-
    // Get IRQ from pci_dev structure. 
    dev->irq = irq_of_parse_and_map(pdev->dev.of_node, 0);;
 
    // Set device fields
-   dev->device       = &(pdev->dev);
-   dev->hwFunctions  = hfunc;
+   dev->device = &(pdev->dev);
 
-   /* Coherent DMA set via module parameter or device tree entry. */
-   if(dev->cfgRxMode == BUFF_ARM_ACP || dev->cfgTxMode == BUFF_ARM_ACP) {
+   // Map memory now in order to probe
+   if ( Dma_MapReg(dev) < 0 ) return(-1);
+
+   // Determine which index to use
+   switch (tmpIdx) {
+      case 0:
+         dev->cfgTxCount = cfgTxCount0;
+         dev->cfgRxCount = cfgRxCount0;
+         dev->cfgSize    = cfgSize0;
+         dev->cfgMode    = cfgMode0;
+         break;
+      case 1:
+         dev->cfgTxCount = cfgTxCount1;
+         dev->cfgRxCount = cfgRxCount1;
+         dev->cfgSize    = cfgSize1;
+         dev->cfgMode    = cfgMode1;
+         break;
+      case 2:
+         dev->cfgTxCount = cfgTxCount2;
+         dev->cfgRxCount = cfgRxCount2;
+         dev->cfgSize    = cfgSize2;
+         dev->cfgMode    = cfgMode2;
+         break;
+      default:
+         return(-1);
+         break;
+   }
+
+   // Instance independent
+   dev->cfgCont = 1;
+
+   // Set hardware functions
+   // Version 2
+   if ( (ioread32(dev->reg) & 0xFF000000) == 0x02000000 ) {
+      dev->hwFunc = &(AxisG2_functions);
+   }
+
+   // Version 1
+   else {
+      iowrite32(0x1,((uint8_t *)dev->reg)+0x8);
+      if ( ioread32(((uint8_t *)dev->reg)+0x8) != 0x1 ) {
+         release_mem_region(dev->baseAddr, dev->baseSize);
+         dev_info(dev->device,"Probe: Empty register space. Exiting\n");
+         return(-1);
+      }
+      dev->hwFunc = &(AxisG1_functions);
+   }
+
+   // Coherent
+   if( (dev->cfgMode & BUFF_ARM_ACP) || (dev->cfgMode & BUFF_ARM_MIXED) ) {
        set_dma_ops(&pdev->dev,&arm_coherent_dma_ops);
-       dev_info(dev->device,"Probe: Set COHERENT DMA ops\n");
+       dev_info(dev->device,"Probe: Set COHERENT DMA =%i\n",dev->cfgMode);
    }
 
    // Call common dma init function
@@ -196,18 +239,39 @@ int Axis_Remove(struct platform_device *pdev) {
 }
 
 // Parameters
-module_param_array(cfgTxCount,int,0,0);
-MODULE_PARM_DESC(cfgTxCount, "TX buffer count");
+module_param(cfgTxCount0,int,0);
+MODULE_PARM_DESC(cfgTxCount0, "TX buffer count");
 
-module_param_array(cfgRxCount,int,0,0);
-MODULE_PARM_DESC(cfgRxCount, "RX buffer count");
+module_param(cfgTxCount1,int,0);
+MODULE_PARM_DESC(cfgTxCount1, "TX buffer count");
 
-module_param_array(cfgSize,int,0,0);
-MODULE_PARM_DESC(cfgSize, "RX/TX buffer size");
+module_param(cfgTxCount2,int,0);
+MODULE_PARM_DESC(cfgTxCount2, "TX buffer count");
 
-module_param_array(cfgRxMode,int,0,0);
-MODULE_PARM_DESC(cfgRxMode, "RX buffer mode");
+module_param(cfgRxCount0,int,0);
+MODULE_PARM_DESC(cfgRxCount0, "RX buffer count");
 
-module_param_array(cfgTxMode,int,0,0);
-MODULE_PARM_DESC(cfgTxMode, "TX buffer mode");
+module_param(cfgRxCount1,int,0);
+MODULE_PARM_DESC(cfgRxCount1, "RX buffer count");
+
+module_param(cfgRxCount2,int,0);
+MODULE_PARM_DESC(cfgRxCount2, "RX buffer count");
+
+module_param(cfgSize0,int,0);
+MODULE_PARM_DESC(cfgSize0, "RX/TX buffer size");
+
+module_param(cfgSize1,int,0);
+MODULE_PARM_DESC(cfgSize1, "RX/TX buffer size");
+
+module_param(cfgSize2,int,0);
+MODULE_PARM_DESC(cfgSize2, "RX/TX buffer size");
+
+module_param(cfgMode0,int,0);
+MODULE_PARM_DESC(cfgMode0, "RX buffer mode");
+
+module_param(cfgMode1,int,0);
+MODULE_PARM_DESC(cfgMode1, "RX buffer mode");
+
+module_param(cfgMode2,int,0);
+MODULE_PARM_DESC(cfgMode2, "RX buffer mode");
 

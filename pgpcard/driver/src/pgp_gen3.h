@@ -22,7 +22,7 @@
 #ifndef __PGP_GEN3_H__
 #define __PGP_GEN3_H__
 
-#include "dma_include.h"
+#include <PgpDriver.h>
 #include <dma_common.h>
 #include <dma_buffer.h>
 #include <linux/interrupt.h>

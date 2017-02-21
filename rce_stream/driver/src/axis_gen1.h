@@ -22,7 +22,6 @@
 #ifndef __AXIS_GEN1_H__
 #define __AXIS_GEN1_H__
 
-#include "dma_include.h"
 #include "dma_common.h"
 #include "dma_buffer.h"
 #include <linux/interrupt.h>

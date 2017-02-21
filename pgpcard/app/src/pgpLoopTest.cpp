@@ -121,7 +121,7 @@ void *runWrite ( void *t ) {
    }
 
    if ( txData->idxEn ) {
-      if ((dmaBuffers = pgpMapDma(fd,&dmaCount,&dmaSize)) == NULL ) {
+      if ((dmaBuffers = dmaMapDma(fd,&dmaCount,&dmaSize)) == NULL ) {
          printf("Write failed to map dma buffer\n");
          txData->running = false;
          return(NULL);
@@ -156,7 +156,7 @@ void *runWrite ( void *t ) {
       if ( ret != 0 ) {
 
          if ( txData->idxEn ) {
-            dmaIndex = pgpGetIndex(fd);
+            dmaIndex = dmaGetIndex(fd);
             if ( dmaIndex < 0 ) continue;
             data = dmaBuffers[dmaIndex];
          }
@@ -183,7 +183,7 @@ void *runWrite ( void *t ) {
       }
    }
 
-   if ( txData->idxEn ) pgpUnMapDma(fd,dmaBuffers);
+   if ( txData->idxEn ) dmaUnMapDma(fd,dmaBuffers);
    else free(data);
    close(fd);
 
@@ -230,7 +230,7 @@ void *runRead ( void *t ) {
    }
 
    if ( rxData->idxEn ) {
-      if ((dmaBuffers = pgpMapDma(fd,&dmaCount,&dmaSize)) == NULL ) {
+      if ((dmaBuffers = dmaMapDma(fd,&dmaCount,&dmaSize)) == NULL ) {
          printf("Read failed to map dma buffer\n");
          rxData->running = false;
          return(NULL);
@@ -249,7 +249,7 @@ void *runRead ( void *t ) {
    mask = (1 << (lane*4 + vc));
 
    usleep(100*(lane*4+vc));
-   if ( pgpSetMask(fd,mask) != 0 ) {
+   if ( dmaSetMask(fd,mask) != 0 ) {
       printf("Error setting mask. lane=%i, vc=%i, mask=0x%.8lx\n",lane,vc,mask);
       close(fd);
       return NULL;
@@ -282,7 +282,7 @@ void *runRead ( void *t ) {
                rxData->prbErr++;
                printf("Prbs mismatch. count=%lu, lane=%i, vc=%i\n",rxData->count,lane,vc);
             }
-            if ( idxEn ) pgpRetIndex(fd,dmaIndex);
+            if ( idxEn ) dmaRetIndex(fd,dmaIndex);
 
             // Stop on size mismatch or frame errors
             if ( ret != (int)rxData->size || rxErr != 0 || rxLane != lane || rxVc != vc) {
@@ -297,7 +297,7 @@ void *runRead ( void *t ) {
       }
    }
 
-   if ( idxEn ) pgpUnMapDma(fd,dmaBuffers);
+   if ( idxEn ) dmaUnMapDma(fd,dmaBuffers);
    else free(data);
 
    close(fd);
