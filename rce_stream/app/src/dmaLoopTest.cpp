@@ -41,7 +41,7 @@ const  char * argp_program_bug_address = "rherbst@slac.stanford.edu";
 
 struct PrgArgs {
    const char * path;
-   uint32_t     mask;
+   uint64_t     mask;
    uint32_t     prbsDis;
    uint32_t     size;
    uint32_t     idxEn;
@@ -72,7 +72,7 @@ error_t parseArgs ( int key,  char *arg, struct argp_state *state ) {
 
    switch(key) {
       case 'p': args->path    = arg; break;
-      case 'm': args->mask    = strtol(arg,NULL,16); break;
+      case 'm': args->mask    = strtoull(arg,NULL,16); break;
       case 's': args->size    = strtol(arg,NULL,10); break;
       case 'd': args->prbsDis = 1; break;
       case 'i': args->idxEn   = 1; break;
@@ -249,7 +249,7 @@ void *runRead ( void *t ) {
    mask = (1 << rxData->dest);
 
    usleep(100*rxData->dest);
-   if ( dmaSetMask(fd,mask) != 0 ) {
+   if ( dmaSetMask64(fd,mask) != 0 ) {
       printf("Error setting mask. Dest=%i\n",rxData->dest);
       rxData->running = false;
       close(fd);

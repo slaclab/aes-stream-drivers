@@ -228,8 +228,8 @@ void TemG3_Init(struct DmaDevice *dev) {
    for (x=0; x < 64; x++) {
       ((uint32_t *)info->buildStamp)[x] = ioread32((&reg->BuildStamp[x]));
    }          
-
-   dev->destMask   = 0x3;
+   memset(dev->destMask,0,DMA_MASK_SIZE);
+   dev->destMask[0] = 0x3;
    info->promPrgEn = 1;
 
    // Enable interrupts

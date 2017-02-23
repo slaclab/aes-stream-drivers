@@ -264,6 +264,8 @@ int Dma_Release(struct inode *inode, struct file *filp) {
    unsigned long iflags;
    uint32_t x;
    uint32_t cnt;
+   uint32_t destByte;
+   uint32_t destBit;
 
    desc = (struct DmaDesc *)filp->private_data;
    dev  = desc->dev;
@@ -273,7 +275,9 @@ int Dma_Release(struct inode *inode, struct file *filp) {
 
    // Clear pointers
    for (x=0; x < DMA_MAX_DEST; x++) {
-      if ( (((uint64_t)1 << x) & desc->mask) != 0 ) dev->desc[x] = NULL;
+      destByte = x / 8;
+      destBit  = 1 << (x % 8);
+      if ( (destBit & desc->destMask[destByte]) != 0 ) dev->desc[x] = NULL;
    }
 
    spin_unlock_irqrestore(&dev->maskLock,iflags);
@@ -414,12 +418,13 @@ ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
 ssize_t Dma_Write(struct file *filp, const char* buffer, size_t count, loff_t* f_pos) {
    ssize_t             ret;
    ssize_t             res;
-   uint64_t            wDest;
    void *              dp;
    struct DmaWriteData wr;
    struct DmaBuffer *  buff;
    struct DmaDesc   *  desc;
    struct DmaDevice *  dev;
+   uint32_t            destByte;
+   uint32_t            destBit;
 
    desc = (struct DmaDesc *)filp->private_data;
    dev  = desc->dev;
@@ -450,11 +455,12 @@ ssize_t Dma_Write(struct file *filp, const char* buffer, size_t count, loff_t* f
       return(-1);
    }
 
-   // Bad destinations
-   wDest = ((uint64_t)1 << (uint64_t)wr.dest);
-   if ( (wDest & dev->destMask) == 0 ) {
-      dev_warn(dev->device,"Write: Invalid destination. Got=0x%llx. Mask=0x%llx.\n", 
-            wDest,dev->destMask);
+   // Bad destination
+   destByte = wr.dest / 8;
+   destBit  = 1 << (wr.dest % 8);
+   if ( (wr.dest > DMA_MAX_DEST) || ((destBit & dev->destMask[destByte]) == 0 ) ) {
+      dev_warn(dev->device,"Write: Invalid destination. Byte %i, Got=0x%x. Mask=0x%x.\n", 
+            destByte,destBit,dev->destMask[destByte]);
       return(-1);
    }
 
@@ -509,7 +515,7 @@ ssize_t Dma_Write(struct file *filp, const char* buffer, size_t count, loff_t* f
 
 // Perform commands
 ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
-   uint64_t           temp;
+   uint8_t newMask[DMA_MASK_SIZE];
    struct DmaDesc   * desc;
    struct DmaDevice * dev;
    struct DmaBuffer * buff;
@@ -544,13 +550,15 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
       // Attempt to reserve destination
       case DMA_Set_Mask:
-         return(Dma_SetMask(dev,desc,arg));
+         memset(newMask,0,DMA_MASK_SIZE);
+         ((uint32_t *)newMask)[0] = arg;
+         return(Dma_SetMaskBytes(dev,desc,newMask));
          break;
 
       // Attempt to reserve destination
-      case DMA_Set_Mask64:
-         if ( copy_from_user(&temp,(void *)arg,sizeof(uint64_t)) ) return(-1);
-         return(Dma_SetMask(dev,desc,temp));
+      case DMA_Set_MaskBytes:
+         if ( copy_from_user(newMask,(void *)arg,DMA_MASK_SIZE) ) return(-1);
+         return(Dma_SetMaskBytes(dev,desc,newMask));
          break;
 
       // Return buffer index
@@ -851,12 +859,15 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
 }
 
 // Set Mask
-int Dma_SetMask(struct DmaDevice *dev, struct DmaDesc *desc, uint64_t mask ) {
+int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t * mask ) {
    unsigned long iflags;
    uint32_t idx;
+   uint32_t destByte;
+   uint32_t destBit;
 
    // Can only be called once
-   if ( desc->mask != 0 ) return(-1);
+   static const uint8_t zero[DMA_MASK_SIZE] = { 0 };
+   if (memcmp(desc->destMask,zero,DMA_MASK_SIZE)) return(-1); 
 
    // Make sure we can't receive data while adjusting mask flags
    // Interrupts are disabled
@@ -864,9 +875,11 @@ int Dma_SetMask(struct DmaDevice *dev, struct DmaDesc *desc, uint64_t mask ) {
 
    // First check if all lockable
    for ( idx=0; idx < DMA_MAX_DEST; idx ++ ) {
+      destByte = idx / 8;
+      destBit  = 1 << (idx % 8);
 
       // We want to get this one
-      if ( (((uint64_t)1 << idx) & mask) != 0 ) {
+      if ( (mask[destByte] & destBit) != 0 ) {
          if ( dev->desc[idx] != NULL ) {
             spin_unlock_irqrestore(&dev->maskLock,iflags);
             if (dev->debug > 0) dev_info(dev->device,"Dma_SetMask: Dest %i already mapped\n",idx);
@@ -877,19 +890,18 @@ int Dma_SetMask(struct DmaDevice *dev, struct DmaDesc *desc, uint64_t mask ) {
 
    // Next lock the ones we want
    for ( idx=0; idx < DMA_MAX_DEST; idx ++ ) {
+      destByte = idx / 8;
+      destBit  = 1 << (idx % 8);
 
       // We want to get this one
-      if ( (((uint64_t)1 << idx) & mask) != 0 ) {
+      if ( (mask[destByte] & destBit) != 0 ) {
          dev->desc[idx] = desc;
          if (dev->debug > 0) dev_info(dev->device,"Dma_SetMask: Register dest for %i.\n", idx);
       }
    }
-   desc->mask = mask;
+   memcpy(desc->destMask,mask,DMA_MASK_SIZE);
 
    spin_unlock_irqrestore(&dev->maskLock,iflags);
-
-   if (dev->debug > 0) 
-      dev_info(dev->device,"Dma_SetMask: Setting mask to = %llx.\n", desc->mask);
    return(0);
 }
 

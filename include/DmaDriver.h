@@ -40,7 +40,10 @@
 #define DMA_Ret_Index      0x1005
 #define DMA_Get_Index      0x1006
 #define DMA_Read_Ready     0x1007
-#define DMA_Set_Mask64     0x1008
+#define DMA_Set_MaskBytes  0x1008
+
+// Mask size
+#define DMA_MASK_SIZE 32
 
 // TX Structure
 // Size = 0 for return index
@@ -69,6 +72,7 @@ struct DmaReadData {
 // Everything below is hidden during kernel module compile
 #ifndef DMA_IN_KERNEL
 #include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -206,17 +210,6 @@ static inline ssize_t dmaSetDebug(int32_t fd, uint32_t level) {
    return(ioctl(fd,DMA_Set_Debug,level));
 }
 
-// set lane/vc rx mask, one bit per vc
-static inline ssize_t dmaSetMask(int32_t fd, uint32_t mask) {
-   return(ioctl(fd,DMA_Set_Mask,mask));
-}
-
-// set lane/vc rx mask, 64-bit version, one bit per vc
-static inline ssize_t dmaSetMask64(int32_t fd, uint64_t mask) {
-   uint64_t lMask = mask;
-   return(ioctl(fd,DMA_Set_Mask64,&lMask));
-}
-
 // Assign interrupt handler
 static inline void dmaAssignHandler (int32_t fd, void (*handler)(int32_t)) {
    struct sigaction act;
@@ -230,6 +223,33 @@ static inline void dmaAssignHandler (int32_t fd, void (*handler)(int32_t)) {
    fcntl(fd, F_SETOWN, getpid());
    oflags = fcntl(fd, F_GETFL);
    fcntl(fd, F_SETFL, oflags | FASYNC);
+}
+
+// set lane/vc rx mask, one bit per vc
+static inline ssize_t dmaSetMask(int32_t fd, uint32_t mask) {
+   return(ioctl(fd,DMA_Set_Mask,mask));
+}
+
+// Init mask byte array
+static inline void dmaInitMaskBytes(uint8_t * mask) {
+   memset(mask,0,DMA_MASK_SIZE);
+}
+
+// Add destination to mask byte array
+static inline void dmaAddMaskBytes(uint8_t * mask, uint32_t dest) {
+   uint32_t byte;
+   uint32_t bit;
+
+   if ( dest < 8*(DMA_MASK_SIZE)) {
+      byte = dest / 8;
+      bit  = dest % 8;
+      mask[byte] += (1 << bit);
+   }
+}
+
+// set mask byte array to driver
+static inline ssize_t dmaSetMaskBytes(int32_t fd, uint8_t * mask) {
+   return(ioctl(fd,DMA_Set_MaskBytes,mask));
 }
 
 #endif

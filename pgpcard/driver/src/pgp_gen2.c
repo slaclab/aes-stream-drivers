@@ -225,36 +225,41 @@ void PgpCardG2_Init(struct DmaDevice *dev) {
    info->version    = ioread32(&(reg->version));
    info->pgpRate    = 3125;
    info->evrSupport = 0;
+   memset(dev->destMask,0,DMA_MASK_SIZE);
 
    // Use firmware version to distinguish between gen1/gen2 & other special cards
    switch((info->version >> 12) & 0xFFFFF) {
       case 0xCEC80:
-         dev->destMask   = 0xFFFF;
-         info->type      = PGP_GEN1;
-         info->laneMask  = 0xF;
-         info->vcPerMask = 0xF;
-         info->promPrgEn = 0;
+         dev->destMask[0] = 0xFF;
+         dev->destMask[1] = 0xFF;
+         info->type       = PGP_GEN1;
+         info->laneMask   = 0xF;
+         info->vcPerMask  = 0xF;
+         info->promPrgEn  = 0;
          break;
       case 0xCEC82:
-         dev->destMask   = 0xFFFF;
-         info->type      = PGP_GEN2;
-         info->laneMask  = 0xF;
-         info->vcPerMask = 0xF;
-         info->promPrgEn = 1;
+         dev->destMask[0] = 0xFF;
+         dev->destMask[1] = 0xFF;
+         info->type       = PGP_GEN2;
+         info->laneMask   = 0xF;
+         info->vcPerMask  = 0xF;
+         info->promPrgEn  = 1;
          break;
       case 0xCEC83:
-         dev->destMask   = 0x0303;
-         info->type      = PGP_GEN2_VCI;
-         info->laneMask  = 0x5;
-         info->vcPerMask = 0x3;
-         info->promPrgEn = 1;
+         dev->destMask[0] = 0x03;
+         dev->destMask[1] = 0x03;
+         info->type       = PGP_GEN2_VCI;
+         info->laneMask   = 0x5;
+         info->vcPerMask  = 0x3;
+         info->promPrgEn  = 1;
          break;
       default:
-         dev->destMask   = 0xFFFF;
-         info->type      = PGP_GEN2;
-         info->laneMask  = 0xF;
-         info->vcPerMask = 0xF;
-         info->promPrgEn = 1;
+         dev->destMask[0] = 0xFF;
+         dev->destMask[1] = 0xFF;
+         info->type       = PGP_GEN2;
+         info->laneMask   = 0xF;
+         info->vcPerMask  = 0xF;
+         info->promPrgEn  = 1;
          break;
    }
 

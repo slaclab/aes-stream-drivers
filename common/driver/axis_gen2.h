@@ -64,9 +64,6 @@ struct AxisG2Data {
    uint32_t    writeIndex;
 
    uint32_t    addrCount;
-   uint32_t    chanBits;
-   uint32_t    chanCount;
-   uint32_t    destMask;
 };
 
 // Interrupt handler

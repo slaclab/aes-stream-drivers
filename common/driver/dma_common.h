@@ -27,13 +27,14 @@
 #include <linux/types.h>
 #include <linux/fs.h>
 #include <linux/interrupt.h>
+#include <DmaDriver.h>
 #include <dma_buffer.h>
 
 // Max number of devices to support
 #define MAX_DMA_DEVICES 4
 
-// Maximum number of open devices
-#define DMA_MAX_DEST 64
+// Maximum number of channels
+#define DMA_MAX_DEST (8*DMA_MASK_SIZE)
 
 // Forward declarations
 struct hardware_functions;
@@ -64,8 +65,8 @@ struct DmaDevice {
 
    // Card Info
    struct hardware_functions * hwFunc;
-   uint64_t destMask;
-   void *   hwData;
+   uint8_t destMask[DMA_MASK_SIZE];
+   void *  hwData;
 
    // Debug flag
    uint8_t debug;
@@ -92,8 +93,8 @@ struct DmaDevice {
 // File descriptor struct
 struct DmaDesc {
 
-   // Mask of lanes/vcs
-   uint64_t mask;
+   // Mask of destinations
+   uint8_t destMask[DMA_MASK_SIZE];
 
    // Receive queue
    struct DmaQueue q;
@@ -191,7 +192,7 @@ void Dma_SeqStop(struct seq_file *s, void *v);
 int Dma_SeqShow(struct seq_file *s, void *v);
 
 // Set Mask
-int Dma_SetMask(struct DmaDevice *dev, struct DmaDesc *desc, uint64_t mask );
+int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t * mask );
 
 #endif
 

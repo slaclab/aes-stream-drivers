@@ -244,18 +244,23 @@ void PgpCardG3_Init(struct DmaDevice *dev) {
       ((uint32_t *)info->buildStamp)[x] = ioread32((&reg->BuildStamp[x]));
    }          
    info->pgpRate = ioread32(&(reg->pgpRate));
+   memset(dev->destMask,0,DMA_MASK_SIZE);
 
    // Card info
    if ( (ioread32(&(reg->vciMode)) & 0x1) != 0 ) {
       info->type = PGP_GEN3_VCI;
-      info->laneMask  = 0x0F;
-      info->vcPerMask = 0x3;
-      dev->destMask   = 0x3333;
+      info->laneMask   = 0x0F;
+      info->vcPerMask  = 0x3;
+      dev->destMask[0] = 0x33;
+      dev->destMask[1] = 0x33;
    } else {
       info->type = PGP_GEN3;
-      info->laneMask  = 0xFF;
-      info->vcPerMask = 0xF;
-      dev->destMask   = 0xFFFFFFFF;
+      info->laneMask   = 0xFF;
+      info->vcPerMask  = 0xF;
+      dev->destMask[0] = 0xFF;
+      dev->destMask[1] = 0xFF;
+      dev->destMask[2] = 0xFF;
+      dev->destMask[3] = 0xFF;
    }
    info->promPrgEn  = 1;
    info->evrSupport = 1;

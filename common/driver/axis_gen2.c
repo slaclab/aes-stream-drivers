@@ -41,7 +41,6 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    uint32_t index;
    uint32_t handleCount;
    uint64_t dmaData;
-   uint32_t dest;
 
    struct DmaDesc     * desc;
    struct DmaBuffer   * buff;
@@ -65,7 +64,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
       index = (dmaData >> 4) & 0xFFF;
       handleCount++;
       if ( dev->debug > 0 ) 
-         dev_info(dev->device,"Irq: Got TX Descriptor: 0x%.16llx\n",dmaData);
+         dev_info(dev->device,"Irq: Got TX Descriptor: 0x%.16llx, Idx=%i, Pos=%i\n",dmaData,index,hwData->readIndex);
 
       // Attempt to find buffer in tx pool and return. otherwise return rx entry to hw.
       if ((buff = dmaRetBufferIdxIrq (dev,index)) != NULL) {
@@ -82,24 +81,20 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
       handleCount++;
 
       if ( dev->debug > 0 ) 
-         dev_info(dev->device,"Irq: Got RX Descriptor: 0x%.16llx\n",dmaData);
+         dev_info(dev->device,"Irq: Got RX Descriptor: 0x%.16llx, Idx=%i, Pos=%i\n",dmaData,index,hwData->writeIndex);
 
       if ( (buff = dmaGetBufferList(&(dev->rxBuffers),index)) != NULL ) {
          buff->count++;
          buff->size  = (dmaData >> 32) & 0xFFFFFF;
-         dest        = (dmaData >> 56) & 0xFF;
+         buff->dest  = (dmaData >> 56) & 0xFF;
          buff->error = (buff->size == 0)?DMA_ERR_FIFO:(dmaData & 0x7);
 
          buff->flags =  (dmaData >> 24) & 0xFF; // Bits[31:24] = firstUser = flags[7:0]
          buff->flags += (dmaData >> 8) & 0xFF00; // Bits[23:16] = lastUser = flags[15:8]
          buff->flags += (dmaData << 13) & 0x10000; // bit[3] = continue = flags[16]
 
-         // Extract dest
-         buff->dest  =  dest & hwData->destMask;
-         if ( hwData->chanCount > 1 ) buff->dest += (dest & (hwData->destMask ^ 0xFF)) >> 2;
-
          if ( dev->debug > 0 ) {
-            dev_info(dev->device,"Irq: Rx size=%i, Dest=%i, Flags=0x%x, Error=0x%x.\n",
+            dev_info(dev->device,"Irq: Rx size=%i, Dest=%i, Flags=0x%x, Error=0x%x\n",
                buff->size, buff->dest, buff->flags, buff->error);
          }
 
@@ -226,17 +221,6 @@ void AxisG2_Init(struct DmaDevice *dev) {
    // Online
    iowrite32(0x1,&(reg->online));
 
-   // Set dest mask
-   dev->destMask = 0xFFFFFFFFFFFFFFFF;
-   hwData->chanCount = ioread32(&(reg->channelCount)) & 0xFF;
-   hwData->chanBits  = 6;
-   if ( hwData->chanCount > 1 ) hwData->chanBits = ilog2(hwData->chanCount);
-   dev_info(dev->device,"Init: Chan count = %x, Bits=%x, acount=%i\n",hwData->chanCount,hwData->chanBits,hwData->addrCount);
-
-   hwData->destMask = 0;
-   for (x=0; x < (5-hwData->chanBits); x++) hwData->destMask |= (1 << x);
-   dev_info(dev->device,"Init: Chan count = %i, Dest mask = 0x%x.\n",hwData->chanCount,hwData->destMask);
-
    // Enable interrupt
    iowrite32(0x1,&(reg->intEnable));
    dev_info(dev->device,"Init: Found Version 2 Device.\n");
@@ -294,17 +278,12 @@ void AxisG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
 int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
    uint32_t descLow;
    uint32_t descHigh;
-   uint32_t dest;
 
    struct AxisG2Data * hwData;
    struct AxisG2Reg *reg;
 
    reg = (struct AxisG2Reg *)dev->reg;
    hwData = (struct AxisG2Data *)dev->hwData;
-
-   // Create dest
-   dest  =  buff->dest & hwData->destMask;
-   if ( hwData->chanCount > 1 ) dest += (buff->dest & (hwData->destMask ^ 0x3F)) << 2;
 
    // Create descriptor
    descLow  = (buff->flags >> 16) & 0x00000001; // bit[0] = continue = flags[16]
@@ -313,7 +292,7 @@ int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
    descLow += (buff->flags << 24) & 0xFF000000; // Bits[31:24] = firstUser = flags[7:0]
     
    descHigh  = buff->size & 0x00FFFFFF;   // bits[23:0]  = size
-   descHigh += (dest << 24) & 0xFF000000; // bits[31:24] = dest
+   descHigh += (buff->dest << 24) & 0xFF000000; // bits[31:24] = dest
 
    if ( dmaBufferToHw(buff) < 0 ) {
       dev_warn(dev->device,"SendBuffer: Failed to map dma buffer.\n");

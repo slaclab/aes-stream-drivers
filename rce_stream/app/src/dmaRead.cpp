@@ -42,7 +42,7 @@ struct PrgArgs {
    uint32_t     rawEn;
 };
 
-static struct PrgArgs DefArgs = { "/dev/axi_stream_dma_0", 0x3F, 0x0, 0x0 };
+static struct PrgArgs DefArgs = { "/dev/axi_stream_dma_0", 0xFFFFFFFFFFFFFFFF, 0x0, 0x0, 0 };
 
 static char   args_doc[] = "";
 static char   doc[]      = "";

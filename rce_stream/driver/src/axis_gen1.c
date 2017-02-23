@@ -205,8 +205,7 @@ void AxisG1_Init(struct DmaDevice *dev) {
    iowrite32(0x1,&(reg->onlineAck));
 
    // Set dest mask
-   dev->destMask  = 0x3F;
-
+   memset(dev->destMask,0xFF,DMA_MASK_SIZE);
    dev_info(dev->device,"Init: Found Version 1 Device.\n");
 }
 

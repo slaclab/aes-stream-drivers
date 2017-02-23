@@ -124,7 +124,7 @@ bool PrbsData::processData ( const void *data, uint32_t size ) {
       return(false);
    }
 
-   if ( _sequence != 0 && _sequence != expected ) {
+   if ( _sequence != 0 && expected != 0 && _sequence != expected ) {
       fprintf(stderr,"Bad Sequence. exp=%i, got=%i\n",_sequence,expected);
       _sequence = expected + 1;
       return(false);
