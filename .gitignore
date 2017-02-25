@@ -7,3 +7,4 @@
 **/pgpcard.ko.unsigned
 **/pgpcard.mod.c
 **/bin/*
+**/load
