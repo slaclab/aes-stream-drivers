@@ -36,20 +36,20 @@ const  char * argp_program_bug_address = "rherbst@slac.stanford.edu";
 
 struct PrgArgs {
    const char * path;
-   uint64_t     dest;
+   const char * dest;
    uint32_t     prbsDis;
    uint32_t     idxEn;
    uint32_t     rawEn;
 };
 
-static struct PrgArgs DefArgs = { "/dev/axi_stream_dma_0", 0xFFFFFFFFFFFFFFFF, 0x0, 0x0, 0 };
+static struct PrgArgs DefArgs = { "/dev/axi_stream_dma_0", NULL, 0x0, 0x0, 0 };
 
 static char   args_doc[] = "";
 static char   doc[]      = "";
 
 static struct argp_option options[] = {
    { "path",    'p', "PATH",   OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/axi_stream_dma_0.",0},
-   { "dest",    'm', "MASK",   OPTION_ARG_OPTIONAL, "Mask of dests for read. 1 bit per dest in hex. i.e. 0x3F.",0},
+   { "dest",    'm', "LIST",   OPTION_ARG_OPTIONAL, "Comma seperated list of destinations.",0},
    { "prbsdis", 'd', 0,        OPTION_ARG_OPTIONAL, "Disable PRBS checking.",0},
    { "indexen", 'i', 0,        OPTION_ARG_OPTIONAL, "Use index based receive buffers.",0},
    { "rawEn",   'r', "COUNT",  OPTION_ARG_OPTIONAL, "Show raw data up to count.",0},
@@ -61,7 +61,7 @@ error_t parseArgs ( int key,  char *arg, struct argp_state *state ) {
 
    switch(key) {
       case 'p': args->path = arg; break;
-      case 'm': args->dest = strtoull(arg,NULL,16); break;
+      case 'm': args->dest = arg; break;
       case 'd': args->prbsDis = 1; break;
       case 'i': args->idxEn = 1; break;
       case 'r': args->rawEn = strtol(arg,NULL,10); break;
@@ -73,6 +73,7 @@ error_t parseArgs ( int key,  char *arg, struct argp_state *state ) {
 static struct argp argp = {options,parseArgs,args_doc,doc};
 
 int main (int argc, char **argv) {
+   uint8_t       mask[DMA_MASK_SIZE];
    int32_t       s;
    int32_t       ret;
    int32_t       count;
@@ -89,6 +90,8 @@ int main (int argc, char **argv) {
    uint32_t      dmaCount;
    uint32_t      dmaIndex;
    uint32_t      x;
+   char *        tok;
+   char          tBuff[100];
 
    struct PrgArgs args;
 
@@ -102,9 +105,21 @@ int main (int argc, char **argv) {
       return(1);
    }
 
-   dmaSetMask64(s,args.dest);
-   printf("Setting mask=0x%llx\n",args.dest);
-
+   dmaInitMaskBytes(mask);
+   if ( args.dest == NULL ) {
+      memset(mask,0xFF,DMA_MASK_SIZE);
+   }
+   else {
+      strcpy(tBuff,args.dest);
+      tok = strtok(tBuff,",");
+      while ( tok != NULL ) {
+         x = strtoul(tok,NULL,10);
+         dmaAddMaskBytes(mask,x);
+         printf("Adding destination %i\n",x);
+         tok = strtok(NULL,",");
+      }
+   }
+   dmaSetMaskBytes(s,mask);
    maxSize = 1024*1024*2;
 
    if ( args.idxEn ) {

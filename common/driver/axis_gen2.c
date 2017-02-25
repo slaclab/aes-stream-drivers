@@ -151,6 +151,9 @@ void AxisG2_Init(struct DmaDevice *dev) {
 
    reg = (struct AxisG2Reg *)dev->reg;
 
+   // Dest mask
+   memset(dev->destMask,0xFF,DMA_MASK_SIZE);
+
    // Init hw data
    hwData = (struct AxisG2Data *)kmalloc(sizeof(struct AxisG2Data),GFP_KERNEL);
    dev->hwData = hwData;
