@@ -197,6 +197,10 @@ void AxisG1_Init(struct DmaDevice *dev) {
       else iowrite32(dev->rxBuffers.indexed[x]->buffHandle,&(reg->rxFree));
    }
 
+   // Set cache mode
+   if ( dev->cfgMode & BUFF_ARM_ACP ) iowrite32(0xF,&(reg->swCache));
+   else iowrite32(0,&(reg->swCache));
+
    // Enable interrupt
    iowrite32(0x1,&(reg->intPendAck));
    iowrite32(0x1,&(reg->intEnable));
@@ -206,7 +210,7 @@ void AxisG1_Init(struct DmaDevice *dev) {
 
    // Set dest mask
    memset(dev->destMask,0xFF,DMA_MASK_SIZE);
-   dev_info(dev->device,"Init: Found Version 1 Device.\n");
+   dev_info(dev->device,"Init: Found Version 1 Device. Cache=0x%x\n",ioread32(&(reg->swCache)));
 }
 
 

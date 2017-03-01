@@ -35,7 +35,8 @@ struct AxisG1Reg {
    uint32_t maxRxSize;       // 0x00014
    uint32_t onlineAck;       // 0x00018
    uint32_t intPendAck;      // 0x0001C
-   uint32_t spareA[16384-8]; // 0x00020 - 0x0FFFC
+   uint32_t swCache;         // 0x00020
+   uint32_t spareA[16384-9]; // 0x00024 - 0x0FFFC
    uint32_t rxPend;          // 0x10000
    uint32_t txFree;          // 0x10004
    uint32_t spareB[126];     // 0x10008 - 0x101FC
