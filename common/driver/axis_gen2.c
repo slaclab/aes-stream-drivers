@@ -358,5 +358,6 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    seq_printf(s,"        Sw Dma Wr Index : %i\n",hwData->writeIndex);
    seq_printf(s,"        Hw Dma Rd Index : %i\n",(ioread32(&(reg->hwRdIndex))));
    seq_printf(s,"        Sw Dma Rd Index : %i\n",hwData->readIndex);
+   seq_printf(s,"           Cache Config : 0x%x\n",(ioread32(&(reg->cacheConfig))));
 }
 

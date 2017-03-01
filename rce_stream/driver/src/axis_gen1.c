@@ -210,7 +210,7 @@ void AxisG1_Init(struct DmaDevice *dev) {
 
    // Set dest mask
    memset(dev->destMask,0xFF,DMA_MASK_SIZE);
-   dev_info(dev->device,"Init: Found Version 1 Device. Cache=0x%x\n",ioread32(&(reg->swCache)));
+   dev_info(dev->device,"Init: Found Version 1 Device.\n");
 }
 
 
@@ -307,5 +307,6 @@ void AxisG1_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    seq_printf(s,"             Readable : %i\n",(ioread32(&(reg->fifoValid)) & 0x1));
    seq_printf(s,"     Write Int Status : %i\n",((ioread32(&(reg->intPendAck)) >> 1) & 0x1));
    seq_printf(s,"      Read Int Status : %i\n",(ioread32(&(reg->intPendAck)) & 0x1));
+   seq_printf(s,"        Cache Setting : 0x%x\n",(ioread32(&(reg->swCache))));
 }
 
