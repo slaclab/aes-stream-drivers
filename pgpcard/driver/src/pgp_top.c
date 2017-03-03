@@ -93,7 +93,7 @@ int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    int32_t x;
    int32_t dummy;
 
-   if ( cfgMode != BUFF_COHERENT || cfgMode != BUFF_STREAM ) {
+   if ( cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM ) {
       pr_warning("%s: Probe: Invalid buffer mode = %i.\n",MOD_NAME,cfgMode);
       return(-1);
    }
