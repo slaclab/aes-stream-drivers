@@ -2,7 +2,7 @@
  *-----------------------------------------------------------------------------
  * Title      : Top level module
  * ----------------------------------------------------------------------------
- * File       : axis_top.c
+ * File       : rce_top.c
  * Author     : Ryan Herbst, rherbst@slac.stanford.edu
  * Created    : 2016-08-08
  * Last update: 2016-08-08
@@ -19,7 +19,7 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
-#include <axis_top.h>
+#include <rce_top.h>
 #include <dma_common.h>
 #include <dma_buffer.h>
 #include <axis_gen1.h>
@@ -51,7 +51,7 @@ int cfgMode1    = BUFF_COHERENT;
 int cfgMode2    = BUFF_COHERENT;
 
 // Tables of device names
-const char * AxisDevNames[MAX_DMA_DEVICES] = {
+const char * RceDevNames[MAX_DMA_DEVICES] = {
    "axi_stream_dma_0",
    "axi_stream_dma_1",
    "axi_stream_dma_2",
@@ -65,36 +65,36 @@ MODULE_AUTHOR("Ryan Herbst");
 MODULE_DESCRIPTION("AXI Stream DMA driver. V3");
 MODULE_LICENSE("GPL");
 
-static int Axis_DmaNop(struct device *dev) {
+static int Rce_DmaNop(struct device *dev) {
    return 0;
 }
 
-static const struct dev_pm_ops Axis_DmaOps = {
-   .runtime_suspend = Axis_DmaNop,
-   .runtime_resume = Axis_DmaNop,
+static const struct dev_pm_ops Rce_DmaOps = {
+   .runtime_suspend = Rce_DmaNop,
+   .runtime_resume = Rce_DmaNop,
 };
 
-static struct of_device_id Axis_DmaMatch[] = {
+static struct of_device_id Rce_DmaMatch[] = {
    { .compatible = MOD_NAME, },
    { /* This is filled with module_parm */ },
    { /* Sentinel */ },
 };
 
-static struct platform_driver Axis_DmaPdrv = {
-   .probe  = Axis_Probe,
-   .remove = Axis_Remove,
+static struct platform_driver Rce_DmaPdrv = {
+   .probe  = Rce_Probe,
+   .remove = Rce_Remove,
    .driver = {
       .name = MOD_NAME,
       .owner = THIS_MODULE,
-      .pm = &Axis_DmaOps,
-      .of_match_table = of_match_ptr(Axis_DmaMatch),
+      .pm = &Rce_DmaOps,
+      .of_match_table = of_match_ptr(Rce_DmaMatch),
    },
 };
 
-module_platform_driver(Axis_DmaPdrv);
+module_platform_driver(Rce_DmaPdrv);
 
 // Create and init device
-int Axis_Probe(struct platform_device *pdev) {
+int Rce_Probe(struct platform_device *pdev) {
    struct DmaDevice *dev;
 
    int32_t      x;
@@ -107,7 +107,7 @@ int Axis_Probe(struct platform_device *pdev) {
    // Find matching entry
    tmpIdx = -1;
    for ( x=0; x < MAX_DMA_DEVICES; x++ ) {
-      if (strcmp(tmpName,AxisDevNames[x]) == 0) {
+      if (strcmp(tmpName,RceDevNames[x]) == 0) {
          tmpIdx = x;
          break;
       }
@@ -202,7 +202,7 @@ int Axis_Probe(struct platform_device *pdev) {
 
 
 // Cleanup device
-int Axis_Remove(struct platform_device *pdev) {
+int Rce_Remove(struct platform_device *pdev) {
    int32_t      x;
    const char * tmpName;
    int32_t      tmpIdx;
@@ -216,7 +216,7 @@ int Axis_Remove(struct platform_device *pdev) {
    // Find matching entry
    tmpIdx = -1;
    for ( x=0; x < MAX_DMA_DEVICES; x++ ) {
-      if (strcmp(tmpName,AxisDevNames[x]) == 0) {
+      if (strcmp(tmpName,RceDevNames[x]) == 0) {
          tmpIdx = x;
          break;
       }

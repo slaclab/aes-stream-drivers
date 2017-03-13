@@ -26,6 +26,9 @@
 #include <stdint.h>
 #endif
 
+// API Version
+#define DMA_VERSION  0x04
+
 // Error values
 #define DMA_ERR_FIFO 0x01
 #define DMA_ERR_LEN  0x02
@@ -41,6 +44,7 @@
 #define DMA_Get_Index      0x1006
 #define DMA_Read_Ready     0x1007
 #define DMA_Set_MaskBytes  0x1008
+#define DMA_Get_Version    0x1009
 
 // Mask size
 #define DMA_MASK_SIZE 32
@@ -250,6 +254,14 @@ static inline void dmaAddMaskBytes(uint8_t * mask, uint32_t dest) {
 // set mask byte array to driver
 static inline ssize_t dmaSetMaskBytes(int32_t fd, uint8_t * mask) {
    return(ioctl(fd,DMA_Set_MaskBytes,mask));
+}
+
+// Check API version, return negative on error
+static inline ssize_t dmaCheckVersion(int32_t fd) {
+   int32_t version;
+   version = ioctl(fd,DMA_Get_Version);
+
+   return((version == DMA_VERSION)?-0:-1);
 }
 
 #endif

@@ -23,72 +23,32 @@
 #define __ASIS_DRIVER_H__
 #include <DmaDriver.h>
 
-#ifdef DMA_IN_KERNEL
-#include <linux/types.h>
-#else
-#include <stdint.h>
-#endif
-
 // Commands
 #define AXIS_Read_Ack 0x2001
 
 // Everything below is hidden during kernel module compile
 #ifndef DMA_IN_KERNEL
-#include <stdlib.h>
-#include <sys/mman.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
-#include <sys/signal.h>
-#include <sys/fcntl.h>
 
-// Write Frame
-static inline ssize_t axisWrite(int32_t fd, void * buf, size_t size, uint32_t fuser, uint32_t luser, uint32_t dest) {
+// Set flags
+static inline uint32_t axisSetFlags(uint32_t fuser, uint32_t luser, uint32_t cont) {
    uint32_t flags;
 
    flags  = fuser & 0xFF;
    flags += (luser << 8) & 0xFF00;
-
-   return(dmaWrite(fd, buf, size, flags, dest));
+   flags += (cont  << 16) & 0x10000;
+   return(flags);
 }
 
-// Write Frame, memory mapped
-static inline ssize_t axisWriteIndex(int32_t fd, uint32_t index, size_t size, uint32_t fuser, uint32_t luser, uint32_t dest) {
-   uint32_t flags;
-
-   flags  = fuser & 0xFF;
-   flags += (luser << 8) & 0xFF00;
-
-   return(dmaWriteIndex(fd, index, size, flags, dest));
+static inline uint32_t axisGetFuser(uint32_t flags) {
+   return(flags & 0xFF);
 }
 
-// Receive Frame
-static inline ssize_t axisRead(int32_t fd, void * buf, size_t maxSize, uint32_t * fuser, uint32_t * luser, uint32_t * dest, uint32_t * cont = NULL) {
-   uint32_t flags;
-   uint32_t error;
-   ssize_t  ret;
-
-   ret = dmaRead(fd, buf, maxSize, &flags, &error, dest);
-
-   if ( fuser != NULL ) *fuser = flags & 0xFF;
-   if ( luser != NULL ) *luser = (flags >> 8) & 0xFF;
-   if ( cont  != NULL ) *cont  = (flags >> 16) & 0x1;
-   return(error==0?ret:-error);
+static inline uint32_t axisGetLuser(uint32_t flags) {
+   return((flags >> 8) & 0xFF);
 }
 
-// Receive Frame, access memory mapped buffer
-// Returns receive size
-static inline ssize_t axisReadIndex(int32_t fd, uint32_t * index, uint32_t * fuser, uint32_t * luser, uint32_t * dest, uint32_t * cont = NULL) {
-   uint32_t flags;
-   uint32_t error;
-   ssize_t  ret;
-
-   ret = dmaReadIndex(fd, index, &flags, &error, dest);
-
-   if ( fuser != NULL ) *fuser = flags & 0xFF;
-   if ( luser != NULL ) *luser = (flags >> 8) & 0xFF;
-   if ( cont  != NULL ) *cont  = (flags >> 16) & 0x1;
-   return(error==0?ret:-error);
+static inline uint32_t axisGetCont(uint32_t flags) {
+   return((flags >> 16) & 0x1);
 }
 
 // Read ACK

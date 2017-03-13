@@ -160,8 +160,8 @@ int main (int argc, char **argv) {
          }
 
          // DMA Write
-         if ( args.idxEn ) ret = pgpWriteIndex(s,dmaIndex,args.size,args.lane,args.vc,0);
-         else ret = pgpWrite(s,txData,args.size,args.lane,args.vc,0);
+         if ( args.idxEn ) ret = dmaWriteIndex(s,dmaIndex,args.size,0,pgpSetDest(args.lane,args.vc));
+         else ret = dmaWrite(s,txData,args.size,0,pgpSetDest(args.lane,args.vc));
 
          if ( ret > 0 ) {
             prbValid = false;

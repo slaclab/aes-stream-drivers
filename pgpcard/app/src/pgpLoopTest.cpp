@@ -167,8 +167,8 @@ void *runWrite ( void *t ) {
             prbValid = true;
          }
 
-         if ( txData->idxEn ) ret = pgpWriteIndex(fd,dmaIndex,txData->size,lane,vc,0);
-         else ret = pgpWrite(fd,data,txData->size,lane,vc,0);
+         if ( txData->idxEn ) ret = dmaWriteIndex(fd,dmaIndex,txData->size,0,pgpSetDest(lane,vc));
+         else ret = dmaWrite(fd,data,txData->size,0,pgpSetDest(lane,vc));
 
          if ( ret < 0 ) {
             printf("Write Error at count %lu. Lane=%i, VC=%i\n",txData->count,lane,vc);
@@ -207,6 +207,7 @@ void *runRead ( void *t ) {
    uint32_t        rxLane;
    uint32_t        rxVc;
    uint32_t        rxErr;
+   uint32_t        rxDest;
    uint64_t        mask;
    int32_t         fd;
    void **         dmaBuffers;
@@ -270,10 +271,13 @@ void *runRead ( void *t ) {
       if ( ret != 0 ) {
 
          if ( idxEn ) {
-            ret = pgpReadIndex(fd,&dmaIndex,&rxLane,&rxVc,&rxErr,NULL);
+            ret = dmaReadIndex(fd,&dmaIndex,NULL,&rxErr,&rxDest);
             data = dmaBuffers[dmaIndex];
          }
-         else ret = pgpRead(fd,data,maxSize,&rxLane,&rxVc,&rxErr,NULL);
+         else ret = dmaRead(fd,data,maxSize,NULL,&rxErr,&rxDest);
+
+         rxVc   = pgpGetVc(rxDest);
+         rxLane = pgpGetLane(rxDest);
 
          if ( ret != 0 ) {
             

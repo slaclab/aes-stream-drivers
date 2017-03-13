@@ -23,12 +23,6 @@
 #define __TEM_DRIVER_H__
 #include <DmaDriver.h>
 
-#ifdef DMA_IN_KERNEL
-#include <linux/types.h>
-#else
-#include <stdint.h>
-#endif
-
 // Card Info
 struct TemInfo {
    uint64_t serial;
@@ -78,14 +72,6 @@ struct TemPromData {
 
 // Everything below is hidden during kernel module compile
 #ifndef DMA_IN_KERNEL
-#include <stdlib.h>
-#include <sys/mman.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
-#include <sys/signal.h>
-#include <sys/fcntl.h>
 
 // Enable command reads, call only once
 static inline int32_t temEnableCmdRead(int32_t fd) {

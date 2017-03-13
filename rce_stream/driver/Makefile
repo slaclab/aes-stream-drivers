@@ -18,28 +18,37 @@
 # contained in the LICENSE.txt file.
 # ----------------------------------------------------------------------------
 # 
-AXIDMA_HOME := $(shell pwd)
-KERNEL := /afs/slac/g/cci/volumes/vol1/xilinx/linux-xlnx
 
-COM_SRC := ../../common/driver
-LOC_SRC := src
+NAME := rcestream
+HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+COMP := arm-xilinx-linux-gnueabi-
+ARCH := arm
+KDIR := /afs/slac/g/cci/volumes/vol1/xilinx/linux-xlnx
+KVER := $(shell make -C $(KDIR) -s kernelversion).arm
+SRCS := $(wildcard src/*.c)
+OBJS := $(patsubst %.c,%.o,$(SRCS))
+GCC  := $(COMP)gcc
+TEST := $(shell which $(GCC) 2> /dev/null)
 
-ccflags-y := -I$(PWD)/../../include
-ccflags-y += -I$(PWD)/$(LOC_SRC)
-ccflags-y += -I$(PWD)/$(COM_SRC)
+ccflags-y := -I$(HOME)/../../include
+ccflags-y += -I$(HOME)/src
 ccflags-y += -DDMA_IN_KERNEL=1
 ccflags-y += -Wformat=0 -Wno-int-to-pointer-cast
 
-axistream-objs := $(COM_SRC)/dma_buffer.o $(COM_SRC)/dma_common.o 
-axistream-objs += $(COM_SRC)/axis_gen2.o
-axistream-objs += $(LOC_SRC)/axis_gen1.o 
-axistream-objs += $(LOC_SRC)/axis_top.o
-
-obj-m := axistream.o
+$(NAME)-objs := src/dma_buffer.o src/dma_common.o 
+$(NAME)-objs += src/axis_gen1.o src/axis_gen2.o src/rce_top.o
+obj-m        := $(NAME).o
 
 all:
-	make ARCH=arm CROSS_COMPILE=arm-xilinx-linux-gnueabi- -C $(KERNEL) M=$(AXIDMA_HOME) modules
+ifdef TEST
+	make ARCH=$(ARCH) CROSS_COMPILE=$(COMP) -C $(KDIR) M=$(HOME) modules
+else
+	@echo "Skipping compile because $(GCC) not found"
+endif
 
 clean:
-	make -C $(KERNEL) M=$(AXIDMA_HOME) clean
-	rm -f $(axistream-objs)
+ifdef TEST
+	make -C $(KDIR) M=$(HOME) clean
+	rm -f $(OBJS)
+endif
+

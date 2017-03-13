@@ -17,27 +17,24 @@
 # copied, modified, propagated, or distributed except according to the terms 
 # contained in the LICENSE.txt file.
 # ----------------------------------------------------------------------------
-# 
-PGPCARD_HOME := $(shell pwd)
-PGPCARD_KVER := $(shell uname -r)
+ 
+NAME := pgpcard
+HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+KVER := $(shell uname -r)
+SRCS := $(wildcard src/*.c)
+OBJS := $(patsubst %.c,%.o,$(SRCS))
 
-COM_SRC := ../../common/driver
-LOC_SRC := src
-
-ccflags-y := -I$(PWD)/../../include
-ccflags-y += -I$(PWD)/$(LOC_SRC)
-ccflags-y += -I$(PWD)/$(COM_SRC)
+ccflags-y := -I$(HOME)/../../include
+ccflags-y += -I$(HOME)/src
 ccflags-y += -DDMA_IN_KERNEL=1
 
-pgpcard-objs := $(COM_SRC)/dma_buffer.o $(COM_SRC)/dma_common.o 
-pgpcard-objs += $(LOC_SRC)/pgp_common.o $(LOC_SRC)/pgp_gen2.o $(LOC_SRC)/pgp_gen3.o
-pgpcard-objs += $(LOC_SRC)/pgp_top.o
-
-obj-m := pgpcard.o
+$(NAME)-objs := src/dma_buffer.o src/dma_common.o 
+$(NAME)-objs += src/pgp_common.o src/pgp_gen2.o src/pgp_gen3.o src/pgp_top.o
+obj-m        := $(NAME).o
 
 all:
-	make -C /lib/modules/$(PGPCARD_KVER)/build M=$(PGPCARD_HOME) modules
+	make -C /lib/modules/$(KVER)/build M=$(HOME) modules
 
 clean:
-	make -C /lib/modules/$(PGPCARD_KVER)/build M=$(PGPCARD_HOME) clean
-	rm -f $(pgpcard-objs)
+	make -C /lib/modules/$(KVER)/build M=$(HOME) clean
+	rm -f $(OBJS)

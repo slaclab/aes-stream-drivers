@@ -174,8 +174,8 @@ void *runWrite ( void *t ) {
             prbValid = true;
          }
 
-         if ( txData->idxEn ) ret = axisWriteIndex(fd,dmaIndex,txData->size,txData->fuser,txData->luser,txData->dest);
-         else ret = axisWrite(fd,data,txData->size,txData->fuser,txData->luser,txData->dest);
+         if ( txData->idxEn ) ret = dmaWriteIndex(fd,dmaIndex,txData->size,axisSetFlags(txData->fuser,txData->luser,0),txData->dest);
+         else ret = dmaWrite(fd,data,txData->size,axisSetFlags(txData->fuser,txData->luser,0),txData->dest);
 
          if ( ret < 0 ) {
             printf("Write Error at count %lu. Dest=%i\n",txData->count,txData->dest);
@@ -212,6 +212,7 @@ void *runRead ( void *t ) {
    uint32_t        rxDest;
    uint32_t        rxFuser;
    uint32_t        rxLuser;
+   uint32_t        rxFlags;
    int32_t         fd;
    void **         dmaBuffers;
    uint32_t        dmaSize;
@@ -274,10 +275,13 @@ void *runRead ( void *t ) {
       if ( ret != 0 ) {
 
          if ( idxEn ) {
-            ret = axisReadIndex(fd,&dmaIndex,&rxFuser,&rxLuser,&rxDest);
+            ret = dmaReadIndex(fd,&dmaIndex,&rxFlags,NULL,&rxDest);
             data = dmaBuffers[dmaIndex];
          }
-         else ret = axisRead(fd,data,maxSize,&rxFuser,&rxLuser,&rxDest);
+         else ret = dmaRead(fd,data,maxSize,&rxFlags,NULL,&rxDest);
+
+         rxFuser = axisGetFuser(rxFlags);
+         rxLuser = axisGetLuser(rxFlags);
 
          if ( ret != 0 ) {
             

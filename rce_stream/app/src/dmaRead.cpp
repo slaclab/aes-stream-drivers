@@ -83,6 +83,7 @@ int main (int argc, char **argv) {
    uint32_t      rxDest;
    uint32_t      rxFuser;
    uint32_t      rxLuser;
+   uint32_t      rxFlags;
    PrbsData      prbs(32,4,1,2,6,31);
    bool          prbRes;
    void **       dmaBuffers;
@@ -156,10 +157,13 @@ int main (int argc, char **argv) {
 
          // DMA Read
          if ( args.idxEn ) {
-            ret = axisReadIndex(s,&dmaIndex,&rxFuser,&rxLuser,&rxDest);
+            ret = dmaReadIndex(s,&dmaIndex,&rxFlags,NULL,&rxDest);
             rxData = dmaBuffers[dmaIndex];
          }
-         else ret = axisRead(s,rxData,maxSize,&rxFuser,&rxLuser,&rxDest);
+         else ret = dmaRead(s,rxData,maxSize,&rxFlags,NULL,&rxDest);
+
+         rxFuser = axisGetFuser(rxFlags);
+         rxLuser = axisGetFuser(rxFlags);
 
          if ( ret > 0 ) {
             if ( args.prbsDis == 0 ) prbRes = prbs.processData(rxData,ret);

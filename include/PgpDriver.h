@@ -23,12 +23,6 @@
 #define __PGP_DRIVER_H__
 #include <DmaDriver.h>
 
-#ifdef DMA_IN_KERNEL
-#include <linux/types.h>
-#else
-#include <stdint.h>
-#endif
-
 // Card Info
 struct PgpInfo {
    uint64_t serial;
@@ -42,7 +36,6 @@ struct PgpInfo {
    uint32_t pad;
    char     buildStamp[256];
 };
-
 
 // PCI Info
 struct PciStatus {
@@ -59,7 +52,6 @@ struct PciStatus {
    uint32_t pciLanes;
    uint32_t pad;
 };
-
 
 // Lane status
 struct PgpStatus {
@@ -79,7 +71,6 @@ struct PgpStatus {
    uint32_t pad;
 };
 
-
 // EVR Control, per lane
 struct PgpEvrControl {
    uint32_t  lane;
@@ -96,7 +87,6 @@ struct PgpEvrControl {
    uint32_t  pad;
 };
 
-
 // EVR Status, per lane
 struct PgpEvrStatus {
    uint32_t  lane;
@@ -108,7 +98,6 @@ struct PgpEvrStatus {
    uint32_t  acceptCounter;
    uint32_t  pad;
 };
-
 
 // Card Types
 #define PGP_NONE     0x00
@@ -146,71 +135,29 @@ struct PgpPromData {
 
 // Everything below is hidden during kernel module compile
 #ifndef DMA_IN_KERNEL
-#include <stdlib.h>
-#include <string.h>
-#include <sys/mman.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
-#include <sys/signal.h>
-#include <sys/fcntl.h>
 
-// Write Frame
-static inline ssize_t pgpWrite(int32_t fd, void * buf, size_t size, uint32_t lane, uint32_t vc, uint32_t cont=0) {
-   uint32_t flags;
+static inline uint32_t pgpSetDest(uint32_t lane, uint32_t vc) {
    uint32_t dest;
-
-   flags = cont;
-   dest  = cont;
 
    dest  = lane * 4;
    dest += vc;
-
-   return(dmaWrite(fd, buf, size, flags, dest));
+   return(dest);
 }
 
-// Send Frame, memory mapped buffer
-// Returns transmit size
-static inline ssize_t pgpWriteIndex(int32_t fd, uint32_t index, size_t size, uint32_t lane, uint32_t vc, uint32_t cont) {
-   uint32_t flags;
-   uint32_t dest;
-
-   flags = cont;
-   dest  = cont;
-
-   dest  = lane * 4;
-   dest += vc;
-
-   return(dmaWriteIndex(fd, index, size, flags, dest));
+static inline uint32_t pgpSetFlags(uint32_t cont){
+   return(cont & 0x1);
 }
 
-// Receive Frame
-static inline ssize_t pgpRead(int32_t fd, void * buf, size_t maxSize, uint32_t * lane, uint32_t * vc, uint32_t * error, uint32_t * cont=NULL) {
-   uint32_t flags;
-   uint32_t dest;
-   ssize_t  ret;
-
-   ret = dmaRead(fd,buf,maxSize,&flags,error,&dest);
-
-   if ( lane  != NULL ) *lane  = dest / 4;
-   if ( vc    != NULL ) *vc    = dest % 4;
-   if ( cont  != NULL ) *cont  = flags;
-   return(ret);
+static inline uint32_t pgpGetLane(uint32_t dest) {
+   return(dest / 4);
 }
 
-// Receive Frame, access memory mapped buffer
-// Returns receive size
-static inline ssize_t pgpReadIndex(int32_t fd, uint32_t * index, uint32_t * lane, uint32_t * vc, uint32_t * error, uint32_t * cont=NULL) {
-   uint32_t flags;
-   uint32_t dest;
-   ssize_t  ret;
+static inline uint32_t pgpGetVc(uint32_t dest) {
+   return(dest % 4);
+}
 
-   ret = dmaReadIndex(fd,index,&flags,error,&dest);
-
-   if ( lane  != NULL ) *lane  = dest / 4;
-   if ( vc    != NULL ) *vc    = dest % 4;
-   if ( cont  != NULL ) *cont  = flags;
-   return(ret);
+static inline uint32_t pgpGetCont(uint32_t flags) {
+   return(flags & 0x1);
 }
 
 // Read Card Info
@@ -265,13 +212,11 @@ static inline ssize_t pgpSetEvrControl(int32_t fd, uint32_t lane, struct PgpEvrC
    return(ioctl(fd,PGP_Set_Evr_Cntrl,control));
 }
 
-
 // Get EVR Control
 static inline ssize_t pgpGetEvrControl(int32_t fd, uint32_t lane, struct PgpEvrControl * control) {
    control->lane = lane;
    return(ioctl(fd,PGP_Get_Evr_Cntrl,control));
 }
-
 
 // Get EVR Status
 static inline ssize_t pgpGetEvrStatus(int32_t fd, uint32_t lane, struct PgpEvrStatus * status) {

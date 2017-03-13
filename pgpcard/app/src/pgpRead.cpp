@@ -78,6 +78,7 @@ int main (int argc, char **argv) {
    uint32_t      maxSize;
    uint32_t      rxLane;
    uint32_t      rxVc;
+   uint32_t      rxDest;
    uint32_t      rxError;
    PrbsData      prbs(32,4,1,2,6,31);
    bool          prbRes;
@@ -138,10 +139,13 @@ int main (int argc, char **argv) {
 
          // DMA Read
          if ( args.idxEn ) {
-            ret = pgpReadIndex(s,&dmaIndex,&rxLane,&rxVc,&rxError,NULL);
+            ret = dmaReadIndex(s,&dmaIndex,NULL,&rxError,&rxDest);
             rxData = dmaBuffers[dmaIndex];
          }
-         else ret = pgpRead(s,rxData,maxSize,&rxLane,&rxVc,&rxError,NULL);
+         else ret = dmaRead(s,rxData,maxSize,NULL,&rxError,&rxDest);
+
+         rxVc   = pgpGetVc(rxDest);
+         rxLane = pgpGetLane(rxDest);
 
          if ( ret > 0 ) {
             if ( args.prbsDis == 0 ) prbRes = prbs.processData(rxData,ret);

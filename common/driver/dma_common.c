@@ -608,6 +608,11 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          }
          break;
 
+      // Get API Version
+      case DMA_Get_Version:
+         return(DMA_VERSION);
+         break;
+
       // All other commands handled by card specific functions   
       default:
          return(dev->hwFunc->command(dev,cmd,arg));
@@ -773,6 +778,8 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    dev->hwFunc->seqShow(s,dev);
 
    seq_printf(s,"\n");
+   seq_printf(s,"-------------- General --------------------\n");
+   seq_printf(s,"          Dma Version : 0x%x\n",DMA_VERSION);
    seq_printf(s,"-------------- Read Buffers ---------------\n");
    seq_printf(s,"         Buffer Count : %i\n",dev->rxBuffers.count);
    seq_printf(s,"          Buffer Size : %i\n",dev->cfgSize);

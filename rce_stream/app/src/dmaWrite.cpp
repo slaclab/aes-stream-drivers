@@ -161,8 +161,8 @@ int main (int argc, char **argv) {
          }
 
          // DMA Write
-         if ( args.idxEn ) ret = axisWriteIndex(s,dmaIndex,args.size,args.fuser,args.luser,args.dest);
-         else ret = axisWrite(s,txData,args.size,args.fuser,args.luser,args.dest);
+         if ( args.idxEn ) ret = dmaWriteIndex(s,dmaIndex,args.size,axisSetFlags(args.fuser,args.luser,0),args.dest);
+         else ret = dmaWrite(s,txData,args.size,axisSetFlags(args.fuser,args.luser,0),args.dest);
 
          if ( ret > 0 ) {
             prbValid = false;

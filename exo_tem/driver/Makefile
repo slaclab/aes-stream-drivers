@@ -17,26 +17,25 @@
 # copied, modified, propagated, or distributed except according to the terms 
 # contained in the LICENSE.txt file.
 # ----------------------------------------------------------------------------
-# 
-TEMCARD_HOME := $(shell pwd)
-TEMCARD_KVER := $(shell uname -r)
 
-COM_SRC := ../../common/driver
-LOC_SRC := src
+NAME := temcard
+HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+KVER := $(shell uname -r)
+SRCS := $(wildcard src/*.c)
+OBJS := $(patsubst %.c,%.o,$(SRCS))
 
-ccflags-y := -I$(PWD)/../../include
-ccflags-y += -I$(PWD)/$(LOC_SRC)
-ccflags-y += -I$(PWD)/$(COM_SRC)
+ccflags-y := -I$(HOME)/../../include
+ccflags-y += -I$(HOME)/src
 ccflags-y += -DDMA_IN_KERNEL=1
 
-temcard-objs := $(COM_SRC)/dma_buffer.o $(COM_SRC)/dma_common.o 
-temcard-objs += $(LOC_SRC)/tem_gen3.o $(LOC_SRC)/tem_top.o
-
-obj-m := temcard.o
+$(NAME)-objs := src/dma_buffer.o src/dma_common.o 
+$(NAME)-objs += src/tem_gen3.o src/tem_top.o
+obj-m        := $(NAME).o
 
 all:
-	make -C /lib/modules/$(TEMCARD_KVER)/build M=$(TEMCARD_HOME) modules
+	make -C /lib/modules/$(KVER)/build M=$(HOME) modules
 
 clean:
-	make -C /lib/modules/$(TEMCARD_KVER)/build M=$(TEMCARD_HOME) clean
-	rm -f $(temcard-objs)
+	make -C /lib/modules/$(KVER)/build M=$(HOME) clean
+	rm -f $(OBJS)
+
