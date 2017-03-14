@@ -49,6 +49,8 @@ app_clean:
 	@make -C $(MAKE_HOME)/pgpcard/app clean
 	@make -C $(MAKE_HOME)/rce_stream/app clean
 
+install: linux_install rce_install app
+
 linux_install:
 	@mkdir -p $(MAKE_HOME)/install;
 	@ $(foreach ver,$(LOC_VERS), \
