@@ -21,21 +21,22 @@
 # 
 
 # Variables
+HOME     := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 CC       := g++
 DEF      :=
-BIN      := ./bin
-OBJ      := ./.obj
-CFLAGS   := -Wall -I../../include/ -I../../common/app_lib/
+BIN      := $(HOME)/bin
+OBJ      := $(HOME)/.obj
+CFLAGS   := -Wall -I$(HOME)/../../include/ -I$(HOME)/../../common/app_lib/
 LFLAGS   := -lpthread
 
 # Generic Sources
-LIB_DIR := $(PWD)/../../common/app_lib/
+LIB_DIR := $(HOME)/../../common/app_lib/
 LIB_SRC := $(wildcard $(LIB_DIR)/*.cpp)
 LIB_HDR := $(wildcard $(LIB_DIR)/*.h)
 LIB_OBJ := $(patsubst $(LIB_DIR)/%.cpp,$(OBJ)/%.o,$(LIB_SRC))
 
 # Application Sources
-APP_DIR := $(PWD)/src
+APP_DIR := $(HOME)/src
 APP_SRC := $(wildcard $(APP_DIR)/*.cpp)
 APP_BIN := $(patsubst $(APP_DIR)/%.cpp,$(BIN)/%,$(APP_SRC))
 
