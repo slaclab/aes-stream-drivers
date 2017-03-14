@@ -112,6 +112,64 @@ static inline ssize_t dmaWriteIndex(int32_t fd, uint32_t index, size_t size, uin
    return(write(fd,&w,sizeof(struct DmaWriteData)));
 }
 
+// Write frame from iovector
+static inline ssize_t dmaWriteVector(int32_t fd, struct iovec *iov, size_t iovlen, 
+                                     uint32_t begFlags, uint32_t midFlags, uint32_t endFlags, uint32_t dest) {
+   uint32_t x;
+   ssize_t ret;
+   ssize_t res;
+   struct DmaWriteData w;
+
+   ret = 0;
+
+   for (x=0; x < iovlen; x++) {
+      memset(&w,0,sizeof(struct DmaWriteData));
+      w.dest    = dest;
+      w.flags   = (x==0)?begFlags:((x==(iovlen-1))?endFlags:midFlags);
+      w.size    = iov[x].iov_len;
+      w.is32    = (sizeof(void *)==4);
+      w.data    = (uint64_t)iov[x].iov_base;
+
+      do { 
+         res = write(fd,&w,sizeof(struct DmaWriteData));
+
+         if ( res < 0 ) return(res);
+         else if ( res == 0 ) usleep(10);
+         else ret += res;
+      } while (res == 0);
+   }
+   return(ret);
+}
+
+// Write Frame, memory mapped from iovector
+static inline ssize_t dmaWriteIndexVector(int32_t fd, struct iovec *iov, size_t iovlen, 
+                                          uint32_t begFlags, uint32_t midFlags, uint32_t endFlags, uint32_t dest) {
+   uint32_t x;
+   ssize_t ret;
+   ssize_t res;
+   struct DmaWriteData w;
+
+   ret = 0;
+
+   for (x=0; x < iovlen; x++) {
+      memset(&w,0,sizeof(struct DmaWriteData));
+      w.dest    = dest;
+      w.flags   = (x==0)?begFlags:((x==(iovlen-1))?endFlags:midFlags);
+      w.size    = iov[x].iov_len;
+      w.is32    = (sizeof(void *)==4);
+      w.index   = (uint32_t)(((uint64_t)iov[x].iov_base) & 0xFFFFFFFF);
+
+      do {
+         res = write(fd,&w,sizeof(struct DmaWriteData));
+
+         if ( res < 0 ) return(res);
+         else if ( res == 0 ) usleep(10);
+         else ret += res;
+      } while (res == 0);
+   }
+   return(ret);
+}
+
 // Receive Frame
 static inline ssize_t dmaRead(int32_t fd, void * buf, size_t maxSize, uint32_t * flags, uint32_t *error, uint32_t * dest) {
    struct DmaReadData r;
