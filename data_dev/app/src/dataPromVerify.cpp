@@ -77,7 +77,6 @@ static struct argp argp = {options,parseArgs,args_doc,doc};
 
 int main (int argc, char **argv) {
    int fd;
-   bool gen3;
    PciCardProm *prom;
    struct PrgArgs args;
 
