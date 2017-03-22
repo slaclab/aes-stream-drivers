@@ -311,7 +311,7 @@ int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
    spin_unlock(&dev->writeHwLock);
 
    if ( dev->debug > 0 ) {
-      dev_info(dev->device,"SendBuffer: Wrote High=0x%x, Low=0x%x, Handle=%x\n",descHigh,descLow,buff->buffHandle);
+      dev_info(dev->device,"SendBuffer: Wrote High=0x%x, Low=0x%x, Handle=0x%llx\n",descHigh,descLow,buff->buffHandle);
       dev_info(dev->device,"SendBuffer: %x %x %x %x %x %x %x %x\n", ((uint8_t*)buff->buffAddr)[0], ((uint8_t*)buff->buffAddr)[1], ((uint8_t*)buff->buffAddr)[2],
                                                                     ((uint8_t*)buff->buffAddr)[3], ((uint8_t*)buff->buffAddr)[4], ((uint8_t*)buff->buffAddr)[5],
                                                                     ((uint8_t*)buff->buffAddr)[6], ((uint8_t*)buff->buffAddr)[7]);

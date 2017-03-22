@@ -47,7 +47,10 @@ struct DmaDevice {
    phys_addr_t baseAddr;
    uint32_t    baseSize;
 
-   // Register pointers
+   // Base pointer to memory region
+   uint8_t * base;
+
+   // Register pointers, may be the same as reg
    void * reg; // hardware specific
 
    // Direct read/write offset and size

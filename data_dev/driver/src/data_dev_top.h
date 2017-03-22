@@ -29,6 +29,18 @@
 #define PCI_VENDOR_ID_SLAC 0x1a4a
 #define PCI_DEVICE_ID_DDEV 0x2020
 
+// Address map
+#define AVER_OFF    0x00000000
+#define AVER_SIZE   0x00010000
+#define PROM_OFF    0x00010000
+#define PROM_SIZE   0x00010000
+#define AGEN2_OFF   0x00020000
+#define AGEN2_SIZE  0x00010000
+#define PHY_OFF     0x00030000
+#define PHY_SIZE    0x00010000
+#define USER_OFF    0x00080000
+#define USER_SIZE   0x00080000
+
 // Init Kernel Module
 int32_t DataDev_Init(void);
 

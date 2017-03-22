@@ -155,7 +155,12 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->rwSize   = 1000;
 
    // Call common dma init function
-   return(Dma_Init(dev));
+   if ( Dma_Init(dev) < 0 ) return(-1);
+
+   dev->reg      = dev->base + AGEN2_OFF;
+   dev->rwOffset = dev->base + USER_OFF;
+   dev->rwSize   = USER_SIZE;
+   return(0);
 }
 
 // Cleanup device
@@ -197,17 +202,17 @@ int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
 
       // Write to prom
       case FPGA_Write_Prom:
-         return(FpgaProm_Write(dev,dev->reg + 0x00000, arg));
+         return(FpgaProm_Write(dev,dev->base + PROM_OFF, arg));
          break;
 
       // Read from prom
       case FPGA_Read_Prom:
-         return(FpgaProm_Read(dev,dev->reg + 0x0000, arg));
+         return(FpgaProm_Read(dev,dev->base + PROM_OFF, arg));
          break;
 
       // AXI Version Read
       case AVER_Get:
-         return(AxiVersion_Get(dev,dev->reg + 0x0000, arg));
+         return(AxiVersion_Get(dev,dev->base + AVER_OFF, arg));
          break;
 
       default:
@@ -220,7 +225,7 @@ int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
 // Add data to proc dump
 void DataDev_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    struct AxiVersion aVer;
-   AxiVersion_Read(dev, dev->reg + 0x0000, &aVer);
+   AxiVersion_Read(dev, dev->base + AVER_OFF, &aVer);
    AxiVersion_Show(s, dev, &aVer);
    AxisG2_SeqShow(s,dev);
 }
