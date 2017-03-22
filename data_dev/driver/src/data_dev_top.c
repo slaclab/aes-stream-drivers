@@ -151,15 +151,12 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->device = &(pcidev->dev);
    dev->hwFunc = hfunc;
 
-   dev->rwOffset = 0x10000;
-   dev->rwSize   = 1000;
-
    // Call common dma init function
    if ( Dma_Init(dev) < 0 ) return(-1);
 
    dev->reg      = dev->base + AGEN2_OFF;
-   dev->rwOffset = dev->base + USER_OFF;
-   dev->rwSize   = USER_SIZE;
+   dev->rwOffset = dev->base + AVER_OFF;
+   dev->rwSize   = AVER_SIZE + USER_SIZE;
    return(0);
 }
 

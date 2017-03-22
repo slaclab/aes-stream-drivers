@@ -119,8 +119,6 @@ struct PgpEvrStatus {
 #define PGP_Count_Reset    0x2005
 #define PGP_Send_OpCode    0x2006
 #define PGP_Set_Data       0x2007
-#define PGP_Write_Prom     0x2008
-#define PGP_Read_Prom      0x2009
 #define PGP_Set_Evr_Cntrl  0x3001
 #define PGP_Get_Evr_Cntrl  0x3002
 #define PGP_Get_Evr_Status 0x3003
