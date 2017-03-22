@@ -33,7 +33,7 @@
 #include <stdlib.h>
 #include <argp.h>
 
-#include <TemCardProm.h>
+#include <PciCardProm.h>
 
 using namespace std;
 
@@ -78,7 +78,7 @@ static struct argp argp = {options,parseArgs,args_doc,doc};
 
 int main (int argc, char **argv) {
    int fd;
-   TemCardProm *prom;
+   PciCardProm *prom;
    struct PrgArgs args;
 
    memcpy(&args,&DefArgs,sizeof(struct PrgArgs));
@@ -89,8 +89,8 @@ int main (int argc, char **argv) {
       return(1);
    }
 
-   // Create the TemCardProm object
-   prom = new TemCardProm(fd,args.file);
+   // Create the PciCardProm object
+   prom = new PciCardProm(fd,args.file,true);
    
    // Check if the .mcs file exists
    if(!prom->fileExist()){
@@ -100,13 +100,6 @@ int main (int argc, char **argv) {
       return(1);   
    }   
    
-   // Check if the PCIe device is a generation 2 card
-   if(!prom->checkFirmwareVersion()){
-      delete prom;
-      close(fd);
-      return(1);   
-   }    
-
    // Compare the .mcs file with the PROM
    if(!prom->verifyBootProm()) {
       cout << "Error in prom->writeBootProm() function" << endl;

@@ -613,6 +613,16 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          return(DMA_VERSION);
          break;
 
+      // Register write
+      case DMA_Write_Register:
+         return(Dma_WriteRegister(dev,arg));
+         break;
+
+      // Register read
+      case DMA_Read_Register:
+         return(Dma_ReadRegister(dev,arg));
+         break;
+
       // All other commands handled by card specific functions   
       default:
          return(dev->hwFunc->command(dev,cmd,arg));
@@ -909,6 +919,47 @@ int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t * mask
    memcpy(desc->destMask,mask,DMA_MASK_SIZE);
 
    spin_unlock_irqrestore(&dev->maskLock,iflags);
+   return(0);
+}
+
+// Write Register
+int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg) {
+   int32_t  ret;
+
+   struct DmaRegisterData rData;
+
+   if ((ret = copy_from_user(&rData,(void *)arg,sizeof(struct DmaRegisterData)))) {
+      dev_warn(dev->device,"Dma_WriteRegister: copy_from_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
+      return(-1);
+   }
+
+   if ( rData.address > dev->rwSize ) return(-1);
+
+   iowrite32(rData.data,dev->reg+dev->rwOffset+rData.address);
+
+   return(0);
+}
+
+// Prom write 
+int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg) {
+   int32_t  ret;
+
+   struct DmaRegisterData rData;
+
+   if ((ret=copy_from_user(&rData,(void *)arg,sizeof(struct DmaRegisterData)))) {
+      dev_warn(dev->device,"Dma_ReadRegister: copy_from_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
+      return(-1);
+   }
+
+   if ( rData.address > dev->rwSize ) return(-1);
+
+   rData.data = ioread32(dev->reg+dev->rwOffset+rData.address);
+
+   // Return the data structure
+   if ((ret=copy_to_user((void *)arg,&rData,sizeof(struct DmaRegisterData)))) {
+      dev_warn(dev->device,"Dma_ReadRegister: copy_to_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
+      return(-1);
+   }
    return(0);
 }
 

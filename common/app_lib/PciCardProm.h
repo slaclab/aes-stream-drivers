@@ -1,14 +1,14 @@
 /**
  *-----------------------------------------------------------------------------
- * Title         : PgpCard PROM C++ Class
+ * Title         : PciCard PROM C++ Class
  * ----------------------------------------------------------------------------
- * File          : PgpCardProm.h
+ * File          : PciCardProm.h
  * Author        : Larry Ruckman  <ruckman@slac.stanford.edu>
  * Created       : 03/19/2014
  * Last update   : 08/11/2014
  *-----------------------------------------------------------------------------
  * Description :
- *    PgpCard PROM C++ Class
+ *    PciCard PROM C++ Class
  *-----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to 
  * the license terms in the LICENSE.txt file found in the top-level directory 
@@ -20,8 +20,8 @@
  *-----------------------------------------------------------------------------
 **/
 
-#ifndef __PGPCARD_PROM_H__
-#define __PGPCARD_PROM_H__
+#ifndef __PCICARD_PROM_H__
+#define __PCICARD_PROM_H__
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -30,25 +30,22 @@
 
 #include <string.h>
 #include <stdint.h>
-#include <PgpDriver.h>
+#include <FpgaProm.h>
 
 using namespace std;
 
 //! Class to contain generic register data.
-class PgpCardProm {
+class PciCardProm {
    public:
 
       //! Constructor
-      PgpCardProm (int32_t fd, string pathToFile );
+      PciCardProm (int32_t fd, string pathToFile, bool large );
 
       //! Deconstructor
-      ~PgpCardProm ( );
+      ~PciCardProm ( );
       
       //! Get the PROM size
       uint32_t getPromSize ();
-
-      //! Check and configure board parameters
-      bool checkFirmwareVersion ();
 
       //! Check if file exists
       bool fileExist ();
@@ -68,11 +65,10 @@ class PgpCardProm {
    private:
       // Local Variables
       string         _filePath;  
+      bool           _large;
       int32_t        _fd;
       uint32_t       _blockSize;
       uint32_t       _promSize;
-      bool           _en;
-      struct PgpInfo _info;
 
       //! Write the .mcs file to the PROM
       bool unbufferedWriteBootProm ( );       

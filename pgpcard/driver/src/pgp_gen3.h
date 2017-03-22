@@ -87,9 +87,7 @@ struct PgpCardG3Reg {
    uint32_t txRead;          // Software_Addr = 0x90C,        Firmware_Addr(13 downto 2) = 0x243  
    uint32_t txSpare[188];    // Software_Addr = 0x910:0xBFC   
 
-   uint32_t promData;        // Software_Addr = 0xC00
-   uint32_t promAddr;        // Software_Addr = 0xC04
-   uint32_t promRead;        // Software_Addr = 0xC08
+   uint32_t promRegs[3];     // Prom registers
 };
 
 // Set functions for gen3 card
