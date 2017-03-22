@@ -19,6 +19,7 @@
 **/
 #ifndef __DATA_DRIVER_H__
 #define __DATA_DRIVER_H__
+#include <AxisDriver.h>
 #include <DmaDriver.h>
 #include <FpgaProm.h>
 #include <AxiVersion.h>
