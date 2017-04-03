@@ -23,6 +23,7 @@ struct FpgaProm_Reg {
    uint32_t promData; 
    uint32_t promAddr; 
    uint32_t promRead; 
+   uint32_t promTest; 
 };
 
 // Prom Read 

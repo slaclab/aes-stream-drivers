@@ -38,6 +38,7 @@ int32_t FpgaProm_Write(struct DmaDevice *dev, void * base, uint64_t arg) {
    // Set the data bus
    tempVal = ( (prom.cmd << 16) | prom.data );
    iowrite32(tempVal,&(reg->promData));
+   
    asm("nop");
 
    // Set the address bus and initiate the transfer
@@ -53,7 +54,6 @@ int32_t FpgaProm_Read(struct DmaDevice *dev, void * base, uint64_t arg) {
    uint32_t tempVal;
 
    struct FpgaPromData prom;
-
    struct FpgaProm_Reg *reg = (struct FpgaProm_Reg*)base;
 
    if ((ret=copy_from_user(&prom,(void *)arg,sizeof(struct FpgaPromData)))) {

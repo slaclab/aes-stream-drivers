@@ -27,7 +27,7 @@
 
 // PCI ID
 #define PCI_VENDOR_ID_SLAC 0x1a4a
-#define PCI_DEVICE_ID_DDEV 0x2020
+#define PCI_DEVICE_ID_DDEV 0x2030
 
 // Address map
 #define PROM_OFF    0x00000000

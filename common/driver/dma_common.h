@@ -54,8 +54,8 @@ struct DmaDevice {
    void * reg; // hardware specific
 
    // Direct read/write offset and size
-   uint32_t rwOffset;
-   uint32_t rwSize;
+   uint8_t * rwBase;
+   uint32_t  rwSize;
 
    // Configuration
    uint32_t cfgSize;

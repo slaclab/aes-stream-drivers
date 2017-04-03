@@ -45,13 +45,13 @@ struct PrgArgs {
    const char * file;
 };
 
-static struct PrgArgs DefArgs = { "/dev/datacard_0", "" };
+static struct PrgArgs DefArgs = { "/dev/datadev_0", "" };
 
 static char   args_doc[] = "promFile";
 static char   doc[]      = "\n   PromFile is the appropriate .mcs file for the card.";
 
 static struct argp_option options[] = {
-   { "path", 'p', "PATH", OPTION_ARG_OPTIONAL, "Path of datacard device to use. Default=/dev/datacard_0.",0},
+   { "path", 'p', "PATH", OPTION_ARG_OPTIONAL, "Path of datacard device to use. Default=/dev/datadev_0.",0},
    {0}
 };
 

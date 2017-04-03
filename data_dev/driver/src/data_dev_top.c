@@ -137,6 +137,9 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->baseAddr = pci_resource_start (pcidev, 0);
    dev->baseSize = pci_resource_len (pcidev, 0);
 
+   // Remap the I/O register block so that it can be safely accessed.
+   if ( Dma_MapReg(dev) < 0 ) return(-1);
+
    // Set configuration
    dev->cfgTxCount = cfgTxCount;
    dev->cfgRxCount = cfgRxCount;
@@ -151,12 +154,17 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->device = &(pcidev->dev);
    dev->hwFunc = hfunc;
 
+   dev->reg    = dev->base + AGEN2_OFF;
+   dev->rwBase = dev->base + PHY_OFF;
+   dev->rwSize = PHY_SIZE + AVER_SIZE + USER_SIZE;
+
    // Call common dma init function
    if ( Dma_Init(dev) < 0 ) return(-1);
 
-   dev->reg      = dev->base + AGEN2_OFF;
-   dev->rwOffset = dev->base + AVER_OFF;
-   dev->rwSize   = AVER_SIZE + USER_SIZE;
+   dev_info(dev->device,"Init: Reg  space mapped to %p.\n",dev->reg);
+   dev_info(dev->device,"Init: User space mapped to %p with size 0x%x.\n",dev->rwBase,dev->rwSize);
+   dev_info(dev->device,"Init: Top Register = 0x%x\n",ioread32(dev->reg));
+
    return(0);
 }
 

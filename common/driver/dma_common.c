@@ -78,13 +78,14 @@ char *Dma_DevNode(struct device *dev, umode_t *mode){
 // Map address space in buffer
 int Dma_MapReg ( struct DmaDevice *dev ) {
    if ( dev->base == NULL ) {
-      dev_info(dev->device,"Init: Mapping Register space %p with size 0x%i.\n",(void *)dev->baseAddr,dev->baseSize);
+      dev_info(dev->device,"Init: Mapping Register space %p with size 0x%x.\n",(void *)dev->baseAddr,dev->baseSize);
       dev->base = ioremap_nocache(dev->baseAddr, dev->baseSize);
       if (! dev->base ) {
          dev_err(dev->device,"Init: Could not remap memory.\n");
          return -1;
       }
       dev->reg = dev->base;
+      dev_info(dev->device,"Init: Mapped to %p.\n",dev->base);
 
       // Hold memory region
       if ( request_mem_region(dev->baseAddr, dev->baseSize, dev->devName) == NULL ) {
@@ -790,7 +791,7 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
 
    seq_printf(s,"\n");
    seq_printf(s,"-------------- General --------------------\n");
-   seq_printf(s,"          Dma Version : 0x%x\n",DMA_VERSION);
+   seq_printf(s,"          Dma Version : 0x%x\n\n",DMA_VERSION);
    seq_printf(s,"-------------- Read Buffers ---------------\n");
    seq_printf(s,"         Buffer Count : %i\n",dev->rxBuffers.count);
    seq_printf(s,"          Buffer Size : %i\n",dev->cfgSize);
@@ -936,7 +937,7 @@ int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg) {
 
    if ( rData.address > dev->rwSize ) return(-1);
 
-   iowrite32(rData.data,dev->base+dev->rwOffset+rData.address);
+   iowrite32(rData.data,dev->rwBase+rData.address);
 
    return(0);
 }
@@ -954,7 +955,7 @@ int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg) {
 
    if ( rData.address > dev->rwSize ) return(-1);
 
-   rData.data = ioread32(dev->base+dev->rwOffset+rData.address);
+   rData.data = ioread32(dev->rwBase+rData.address);
 
    // Return the data structure
    if ((ret=copy_to_user((void *)arg,&rData,sizeof(struct DmaRegisterData)))) {

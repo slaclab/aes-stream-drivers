@@ -65,22 +65,23 @@ void AxiVersion_Show(struct seq_file *s, struct DmaDevice *dev, struct AxiVersio
    seq_printf(s,"-------------- Axi Version ----------------\n");
    seq_printf(s,"     Firmware Version : 0x%x\n",aVer->firmwareVersion);
    seq_printf(s,"           ScratchPad : 0x%x\n",aVer->scratchPad);
-   seq_printf(s,"        Up Time Count : %ui\n",aVer->upTimeCount);
+   seq_printf(s,"        Up Time Count : %u\n",aVer->upTimeCount);
    seq_printf(s,"             Fd Value : 0x%llx\n",aVer->fdValue);
 
-   for (x=0; x < 64; x++)
-      seq_printf(s,"          User Values : 0x%x\n",aVer->userValues[x]);
+   //for (x=0; x < 64; x++)
+   //   seq_printf(s,"          User Values : 0x%x\n",aVer->userValues[x]);
 
    seq_printf(s,"            Device ID : 0x%x\n",aVer->deviceId);
 
-   for (x=20; x > 0; x++)
-      seq_printf(s,"             Git Hash : %.02x\n",aVer->gitHash[x]);
 
-   for (x=0; x < 16; x++)
-   seq_printf(s,"            DNA Value : 0x%.02x\n",aVer->dnaValue[x]);
+   seq_printf(s,"             Git Hash : ");
+   for (x=20; x > 0; x--) seq_printf(s,"%.02x",aVer->gitHash[x]);
+   seq_printf(s,"\n");
 
-   for (x=0; x < 64; x++)
-      seq_printf(s,"         Build String : %s\n",aVer->buildString);
+   seq_printf(s,"            DNA Value : 0x");
+   for (x=0; x < 16; x++) seq_printf(s,"%.02x",aVer->dnaValue[x]);
+   seq_printf(s,"\n");
 
+   seq_printf(s,"         Build String : %s\n",aVer->buildString);
 }
 
