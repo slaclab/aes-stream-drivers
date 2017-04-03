@@ -46,7 +46,16 @@ struct DmaDevice {
    // PCI address regions
    phys_addr_t baseAddr;
    uint32_t    baseSize;
-   void *      reg;
+
+   // Base pointer to memory region
+   uint8_t * base;
+
+   // Register pointers, may be the same as reg
+   void * reg; // hardware specific
+
+   // Direct read/write offset and size
+   uint8_t * rwBase;
+   uint32_t  rwSize;
 
    // Configuration
    uint32_t cfgSize;
@@ -115,6 +124,7 @@ struct hardware_functions {
    int32_t     (*sendBuffer)(struct DmaDevice *dev, struct DmaBuffer *buff);
    int32_t     (*command)(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);
    void        (*seqShow)(struct seq_file *s, struct DmaDevice *dev);
+   int32_t     (*promRead)(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);
 };
 
 // Global array of devices
@@ -193,6 +203,12 @@ int Dma_SeqShow(struct seq_file *s, void *v);
 
 // Set Mask
 int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t * mask );
+
+// Write Register
+int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg);
+
+// Prom write 
+int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg);
 
 #endif
 

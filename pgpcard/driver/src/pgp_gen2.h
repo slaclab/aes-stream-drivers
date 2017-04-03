@@ -80,9 +80,7 @@ struct PgpCardG2Reg {
 
    uint32_t spare5[245]; // 0x82C - 0xBFC
 
-   uint32_t promData;    // 0xC00
-   uint32_t promAddr;    // 0xC04
-   uint32_t promRead;    // 0xC08
+   uint32_t promRegs[3]; // Prom registers
 };
 
 // Set functions for gen2 card

@@ -1,14 +1,12 @@
 /**
  *-----------------------------------------------------------------------------
- * Title      : TEM Firmware Update Utility
+ * Title      : Data Prom Firmware Update Utility
  * ----------------------------------------------------------------------------
- * File       : temPromLoad.cpp
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-08
- * Last update: 2016-08-08
+ * File       : dataPromLoad.cpp
+ * Created    : 2017-03-21
  * ----------------------------------------------------------------------------
  * Description:
- * Utility to program the TEM card with new firmware.
+ * Utility to program the data development card with new firmware.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to 
  * the license terms in the LICENSE.txt file found in the top-level directory 
@@ -34,11 +32,12 @@
 #include <stdlib.h>
 #include <argp.h>
 
+#include <DataDriver.h>
 #include "PciCardProm.h"
 
 using namespace std;
 
-const  char * argp_program_version = "temPromLoad 1.0";
+const  char * argp_program_version = "dataPromLoad 1.0";
 const  char * argp_program_bug_address = "rherbst@slac.stanford.edu";
 
 struct PrgArgs {
@@ -46,13 +45,13 @@ struct PrgArgs {
    const char * file;
 };
 
-static struct PrgArgs DefArgs = { "/dev/temcard_0", "" };
+static struct PrgArgs DefArgs = { "/dev/datadev_0", "" };
 
 static char   args_doc[] = "promFile";
 static char   doc[]      = "\n   PromFile is the appropriate .mcs file for the card.";
 
 static struct argp_option options[] = {
-   { "path", 'p', "PATH", OPTION_ARG_OPTIONAL, "Path of temcard device to use. Default=/dev/temcard_0.",0},
+   { "path", 'p', "PATH", OPTION_ARG_OPTIONAL, "Path of datacard device to use. Default=/dev/datadev_0.",0},
    {0}
 };
 

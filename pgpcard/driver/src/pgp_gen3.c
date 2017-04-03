@@ -20,6 +20,8 @@
  * ----------------------------------------------------------------------------
 **/
 #include <PgpDriver.h>
+#include <FpgaProm.h>
+#include <fpga_prom.h>
 #include <pgp_gen3.h>
 #include <pgp_common.h>
 #include <dma_buffer.h>
@@ -368,7 +370,6 @@ int32_t PgpCardG3_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    struct PgpStatus      status;
    struct PciStatus      pciStatus;
    struct PgpCardG3Reg * reg;
-   struct pgpprom_reg  * preg;
    struct PgpEvrControl  evrControl;
    struct PgpEvrStatus   evrStatus;
 
@@ -536,15 +537,13 @@ int32_t PgpCardG3_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
          break;
 
       // Write to prom
-      case PGP_Write_Prom:
-         preg = (struct pgpprom_reg *)&(reg->promData);
-         return(PgpCard_PromWrite(dev,preg,arg));
+      case FPGA_Write_Prom:
+         return(FpgaProm_Write(dev,reg->promRegs,arg));
          break;
 
       // Read from prom
-      case PGP_Read_Prom:
-         preg = (struct pgpprom_reg *)&(reg->promData);
-         return(PgpCard_PromRead(dev,preg,arg));
+      case FPGA_Read_Prom:
+         return(FpgaProm_Read(dev,reg->promRegs,arg));
          break;
 
       default:

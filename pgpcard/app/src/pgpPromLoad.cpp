@@ -34,7 +34,8 @@
 #include <stdlib.h>
 #include <argp.h>
 
-#include "PgpCardProm.h"
+#include <PgpDriver.h>
+#include "PciCardProm.h"
 
 using namespace std;
 
@@ -79,8 +80,10 @@ static struct argp argp = {options,parseArgs,args_doc,doc};
 
 int main (int argc, char **argv) {
    int fd;
-   PgpCardProm *prom;
+   PciCardProm *prom;
+   PgpInfo info;
    struct PrgArgs args;
+   bool gen3;
 
    memcpy(&args,&DefArgs,sizeof(struct PrgArgs));
    argp_parse(&argp,argc,argv,0,0,&args);
@@ -90,8 +93,27 @@ int main (int argc, char **argv) {
       return(1);
    }
 
-   // Create the PgpCardG3Prom object
-   prom = new PgpCardProm(fd,args.file);
+   // Get card info
+   pgpGetInfo(fd,&info);
+   gen3 = false;
+   
+   // Determine version, use only lower 4 bits to get the base version
+   switch (info.type & 0xF) {
+      case PGP_GEN3: gen3 = true; break;
+      case PGP_GEN2: 
+         if ( info.promPrgEn ) {
+            ::close(fd);
+            return(-1);
+         }
+         break;
+      default:
+         ::close(fd);
+         return(-1);
+         break;
+   }
+
+   // Create the PciCardG3Prom object
+   prom = new PciCardProm(fd,args.file,gen3);
    
    // Check if the .mcs file exists
    if(!prom->fileExist()){
@@ -101,13 +123,6 @@ int main (int argc, char **argv) {
       return(1);   
    }   
    
-   // Check if the PCIe device is a generation 2 card
-   if(!prom->checkFirmwareVersion()){
-      delete prom;
-      close(fd);
-      return(1);   
-   }    
-      
    // Erase the PROM
    prom->eraseBootProm();
   

@@ -45,6 +45,8 @@
 #define DMA_Read_Ready     0x1007
 #define DMA_Set_MaskBytes  0x1008
 #define DMA_Get_Version    0x1009
+#define DMA_Write_Register 0x100A
+#define DMA_Read_Register  0x100B
 
 // Mask size
 #define DMA_MASK_SIZE 32
@@ -71,6 +73,12 @@ struct DmaReadData {
    uint32_t   error;
    uint32_t   size;
    uint32_t   is32;
+};
+
+// Register data
+struct DmaRegisterData {
+   uint32_t   address;
+   uint32_t   data;
 };
 
 // Everything below is hidden during kernel module compile
@@ -318,8 +326,30 @@ static inline ssize_t dmaSetMaskBytes(int32_t fd, uint8_t * mask) {
 static inline ssize_t dmaCheckVersion(int32_t fd) {
    int32_t version;
    version = ioctl(fd,DMA_Get_Version);
-
    return((version == DMA_VERSION)?-0:-1);
+}
+
+// Write Register
+static inline ssize_t dmaWriteRegister(int32_t fd, uint32_t address, uint32_t data) {
+   struct DmaRegisterData reg;
+
+   reg.address = address;
+   reg.data    = data;
+   return(ioctl(fd,DMA_Write_Register,&reg));
+}
+
+// Read from PROM
+static inline ssize_t dmaReadRegister(int32_t fd, uint32_t address, uint32_t *data) {
+   struct DmaRegisterData reg;
+   ssize_t res;
+
+   reg.address = address;
+   reg.data    = 0;
+   res = ioctl(fd,DMA_Read_Register,&reg);
+
+   if ( data != NULL ) *data = reg.data;
+
+   return(res);
 }
 
 #endif

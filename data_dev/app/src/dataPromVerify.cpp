@@ -1,14 +1,12 @@
 /**
  *-----------------------------------------------------------------------------
- * Title      : TEM Firmware Update Utility
+ * Title      : Data Card Firmware Verify Utility
  * ----------------------------------------------------------------------------
- * File       : temPromLoad.cpp
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-08
- * Last update: 2016-08-08
+ * File       : dataPromVerify.cpp
+ * Created    : 2017-03-21
  * ----------------------------------------------------------------------------
  * Description:
- * Utility to program the TEM card with new firmware.
+ * Utility to verify the firmware loaded in the data prom Card
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to 
  * the license terms in the LICENSE.txt file found in the top-level directory 
@@ -19,7 +17,6 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
-
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/mman.h>
@@ -34,11 +31,12 @@
 #include <stdlib.h>
 #include <argp.h>
 
-#include "PciCardProm.h"
+#include <DataDriver.h>
+#include <PciCardProm.h>
 
 using namespace std;
 
-const  char * argp_program_version = "temPromLoad 1.0";
+const  char * argp_program_version = "dataPromVerify 1.0";
 const  char * argp_program_bug_address = "rherbst@slac.stanford.edu";
 
 struct PrgArgs {
@@ -46,13 +44,13 @@ struct PrgArgs {
    const char * file;
 };
 
-static struct PrgArgs DefArgs = { "/dev/temcard_0", "" };
+static struct PrgArgs DefArgs = { "/dev/datadev_0", "" };
 
 static char   args_doc[] = "promFile";
 static char   doc[]      = "\n   PromFile is the appropriate .mcs file for the card.";
 
 static struct argp_option options[] = {
-   { "path", 'p', "PATH", OPTION_ARG_OPTIONAL, "Path of temcard device to use. Default=/dev/temcard_0.",0},
+   { "path", 'p', "PATH", OPTION_ARG_OPTIONAL, "Path of datacard device to use. Default=/dev/datadev_0.",0},
    {0}
 };
 
@@ -90,7 +88,7 @@ int main (int argc, char **argv) {
       return(1);
    }
 
-   // Create the PciCardG3Prom object
+   // Create the PCiCardProm object
    prom = new PciCardProm(fd,args.file,true);
    
    // Check if the .mcs file exists
@@ -101,30 +99,17 @@ int main (int argc, char **argv) {
       return(1);   
    }   
    
-   // Erase the PROM
-   prom->eraseBootProm();
-  
-   // Write the .mcs file to the PROM
-   if(!prom->writeBootProm()) {
-      cout << "Error in prom->bufferedWriteBootProm() function" << endl;
-      delete prom;
-      close(fd);
-      return(1);     
-   }   
-
    // Compare the .mcs file with the PROM
    if(!prom->verifyBootProm()) {
-      cout << "Error in prom->verifyBootProm() function" << endl;
+      cout << "Error in prom->writeBootProm() function" << endl;
       delete prom;
       close(fd);
       return(1);     
    }
-      
-   // Display Reminder
-   prom->rebootReminder();
-   
+
 	// Close all the devices
    delete prom;
    close(fd);   
    return(0);
 }
+

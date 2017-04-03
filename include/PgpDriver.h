@@ -22,6 +22,7 @@
 #ifndef __PGP_DRIVER_H__
 #define __PGP_DRIVER_H__
 #include <DmaDriver.h>
+#include <FpgaProm.h>
 
 // Card Info
 struct PgpInfo {
@@ -118,20 +119,10 @@ struct PgpEvrStatus {
 #define PGP_Count_Reset    0x2005
 #define PGP_Send_OpCode    0x2006
 #define PGP_Set_Data       0x2007
-#define PGP_Write_Prom     0x2008
-#define PGP_Read_Prom      0x2009
 #define PGP_Set_Evr_Cntrl  0x3001
 #define PGP_Get_Evr_Cntrl  0x3002
 #define PGP_Get_Evr_Status 0x3003
 #define PGP_Rst_Evr_Count  0x3004
-
-// Prom Programming 
-struct PgpPromData {
-   uint32_t address;
-   uint32_t cmd;
-   uint32_t data;
-   uint32_t pad;
-};
 
 // Everything below is hidden during kernel module compile
 #ifndef DMA_IN_KERNEL
@@ -227,31 +218,6 @@ static inline ssize_t pgpGetEvrStatus(int32_t fd, uint32_t lane, struct PgpEvrSt
 // Reset EVR Counters
 static inline ssize_t pgpResetEvrCount(int32_t fd, uint32_t lane) {
    return(ioctl(fd,PGP_Rst_Evr_Count,lane));
-}
-
-// Write to PROM
-static inline ssize_t pgpWriteProm(int32_t fd, uint32_t address, uint32_t cmd, uint32_t data) {
-   struct PgpPromData prom;
-
-   prom.address = address;
-   prom.cmd     = cmd;
-   prom.data    = data;
-   return(ioctl(fd,PGP_Write_Prom,&prom));
-}
-
-// Read from PROM
-static inline ssize_t pgpReadProm(int32_t fd, uint32_t address, uint32_t cmd, uint32_t *data) {
-   struct PgpPromData prom;
-   ssize_t res;
-
-   prom.address = address;
-   prom.cmd     = cmd;
-   prom.data    = 0;
-   res = ioctl(fd,PGP_Read_Prom,&prom);
-
-   if ( data != NULL ) *data = prom.data;
-
-   return(res);
 }
 
 #endif
