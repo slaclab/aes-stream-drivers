@@ -533,6 +533,16 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          return(dev->rxBuffers.count + dev->txBuffers.count);
          break;
 
+      // Get rx buffer count
+      case DMA_Get_RxBuff_Count: 
+         return(dev->rxBuffers.count);
+         break;
+
+      // Get tx buffer count
+      case DMA_Get_TxBuff_Count: 
+         return(dev->txBuffers.count);
+         break;
+
       // Get buffer size, same size for rx and tx
       case DMA_Get_Buff_Size: 
          return(dev->cfgSize);
