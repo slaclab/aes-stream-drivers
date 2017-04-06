@@ -41,6 +41,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    uint32_t index;
    uint32_t handleCount;
    uint64_t dmaData;
+   uint32_t x;
 
    struct DmaDesc     * desc;
    struct DmaBuffer   * buff;
@@ -136,6 +137,9 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    if ( handleCount ) return(IRQ_HANDLED);
    else {
       dev_warn(dev->device,"Irq: Empty irq\n");
+
+      for ( x=0; x < 10; x++ ) dev_warn(dev->device,"Irq: Write Dump %i 0x%.16x\n",x,hwData->writeAddr[x]);
+
       return(IRQ_NONE);
    }
    //else return(IRQ_HANDLED);
@@ -175,6 +179,9 @@ void AxisG2_Init(struct DmaDevice *dev) {
       hwData->writeAddr = 
          dma_alloc_coherent(dev->device, hwData->addrCount*8, &(hwData->writeHandle),GFP_KERNEL);
    }
+
+   dev_info(dev->device,"Init: Read  ring at: 0x%.8x\n",hwData->readHandle);
+   dev_info(dev->device,"Init: Write ring at: 0x%.8x\n",hwData->writeHandle);
 
    // Init and set ring address
    iowrite32(hwData->readHandle,&(reg->rdBaseAddrLow));

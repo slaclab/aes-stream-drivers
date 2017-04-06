@@ -945,9 +945,10 @@ int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg) {
       return(-1);
    }
 
-   if ( rData.address > dev->rwSize ) return(-1);
+   if ( ( (dev->base + rData.address) < dev->rwBase ) ||
+        ( (dev->base + rData.address + 4) > (dev->rwBase + dev->rwSize) ) ) return(-1);
 
-   iowrite32(rData.data,dev->rwBase+rData.address);
+   iowrite32(rData.data,dev->base+rData.address);
 
    return(0);
 }
@@ -963,9 +964,10 @@ int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg) {
       return(-1);
    }
 
-   if ( rData.address > dev->rwSize ) return(-1);
+   if ( ( (dev->base + rData.address) < dev->rwBase ) ||
+        ( (dev->base + rData.address + 4) > (dev->rwBase + dev->rwSize) ) ) return(-1);
 
-   rData.data = ioread32(dev->rwBase+rData.address);
+   rData.data = ioread32(dev->base+rData.address);
 
    // Return the data structure
    if ((ret=copy_to_user((void *)arg,&rData,sizeof(struct DmaRegisterData)))) {
