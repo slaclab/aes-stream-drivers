@@ -24,7 +24,7 @@
 #include <dma_buffer.h>
 #include <linux/interrupt.h>
 
-#define BUFF_ARM_MIXED 0x10
+#define AXIS2_RING_ACP 0x10
 
 struct AxisG2Reg {
    uint32_t enableVer;       // 0x0000

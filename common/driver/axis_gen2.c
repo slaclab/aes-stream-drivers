@@ -165,7 +165,7 @@ void AxisG2_Init(struct DmaDevice *dev) {
    // Set read and write ring buffers
    hwData->addrCount = (1 << ioread32(&(reg->addrWidth)));
 
-   if(dev->cfgMode & BUFF_ARM_MIXED) {
+   if(dev->cfgMode & AXIS2_RING_ACP) {
       hwData->readAddr = kmalloc(hwData->addrCount*8, GFP_DMA | GFP_KERNEL);
       hwData->readHandle = virt_to_phys(hwData->readAddr);
 
@@ -195,7 +195,7 @@ void AxisG2_Init(struct DmaDevice *dev) {
 
    // Set cache mode, bits3:0 = desc, bits 11:8 = buffer
    if ( dev->cfgMode & BUFF_ARM_ACP ) iowrite32(0xF0F,&(reg->cacheConfig));
-   else if ( dev->cfgMode & BUFF_ARM_MIXED ) iowrite32(0x00F,&(reg->cacheConfig));
+   else if ( dev->cfgMode & AXIS2_RING_ACP ) iowrite32(0x00F,&(reg->cacheConfig));
    else iowrite32(0,&(reg->cacheConfig));
 
    // Set MAX RX                      
@@ -257,7 +257,7 @@ void AxisG2_Clear(struct DmaDevice *dev) {
    iowrite32(0x1,&(reg->fifoReset));
 
    // Free buffers
-   if(dev->cfgMode & BUFF_ARM_MIXED) {
+   if(dev->cfgMode & AXIS2_RING_ACP) {
       kfree(hwData->readAddr);
       kfree(hwData->writeAddr);
    }
