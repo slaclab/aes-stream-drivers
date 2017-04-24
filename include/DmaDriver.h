@@ -243,7 +243,7 @@ static inline ssize_t dmaGetTxBuffCount(int32_t fd) {
 }
 
 // get buffer size
-static inline ssize_t dmaGetTxBuffCount(int32_t fd) {
+static inline ssize_t dmaGetBuffSize(int32_t fd) {
    return(ioctl(fd,DMA_Get_Buff_Size,0));
 }
 
