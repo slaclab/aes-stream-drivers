@@ -242,6 +242,11 @@ static inline ssize_t dmaGetTxBuffCount(int32_t fd) {
    return(ioctl(fd,DMA_Get_TxBuff_Count,0));
 }
 
+// get buffer size
+static inline ssize_t dmaGetTxBuffCount(int32_t fd) {
+   return(ioctl(fd,DMA_Get_Buff_Size,0));
+}
+
 // Return user space mapping to dma buffers
 static inline void ** dmaMapDma(int32_t fd, uint32_t *count, uint32_t *size) {
    void *   temp;
