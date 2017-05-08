@@ -36,17 +36,19 @@
 #define DMA_ERR_BUS  0x08
 
 // Commands
-#define DMA_Get_Buff_Count 0x1001
-#define DMA_Get_Buff_Size  0x1002
-#define DMA_Set_Debug      0x1003
-#define DMA_Set_Mask       0x1004
-#define DMA_Ret_Index      0x1005
-#define DMA_Get_Index      0x1006
-#define DMA_Read_Ready     0x1007
-#define DMA_Set_MaskBytes  0x1008
-#define DMA_Get_Version    0x1009
-#define DMA_Write_Register 0x100A
-#define DMA_Read_Register  0x100B
+#define DMA_Get_Buff_Count   0x1001
+#define DMA_Get_Buff_Size    0x1002
+#define DMA_Set_Debug        0x1003
+#define DMA_Set_Mask         0x1004
+#define DMA_Ret_Index        0x1005
+#define DMA_Get_Index        0x1006
+#define DMA_Read_Ready       0x1007
+#define DMA_Set_MaskBytes    0x1008
+#define DMA_Get_Version      0x1009
+#define DMA_Write_Register   0x100A
+#define DMA_Read_Register    0x100B
+#define DMA_Get_RxBuff_Count 0x100C
+#define DMA_Get_TxBuff_Count 0x100D
 
 // Mask size
 #define DMA_MASK_SIZE 32
@@ -228,6 +230,21 @@ static inline uint32_t dmaGetIndex(int32_t fd) {
 // Get read ready status
 static inline ssize_t dmaReadReady(int32_t fd) {
    return(ioctl(fd,DMA_Read_Ready,0));
+}
+
+// get rx buffer count
+static inline ssize_t dmaGetRxBuffCount(int32_t fd) {
+   return(ioctl(fd,DMA_Get_RxBuff_Count,0));
+}
+
+// get tx buffer count
+static inline ssize_t dmaGetTxBuffCount(int32_t fd) {
+   return(ioctl(fd,DMA_Get_TxBuff_Count,0));
+}
+
+// get buffer size
+static inline ssize_t dmaGetBuffSize(int32_t fd) {
+   return(ioctl(fd,DMA_Get_Buff_Size,0));
 }
 
 // Return user space mapping to dma buffers

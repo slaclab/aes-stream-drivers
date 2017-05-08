@@ -34,9 +34,9 @@
 #include <axis_gen2.h>
 
 // Init Configuration values
-int cfgTxCount = 32;
-int cfgRxCount = 32;
-int cfgSize    = 2097152;
+int cfgTxCount = 4;
+int cfgRxCount = 4;
+int cfgSize    = 8192;
 int cfgMode    = BUFF_COHERENT;
 int cfgCont    = 1;
 
@@ -157,6 +157,9 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->reg    = dev->base + AGEN2_OFF;
    dev->rwBase = dev->base + PHY_OFF;
    dev->rwSize = PHY_SIZE + AVER_SIZE + USER_SIZE;
+
+   // Set memory space limits
+   dma_set_coherent_mask(dev->device,0x7FFFFFFF);
 
    // Call common dma init function
    if ( Dma_Init(dev) < 0 ) return(-1);
