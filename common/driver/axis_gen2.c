@@ -196,7 +196,7 @@ void AxisG2_Init(struct DmaDevice *dev) {
    // Set cache mode, bits3:0 = desc, bits 11:8 = buffer
    x = 0;
    if ( dev->cfgMode & BUFF_ARM_ACP   ) x |= 0x0200;
-   if ( dev->cfgMode & AXIS2_RING_ACP ) x |= 0x000F;
+   if ( dev->cfgMode & AXIS2_RING_ACP ) x |= 0x0006;
    iowrite32(x,&(reg->cacheConfig));
    
    // Set MAX RX                      
