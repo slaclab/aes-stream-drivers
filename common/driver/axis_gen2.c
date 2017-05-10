@@ -195,8 +195,8 @@ void AxisG2_Init(struct DmaDevice *dev) {
 
    // Set cache mode, bits3:0 = desc, bits 11:8 = buffer
    x = 0;
-   if ( dev->cfgMode & BUFF_ARM_ACP   ) x |= 0x0200;
-   if ( dev->cfgMode & AXIS2_RING_ACP ) x |= 0x0006;
+   if ( dev->cfgMode & BUFF_ARM_ACP   ) x |= 0x0200; // Buffer
+   if ( dev->cfgMode & AXIS2_RING_ACP ) x |= 0x0006; // Desc
    iowrite32(x,&(reg->cacheConfig));
    
    // Set MAX RX                      
@@ -361,11 +361,12 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
 
    seq_printf(s,"\n");
    seq_printf(s,"-------------- General HW -----------------\n");
-   seq_printf(s,"          Int Req Count : %i\n",(ioread32(&(reg->intReqCount))));
-   seq_printf(s,"        Hw Dma Wr Index : %i\n",(ioread32(&(reg->hwWrIndex))));
-   seq_printf(s,"        Sw Dma Wr Index : %i\n",hwData->writeIndex);
-   seq_printf(s,"        Hw Dma Rd Index : %i\n",(ioread32(&(reg->hwRdIndex))));
-   seq_printf(s,"        Sw Dma Rd Index : %i\n",hwData->readIndex);
+   seq_printf(s,"          Int Req Count : %u\n",(ioread32(&(reg->intReqCount))));
+   seq_printf(s,"        Hw Dma Wr Index : %u\n",(ioread32(&(reg->hwWrIndex))));
+   seq_printf(s,"        Sw Dma Wr Index : %u\n",hwData->writeIndex);
+   seq_printf(s,"        Hw Dma Rd Index : %u\n",(ioread32(&(reg->hwRdIndex))));
+   seq_printf(s,"        Sw Dma Rd Index : %u\n",hwData->readIndex);
+   seq_printf(s,"     Missed Wr Requests : %u\n",(ioread32(&(reg->wrReqMissed))));
    seq_printf(s,"           Cache Config : 0x%x\n",(ioread32(&(reg->cacheConfig))));
 }
 

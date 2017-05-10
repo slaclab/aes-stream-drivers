@@ -50,7 +50,8 @@ struct AxisG2Reg {
    uint32_t intReqCount;     // 0x0050
    uint32_t hwWrIndex;       // 0x0054
    uint32_t hwRdIndex;       // 0x0058
-   uint32_t spareB[4073];    // 0x005C - 0x3FFC
+   uint32_t wrReqMissed;     // 0x005C
+   uint32_t spareB[4072];    // 0x0060 - 0x3FFC
    uint32_t dmaAddr[4096];   // 0x4000 - 0x7FFC
 };
 
