@@ -186,8 +186,7 @@ int Dma_Init(struct DmaDevice *dev) {
    }
 
    // Enable card
-   dev->hwFunc->enable(dev)
-
+   dev->hwFunc->enable(dev);
    return 0;
 }
 
