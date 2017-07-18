@@ -93,7 +93,6 @@ int Dma_MapReg ( struct DmaDevice *dev ) {
          return -1;
       }
    }
-   else dev_info(dev->device,"Init: Register space already mapped.\n");
    return(0);
 }
 
@@ -153,16 +152,6 @@ int Dma_Init(struct DmaDevice *dev) {
    spin_lock_init(&(dev->commandLock));
    spin_lock_init(&(dev->maskLock));
 
-   // Set interrupt
-   dev_info(dev->device,"Init: IRQ %d\n", dev->irq);
-   res = request_irq( dev->irq, dev->hwFunc->irq, IRQF_SHARED, dev->devName, (void*)dev);
-
-   // Result of request IRQ from OS.
-   if (res < 0) {
-      dev_err(dev->device,"Init: Unable to allocate IRQ.");
-      return -1;
-   }
-
    // Create tx buffers
    dev_info(dev->device,"Init: Creating %i TX Buffers. Size=%i Bytes. Mode=%i.\n",
         dev->cfgTxCount,dev->cfgSize,dev->cfgMode);
@@ -185,6 +174,20 @@ int Dma_Init(struct DmaDevice *dev) {
 
    // Call card specific init
    dev->hwFunc->init(dev);
+
+   // Set interrupt
+   dev_info(dev->device,"Init: IRQ %d\n", dev->irq);
+   res = request_irq( dev->irq, dev->hwFunc->irq, IRQF_SHARED, dev->devName, (void*)dev);
+
+   // Result of request IRQ from OS.
+   if (res < 0) {
+      dev_err(dev->device,"Init: Unable to allocate IRQ.");
+      return -1;
+   }
+
+   // Enable card
+   dev->hwFunc->enable(dev)
+
    return 0;
 }
 

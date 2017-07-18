@@ -99,6 +99,9 @@ irqreturn_t TemG3_Irq(int irq, void *dev_id);
 // Init card in top level Probe
 void TemG3_Init(struct DmaDevice *dev);
 
+// Enable
+void TemG3_Enable(struct DmaDevice *dev);
+
 // Clear card in top level Remove
 void    TemG3_Clear(struct DmaDevice *dev);
 

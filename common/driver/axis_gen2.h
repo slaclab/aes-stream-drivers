@@ -73,6 +73,9 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id);
 // Init card in top level Probe
 void AxisG2_Init(struct DmaDevice *dev);
 
+// enable device
+void AxisG2_Enable(struct DmaDevice *dev);
+
 // Clear card in top level Remove
 void AxisG2_Clear(struct DmaDevice *dev);
 
