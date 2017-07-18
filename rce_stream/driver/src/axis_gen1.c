@@ -28,6 +28,7 @@
 struct hardware_functions AxisG1_functions = {
    .irq          = AxisG1_Irq,
    .init         = AxisG1_Init,
+   .enable       = AxisG1_Enable,
    .clear        = AxisG1_Clear,
    .retRxBuffer  = AxisG1_RetRxBuffer,
    .sendBuffer   = AxisG1_SendBuffer,

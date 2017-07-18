@@ -119,6 +119,7 @@ struct DmaDesc {
 struct hardware_functions {
    irqreturn_t (*irq)(int irq, void *dev_id);
    void        (*init)(struct DmaDevice *dev);
+   void        (*enable)(struct DmaDevice *dev);
    void        (*clear)(struct DmaDevice *dev);
    void        (*retRxBuffer)(struct DmaDevice *dev, struct DmaBuffer *buff);
    int32_t     (*sendBuffer)(struct DmaDevice *dev, struct DmaBuffer *buff);

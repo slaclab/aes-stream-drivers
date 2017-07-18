@@ -32,6 +32,7 @@
 struct hardware_functions PgpCardG2_functions = {
    .irq          = PgpCardG2_Irq,
    .init         = PgpCardG2_Init,
+   .enable       = PgpCardG2_Enable,
    .clear        = PgpCardG2_Clear,
    .retRxBuffer  = PgpCardG2_RetRxBuffer,
    .sendBuffer   = PgpCardG2_SendBuffer,
@@ -265,12 +266,18 @@ void PgpCardG2_Init(struct DmaDevice *dev) {
          break;
    }
 
-   // Enable interrupts
-   iowrite32(1,&(reg->irq));
-
    dev_info(dev->device,"Init: Found card. Version=0x%x, Type=0x%.2x\n", info->version,info->type);
 }
 
+// enable the card
+void PgpCardG2_Enable(struct DmaDevice *dev) {
+   struct PgpCardG2Reg * reg;
+
+   reg = (struct PgpCardG2Reg *)dev->reg;
+
+   // Enable interrupts
+   iowrite32(1,&(reg->irq));
+}
 
 // Clear card in top level Remove
 void PgpCardG2_Clear(struct DmaDevice *dev) {

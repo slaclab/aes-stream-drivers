@@ -30,6 +30,7 @@
 struct hardware_functions TemG3_functions = {
    .irq          = TemG3_Irq,
    .init         = TemG3_Init,
+   .enable       = TemG3_Enable,
    .clear        = TemG3_Clear,
    .retRxBuffer  = TemG3_RetRxBuffer,
    .sendBuffer   = TemG3_SendBuffer,
@@ -233,12 +234,17 @@ void TemG3_Init(struct DmaDevice *dev) {
    dev->destMask[0] = 0x3;
    info->promPrgEn = 1;
 
-   // Enable interrupts
-   iowrite32(1,&(reg->irq));
-
    dev_info(dev->device,"Init: Found card. Version=0x%x\n",info->version);
 }
 
+// Enable the card
+void TemG3_Enable(struct DmaDevice *dev) {
+   struct TemG3Reg * reg;
+   reg = (struct TemG3Reg *)dev->reg;
+
+   // Enable interrupts
+   iowrite32(1,&(reg->irq));
+}
 
 // Clear card in top level Remove
 void TemG3_Clear(struct DmaDevice *dev) {

@@ -29,6 +29,7 @@
 struct hardware_functions AxisG2_functions = {
    .irq          = AxisG2_Irq,
    .init         = AxisG2_Init,
+   .enable       = AxisG2_Enable,
    .clear        = AxisG2_Clear,
    .retRxBuffer  = AxisG2_RetRxBuffer,
    .sendBuffer   = AxisG2_SendBuffer,
@@ -230,14 +231,22 @@ void AxisG2_Init(struct DmaDevice *dev) {
       iowrite32(buff->buffHandle,&(reg->dmaAddr[buff->index])); // Address table
    }
 
+   dev_info(dev->device,"Init: Found Version 2 Device.\n");
+}
+
+
+// Enable the card
+void AxisG2_Enable(struct DmaDevice *dev) {
+   struct AxisG2Reg  *reg;
+
+   reg = (struct AxisG2Reg *)dev->reg;
+
    // Online
    iowrite32(0x1,&(reg->online));
 
    // Enable interrupt
    iowrite32(0x1,&(reg->intEnable));
-   dev_info(dev->device,"Init: Found Version 2 Device.\n");
 }
-
 
 // Clear card in top level Remove
 void AxisG2_Clear(struct DmaDevice *dev) {

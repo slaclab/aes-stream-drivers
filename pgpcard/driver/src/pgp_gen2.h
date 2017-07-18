@@ -92,6 +92,9 @@ irqreturn_t PgpCardG2_Irq(int irq, void *dev_id);
 // Init card in top level Probe
 void PgpCardG2_Init(struct DmaDevice *dev);
 
+// Enable
+void PgpCardG2_Enable(struct DmaDevice *dev);
+
 // Clear card in top level Remove
 void PgpCardG2_Clear(struct DmaDevice *dev);
 
