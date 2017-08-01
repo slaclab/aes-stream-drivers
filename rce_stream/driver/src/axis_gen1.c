@@ -202,18 +202,23 @@ void AxisG1_Init(struct DmaDevice *dev) {
    if ( dev->cfgMode & BUFF_ARM_ACP ) iowrite32(0xF,&(reg->swCache));
    else iowrite32(0,&(reg->swCache));
 
-   // Enable interrupt
-   iowrite32(0x1,&(reg->intPendAck));
-   iowrite32(0x1,&(reg->intEnable));
-
-   // Online bits = 1, Ack bit = 0
-   iowrite32(0x1,&(reg->onlineAck));
-
    // Set dest mask
    memset(dev->destMask,0xFF,DMA_MASK_SIZE);
    dev_info(dev->device,"Init: Found Version 1 Device.\n");
 }
 
+// Enable the card
+void AxisG1_Enable(struct DmaDevice *dev) {
+   struct AxisG1Reg  *reg;
+   reg = (struct AxisG1Reg *)dev->reg;
+
+   // Online bits = 1, Ack bit = 0
+   iowrite32(0x1,&(reg->onlineAck));
+
+   // Enable interrupt
+   iowrite32(0x1,&(reg->intPendAck));
+   iowrite32(0x1,&(reg->intEnable));
+}
 
 // Clear card in top level Remove
 void AxisG1_Clear(struct DmaDevice *dev) {
