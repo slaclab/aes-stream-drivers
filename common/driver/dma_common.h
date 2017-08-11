@@ -30,9 +30,6 @@
 #include <DmaDriver.h>
 #include <dma_buffer.h>
 
-// Max number of devices to support
-#define MAX_DMA_DEVICES 4
-
 // Maximum number of channels
 #define DMA_MAX_DEST (8*DMA_MASK_SIZE)
 
@@ -129,7 +126,7 @@ struct hardware_functions {
 };
 
 // Global array of devices
-extern struct DmaDevice gDmaDevices[MAX_DMA_DEVICES];
+extern struct DmaDevice gDmaDevices[];
 
 // Number of active devices
 extern uint32_t gDmaDevCount;

@@ -37,6 +37,9 @@ int cfgSize    = 2097152;
 int cfgMode    = BUFF_COHERENT;
 int cfgCont    = 1;
 
+// Global array of devices
+struct DmaDevice gDmaDevices[MAX_DMA_DEVICES];
+
 // PCI device IDs
 static struct pci_device_id PgpCard_Ids[] = {
    { PCI_DEVICE(PCI_VENDOR_ID_SLAC,   PCI_DEVICE_ID_GEN2)   },

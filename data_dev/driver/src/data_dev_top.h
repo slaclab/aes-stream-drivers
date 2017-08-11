@@ -25,6 +25,8 @@
 #include <linux/pci.h>
 #include <dma_common.h>
 
+#define MAX_DMA_DEVICES 4
+
 // PCI ID
 #define PCI_VENDOR_ID_SLAC 0x1a4a
 #define PCI_DEVICE_ID_DDEV 0x2030
