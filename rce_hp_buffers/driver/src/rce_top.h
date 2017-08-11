@@ -4,8 +4,7 @@
  * ----------------------------------------------------------------------------
  * File       : rce_top.h
  * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-08
- * Last update: 2016-08-08
+ * Created    : 2017-08-11
  * ----------------------------------------------------------------------------
  * Description:
  * Top level module types and functions.
@@ -22,11 +21,11 @@
 #ifndef __RCE_TOP_H__
 #define __RCE_TOP_H__
 
-#define MAX_DMA_DEVICES 4
-
 #include <linux/types.h>
 #include <linux/device.h>
 #include <linux/platform_device.h>
+
+#define MAX_DMA_DEVICES 1
 
 // Create and init device
 int Rce_Probe(struct platform_device *pdev);

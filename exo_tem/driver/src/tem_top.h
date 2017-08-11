@@ -25,6 +25,8 @@
 #include <linux/types.h>
 #include <linux/pci.h>
 
+#define MAX_DMA_DEVICES 4
+
 // PCI IDs
 #define PCI_VENDOR_ID_SLAC 0x1a4a
 #define PCI_DEVICE_ID_TEM  0x2020

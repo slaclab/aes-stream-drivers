@@ -4,8 +4,7 @@
  * ----------------------------------------------------------------------------
  * File       : rce_top.c
  * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-08
- * Last update: 2016-08-08
+ * Created    : 2017-08-11
  * ----------------------------------------------------------------------------
  * Description:
  * Top level module types and functions.
@@ -22,8 +21,7 @@
 #include <rce_top.h>
 #include <dma_common.h>
 #include <dma_buffer.h>
-#include <axis_gen1.h>
-#include <axis_gen2.h>
+#include <rce_hp.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/types.h>
@@ -37,31 +35,16 @@
 #include <linux/of_irq.h>
 
 // Init Configuration values
-int cfgTxCount0 = 8;
-int cfgTxCount1 = 8;
-int cfgTxCount2 = 8;
-int cfgRxCount0 = 8;
-int cfgRxCount1 = 8;
-int cfgRxCount2 = 800;
-int cfgSize0    = 4096*4;
-int cfgSize1    = 4096;
-int cfgSize2    = 4096*4;
-int cfgMode0    = BUFF_COHERENT;
-int cfgMode1    = BUFF_COHERENT;
-int cfgMode2    = BUFF_ARM_ACP | AXIS2_RING_ACP;
+int cfgRxCount = 1000;
+int cfgSize    = 4096*4;
 
 struct DmaDevice gDmaDevices[MAX_DMA_DEVICES];
 
 // Tables of device names
-const char * RceDevNames[MAX_DMA_DEVICES] = {
-   "axi_stream_dma_0",
-   "axi_stream_dma_1",
-   "axi_stream_dma_2",
-   "axi_stream_dma_3",
-};
+const char * RceDevNames[MAX_DMA_DEVICES] = { "rce_hp_0" };
 
 // Module Name
-#define MOD_NAME "axi_stream_dma"
+#define MOD_NAME "rce_hp"
 
 MODULE_AUTHOR("Ryan Herbst");
 MODULE_DESCRIPTION("AXI Stream DMA driver. V3");
@@ -138,65 +121,20 @@ int Rce_Probe(struct platform_device *pdev) {
    dev->baseAddr = pdev->resource[0].start;
    dev->baseSize = pdev->resource[0].end - pdev->resource[0].start + 1;
 
-   // Get IRQ from pci_dev structure. 
-   dev->irq = irq_of_parse_and_map(pdev->dev.of_node, 0);;
+   // No IRQ
+   dev->irq = 0;
 
    // Set device fields
    dev->device = &(pdev->dev);
 
-   // Map memory now in order to probe
-   if ( Dma_MapReg(dev) < 0 ) return(-1);
-
-   // Determine which index to use
-   switch (tmpIdx) {
-      case 0:
-         dev->cfgTxCount = cfgTxCount0;
-         dev->cfgRxCount = cfgRxCount0;
-         dev->cfgSize    = cfgSize0;
-         dev->cfgMode    = cfgMode0;
-         break;
-      case 1:
-         dev->cfgTxCount = cfgTxCount1;
-         dev->cfgRxCount = cfgRxCount1;
-         dev->cfgSize    = cfgSize1;
-         dev->cfgMode    = cfgMode1;
-         break;
-      case 2:
-         dev->cfgTxCount = cfgTxCount2;
-         dev->cfgRxCount = cfgRxCount2;
-         dev->cfgSize    = cfgSize2;
-         dev->cfgMode    = cfgMode2;
-         break;
-      default:
-         return(-1);
-         break;
-   }
-
-   // Instance independent
-   dev->cfgCont = 1;
+   // Setup config
+   dev->cfgTxCount = 0;
+   dev->cfgRxCount = cfgRxCount;
+   dev->cfgSize    = cfgSize;
+   dev->cfgMode    = BUFF_COHERENT;
 
    // Set hardware functions
-   // Version 2
-   if ( (ioread32(dev->reg) & 0xFF000000) == 0x02000000 ) {
-      dev->hwFunc = &(AxisG2_functions);
-   }
-
-   // Version 1
-   else {
-      iowrite32(0x1,((uint8_t *)dev->reg)+0x8);
-      if ( ioread32(((uint8_t *)dev->reg)+0x8) != 0x1 ) {
-         release_mem_region(dev->baseAddr, dev->baseSize);
-         dev_info(dev->device,"Probe: Empty register space. Exiting\n");
-         return(-1);
-      }
-      dev->hwFunc = &(AxisG1_functions);
-   }
-
-   // Coherent
-   if( (dev->cfgMode & BUFF_ARM_ACP) || (dev->cfgMode & AXIS2_RING_ACP) ) {
-       set_dma_ops(&pdev->dev,&arm_coherent_dma_ops);
-       dev_info(dev->device,"Probe: Set COHERENT DMA =%i\n",dev->cfgMode);
-   }
+   dev->hwFunc = &(RceHp_functions);
 
    // Call common dma init function
    return(Dma_Init(dev));
@@ -241,39 +179,9 @@ int Rce_Remove(struct platform_device *pdev) {
 }
 
 // Parameters
-module_param(cfgTxCount0,int,0);
-MODULE_PARM_DESC(cfgTxCount0, "TX buffer count");
+module_param(cfgRxCount,int,0);
+MODULE_PARM_DESC(cfgRxCount, "RX buffer count");
 
-module_param(cfgTxCount1,int,0);
-MODULE_PARM_DESC(cfgTxCount1, "TX buffer count");
-
-module_param(cfgTxCount2,int,0);
-MODULE_PARM_DESC(cfgTxCount2, "TX buffer count");
-
-module_param(cfgRxCount0,int,0);
-MODULE_PARM_DESC(cfgRxCount0, "RX buffer count");
-
-module_param(cfgRxCount1,int,0);
-MODULE_PARM_DESC(cfgRxCount1, "RX buffer count");
-
-module_param(cfgRxCount2,int,0);
-MODULE_PARM_DESC(cfgRxCount2, "RX buffer count");
-
-module_param(cfgSize0,int,0);
-MODULE_PARM_DESC(cfgSize0, "RX/TX buffer size");
-
-module_param(cfgSize1,int,0);
-MODULE_PARM_DESC(cfgSize1, "RX/TX buffer size");
-
-module_param(cfgSize2,int,0);
-MODULE_PARM_DESC(cfgSize2, "RX/TX buffer size");
-
-module_param(cfgMode0,int,0);
-MODULE_PARM_DESC(cfgMode0, "RX buffer mode");
-
-module_param(cfgMode1,int,0);
-MODULE_PARM_DESC(cfgMode1, "RX buffer mode");
-
-module_param(cfgMode2,int,0);
-MODULE_PARM_DESC(cfgMode2, "RX buffer mode");
+module_param(cfgSize,int,0);
+MODULE_PARM_DESC(cfgSize, "RX/TX buffer size");
 

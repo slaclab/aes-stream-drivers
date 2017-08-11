@@ -59,9 +59,6 @@ static struct seq_operations DmaSeqOps = {
    .show  = Dma_SeqShow
 };
 
-// Global array of devices
-struct DmaDevice gDmaDevices[MAX_DMA_DEVICES];
-
 // Number of active devices
 uint32_t gDmaDevCount;
 
@@ -176,13 +173,15 @@ int Dma_Init(struct DmaDevice *dev) {
    dev->hwFunc->init(dev);
 
    // Set interrupt
-   dev_info(dev->device,"Init: IRQ %d\n", dev->irq);
-   res = request_irq( dev->irq, dev->hwFunc->irq, IRQF_SHARED, dev->devName, (void*)dev);
+   if ( dev->irq != 0 ) {
+      dev_info(dev->device,"Init: IRQ %d\n", dev->irq);
+      res = request_irq( dev->irq, dev->hwFunc->irq, IRQF_SHARED, dev->devName, (void*)dev);
 
-   // Result of request IRQ from OS.
-   if (res < 0) {
-      dev_err(dev->device,"Init: Unable to allocate IRQ.");
-      return -1;
+      // Result of request IRQ from OS.
+      if (res < 0) {
+         dev_err(dev->device,"Init: Unable to allocate IRQ.");
+         return -1;
+      }
    }
 
    // Enable card
@@ -222,7 +221,7 @@ void  Dma_Clean(struct DmaDevice *dev) {
    release_mem_region(dev->baseAddr, dev->baseSize);
 
    // Release IRQ
-   free_irq(dev->irq, dev);
+   if ( dev->irq != 0 ) free_irq(dev->irq, dev);
 
    // Unmap
    iounmap(dev->base);
