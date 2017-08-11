@@ -15,7 +15,7 @@
 # ----------------------------------------------------------------------------
 # 
 
-NAME := rcestream
+NAME := rce_hp
 HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 COMP := arm-xilinx-linux-gnueabi-
 ARCH := arm

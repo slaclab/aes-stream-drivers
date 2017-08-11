@@ -25,8 +25,9 @@
 
 struct RceHpReg {
    uint32_t enable;          // 0x00000
-   uint32_t fifoClear;       // 0x00004
-   uint32_t bufferList;      // 0x00008
+   uint32_t bufferClear;     // 0x00004
+   uint32_t bufferSize;      // 0x00008
+   uint32_t bufferAlloc;     // 0x0000C
 };
 
 // Init card in top level Probe
