@@ -40,14 +40,17 @@ void RceHp_Init(struct DmaDevice *dev) {
    reg = (struct RceHpReg *)dev->reg;
 
    // Clear Buffers
-   iowrite32(0x1,&(reg->fifoClear)); 
-   iowrite32(0x0,&(reg->fifoClear)); 
+   iowrite32(0x1,&(reg->BufferClear)); 
+   iowrite32(0x0,&(reg->BufferClear)); 
+
+   // Set buffer size
+   iowrite32(dev->cfgSize,&(rec->bufferSize));
 
    // Push buffers to hardware
    for (x=0; x < dev->rxBuffers.count; x++) {
       if ( dmaBufferToHw(dev->rxBuffers.indexed[x]) < 0 ) 
          dev_warn(dev->device,"Init: Failed to map dma buffer.\n");
-      else iowrite32(dev->rxBuffers.indexed[x]->buffHandle,&(reg->bufferList));
+      else iowrite32(dev->rxBuffers.indexed[x]->buffHandle,&(reg->bufferAlloc));
    }
 
    // Set dest mask
@@ -70,7 +73,7 @@ void RceHp_Clear(struct DmaDevice *dev) {
    reg = (struct RceHpReg *)dev->reg;
 
    // Clear FIFOs
-   iowrite32(0x1,&(reg->fifoClear));
+   iowrite32(0x1,&(reg->bufferClear));
 
    // Disable
    iowrite32(0x0,&(reg->enable));

@@ -35,8 +35,8 @@
 #include <linux/of_irq.h>
 
 // Init Configuration values
-int cfgRxCount = 1000;
-int cfgSize    = 4096*4;
+int cfgCount = 1000;
+int cfgSize  = 4096*4;
 
 struct DmaDevice gDmaDevices[MAX_DMA_DEVICES];
 
@@ -129,7 +129,7 @@ int Rce_Probe(struct platform_device *pdev) {
 
    // Setup config
    dev->cfgTxCount = 0;
-   dev->cfgRxCount = cfgRxCount;
+   dev->cfgRxCount = cfgCount;
    dev->cfgSize    = cfgSize;
    dev->cfgMode    = BUFF_COHERENT;
 
@@ -179,9 +179,9 @@ int Rce_Remove(struct platform_device *pdev) {
 }
 
 // Parameters
-module_param(cfgRxCount,int,0);
-MODULE_PARM_DESC(cfgRxCount, "RX buffer count");
+module_param(cfgCount,int,0);
+MODULE_PARM_DESC(cfgCount, "Buffer count");
 
 module_param(cfgSize,int,0);
-MODULE_PARM_DESC(cfgSize, "RX/TX buffer size");
+MODULE_PARM_DESC(cfgSize, "Buffer size");
 
