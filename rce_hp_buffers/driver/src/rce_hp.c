@@ -40,8 +40,8 @@ void RceHp_Init(struct DmaDevice *dev) {
    reg = (struct RceHpReg *)dev->reg;
 
    // Clear Buffers
-   iowrite32(0x1,&(reg->BufferClear)); 
-   iowrite32(0x0,&(reg->BufferClear)); 
+   iowrite32(0x1,&(reg->bufferClear)); 
+   iowrite32(0x0,&(reg->bufferClear)); 
 
    // Set buffer size
    iowrite32(dev->cfgSize,&(rec->bufferSize));
