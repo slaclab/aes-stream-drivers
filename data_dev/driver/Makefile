@@ -26,7 +26,7 @@ ccflags-y := -I$(HOME)/../../include
 ccflags-y += -I$(HOME)/src
 ccflags-y += -DDMA_IN_KERNEL=1
 
-$(NAME)-objs := src/dma_buffer.o src/dma_common.o src/fpga_prom.o
+$(NAME)-objs := src/dma_buffer.o src/dma_common.o
 $(NAME)-objs += src/axi_version.o src/axis_gen2.o src/data_dev_top.o 
 obj-m        := $(NAME).o
 

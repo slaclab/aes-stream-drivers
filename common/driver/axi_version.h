@@ -31,7 +31,7 @@ struct AxiVersion_Reg {
    uint32_t haltReload;        // 0x0100
    uint32_t fpgaReload;        // 0x0104
    uint32_t fpgaReloadAddr;    // 0x0108
-   uint32_t masterReset;       // 0x010C
+   uint32_t userReset;         // 0x010C
 
    uint32_t spareB[124];       // 0x0110 - 0x02fC
 

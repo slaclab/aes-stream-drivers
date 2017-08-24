@@ -205,7 +205,7 @@ int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t * mask
 // Write Register
 int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg);
 
-// Prom write 
+// Read Register
 int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg);
 
 #endif

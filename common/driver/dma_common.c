@@ -954,7 +954,7 @@ int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg) {
    return(0);
 }
 
-// Prom write 
+// Read Register
 int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg) {
    int32_t  ret;
 
