@@ -18,8 +18,6 @@
  * ----------------------------------------------------------------------------
 **/
 #include <data_dev_top.h>
-#include <FpgaProm.h>
-#include <fpga_prom.h>
 #include <AxiVersion.h>
 #include <axi_version.h>
 #include <linux/module.h>
@@ -158,7 +156,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    dev->reg    = dev->base + AGEN2_OFF;
    dev->rwBase = dev->base + PHY_OFF;
-   dev->rwSize = PHY_SIZE + AVER_SIZE + USER_SIZE;
+   dev->rwSize = PHY_SIZE + AVER_SIZE + PROM_SIZE + USER_SIZE;
 
    // Set memory space limits
    dma_set_coherent_mask(dev->device,0x7FFFFFFF);
@@ -209,16 +207,6 @@ void  DataDev_Remove(struct pci_dev *pcidev) {
 // Execute command
 int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    switch (cmd) {
-
-      // Write to prom
-      case FPGA_Write_Prom:
-         return(FpgaProm_Write(dev,dev->base + PROM_OFF, arg));
-         break;
-
-      // Read from prom
-      case FPGA_Read_Prom:
-         return(FpgaProm_Read(dev,dev->base + PROM_OFF, arg));
-         break;
 
       // AXI Version Read
       case AVER_Get:
