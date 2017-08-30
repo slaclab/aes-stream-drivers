@@ -312,7 +312,7 @@ static inline void dmaAssignHandler (int32_t fd, void (*handler)(int32_t)) {
    fcntl(fd, F_SETFL, oflags | FASYNC);
 }
 
-// set lane/vc rx mask, one bit per vc
+// set mask
 static inline ssize_t dmaSetMask(int32_t fd, uint32_t mask) {
    return(ioctl(fd,DMA_Set_Mask,mask));
 }
