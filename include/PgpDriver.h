@@ -222,7 +222,7 @@ static inline ssize_t pgpResetEvrCount(int32_t fd, uint32_t lane) {
 
 // Add destination to mask byte array
 static inline void pgpAddMaskBytes(uint8_t * mask, uint32_t lane, uint32_t vc) {
-   return(dmaAddMaskBytes(mask,lane*4+vc));
+   dmaAddMaskBytes(mask,lane*4+vc);
 }
 
 // set lane/vc rx mask, one bit per vc
