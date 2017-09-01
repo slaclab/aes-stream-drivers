@@ -59,9 +59,6 @@ static struct seq_operations DmaSeqOps = {
    .show  = Dma_SeqShow
 };
 
-// Global array of devices
-struct DmaDevice gDmaDevices[MAX_DMA_DEVICES];
-
 // Number of active devices
 uint32_t gDmaDevCount;
 
@@ -77,13 +74,15 @@ char *Dma_DevNode(struct device *dev, umode_t *mode){
 
 // Map address space in buffer
 int Dma_MapReg ( struct DmaDevice *dev ) {
-   if ( dev->reg == NULL ) {
-      dev_info(dev->device,"Init: Mapping Register space %p with size 0x%i.\n",(void *)dev->baseAddr,dev->baseSize);
-      dev->reg = ioremap_nocache(dev->baseAddr, dev->baseSize);
-      if (! dev->reg ) {
+   if ( dev->base == NULL ) {
+      dev_info(dev->device,"Init: Mapping Register space %p with size 0x%x.\n",(void *)dev->baseAddr,dev->baseSize);
+      dev->base = ioremap_nocache(dev->baseAddr, dev->baseSize);
+      if (! dev->base ) {
          dev_err(dev->device,"Init: Could not remap memory.\n");
          return -1;
       }
+      dev->reg = dev->base;
+      dev_info(dev->device,"Init: Mapped to %p.\n",dev->base);
 
       // Hold memory region
       if ( request_mem_region(dev->baseAddr, dev->baseSize, dev->devName) == NULL ) {
@@ -91,7 +90,6 @@ int Dma_MapReg ( struct DmaDevice *dev ) {
          return -1;
       }
    }
-   else dev_info(dev->device,"Init: Register space already mapped.\n");
    return(0);
 }
 
@@ -151,16 +149,6 @@ int Dma_Init(struct DmaDevice *dev) {
    spin_lock_init(&(dev->commandLock));
    spin_lock_init(&(dev->maskLock));
 
-   // Set interrupt
-   dev_info(dev->device,"Init: IRQ %d\n", dev->irq);
-   res = request_irq( dev->irq, dev->hwFunc->irq, IRQF_SHARED, dev->devName, (void*)dev);
-
-   // Result of request IRQ from OS.
-   if (res < 0) {
-      dev_err(dev->device,"Init: Unable to allocate IRQ.");
-      return -1;
-   }
-
    // Create tx buffers
    dev_info(dev->device,"Init: Creating %i TX Buffers. Size=%i Bytes. Mode=%i.\n",
         dev->cfgTxCount,dev->cfgSize,dev->cfgMode);
@@ -183,6 +171,21 @@ int Dma_Init(struct DmaDevice *dev) {
 
    // Call card specific init
    dev->hwFunc->init(dev);
+
+   // Set interrupt
+   if ( dev->irq != 0 ) {
+      dev_info(dev->device,"Init: IRQ %d\n", dev->irq);
+      res = request_irq( dev->irq, dev->hwFunc->irq, IRQF_SHARED, dev->devName, (void*)dev);
+
+      // Result of request IRQ from OS.
+      if (res < 0) {
+         dev_err(dev->device,"Init: Unable to allocate IRQ.");
+         return -1;
+      }
+   }
+
+   // Enable card
+   dev->hwFunc->enable(dev);
    return 0;
 }
 
@@ -218,7 +221,7 @@ void  Dma_Clean(struct DmaDevice *dev) {
    release_mem_region(dev->baseAddr, dev->baseSize);
 
    // Release IRQ
-   free_irq(dev->irq, dev);
+   if ( dev->irq != 0 ) free_irq(dev->irq, dev);
 
    // Unmap
    iounmap(dev->reg);
@@ -539,6 +542,16 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          return(dev->rxBuffers.count + dev->txBuffers.count);
          break;
 
+      // Get rx buffer count
+      case DMA_Get_RxBuff_Count: 
+         return(dev->rxBuffers.count);
+         break;
+
+      // Get tx buffer count
+      case DMA_Get_TxBuff_Count: 
+         return(dev->txBuffers.count);
+         break;
+
       // Get buffer size, same size for rx and tx
       case DMA_Get_Buff_Size: 
          return(dev->cfgSize);
@@ -619,6 +632,16 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
       // Get API Version
       case DMA_Get_Version:
          return(DMA_VERSION);
+         break;
+
+      // Register write
+      case DMA_Write_Register:
+         return(Dma_WriteRegister(dev,arg));
+         break;
+
+      // Register read
+      case DMA_Read_Register:
+         return(Dma_ReadRegister(dev,arg));
          break;
 
       // All other commands handled by card specific functions   
@@ -787,7 +810,7 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
 
    seq_printf(s,"\n");
    seq_printf(s,"-------------- General --------------------\n");
-   seq_printf(s,"          Dma Version : 0x%x\n",DMA_VERSION);
+   seq_printf(s,"          Dma Version : 0x%x\n\n",DMA_VERSION);
    seq_printf(s,"-------------- Read Buffers ---------------\n");
    seq_printf(s,"         Buffer Count : %i\n",dev->rxBuffers.count);
    seq_printf(s,"          Buffer Size : %i\n",dev->cfgSize);
@@ -917,6 +940,49 @@ int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t * mask
    memcpy(desc->destMask,mask,DMA_MASK_SIZE);
 
    spin_unlock_irqrestore(&dev->maskLock,iflags);
+   return(0);
+}
+
+// Write Register
+int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg) {
+   int32_t  ret;
+
+   struct DmaRegisterData rData;
+
+   if ((ret = copy_from_user(&rData,(void *)arg,sizeof(struct DmaRegisterData)))) {
+      dev_warn(dev->device,"Dma_WriteRegister: copy_from_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
+      return(-1);
+   }
+
+   if ( ( (dev->base + rData.address) < dev->rwBase ) ||
+        ( (dev->base + rData.address + 4) > (dev->rwBase + dev->rwSize) ) ) return(-1);
+
+   iowrite32(rData.data,dev->base+rData.address);
+
+   return(0);
+}
+
+// Read Register
+int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg) {
+   int32_t  ret;
+
+   struct DmaRegisterData rData;
+
+   if ((ret=copy_from_user(&rData,(void *)arg,sizeof(struct DmaRegisterData)))) {
+      dev_warn(dev->device,"Dma_ReadRegister: copy_from_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
+      return(-1);
+   }
+
+   if ( ( (dev->base + rData.address) < dev->rwBase ) ||
+        ( (dev->base + rData.address + 4) > (dev->rwBase + dev->rwSize) ) ) return(-1);
+
+   rData.data = ioread32(dev->base+rData.address);
+
+   // Return the data structure
+   if ((ret=copy_to_user((void *)arg,&rData,sizeof(struct DmaRegisterData)))) {
+      dev_warn(dev->device,"Dma_ReadRegister: copy_to_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
+      return(-1);
+   }
    return(0);
 }
 

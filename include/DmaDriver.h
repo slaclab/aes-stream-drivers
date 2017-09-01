@@ -36,15 +36,19 @@
 #define DMA_ERR_BUS  0x08
 
 // Commands
-#define DMA_Get_Buff_Count 0x1001
-#define DMA_Get_Buff_Size  0x1002
-#define DMA_Set_Debug      0x1003
-#define DMA_Set_Mask       0x1004
-#define DMA_Ret_Index      0x1005
-#define DMA_Get_Index      0x1006
-#define DMA_Read_Ready     0x1007
-#define DMA_Set_MaskBytes  0x1008
-#define DMA_Get_Version    0x1009
+#define DMA_Get_Buff_Count   0x1001
+#define DMA_Get_Buff_Size    0x1002
+#define DMA_Set_Debug        0x1003
+#define DMA_Set_Mask         0x1004
+#define DMA_Ret_Index        0x1005
+#define DMA_Get_Index        0x1006
+#define DMA_Read_Ready       0x1007
+#define DMA_Set_MaskBytes    0x1008
+#define DMA_Get_Version      0x1009
+#define DMA_Write_Register   0x100A
+#define DMA_Read_Register    0x100B
+#define DMA_Get_RxBuff_Count 0x100C
+#define DMA_Get_TxBuff_Count 0x100D
 
 // Mask size
 #define DMA_MASK_SIZE 32
@@ -71,6 +75,12 @@ struct DmaReadData {
    uint32_t   error;
    uint32_t   size;
    uint32_t   is32;
+};
+
+// Register data
+struct DmaRegisterData {
+   uint32_t   address;
+   uint32_t   data;
 };
 
 // Everything below is hidden during kernel module compile
@@ -222,6 +232,21 @@ static inline ssize_t dmaReadReady(int32_t fd) {
    return(ioctl(fd,DMA_Read_Ready,0));
 }
 
+// get rx buffer count
+static inline ssize_t dmaGetRxBuffCount(int32_t fd) {
+   return(ioctl(fd,DMA_Get_RxBuff_Count,0));
+}
+
+// get tx buffer count
+static inline ssize_t dmaGetTxBuffCount(int32_t fd) {
+   return(ioctl(fd,DMA_Get_TxBuff_Count,0));
+}
+
+// get buffer size
+static inline ssize_t dmaGetBuffSize(int32_t fd) {
+   return(ioctl(fd,DMA_Get_Buff_Size,0));
+}
+
 // Return user space mapping to dma buffers
 static inline void ** dmaMapDma(int32_t fd, uint32_t *count, uint32_t *size) {
    void *   temp;
@@ -287,7 +312,7 @@ static inline void dmaAssignHandler (int32_t fd, void (*handler)(int32_t)) {
    fcntl(fd, F_SETFL, oflags | FASYNC);
 }
 
-// set lane/vc rx mask, one bit per vc
+// set mask
 static inline ssize_t dmaSetMask(int32_t fd, uint32_t mask) {
    return(ioctl(fd,DMA_Set_Mask,mask));
 }
@@ -318,8 +343,30 @@ static inline ssize_t dmaSetMaskBytes(int32_t fd, uint8_t * mask) {
 static inline ssize_t dmaCheckVersion(int32_t fd) {
    int32_t version;
    version = ioctl(fd,DMA_Get_Version);
-
    return((version == DMA_VERSION)?-0:-1);
+}
+
+// Write Register
+static inline ssize_t dmaWriteRegister(int32_t fd, uint32_t address, uint32_t data) {
+   struct DmaRegisterData reg;
+
+   reg.address = address;
+   reg.data    = data;
+   return(ioctl(fd,DMA_Write_Register,&reg));
+}
+
+// Read from PROM
+static inline ssize_t dmaReadRegister(int32_t fd, uint32_t address, uint32_t *data) {
+   struct DmaRegisterData reg;
+   ssize_t res;
+
+   reg.address = address;
+   reg.data    = 0;
+   res = ioctl(fd,DMA_Read_Register,&reg);
+
+   if ( data != NULL ) *data = reg.data;
+
+   return(res);
 }
 
 #endif

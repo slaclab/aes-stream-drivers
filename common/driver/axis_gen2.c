@@ -29,6 +29,7 @@
 struct hardware_functions AxisG2_functions = {
    .irq          = AxisG2_Irq,
    .init         = AxisG2_Init,
+   .enable       = AxisG2_Enable,
    .clear        = AxisG2_Clear,
    .retRxBuffer  = AxisG2_RetRxBuffer,
    .sendBuffer   = AxisG2_SendBuffer,
@@ -41,6 +42,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    uint32_t index;
    uint32_t handleCount;
    uint64_t dmaData;
+   uint32_t x;
 
    struct DmaDesc     * desc;
    struct DmaBuffer   * buff;
@@ -136,6 +138,9 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    if ( handleCount ) return(IRQ_HANDLED);
    else {
       dev_warn(dev->device,"Irq: Empty irq\n");
+
+      for ( x=0; x < 10; x++ ) dev_warn(dev->device,"Irq: Write Dump %i 0x%.16x\n",x,hwData->writeAddr[x]);
+
       return(IRQ_NONE);
    }
    //else return(IRQ_HANDLED);
@@ -161,7 +166,7 @@ void AxisG2_Init(struct DmaDevice *dev) {
    // Set read and write ring buffers
    hwData->addrCount = (1 << ioread32(&(reg->addrWidth)));
 
-   if(dev->cfgMode & BUFF_ARM_MIXED) {
+   if(dev->cfgMode & AXIS2_RING_ACP) {
       hwData->readAddr = kmalloc(hwData->addrCount*8, GFP_DMA | GFP_KERNEL);
       hwData->readHandle = virt_to_phys(hwData->readAddr);
 
@@ -176,6 +181,9 @@ void AxisG2_Init(struct DmaDevice *dev) {
          dma_alloc_coherent(dev->device, hwData->addrCount*8, &(hwData->writeHandle),GFP_KERNEL);
    }
 
+   dev_info(dev->device,"Init: Read  ring at: 0x%.8x\n",hwData->readHandle);
+   dev_info(dev->device,"Init: Write ring at: 0x%.8x\n",hwData->writeHandle);
+
    // Init and set ring address
    iowrite32(hwData->readHandle,&(reg->rdBaseAddrLow));
    memset(hwData->readAddr,0,hwData->addrCount*8);
@@ -187,10 +195,11 @@ void AxisG2_Init(struct DmaDevice *dev) {
    hwData->writeIndex = 0;
 
    // Set cache mode, bits3:0 = desc, bits 11:8 = buffer
-   if ( dev->cfgMode & BUFF_ARM_ACP ) iowrite32(0xF0F,&(reg->cacheConfig));
-   else if ( dev->cfgMode & BUFF_ARM_MIXED ) iowrite32(0x00F,&(reg->cacheConfig));
-   else iowrite32(0,&(reg->cacheConfig));
-
+   x = 0;
+   if ( dev->cfgMode & BUFF_ARM_ACP   ) x |= 0x0200; // Buffer
+   if ( dev->cfgMode & AXIS2_RING_ACP ) x |= 0x0006; // Desc
+   iowrite32(x,&(reg->cacheConfig));
+   
    // Set MAX RX                      
    iowrite32(dev->cfgSize,&(reg->maxSize));
 
@@ -222,14 +231,22 @@ void AxisG2_Init(struct DmaDevice *dev) {
       iowrite32(buff->buffHandle,&(reg->dmaAddr[buff->index])); // Address table
    }
 
+   dev_info(dev->device,"Init: Found Version 2 Device.\n");
+}
+
+
+// Enable the card
+void AxisG2_Enable(struct DmaDevice *dev) {
+   struct AxisG2Reg  *reg;
+
+   reg = (struct AxisG2Reg *)dev->reg;
+
    // Online
    iowrite32(0x1,&(reg->online));
 
    // Enable interrupt
    iowrite32(0x1,&(reg->intEnable));
-   dev_info(dev->device,"Init: Found Version 2 Device.\n");
 }
-
 
 // Clear card in top level Remove
 void AxisG2_Clear(struct DmaDevice *dev) {
@@ -250,7 +267,7 @@ void AxisG2_Clear(struct DmaDevice *dev) {
    iowrite32(0x1,&(reg->fifoReset));
 
    // Free buffers
-   if(dev->cfgMode & BUFF_ARM_MIXED) {
+   if(dev->cfgMode & AXIS2_RING_ACP) {
       kfree(hwData->readAddr);
       kfree(hwData->writeAddr);
    }
@@ -311,7 +328,7 @@ int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
    spin_unlock(&dev->writeHwLock);
 
    if ( dev->debug > 0 ) {
-      dev_info(dev->device,"SendBuffer: Wrote High=0x%x, Low=0x%x, Handle=%x\n",descHigh,descLow,buff->buffHandle);
+      dev_info(dev->device,"SendBuffer: Wrote High=0x%x, Low=0x%x, Handle=0x%llx\n",descHigh,descLow,buff->buffHandle);
       dev_info(dev->device,"SendBuffer: %x %x %x %x %x %x %x %x\n", ((uint8_t*)buff->buffAddr)[0], ((uint8_t*)buff->buffAddr)[1], ((uint8_t*)buff->buffAddr)[2],
                                                                     ((uint8_t*)buff->buffAddr)[3], ((uint8_t*)buff->buffAddr)[4], ((uint8_t*)buff->buffAddr)[5],
                                                                     ((uint8_t*)buff->buffAddr)[6], ((uint8_t*)buff->buffAddr)[7]);
@@ -353,11 +370,12 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
 
    seq_printf(s,"\n");
    seq_printf(s,"-------------- General HW -----------------\n");
-   seq_printf(s,"          Int Req Count : %i\n",(ioread32(&(reg->intReqCount))));
-   seq_printf(s,"        Hw Dma Wr Index : %i\n",(ioread32(&(reg->hwWrIndex))));
-   seq_printf(s,"        Sw Dma Wr Index : %i\n",hwData->writeIndex);
-   seq_printf(s,"        Hw Dma Rd Index : %i\n",(ioread32(&(reg->hwRdIndex))));
-   seq_printf(s,"        Sw Dma Rd Index : %i\n",hwData->readIndex);
+   seq_printf(s,"          Int Req Count : %u\n",(ioread32(&(reg->intReqCount))));
+   seq_printf(s,"        Hw Dma Wr Index : %u\n",(ioread32(&(reg->hwWrIndex))));
+   seq_printf(s,"        Sw Dma Wr Index : %u\n",hwData->writeIndex);
+   seq_printf(s,"        Hw Dma Rd Index : %u\n",(ioread32(&(reg->hwRdIndex))));
+   seq_printf(s,"        Sw Dma Rd Index : %u\n",hwData->readIndex);
+   seq_printf(s,"     Missed Wr Requests : %u\n",(ioread32(&(reg->wrReqMissed))));
    seq_printf(s,"           Cache Config : 0x%x\n",(ioread32(&(reg->cacheConfig))));
 }
 

@@ -22,6 +22,7 @@
 #ifndef __TEM_DRIVER_H__
 #define __TEM_DRIVER_H__
 #include <DmaDriver.h>
+#include <FpgaProm.h>
 
 // Card Info
 struct TemInfo {
@@ -55,16 +56,6 @@ struct PciStatus {
 #define TEM_Read_Pci    0x2002
 #define TEM_Set_Loop    0x2004
 #define TEM_Count_Reset 0x2005
-#define TEM_Write_Prom  0x2008
-#define TEM_Read_Prom   0x2009
-
-// Prom Programming 
-struct TemPromData {
-   uint32_t address;
-   uint32_t cmd;
-   uint32_t data;
-   uint32_t pad;
-};
 
 // Destination
 #define TEM_DEST_CMD  0
@@ -119,31 +110,6 @@ static inline ssize_t temSetLoop(int32_t fd, uint32_t state) {
    temp |= ((state << 8) & 0x100);
 
    return(ioctl(fd,TEM_Set_Loop,temp));
-}
-
-// Write to PROM
-static inline ssize_t temWriteProm(int32_t fd, uint32_t address, uint32_t cmd, uint32_t data) {
-   struct TemPromData prom;
-
-   prom.address = address;
-   prom.cmd     = cmd;
-   prom.data    = data;
-   return(ioctl(fd,TEM_Write_Prom,&prom));
-}
-
-// Read from PROM
-static inline ssize_t temReadProm(int32_t fd, uint32_t address, uint32_t cmd, uint32_t *data) {
-   struct TemPromData prom;
-   ssize_t res;
-
-   prom.address = address;
-   prom.cmd     = cmd;
-   prom.data    = 0;
-   res = ioctl(fd,TEM_Read_Prom,&prom);
-
-   if ( data != NULL ) *data = prom.data;
-
-   return(res);
 }
 
 #endif

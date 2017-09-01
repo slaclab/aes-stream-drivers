@@ -22,6 +22,8 @@
 #ifndef __RCE_TOP_H__
 #define __RCE_TOP_H__
 
+#define MAX_DMA_DEVICES 4
+
 #include <linux/types.h>
 #include <linux/device.h>
 #include <linux/platform_device.h>

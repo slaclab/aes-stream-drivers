@@ -20,6 +20,7 @@
  * ----------------------------------------------------------------------------
 **/
 #include <tem_gen3.h>
+#include <fpga_prom.h>
 #include <dma_buffer.h>
 #include <linux/seq_file.h>
 #include <linux/signal.h>
@@ -29,6 +30,7 @@
 struct hardware_functions TemG3_functions = {
    .irq          = TemG3_Irq,
    .init         = TemG3_Init,
+   .enable       = TemG3_Enable,
    .clear        = TemG3_Clear,
    .retRxBuffer  = TemG3_RetRxBuffer,
    .sendBuffer   = TemG3_SendBuffer,
@@ -232,12 +234,17 @@ void TemG3_Init(struct DmaDevice *dev) {
    dev->destMask[0] = 0x3;
    info->promPrgEn = 1;
 
-   // Enable interrupts
-   iowrite32(1,&(reg->irq));
-
    dev_info(dev->device,"Init: Found card. Version=0x%x\n",info->version);
 }
 
+// Enable the card
+void TemG3_Enable(struct DmaDevice *dev) {
+   struct TemG3Reg * reg;
+   reg = (struct TemG3Reg *)dev->reg;
+
+   // Enable interrupts
+   iowrite32(1,&(reg->irq));
+}
 
 // Clear card in top level Remove
 void TemG3_Clear(struct DmaDevice *dev) {
@@ -383,13 +390,13 @@ int32_t TemG3_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
          break;
 
       // Write to prom
-      case TEM_Write_Prom:
-         return(TemG3_PromWrite(dev,arg));
+      case FPGA_Write_Prom:
+         return(FpgaProm_Write(dev,reg->promRegs,arg));
          break;
 
       // Read from prom
-      case TEM_Read_Prom:
-         return(TemG3_PromRead(dev,arg));
+      case FPGA_Read_Prom:
+         return(FpgaProm_Read(dev,reg->promRegs,arg));
          break;
 
       default:
@@ -482,79 +489,4 @@ void TemG3_GetPci(struct DmaDevice *dev, struct PciStatus *status) {
    status->pciBus       = (tmp&0xFF);
 }
 
-
-// Prom Read 
-int32_t TemG3_PromWrite(struct DmaDevice *dev, uint64_t arg) {
-   struct TemPromData prom;
-
-   int32_t  ret;
-   uint32_t tempVal;
-
-   struct TemG3Reg *reg;
-   reg = (struct TemG3Reg *)dev->reg;
-
-   if ((ret = copy_from_user(&prom,(void *)arg,sizeof(struct TemPromData)))) {
-      dev_warn(dev->device,"PromWrite: copy_from_user failed. ret=%i, user=%p kern=%p\n",
-          ret, (void *)arg, &prom);
-      return(-1);
-   }
-
-   if ( dev->debug > 0 ) 
-      dev_info(dev->device,"PromWrite: Addr=0x%x, Cmd=0x%x, Data=0x%x.\n",
-            prom.address, prom.cmd, prom.data);
-
-   // Set the data bus
-   tempVal = ( (prom.cmd << 16) | prom.data );
-   iowrite32(tempVal,&(reg->promData));
-   asm("nop");
-
-   // Set the address bus and initiate the transfer
-   tempVal = (~0x80000000 & prom.address);
-   iowrite32(tempVal,&(reg->promAddr));
-   asm("nop");
-   return(0);
-}
-
-
-// Prom write 
-int32_t TemG3_PromRead(struct DmaDevice *dev, uint64_t arg) {
-   struct TemPromData prom;
-
-   int32_t  ret;
-   uint32_t tempVal;
-
-   struct TemG3Reg *reg;
-   reg = (struct TemG3Reg *)dev->reg;
-
-   if ((ret=copy_from_user(&prom,(void *)arg,sizeof(struct TemPromData)))) {
-      dev_warn(dev->device,"PromRead: copy_from_user failed. ret=%i, user=%p kern=%p\n",
-          ret, (void *)arg, &prom);
-      return(-1);
-   }
-
-   // Set the data bus
-   tempVal = ( (prom.cmd << 16) | 0xFF );
-   iowrite32(tempVal,&(reg->promData));
-   asm("nop");
-
-   // Set the address bus and initiate the transfer
-   tempVal = (0x80000000 | prom.address);
-   iowrite32(tempVal,&(reg->promAddr));
-   asm("nop");
-
-   // Read the data register
-   prom.data = ioread32(&(reg->promRead));
-
-   if ( dev->debug > 0 ) 
-      dev_info(dev->device,"PromRead: Addr=0x%x, Cmd=0x%x, Data=0x%x.\n",
-            prom.address, prom.cmd, prom.data);
-
-   // Return the data structure
-   if ((ret=copy_to_user((void *)arg,&prom,sizeof(struct TemPromData)))) {
-      dev_warn(dev->device,"PromRead: copy_to_user failed. ret=%i, user=%p kern=%p\n",
-          ret, (void *)arg, &prom);
-      return(-1);
-   }
-   return(0);
-}
 

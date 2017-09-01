@@ -80,9 +80,7 @@ struct PgpCardG2Reg {
 
    uint32_t spare5[245]; // 0x82C - 0xBFC
 
-   uint32_t promData;    // 0xC00
-   uint32_t promAddr;    // 0xC04
-   uint32_t promRead;    // 0xC08
+   uint32_t promRegs[3]; // Prom registers
 };
 
 // Set functions for gen2 card
@@ -93,6 +91,9 @@ irqreturn_t PgpCardG2_Irq(int irq, void *dev_id);
 
 // Init card in top level Probe
 void PgpCardG2_Init(struct DmaDevice *dev);
+
+// Enable
+void PgpCardG2_Enable(struct DmaDevice *dev);
 
 // Clear card in top level Remove
 void PgpCardG2_Clear(struct DmaDevice *dev);

@@ -33,21 +33,25 @@ driver:
 	@make -C $(MAKE_HOME)/exo_tem/driver
 	@make -C $(MAKE_HOME)/pgpcard/driver
 	@make -C $(MAKE_HOME)/rce_stream/driver
+	@make -C $(MAKE_HOME)/data_dev/driver
 
 driver_clean:
 	@make -C $(MAKE_HOME)/exo_tem/driver clean
 	@make -C $(MAKE_HOME)/pgpcard/driver clean
 	@make -C $(MAKE_HOME)/rce_stream/driver clean
+	@make -C $(MAKE_HOME)/data_dev/driver clean
 
 app:
 	@make -C $(MAKE_HOME)/exo_tem/app
 	@make -C $(MAKE_HOME)/pgpcard/app
 	@make -C $(MAKE_HOME)/rce_stream/app
+	@make -C $(MAKE_HOME)/data_dev/app
 
 app_clean:
 	@make -C $(MAKE_HOME)/exo_tem/app clean
 	@make -C $(MAKE_HOME)/pgpcard/app clean
 	@make -C $(MAKE_HOME)/rce_stream/app clean
+	@make -C $(MAKE_HOME)/data_dev/app clean
 
 install: linux_install rce_install
 
@@ -61,6 +65,9 @@ linux_install:
 		make -C $(MAKE_HOME)/pgpcard/driver KVER=$(ver) clean; \
 		make -C $(MAKE_HOME)/pgpcard/driver KVER=$(ver); \
 		scp $(MAKE_HOME)/pgpcard/driver/*.ko $(MAKE_HOME)/install/$(ver); \
+		make -C $(MAKE_HOME)/data_dev/driver KVER=$(ver) clean; \
+		make -C $(MAKE_HOME)/data_dev/driver KVER=$(ver); \
+		scp $(MAKE_HOME)/data_dev/driver/*.ko $(MAKE_HOME)/install/$(ver); \
 	)
 
 rce_install:

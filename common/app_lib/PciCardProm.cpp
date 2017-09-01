@@ -1,14 +1,14 @@
 /**
  *-----------------------------------------------------------------------------
- * Title         : PgpCard PROM C++ Class
+ * Title         : PciCard PROM C++ Class
  * ----------------------------------------------------------------------------
- * File          : PgpCardProm.cpp
+ * File          : PciCardProm.cpp
  * Author        : Larry Ruckman  <ruckman@slac.stanford.edu>
  * Created       : 03/19/2014
  * Last update   : 08/11/2014
  *-----------------------------------------------------------------------------
  * Description :
- *    PgpCard PROM C++ Class
+ *    PciCard PROM C++ Class
  *-----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to 
  * the license terms in the LICENSE.txt file found in the top-level directory 
@@ -28,60 +28,50 @@
 #include <iomanip> 
 #include <math.h>
 
-#include "PgpCardProm.h"
+#include "PciCardProm.h"
 #include "McsRead.h"
 
 using namespace std;
 
-#define GEN3_BLOCK_SIZE    0x4000 // Assume the smallest block size of 16-kword/block
-#define GEN3_PROM_SIZE     0x00947A5B
-#define GEN3_CONFIG_REG    0xFD4F
+#define LARGE_BLOCK_SIZE    0x4000 // Assume the smallest block size of 16-kword/block
+#define LARGE_PROM_SIZE     0x00947A5B
+#define LARGE_CONFIG_REG    0xFD4F
 
-#define GEN2_BLOCK_SIZE    0x10000
-#define GEN2_PROM_SIZE     0x001ACD7F
-#define GEN2_CONFIG_REG    0xBDDF
+#define SMALL_BLOCK_SIZE    0x10000
+#define SMALL_PROM_SIZE     0x001ACD7F
+#define SMALL_CONFIG_REG    0xBDDF
 
 // Constructor
-PgpCardProm::PgpCardProm (int32_t fd, string pathToFile ) {   
+PciCardProm::PciCardProm (int32_t fd, string pathToFile, bool large ) {   
 
    // Set the file path
    _filePath = pathToFile;
    _fd       = fd;
+   _large    = large;
 
-   // Get card info
-   pgpGetInfo(fd,&_info);
-
-   // Determine version, use only lower 4 bits to get the base version
-   switch (_info.type & 0xF) {
-      case PGP_GEN3:
-         _blockSize = GEN3_BLOCK_SIZE;
-         _promSize  = GEN3_PROM_SIZE;
-         _en        = _info.promPrgEn;
-         writeToFlash(GEN3_CONFIG_REG,0x60,0x03);
-         break;
-      case PGP_GEN2:
-         _blockSize = GEN2_BLOCK_SIZE;
-         _promSize  = GEN2_PROM_SIZE;
-         _en        = _info.promPrgEn;
-         writeToFlash(GEN2_CONFIG_REG,0x60,0x03);
-         break;
-      default:
-         _en = false;
-         break;
+   if ( _large ) {
+      _blockSize = LARGE_BLOCK_SIZE;
+      _promSize  = LARGE_PROM_SIZE;
+      writeToFlash(LARGE_CONFIG_REG,0x60,0x03);
+   }
+   else {
+      _blockSize = SMALL_BLOCK_SIZE;
+      _promSize  = SMALL_PROM_SIZE;
+      writeToFlash(SMALL_CONFIG_REG,0x60,0x03);
    }
 }
 
 // Deconstructor
-PgpCardProm::~PgpCardProm ( ) { 
+PciCardProm::~PciCardProm ( ) { 
 }
 
 // CHeck if file exists
-bool PgpCardProm::fileExist() {
+bool PciCardProm::fileExist() {
    ifstream ifile(_filePath.c_str());
    return ifile.good();
 }
 
-uint32_t PgpCardProm::getPromSize () {
+uint32_t PciCardProm::getPromSize () {
    McsRead mcsReader;
    uint32_t retVar;
    mcsReader.open(_filePath);
@@ -92,21 +82,8 @@ uint32_t PgpCardProm::getPromSize () {
    return retVar; 
 }
 
-//! Check for a valid firmware version  (true=valid firmware version)
-bool PgpCardProm::checkFirmwareVersion ( ) {
-   printf("*******************************************************************\n");
-   printf("                   Current Card Type: %i\n",_info.type);
-   printf("Current Firmware Version on the FPGA: 0x%.8x\n",_info.version);
-   if( getPromSize() != _promSize){
-      printf("\t Invalid Prom Size\n");  
-      return false;
-   }else{
-      return(_en);
-   }
-}
-
 //! Print Power Cycle Reminder
-void PgpCardProm::rebootReminder ( ) {
+void PciCardProm::rebootReminder ( ) {
    cout << "\n\n\n\n\n";
    cout << "***************************************" << endl;
    cout << "***************************************" << endl;
@@ -118,7 +95,7 @@ void PgpCardProm::rebootReminder ( ) {
 }
 
 //! Erase the PROM
-void PgpCardProm::eraseBootProm ( ) {
+void PciCardProm::eraseBootProm ( ) {
 
    uint32_t address = 0;
    double size = double(_promSize);
@@ -140,17 +117,13 @@ void PgpCardProm::eraseBootProm ( ) {
 }
 
 //! Write the .mcs file to the PROM
-bool PgpCardProm::writeBootProm ( ) {
-   switch (_info.type) {
-      case PGP_GEN3: return(bufferedWriteBootProm()); break;
-      case PGP_GEN2: return(unbufferedWriteBootProm()); break;
-      default: printf("Error! This card is not supported!!!!!\n"); break;
-   }
-   return(false);
+bool PciCardProm::writeBootProm ( ) {
+   if ( _large ) return(bufferedWriteBootProm());
+   else return(unbufferedWriteBootProm());
 }
 
 //! Write the .mcs file to the PROM
-bool PgpCardProm::unbufferedWriteBootProm ( ) {
+bool PciCardProm::unbufferedWriteBootProm ( ) {
    cout << "*******************************************************************" << endl;
    cout << "Starting Writing ..." << endl; 
    McsRead mcsReader;
@@ -207,7 +180,7 @@ bool PgpCardProm::unbufferedWriteBootProm ( ) {
 }
 
 //! Write the .mcs file to the PROM
-bool PgpCardProm::bufferedWriteBootProm ( ) {
+bool PciCardProm::bufferedWriteBootProm ( ) {
    cout << "*******************************************************************" << endl;
    cout << "Starting Writing ..." << endl; 
    McsRead mcsReader;
@@ -291,7 +264,7 @@ bool PgpCardProm::bufferedWriteBootProm ( ) {
 }
 
 //! Compare the .mcs file with the PROM (true=matches)
-bool PgpCardProm::verifyBootProm ( ) {
+bool PciCardProm::verifyBootProm ( ) {
    cout << "*******************************************************************" << endl;
    cout << "Starting Verification ..." << endl; 
    McsRead mcsReader;
@@ -358,7 +331,7 @@ bool PgpCardProm::verifyBootProm ( ) {
 }
 
 //! Erase Command
-void PgpCardProm::eraseCommand(uint32_t address) {
+void PciCardProm::eraseCommand(uint32_t address) {
    uint16_t status = 0;
    
    // Unlock the Block
@@ -397,7 +370,7 @@ void PgpCardProm::eraseCommand(uint32_t address) {
 }
 
 //! Program Command
-void PgpCardProm::programCommand(uint32_t address, uint16_t data) {
+void PciCardProm::programCommand(uint32_t address, uint16_t data) {
    uint16_t status = 0;
    
    // Unlock the Block
@@ -436,7 +409,7 @@ void PgpCardProm::programCommand(uint32_t address, uint16_t data) {
 }
 
 //! Buffered Program Command
-void PgpCardProm::bufferedProgramCommand(uint32_t *address, uint16_t *data, uint16_t size) {
+void PciCardProm::bufferedProgramCommand(uint32_t *address, uint16_t *data, uint16_t size) {
    uint16_t status = 0;
    uint16_t i;
    
@@ -492,19 +465,19 @@ void PgpCardProm::bufferedProgramCommand(uint32_t *address, uint16_t *data, uint
 }
 
 //! Read FLASH memory Command
-uint16_t PgpCardProm::readWordCommand(uint32_t address) {
+uint16_t PciCardProm::readWordCommand(uint32_t address) {
    return readFlash(address,0xFF);
 }
 
 //! Generic FLASH write Command 
-void PgpCardProm::writeToFlash(uint32_t address, uint16_t cmd, uint16_t data) {
-   pgpWriteProm(_fd,address,cmd,data);
+void PciCardProm::writeToFlash(uint32_t address, uint16_t cmd, uint16_t data) {
+   fpgaWriteProm(_fd,address,cmd,data);
 }
 
 //! Generic FLASH read Command
-uint16_t PgpCardProm::readFlash(uint32_t address, uint16_t cmd) {
+uint16_t PciCardProm::readFlash(uint32_t address, uint16_t cmd) {
    uint32_t data;
-   pgpReadProm(_fd,address,cmd,&data);
+   fpgaReadProm(_fd,address,cmd,&data);
    return(data&0xFFFF);
 }
 

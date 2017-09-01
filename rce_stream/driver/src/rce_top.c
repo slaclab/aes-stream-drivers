@@ -42,13 +42,15 @@ int cfgTxCount1 = 8;
 int cfgTxCount2 = 8;
 int cfgRxCount0 = 8;
 int cfgRxCount1 = 8;
-int cfgRxCount2 = 1000;
+int cfgRxCount2 = 800;
 int cfgSize0    = 4096*4;
 int cfgSize1    = 4096;
 int cfgSize2    = 4096*4;
 int cfgMode0    = BUFF_COHERENT;
 int cfgMode1    = BUFF_COHERENT;
-int cfgMode2    = BUFF_COHERENT;
+int cfgMode2    = BUFF_ARM_ACP | AXIS2_RING_ACP;
+
+struct DmaDevice gDmaDevices[MAX_DMA_DEVICES];
 
 // Tables of device names
 const char * RceDevNames[MAX_DMA_DEVICES] = {
@@ -191,7 +193,7 @@ int Rce_Probe(struct platform_device *pdev) {
    }
 
    // Coherent
-   if( (dev->cfgMode & BUFF_ARM_ACP) || (dev->cfgMode & BUFF_ARM_MIXED) ) {
+   if( (dev->cfgMode & BUFF_ARM_ACP) || (dev->cfgMode & AXIS2_RING_ACP) ) {
        set_dma_ops(&pdev->dev,&arm_coherent_dma_ops);
        dev_info(dev->device,"Probe: Set COHERENT DMA =%i\n",dev->cfgMode);
    }

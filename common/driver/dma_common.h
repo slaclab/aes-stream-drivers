@@ -30,9 +30,6 @@
 #include <DmaDriver.h>
 #include <dma_buffer.h>
 
-// Max number of devices to support
-#define MAX_DMA_DEVICES 4
-
 // Maximum number of channels
 #define DMA_MAX_DEST (8*DMA_MASK_SIZE)
 
@@ -46,7 +43,16 @@ struct DmaDevice {
    // PCI address regions
    phys_addr_t baseAddr;
    uint32_t    baseSize;
-   void *      reg;
+
+   // Base pointer to memory region
+   uint8_t * base;
+
+   // Register pointers, may be the same as reg
+   void * reg; // hardware specific
+
+   // Direct read/write offset and size
+   uint8_t * rwBase;
+   uint32_t  rwSize;
 
    // Configuration
    uint32_t cfgSize;
@@ -110,15 +116,17 @@ struct DmaDesc {
 struct hardware_functions {
    irqreturn_t (*irq)(int irq, void *dev_id);
    void        (*init)(struct DmaDevice *dev);
+   void        (*enable)(struct DmaDevice *dev);
    void        (*clear)(struct DmaDevice *dev);
    void        (*retRxBuffer)(struct DmaDevice *dev, struct DmaBuffer *buff);
    int32_t     (*sendBuffer)(struct DmaDevice *dev, struct DmaBuffer *buff);
    int32_t     (*command)(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);
    void        (*seqShow)(struct seq_file *s, struct DmaDevice *dev);
+   int32_t     (*promRead)(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);
 };
 
 // Global array of devices
-extern struct DmaDevice gDmaDevices[MAX_DMA_DEVICES];
+extern struct DmaDevice gDmaDevices[];
 
 // Number of active devices
 extern uint32_t gDmaDevCount;
@@ -193,6 +201,12 @@ int Dma_SeqShow(struct seq_file *s, void *v);
 
 // Set Mask
 int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t * mask );
+
+// Write Register
+int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg);
+
+// Read Register
+int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg);
 
 #endif
 

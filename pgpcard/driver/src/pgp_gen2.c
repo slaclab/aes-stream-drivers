@@ -20,6 +20,8 @@
  * ----------------------------------------------------------------------------
 **/
 #include <PgpDriver.h>
+#include <FpgaProm.h>
+#include <fpga_prom.h>
 #include <pgp_common.h>
 #include <pgp_gen2.h>
 #include <linux/seq_file.h>
@@ -30,6 +32,7 @@
 struct hardware_functions PgpCardG2_functions = {
    .irq          = PgpCardG2_Irq,
    .init         = PgpCardG2_Init,
+   .enable       = PgpCardG2_Enable,
    .clear        = PgpCardG2_Clear,
    .retRxBuffer  = PgpCardG2_RetRxBuffer,
    .sendBuffer   = PgpCardG2_SendBuffer,
@@ -263,12 +266,18 @@ void PgpCardG2_Init(struct DmaDevice *dev) {
          break;
    }
 
-   // Enable interrupts
-   iowrite32(1,&(reg->irq));
-
    dev_info(dev->device,"Init: Found card. Version=0x%x, Type=0x%.2x\n", info->version,info->type);
 }
 
+// enable the card
+void PgpCardG2_Enable(struct DmaDevice *dev) {
+   struct PgpCardG2Reg * reg;
+
+   reg = (struct PgpCardG2Reg *)dev->reg;
+
+   // Enable interrupts
+   iowrite32(1,&(reg->irq));
+}
 
 // Clear card in top level Remove
 void PgpCardG2_Clear(struct DmaDevice *dev) {
@@ -389,7 +398,6 @@ int32_t PgpCardG2_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    struct PgpStatus      status;
    struct PciStatus      pciStatus;
    struct PgpCardG2Reg * reg;
-   struct pgpprom_reg  * preg;
 
    reg  = (struct PgpCardG2Reg *)dev->reg;
    info = (struct PgpInfo * )dev->hwData;
@@ -494,15 +502,15 @@ int32_t PgpCardG2_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
          break;
 
       // Write to prom
-      case PGP_Write_Prom:
-         preg = (struct pgpprom_reg *)&(reg->promData);
-         return(PgpCard_PromWrite(dev,preg,arg));
+      case FPGA_Write_Prom:
+         if ( info->promPrgEn ) return(FpgaProm_Write(dev,reg->promRegs,arg));
+         else return(-1);
          break;
 
       // Read from prom
-      case PGP_Read_Prom:
-         preg = (struct pgpprom_reg *)&(reg->promData);
-         return(PgpCard_PromRead(dev,preg,arg));
+      case FPGA_Read_Prom:
+         if ( info->promPrgEn ) return(FpgaProm_Read(dev,reg->promRegs,arg));
+         else return(-1);
          break;
 
       default:

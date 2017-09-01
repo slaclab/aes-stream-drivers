@@ -24,7 +24,7 @@
 #include <dma_buffer.h>
 #include <linux/interrupt.h>
 
-#define BUFF_ARM_MIXED 0x10
+#define AXIS2_RING_ACP 0x10
 
 struct AxisG2Reg {
    uint32_t enableVer;       // 0x0000
@@ -50,7 +50,8 @@ struct AxisG2Reg {
    uint32_t intReqCount;     // 0x0050
    uint32_t hwWrIndex;       // 0x0054
    uint32_t hwRdIndex;       // 0x0058
-   uint32_t spareB[4073];    // 0x005C - 0x3FFC
+   uint32_t wrReqMissed;     // 0x005C
+   uint32_t spareB[4072];    // 0x0060 - 0x3FFC
    uint32_t dmaAddr[4096];   // 0x4000 - 0x7FFC
 };
 
@@ -71,6 +72,9 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id);
 
 // Init card in top level Probe
 void AxisG2_Init(struct DmaDevice *dev);
+
+// enable device
+void AxisG2_Enable(struct DmaDevice *dev);
 
 // Clear card in top level Remove
 void AxisG2_Clear(struct DmaDevice *dev);
