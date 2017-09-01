@@ -189,11 +189,11 @@ void  PgpCard_Remove(struct pci_dev *pcidev) {
    // Decrement count
    gDmaDevCount--;
 
+   // Call common dma init function
+   Dma_Clean(dev);
    // Disable device
    pci_disable_device(pcidev);
 
-   // Call common dma init function
-   Dma_Clean(dev);
    pr_info("%s: Remove: Driver is unloaded.\n",MOD_NAME);
 }
 

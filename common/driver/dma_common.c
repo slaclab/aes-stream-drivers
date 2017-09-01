@@ -225,10 +225,14 @@ void  Dma_Clean(struct DmaDevice *dev) {
 
    // Unmap
    iounmap(dev->base);
-   memset(dev,0,sizeof(struct DmaDevice));
 
    if (gDmaDevCount == 0 && gCl != NULL) {
       dev_info(dev->device,"Clean: Destroying device class\n");
+   }
+
+   memset(dev,0,sizeof(struct DmaDevice));
+
+   if (gDmaDevCount == 0 && gCl != NULL) {
       class_destroy(gCl);
       gCl = NULL;
    }
@@ -301,10 +305,13 @@ int Dma_Release(struct inode *inode, struct file *filp) {
    for (x=0; x < dev->rxBuffers.count; x++) {
       if ( dev->rxBuffers.indexed[x]->userHas == desc ) {
          dev->rxBuffers.indexed[x]->userHas = NULL;
-         dev->hwFunc->retRxBuffer(dev,dev->rxBuffers.indexed[x]);
+         if (dev->rxBuffers.indexed[x] != NULL) {
+           dev->hwFunc->retRxBuffer(dev,dev->rxBuffers.indexed[x]);
+         }
          cnt++;
       }
    }
+   dev->rxBuffers.count = 0;
    if ( cnt > 0 ) 
       dev_info(dev->device,"Release: Removed %i rx buffers held by user.\n", cnt);
 
@@ -317,6 +324,7 @@ int Dma_Release(struct inode *inode, struct file *filp) {
          cnt++;
       }
    }
+   dev->txBuffers.count = 0;
    if ( cnt > 0 ) 
       dev_info(dev->device,"Release: Removed %i tx buffers held by user.\n", cnt);
 
