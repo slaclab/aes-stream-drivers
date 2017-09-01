@@ -224,7 +224,7 @@ void  Dma_Clean(struct DmaDevice *dev) {
    if ( dev->irq != 0 ) free_irq(dev->irq, dev);
 
    // Unmap
-   iounmap(dev->reg);
+   iounmap(dev->base);
 
    if (gDmaDevCount == 0 && gCl != NULL) {
       dev_info(dev->device,"Clean: Destroying device class\n");
