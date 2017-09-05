@@ -311,7 +311,7 @@ int Dma_Release(struct inode *inode, struct file *filp) {
          cnt++;
       }
    }
-   dev->rxBuffers.count = 0;
+
    if ( cnt > 0 ) 
       dev_info(dev->device,"Release: Removed %i rx buffers held by user.\n", cnt);
 
@@ -324,7 +324,7 @@ int Dma_Release(struct inode *inode, struct file *filp) {
          cnt++;
       }
    }
-   dev->txBuffers.count = 0;
+
    if ( cnt > 0 ) 
       dev_info(dev->device,"Release: Removed %i tx buffers held by user.\n", cnt);
 
