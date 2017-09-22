@@ -40,8 +40,8 @@
 #define AVER_SIZE   0x00010000
 #define PROM_OFF    0x00030000
 #define PROM_SIZE   0x00050000
-#define USER_OFF    0x00080000
-#define USER_SIZE   0x00080000
+#define USER_OFF    0x00800000
+#define USER_SIZE   0x00800000
 
 // Init Kernel Module
 int32_t DataDev_Init(void);

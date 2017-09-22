@@ -156,7 +156,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    dev->reg    = dev->base + AGEN2_OFF;
    dev->rwBase = dev->base + PHY_OFF;
-   dev->rwSize = PHY_SIZE + AVER_SIZE + PROM_SIZE + USER_SIZE;
+   dev->rwSize = (2*USER_SIZE) - PHY_OFF;
 
    // Set memory space limits
    dma_set_coherent_mask(dev->device,0x7FFFFFFF);
