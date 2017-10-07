@@ -34,7 +34,7 @@
 // Init Configuration values
 int cfgTxCount = 4;
 int cfgRxCount = 4;
-int cfgSize    = 8192;
+int cfgSize    = 64384;
 int cfgMode    = BUFF_COHERENT;
 int cfgCont    = 1;
 

@@ -625,6 +625,9 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          if ( buff == NULL ) return(-1);
          else {
             buff->userHas = desc;
+
+            if ( dev->debug > 0 ) 
+               dev_info(dev->device,"Command: Returning buffer %i to user\n",buff->index);
             return(buff->index);
          }
          break;
