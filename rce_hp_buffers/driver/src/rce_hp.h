@@ -24,10 +24,11 @@
 #include <linux/interrupt.h>
 
 struct RceHpReg {
-   uint32_t enable;          // 0x00000
-   uint32_t bufferClear;     // 0x00004
-   uint32_t bufferSize;      // 0x00008
-   uint32_t bufferAlloc;     // 0x0000C
+   uint32_t spare[100];      // skip  0x0 - 0x3FF 
+   uint32_t enable;          // 0x00400
+   uint32_t bufferClear;     // 0x00404
+   uint32_t bufferSize;      // 0x00408
+   uint32_t bufferAlloc;     // 0x0040C
 };
 
 // Init card in top level Probe
