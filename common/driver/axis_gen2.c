@@ -139,7 +139,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    else {
       dev_warn(dev->device,"Irq: Empty irq\n");
 
-      for ( x=0; x < 10; x++ ) dev_warn(dev->device,"Irq: Write Dump %i 0x%.16x\n",x,hwData->writeAddr[x]);
+      for ( x=0; x < 10; x++ ) dev_warn(dev->device,"Irq: Write Dump %i %p\n",x,(void *)hwData->writeAddr[x]);
 
       return(IRQ_NONE);
    }
@@ -181,8 +181,8 @@ void AxisG2_Init(struct DmaDevice *dev) {
          dma_alloc_coherent(dev->device, hwData->addrCount*8, &(hwData->writeHandle),GFP_KERNEL);
    }
 
-   dev_info(dev->device,"Init: Read  ring at: 0x%.8x\n",hwData->readHandle);
-   dev_info(dev->device,"Init: Write ring at: 0x%.8x\n",hwData->writeHandle);
+   dev_info(dev->device,"Init: Read  ring at: %p\n",(void *)hwData->readHandle);
+   dev_info(dev->device,"Init: Write ring at: %p\n",(void *)hwData->writeHandle);
 
    // Init and set ring address
    iowrite32(hwData->readHandle,&(reg->rdBaseAddrLow));
