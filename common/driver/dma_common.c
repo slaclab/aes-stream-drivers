@@ -708,9 +708,9 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
    }
 
    // Size must match the buffer size and offset must be size aligned
-   if ( vsize != dev->cfgSize || (offset % dev->cfgSize) != 0 ) {
-      dev_warn(dev->device,"map: Invalid map size (%i) and offset (%i).\n",
-            vsize,offset);
+   if ( (vsize < dev->cfgSize) || (offset % dev->cfgSize) != 0 ) {
+      dev_warn(dev->device,"map: Invalid map size (%i) and offset (%i). cfgSize=%i\n",
+            vsize,offset,dev->cfgSize);
       return(-1);
    }
 
