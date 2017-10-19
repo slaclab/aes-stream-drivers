@@ -145,6 +145,9 @@ int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->baseAddr = pci_resource_start (pcidev, 0);
    dev->baseSize = pci_resource_len (pcidev, 0);
 
+   // Remap the I/O register block so that it can be safely accessed.
+   if ( Dma_MapReg(dev) < 0 ) return(-1);
+
    // Set configuration
    dev->cfgTxCount = cfgTxCount;
    dev->cfgRxCount = cfgRxCount;
@@ -158,6 +161,9 @@ int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    // Set device fields
    dev->device = &(pcidev->dev);
    dev->hwFunc = hfunc;
+
+   dev->rwBase = dev->base;
+   dev->rwSize = 0x400;
 
    // Call common dma init function
    return(Dma_Init(dev));

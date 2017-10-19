@@ -90,9 +90,11 @@ struct DmaRegisterData {
 #include <sys/mman.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <signal.h>
 #include <sys/ioctl.h>
 #include <sys/signal.h>
 #include <sys/fcntl.h>
+#include <sys/socket.h>
 
 // Write Frame
 static inline ssize_t dmaWrite(int32_t fd, const void * buf, size_t size, uint32_t flags, uint32_t dest) {
