@@ -136,14 +136,14 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
       dev_info(dev->device,"Irq: Done. Handled = %i.\n",handleCount);
 
    if ( handleCount ) return(IRQ_HANDLED);
-   else {
-      dev_warn(dev->device,"Irq: Empty irq\n");
+   // else {
+      // dev_warn(dev->device,"Irq: Empty irq\n");
 
-      for ( x=0; x < 10; x++ ) dev_warn(dev->device,"Irq: Write Dump %i %p\n",x,(void *)hwData->writeAddr[x]);
+      // for ( x=0; x < 10; x++ ) dev_warn(dev->device,"Irq: Write Dump %i %p\n",x,(void *)hwData->writeAddr[x]);
 
-      return(IRQ_NONE);
-   }
-   //else return(IRQ_HANDLED);
+      // return(IRQ_NONE);
+   // }
+   else return(IRQ_HANDLED);
 }
 
 // Init card in top level Probe
