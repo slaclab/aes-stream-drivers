@@ -42,7 +42,6 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    uint32_t index;
    uint32_t handleCount;
    uint64_t dmaData;
-   uint32_t x;
 
    struct DmaDesc     * desc;
    struct DmaBuffer   * buff;
@@ -135,15 +134,8 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    if ( dev->debug > 0 ) 
       dev_info(dev->device,"Irq: Done. Handled = %i.\n",handleCount);
 
-   if ( handleCount ) return(IRQ_HANDLED);
-   else {
-      dev_warn(dev->device,"Irq: Empty irq\n");
-
-      for ( x=0; x < 10; x++ ) dev_warn(dev->device,"Irq: Write Dump %i %p\n",x,(void *)hwData->writeAddr[x]);
-
-      return(IRQ_NONE);
-   }
-   //else return(IRQ_HANDLED);
+   if ( handleCount == 0 ) hwData->missedIrq++;
+   return(IRQ_HANDLED);
 }
 
 // Init card in top level Probe
@@ -193,6 +185,8 @@ void AxisG2_Init(struct DmaDevice *dev) {
    iowrite32(hwData->writeHandle,&(reg->wrBaseAddrLow));
    memset(hwData->writeAddr,0,hwData->addrCount*8);
    hwData->writeIndex = 0;
+
+   hwData->missedIrq = 0;
 
    // Set cache mode, bits3:0 = desc, bits 11:8 = buffer
    x = 0;
@@ -376,6 +370,7 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    seq_printf(s,"        Hw Dma Rd Index : %u\n",(ioread32(&(reg->hwRdIndex))));
    seq_printf(s,"        Sw Dma Rd Index : %u\n",hwData->readIndex);
    seq_printf(s,"     Missed Wr Requests : %u\n",(ioread32(&(reg->wrReqMissed))));
+   seq_printf(s,"       Missed IRQ Count : %u\n",hwData->missedIrq);
    seq_printf(s,"           Cache Config : 0x%x\n",(ioread32(&(reg->cacheConfig))));
 }
 
