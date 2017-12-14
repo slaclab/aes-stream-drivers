@@ -42,7 +42,6 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    uint32_t index;
    uint32_t handleCount;
    uint64_t dmaData;
-   uint32_t x;
 
    struct DmaDesc     * desc;
    struct DmaBuffer   * buff;
