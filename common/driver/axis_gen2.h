@@ -65,6 +65,7 @@ struct AxisG2Data {
    uint32_t    writeIndex;
 
    uint32_t    addrCount;
+   uint32_t    missedIrq;
 };
 
 // Interrupt handler
