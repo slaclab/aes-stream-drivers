@@ -162,10 +162,10 @@ int Dma_Init(struct DmaDevice *dev) {
    // Populate transmit queue
    for (x=0; x < dev->txBuffers.count; x++) dmaQueuePush(&(dev->tq),dev->txBuffers.indexed[x]);
 
-   // Create rx buffers
+   // Create rx buffers, bidirectional because rx buffers can be passed to tx
    dev_info(dev->device,"Init: Creating %i RX Buffers. Size=%i Bytes. Mode=%i.\n",
         dev->cfgRxCount,dev->cfgSize,dev->cfgMode);
-   res = dmaAllocBuffers (dev, &(dev->rxBuffers), dev->cfgRxCount, dev->txBuffers.count, DMA_FROM_DEVICE);
+   res = dmaAllocBuffers (dev, &(dev->rxBuffers), dev->cfgRxCount, dev->txBuffers.count, DMA_BIDIRECTIONAL);
    dev_info(dev->device,"Init: Created  %i out of %i RX Buffers. %i Bytes.\n",
         res,dev->cfgRxCount,(res*dev->cfgSize));
 

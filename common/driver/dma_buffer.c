@@ -56,12 +56,23 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
       // Coherent buffer, map dma coherent buffers
       if ( list->dev->cfgMode & BUFF_COHERENT ) {
          list->indexed[x]->buffAddr = 
-            dma_alloc_coherent(list->dev->device, list->dev->cfgSize, &(list->indexed[x]->buffHandle),GFP_KERNEL);
+            dma_alloc_coherent(list->dev->device, list->dev->cfgSize, &(list->indexed[x]->buffHandle), GFP_KERNEL);
       }
 
       // Streaming buffer type, standard kernel memory
       else if ( list->dev->cfgMode & BUFF_STREAM ) {
-         list->indexed[x]->buffAddr = kmalloc(list->dev->cfgSize, GFP_KERNEL);
+         list->indexed[x]->buffAddr = kmalloc(list->dev->cfgSize, GFP_DMA32 | GFP_KERNEL);
+
+         if (list->indexed[x]->buffAddr != NULL) {
+            list->indexed[x]->buffHandle = dma_map_single(list->dev->device,list->indexed[x]->buffAddr,
+                                                          list->dev->cfgSize,direction);
+
+            // Map error
+            if ( dma_mapping_error(list->dev->device,list->indexed[x]->buffHandle) ) {
+               kfree(list->indexed[x]->buffAddr);
+               list->indexed[x]->buffAddr = NULL;
+            }
+         }
       }
 
       // ACP type with permament handle mapping, dma capable kernel memory
@@ -108,8 +119,8 @@ void dmaFreeBuffers ( struct DmaBufferList *list ) {
             dma_free_coherent(list->dev->device, list->dev->cfgSize,list->indexed[x]->buffAddr,list->indexed[x]->buffHandle);
          }
 
-         // Streaming type still mapped to hardware
-         if ( (list->dev->cfgMode & BUFF_STREAM) && (list->indexed[x]->buffHandle != 0) ) {
+         // Streaming type
+         if ( list->dev->cfgMode & BUFF_STREAM ) {
             dma_unmap_single(list->dev->device,list->indexed[x]->buffHandle,list->dev->cfgSize,list->direction);
          }
 
@@ -284,17 +295,14 @@ void dmaSortBuffers ( struct DmaBufferList *list ) {
 // Return -1 on error
 int32_t dmaBufferToHw ( struct DmaBuffer *buff) {
 
-   // Buffer is stream mode and does not have a handle
-   if ( (buff->buffList->dev->cfgMode) & BUFF_STREAM && buff->buffHandle == 0 ) {
-
-      // Attempt to map
-      buff->buffHandle = dma_map_single(buff->buffList->dev->device,buff->buffAddr,
-                                        buff->buffList->dev->cfgSize,buff->buffList->direction);
-
-      // Map error
-      if ( dma_mapping_error(buff->buffList->dev->device,buff->buffHandle) ) return(-1);
-      return(1);
+   // Buffer is stream mode, sync
+   if ( buff->buffList->dev->cfgMode & BUFF_STREAM ) {
+      dma_sync_single_for_device(buff->buffList->dev->device, 
+                                 buff->buffHandle, 
+                                 buff->buffList->dev->cfgSize,
+                                 buff->buffList->direction);
    }
+
    buff->inHw = 1;
    return(0);
 }
@@ -303,11 +311,12 @@ int32_t dmaBufferToHw ( struct DmaBuffer *buff) {
 void dmaBufferFromHw ( struct DmaBuffer *buff ) {
    buff->inHw = 0;
 
-   // Unmap buffer if in streaming mode
-   if ( (buff->buffList->dev->cfgMode & BUFF_STREAM) && buff->buffHandle != 0 ) {
-      dma_unmap_single(buff->buffList->dev->device,buff->buffHandle,
-                       buff->buffList->dev->cfgSize, buff->buffList->direction);
-      buff->buffHandle = 0;
+   // Buffer is stream mode, sync
+   if ( buff->buffList->dev->cfgMode & BUFF_STREAM ) {
+      dma_sync_single_for_cpu(buff->buffList->dev->device, 
+                              buff->buffHandle, 
+                              buff->buffList->dev->cfgSize,
+                              buff->buffList->direction);
    }
 }
 
