@@ -717,7 +717,8 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
    // Coherent buffer
    if ( dev->cfgMode & BUFF_COHERENT ) {
 
-#ifdef dma_mmap_coherent
+// Avoid mapping warnings for x86
+#if defined(dma_mmap_coherent) && (! defined(CONFIG_X86))
       ret = dma_mmap_coherent(dev->device,vma,buff->buffAddr,buff->buffHandle,dev->cfgSize);
 #else
       ret = remap_pfn_range(vma, vma->vm_start, 
