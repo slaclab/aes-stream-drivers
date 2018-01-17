@@ -62,17 +62,13 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
       // Streaming buffer type, standard kernel memory
       else if ( list->dev->cfgMode & BUFF_STREAM ) {
          list->indexed[x]->buffAddr = kmalloc(list->dev->cfgSize, GFP_DMA32 | GFP_KERNEL);
-         dev_warn(dev->device,"dmaAllocBuffers: Created buffer %i at 0x%x.\n",x,list->indexed[x]->buffAddr);
 
          if (list->indexed[x]->buffAddr != NULL) {
-            dev_warn(dev->device,"dmaAllocBuffers: About to map\n");
             list->indexed[x]->buffHandle = dma_map_single(list->dev->device,list->indexed[x]->buffAddr,
                                                           list->dev->cfgSize,direction);
-            dev_warn(dev->device,"dmaAllocBuffers: after map\n");
 
             // Map error
             if ( dma_mapping_error(list->dev->device,list->indexed[x]->buffHandle) ) {
-               dev_warn(dev->device,"dmaAllocBuffers: map error\n");
                list->indexed[x]->buffHandle = 0;
             }
          }
@@ -99,7 +95,7 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
       list->sorted[x] = list->indexed[x];
       list->count++;
 
-      dev_warn(dev->device,"dmaAllocBuffers: Mapped buffer %i 0x%x to 0x%x.\n",x,list->indexed[x]->buffAddr,list->indexed[x]->buffHandle);
+      //dev_warn(dev->device,"dmaAllocBuffers: Mapped buffer %i 0x%x to 0x%x.\n",x,list->indexed[x]->buffAddr,list->indexed[x]->buffHandle);
    }
 
    // Sort the buffers
