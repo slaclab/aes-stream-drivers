@@ -42,7 +42,6 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    uint32_t index;
    uint32_t handleCount;
    uint64_t dmaData;
-   uint32_t loopCount;
 
    struct DmaDesc     * desc;
    struct DmaBuffer   * buff;
@@ -57,89 +56,82 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    // Disable interrupt
    iowrite32(0x0,&(reg->intEnable));
    handleCount = 0;
-   loopCount = 0;
 
    if ( dev->debug > 0 ) 
       dev_info(dev->device,"Irq: Called.\n");
 
-   do {
+   // Check read returns
+   while ( (dmaData = hwData->readAddr[hwData->readIndex]) != 0 ) {
+      index = (dmaData >> 4) & 0xFFF;
+      handleCount++;
+      if ( dev->debug > 0 ) 
+         dev_info(dev->device,"Irq: Got TX Descriptor: 0x%.16llx, Idx=%i, Pos=%i\n",dmaData,index,hwData->readIndex);
 
-      // Check read returns
-      while ( (dmaData = hwData->readAddr[hwData->readIndex]) != 0 ) {
-         index = (dmaData >> 4) & 0xFFF;
-         handleCount++;
-         if ( dev->debug > 0 ) 
-            dev_info(dev->device,"Irq: Got TX Descriptor: 0x%.16llx, Idx=%i, Pos=%i\n",dmaData,index,hwData->readIndex);
+      // Attempt to find buffer in tx pool and return. otherwise return rx entry to hw.
+      if ((buff = dmaRetBufferIdxIrq (dev,index)) != NULL) {
+         iowrite32(buff->index,&(reg->writeFifo));
+      }
 
-         // Attempt to find buffer in tx pool and return. otherwise return rx entry to hw.
-         if ((buff = dmaRetBufferIdxIrq (dev,index)) != NULL) {
+      memset(&(hwData->readAddr[hwData->readIndex]),0,8);
+      hwData->readIndex = ((hwData->readIndex+1) % hwData->addrCount);
+   }
+
+   // Check write descriptor
+   while ( (dmaData = hwData->writeAddr[hwData->writeIndex]) != 0 ) {
+      index = (dmaData >> 4) & 0xFFF;
+      handleCount++;
+
+      if ( dev->debug > 0 ) 
+         dev_info(dev->device,"Irq: Got RX Descriptor: 0x%.16llx, Idx=%i, Pos=%i\n",dmaData,index,hwData->writeIndex);
+
+      if ( (buff = dmaGetBufferList(&(dev->rxBuffers),index)) != NULL ) {
+         buff->count++;
+         buff->size  = (dmaData >> 32) & 0xFFFFFF;
+         buff->dest  = (dmaData >> 56) & 0xFF;
+         buff->error = (buff->size == 0)?DMA_ERR_FIFO:(dmaData & 0x7);
+
+         buff->flags =  (dmaData >> 24) & 0xFF; // Bits[31:24] = firstUser = flags[7:0]
+         buff->flags += (dmaData >> 8) & 0xFF00; // Bits[23:16] = lastUser = flags[15:8]
+         buff->flags += (dmaData << 13) & 0x10000; // bit[3] = continue = flags[16]
+
+         if ( dev->debug > 0 ) {
+            dev_info(dev->device,"Irq: Rx size=%i, Dest=%i, Flags=0x%x, Error=0x%x\n",
+               buff->size, buff->dest, buff->flags, buff->error);
+         }
+
+         // Lock mask records
+         // This ensures close does not occur while irq routine is 
+         // pushing data to desc rx queue
+         spin_lock(&dev->maskLock);
+
+         // Find owner of lane/vc
+         if ( buff->dest < DMA_MAX_DEST ) desc = dev->desc[buff->dest];
+         else desc = NULL;
+
+         // Return entry to FPGA if destc is not open
+         if ( desc == NULL ) {
+            if ( dev->debug > 0 ) {
+               dev_info(dev->device,"Irq: Port not open return to free list.\n");
+            }
             iowrite32(buff->index,&(reg->writeFifo));
          }
 
-         memset(&(hwData->readAddr[hwData->readIndex]),0,8);
-         hwData->readIndex = ((hwData->readIndex+1) % hwData->addrCount);
+         // lane/vc is open,  Add to RX Queue
+         else dmaRxBuffer(desc,buff);
+
+         // Unlock
+         spin_unlock(&dev->maskLock);
       }
+      else 
+         dev_warn(dev->device,"Irq: Failed to locate RX buffer index %i.\n", index);
 
-      // Check write descriptor
-      while ( (dmaData = hwData->writeAddr[hwData->writeIndex]) != 0 ) {
-         index = (dmaData >> 4) & 0xFFF;
-         handleCount++;
-
-         if ( dev->debug > 0 ) 
-            dev_info(dev->device,"Irq: Got RX Descriptor: 0x%.16llx, Idx=%i, Pos=%i\n",dmaData,index,hwData->writeIndex);
-
-         if ( (buff = dmaGetBufferList(&(dev->rxBuffers),index)) != NULL ) {
-            buff->count++;
-            buff->size  = (dmaData >> 32) & 0xFFFFFF;
-            buff->dest  = (dmaData >> 56) & 0xFF;
-            buff->error = (buff->size == 0)?DMA_ERR_FIFO:(dmaData & 0x7);
-
-            buff->flags =  (dmaData >> 24) & 0xFF; // Bits[31:24] = firstUser = flags[7:0]
-            buff->flags += (dmaData >> 8) & 0xFF00; // Bits[23:16] = lastUser = flags[15:8]
-            buff->flags += (dmaData << 13) & 0x10000; // bit[3] = continue = flags[16]
-
-            if ( dev->debug > 0 ) {
-               dev_info(dev->device,"Irq: Rx size=%i, Dest=%i, Flags=0x%x, Error=0x%x\n",
-                  buff->size, buff->dest, buff->flags, buff->error);
-            }
-
-            // Lock mask records
-            // This ensures close does not occur while irq routine is 
-            // pushing data to desc rx queue
-            spin_lock(&dev->maskLock);
-
-            // Find owner of lane/vc
-            if ( buff->dest < DMA_MAX_DEST ) desc = dev->desc[buff->dest];
-            else desc = NULL;
-
-            // Return entry to FPGA if destc is not open
-            if ( desc == NULL ) {
-               if ( dev->debug > 0 ) {
-                  dev_info(dev->device,"Irq: Port not open return to free list.\n");
-               }
-               iowrite32(buff->index,&(reg->writeFifo));
-            }
-
-            // lane/vc is open,  Add to RX Queue
-            else dmaRxBuffer(desc,buff);
-
-            // Unlock
-            spin_unlock(&dev->maskLock);
-         }
-         else 
-            dev_warn(dev->device,"Irq: Failed to locate RX buffer index %i.\n", index);
-
-         memset(&(hwData->writeAddr[hwData->writeIndex]),0,8);
-         hwData->writeIndex = ((hwData->writeIndex+1) % hwData->addrCount);
-      }
+      memset(&(hwData->writeAddr[hwData->writeIndex]),0,8);
+      hwData->writeIndex = ((hwData->writeIndex+1) % hwData->addrCount);
    }
-   while ((handleCount == 0) && (++loopCount < 10));
 
    // Enable interrupt and update ack count
    iowrite32(0x30000 + handleCount,&(reg->intAckAndEnable));
-   if ( dev->debug > 0 ) 
-      dev_info(dev->device,"Irq: Done. Handled = %i, loop=%i.\n",handleCount,loopCount);
-
+   if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Done. Handled = %i\n",handleCount);
    if ( handleCount == 0 ) hwData->missedIrq++;
    return(IRQ_HANDLED);
 }
