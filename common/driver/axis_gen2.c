@@ -131,9 +131,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
 
    // Enable interrupt and update ack count
    iowrite32(0x30000 + handleCount,&(reg->intAckAndEnable));
-   if ( dev->debug > 0 ) 
-      dev_info(dev->device,"Irq: Done. Handled = %i.\n",handleCount);
-
+   if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Done. Handled = %i\n",handleCount);
    if ( handleCount == 0 ) hwData->missedIrq++;
    return(IRQ_HANDLED);
 }

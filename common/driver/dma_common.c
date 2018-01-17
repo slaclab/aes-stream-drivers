@@ -162,10 +162,10 @@ int Dma_Init(struct DmaDevice *dev) {
    // Populate transmit queue
    for (x=0; x < dev->txBuffers.count; x++) dmaQueuePush(&(dev->tq),dev->txBuffers.indexed[x]);
 
-   // Create rx buffers
+   // Create rx buffers, bidirectional because rx buffers can be passed to tx
    dev_info(dev->device,"Init: Creating %i RX Buffers. Size=%i Bytes. Mode=%i.\n",
         dev->cfgRxCount,dev->cfgSize,dev->cfgMode);
-   res = dmaAllocBuffers (dev, &(dev->rxBuffers), dev->cfgRxCount, dev->txBuffers.count, DMA_FROM_DEVICE);
+   res = dmaAllocBuffers (dev, &(dev->rxBuffers), dev->cfgRxCount, dev->txBuffers.count, DMA_BIDIRECTIONAL);
    dev_info(dev->device,"Init: Created  %i out of %i RX Buffers. %i Bytes.\n",
         res,dev->cfgRxCount,(res*dev->cfgSize));
 
@@ -717,7 +717,8 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
    // Coherent buffer
    if ( dev->cfgMode & BUFF_COHERENT ) {
 
-#ifdef dma_mmap_coherent
+// Avoid mapping warnings for x86
+#if defined(dma_mmap_coherent) && (! defined(CONFIG_X86))
       ret = dma_mmap_coherent(dev->device,vma,buff->buffAddr,buff->buffHandle,dev->cfgSize);
 #else
       ret = remap_pfn_range(vma, vma->vm_start, 
