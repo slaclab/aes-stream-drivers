@@ -156,6 +156,9 @@ int Dma_Init(struct DmaDevice *dev) {
    dev_info(dev->device,"Init: Created  %i out of %i TX Buffers. %i Bytes.\n",
         res,dev->cfgTxCount,(res*dev->cfgSize));
 
+   // Bad buffer allocation
+   if ( dev->cfgTxCount > 0 && res == 0 ) return(-1);
+
    // Init transmit queue
    dmaQueueInit(&(dev->tq),dev->txBuffers.count);
 
@@ -168,6 +171,9 @@ int Dma_Init(struct DmaDevice *dev) {
    res = dmaAllocBuffers (dev, &(dev->rxBuffers), dev->cfgRxCount, dev->txBuffers.count, DMA_BIDIRECTIONAL);
    dev_info(dev->device,"Init: Created  %i out of %i RX Buffers. %i Bytes.\n",
         res,dev->cfgRxCount,(res*dev->cfgSize));
+
+   // Bad buffer allocation
+   if ( dev->cfgRxCount > 0 && res == 0 ) return(-1);
 
    // Call card specific init
    dev->hwFunc->init(dev);
