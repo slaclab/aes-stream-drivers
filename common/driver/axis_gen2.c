@@ -94,6 +94,8 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
          buff->flags += (dmaData >> 8) & 0xFF00; // Bits[23:16] = lastUser = flags[15:8]
          buff->flags += (dmaData << 13) & 0x10000; // bit[3] = continue = flags[16]
 
+         if (dmaData & 0x8) hwData->contCount++;
+
          if ( dev->debug > 0 ) {
             dev_info(dev->device,"Irq: Rx size=%i, Dest=%i, Flags=0x%x, Error=0x%x\n",
                buff->size, buff->dest, buff->flags, buff->error);
@@ -185,6 +187,7 @@ void AxisG2_Init(struct DmaDevice *dev) {
    hwData->writeIndex = 0;
 
    hwData->missedIrq = 0;
+   hwData->contCount = 0;
 
    // Set cache mode, bits3:0 = desc, bits 11:8 = buffer
    x = 0;
@@ -369,6 +372,7 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    seq_printf(s,"        Sw Dma Rd Index : %u\n",hwData->readIndex);
    seq_printf(s,"     Missed Wr Requests : %u\n",(ioread32(&(reg->wrReqMissed))));
    seq_printf(s,"       Missed IRQ Count : %u\n",hwData->missedIrq);
+   seq_printf(s,"         Continue Count : %u\n",hwData->contCount);
    seq_printf(s,"           Cache Config : 0x%x\n",(ioread32(&(reg->cacheConfig))));
 }
 
