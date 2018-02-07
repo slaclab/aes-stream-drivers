@@ -51,7 +51,7 @@ struct DmaBuffer {
 
    // Associated data
    uint8_t     dest;
-   uint8_t     flags;
+   uint32_t    flags;
    uint8_t     error;
    uint32_t    size;
 
