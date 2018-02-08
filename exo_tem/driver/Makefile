@@ -23,10 +23,13 @@ HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 KVER := $(shell uname -r)
 SRCS := $(wildcard src/*.c)
 OBJS := $(patsubst %.c,%.o,$(SRCS))
+GITT := $(shell cd $(HOME); git describe --tags)
+GITD := $(shell cd $(HOME); git status --short -uno | wc -l)
+GITV := $(if $(filter $(GITD),0),$(GITT),$(GITT)-dirty)
 
 ccflags-y := -I$(HOME)/../../include
 ccflags-y += -I$(HOME)/src
-ccflags-y += -DDMA_IN_KERNEL=1
+ccflags-y += -DDMA_IN_KERNEL=1 -DGITV=\"$(GITV)\"
 
 $(NAME)-objs := src/dma_buffer.o src/dma_common.o src/fpga_prom.o
 $(NAME)-objs += src/tem_gen3.o src/tem_top.o
