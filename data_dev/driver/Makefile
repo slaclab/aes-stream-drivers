@@ -22,7 +22,7 @@ KVER := $(shell uname -r)
 SRCS := $(wildcard src/*.c)
 OBJS := $(patsubst %.c,%.o,$(SRCS))
 GITT := $(shell cd $(HOME); git describe --tags)
-GITD := $(shell cd $(HOME); git status --short | wc -l)
+GITD := $(shell cd $(HOME); git status --short -uno | wc -l)
 
 ifeq ($(GITD),0)
 GITV := $(GITT)
