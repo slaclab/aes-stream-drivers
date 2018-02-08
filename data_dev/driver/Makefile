@@ -18,24 +18,27 @@
  
 NAME := datadev
 HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-GITV := $(shell cd $(HOME); git describe --tags)
-GITD := $(if ifeq $(shell cd $(HOME); git status --short | wc -l) 0,-dirty,)
 KVER := $(shell uname -r)
 SRCS := $(wildcard src/*.c)
 OBJS := $(patsubst %.c,%.o,$(SRCS))
 
+GITT := $(shell cd $(HOME); git describe --tags)
+ifeq ($(shell cd $(HOME); git status --short | wc -l),0)
+GITV := $(GITT)
+else
+GITV := $(GITT)-dirty
+endif
+
 ccflags-y := -I$(HOME)/../../include
 ccflags-y += -I$(HOME)/src
-ccflags-y += -DDMA_IN_KERNEL=1 -DGITV=\"$(GITV)$(GITD)\"
+ccflags-y += -DDMA_IN_KERNEL=1 -DGITV=\"$(GITV)\"
 
 $(NAME)-objs := src/dma_buffer.o src/dma_common.o
 $(NAME)-objs += src/axi_version.o src/axis_gen2.o src/data_dev_top.o 
 obj-m        := $(NAME).o
 
 all:
-	echo $(GITV)
-	echo $(GITD)
-	echo $(ccflags-y)
+	@echo $(GITV)
 	make -C /lib/modules/$(KVER)/build M=$(HOME) modules
 
 clean:
