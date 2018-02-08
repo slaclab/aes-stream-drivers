@@ -21,7 +21,6 @@
 
 NAME := rcestream
 HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-GITV := $(shell cd $(HOME); git describe --tags)
 COMP := arm-xilinx-linux-gnueabi-
 ARCH := arm
 KDIR := /afs/slac/g/cci/volumes/vol1/xilinx/linux-xlnx
@@ -30,6 +29,9 @@ SRCS := $(wildcard src/*.c)
 OBJS := $(patsubst %.c,%.o,$(SRCS))
 GCC  := $(COMP)gcc
 TEST := $(shell which $(GCC) 2> /dev/null)
+GITT := $(shell cd $(HOME); git describe --tags)
+GITD := $(shell cd $(HOME); git status --short -uno | wc -l)
+GITV := $(if $(filter $(GITD),0),$(GITT),$(GITT)-dirty)
 
 ccflags-y := -I$(HOME)/../../include
 ccflags-y += -I$(HOME)/src
