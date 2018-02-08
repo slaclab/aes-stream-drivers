@@ -21,9 +21,10 @@ HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 KVER := $(shell uname -r)
 SRCS := $(wildcard src/*.c)
 OBJS := $(patsubst %.c,%.o,$(SRCS))
-
 GITT := $(shell cd $(HOME); git describe --tags)
-ifeq ($(shell cd $(HOME); git status --short | wc -l),0)
+GITD := $(shell cd $(HOME); git status --short | wc -l)
+
+ifeq ($(GITD),0)
 GITV := $(GITT)
 else
 GITV := $(GITT)-dirty
