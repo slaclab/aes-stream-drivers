@@ -820,7 +820,8 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
 
    seq_printf(s,"\n");
    seq_printf(s,"-------------- General --------------------\n");
-   seq_printf(s,"          Dma Version : 0x%x\n\n",DMA_VERSION);
+   seq_printf(s,"          Dma Version : 0x%x\n",DMA_VERSION);
+   seq_printf(s,"          Git Version : " GITV "\n\n");
    seq_printf(s,"-------------- Read Buffers ---------------\n");
    seq_printf(s,"         Buffer Count : %i\n",dev->rxBuffers.count);
    seq_printf(s,"          Buffer Size : %i\n",dev->cfgSize);

@@ -20,13 +20,14 @@
  
 NAME := pgpcard
 HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+GITV := $(shell cd $(HOME); git describe --tags)
 KVER := $(shell uname -r)
 SRCS := $(wildcard src/*.c)
 OBJS := $(patsubst %.c,%.o,$(SRCS))
 
 ccflags-y := -I$(HOME)/../../include
 ccflags-y += -I$(HOME)/src
-ccflags-y += -DDMA_IN_KERNEL=1
+ccflags-y += -DDMA_IN_KERNEL=1 -DGITV=\"$(GITV)\"
 
 $(NAME)-objs := src/dma_buffer.o src/dma_common.o src/fpga_prom.o
 $(NAME)-objs += src/pgp_common.o src/pgp_gen2.o src/pgp_gen3.o src/pgp_top.o

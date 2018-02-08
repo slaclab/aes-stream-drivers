@@ -21,6 +21,7 @@
 
 NAME := rcestream
 HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+GITV := $(shell cd $(HOME); git describe --tags)
 COMP := arm-xilinx-linux-gnueabi-
 ARCH := arm
 KDIR := /afs/slac/g/cci/volumes/vol1/xilinx/linux-xlnx
@@ -32,7 +33,7 @@ TEST := $(shell which $(GCC) 2> /dev/null)
 
 ccflags-y := -I$(HOME)/../../include
 ccflags-y += -I$(HOME)/src
-ccflags-y += -DDMA_IN_KERNEL=1
+ccflags-y += -DDMA_IN_KERNEL=1 -DGITV=\"$(GITV)\"
 ccflags-y += -Wformat=0 -Wno-int-to-pointer-cast
 
 $(NAME)-objs := src/dma_buffer.o src/dma_common.o 

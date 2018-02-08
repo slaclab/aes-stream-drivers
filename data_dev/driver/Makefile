@@ -18,13 +18,14 @@
  
 NAME := datadev
 HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+GITV := $(shell cd $(HOME); git describe --tags)
 KVER := $(shell uname -r)
 SRCS := $(wildcard src/*.c)
 OBJS := $(patsubst %.c,%.o,$(SRCS))
 
 ccflags-y := -I$(HOME)/../../include
 ccflags-y += -I$(HOME)/src
-ccflags-y += -DDMA_IN_KERNEL=1
+ccflags-y += -DDMA_IN_KERNEL=1 -DGITV=\"$(GITV)\"
 
 $(NAME)-objs := src/dma_buffer.o src/dma_common.o
 $(NAME)-objs += src/axi_version.o src/axis_gen2.o src/data_dev_top.o 
