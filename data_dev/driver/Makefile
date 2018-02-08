@@ -23,12 +23,7 @@ SRCS := $(wildcard src/*.c)
 OBJS := $(patsubst %.c,%.o,$(SRCS))
 GITT := $(shell cd $(HOME); git describe --tags)
 GITD := $(shell cd $(HOME); git status --short -uno | wc -l)
-
-ifeq ($(GITD),0)
-GITV := $(GITT)
-else
-GITV := $(GITT)---$(GITD)-----
-endif
+GITV := $(if $(filter $(GITD),0),$(GITT),$(GITT)-dirty)
 
 ccflags-y := -I$(HOME)/../../include
 ccflags-y += -I$(HOME)/src
