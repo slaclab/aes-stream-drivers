@@ -27,7 +27,7 @@ GITD := $(shell cd $(HOME); git status --short | wc -l)
 ifeq ($(GITD),0)
 GITV := $(GITT)
 else
-GITV := $(GITT)-dirty
+GITV := $(GITT)---$(GITD)-----
 endif
 
 ccflags-y := -I$(HOME)/../../include
