@@ -73,9 +73,8 @@ void AxiVersion_Show(struct seq_file *s, struct DmaDevice *dev, struct AxiVersio
 
    seq_printf(s,"            Device ID : 0x%x\n",aVer->deviceId);
 
-
    seq_printf(s,"             Git Hash : ");
-   for (x=20; x > 0; x--) seq_printf(s,"%.02x",aVer->gitHash[x]);
+   for (x=0; x < 20; x++) seq_printf(s,"%.02x",aVer->gitHash[19-x]);
    seq_printf(s,"\n");
 
    seq_printf(s,"            DNA Value : 0x");
