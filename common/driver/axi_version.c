@@ -42,6 +42,9 @@ void AxiVersion_Read(struct DmaDevice *dev, void * base, struct AxiVersion *aVer
    aVer->firmwareVersion = ioread32(&(reg->firmwareVersion));
    aVer->scratchPad      = ioread32(&(reg->scratchPad));
    aVer->upTimeCount     = ioread32(&(reg->upTimeCount));
+   
+   for (x=0; x < 2; x++) 
+      ((uint32_t *)aVer->fdValue)[x] = ioread32(&(reg->fdValue[x]));   
 
    for (x=0; x < 64; x++) 
       aVer->userValues[x] = ioread32(&(reg->userValues[x]));
@@ -66,7 +69,11 @@ void AxiVersion_Show(struct seq_file *s, struct DmaDevice *dev, struct AxiVersio
    seq_printf(s,"     Firmware Version : 0x%x\n",aVer->firmwareVersion);
    seq_printf(s,"           ScratchPad : 0x%x\n",aVer->scratchPad);
    seq_printf(s,"        Up Time Count : %u\n",aVer->upTimeCount);
-   seq_printf(s,"             Fd Value : 0x%llx\n",aVer->fdValue);
+   
+   seq_printf(s,"             Fd Value : 0x");
+   for (x=0; x < 8; x++) seq_printf(s,"%.02x",aVer->fdValue[x]);
+   seq_printf(s,"\n");   
+   
 
    //for (x=0; x < 64; x++)
    //   seq_printf(s,"          User Values : 0x%x\n",aVer->userValues[x]);
