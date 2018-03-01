@@ -25,21 +25,7 @@ RCE_DIRS += /afs/slac/g/cci/volumes/vol1/xilinx/linux-xlnx-v2016.4
 RCE_DIRS += /afs/slac/g/cci/volumes/vol1/xilinx/backup/linux-xlnx-v2016.1.01
 
 all: 
-
-clean: driver_clean app_clean
-	rm -rf $(MAKE_HOME)/install/*
-
-driver:
-	@make -C $(MAKE_HOME)/exo_tem/driver
-	@make -C $(MAKE_HOME)/pgpcard/driver
-	@make -C $(MAKE_HOME)/rce_stream/driver
-	@make -C $(MAKE_HOME)/data_dev/driver
-
-driver_clean:
-	@make -C $(MAKE_HOME)/exo_tem/driver clean
-	@make -C $(MAKE_HOME)/pgpcard/driver clean
-	@make -C $(MAKE_HOME)/rce_stream/driver clean
-	@make -C $(MAKE_HOME)/data_dev/driver clean
+	@echo "Options: app driver rce"
 
 app:
 	@make -C $(MAKE_HOME)/exo_tem/app
@@ -47,15 +33,7 @@ app:
 	@make -C $(MAKE_HOME)/rce_stream/app
 	@make -C $(MAKE_HOME)/data_dev/app
 
-app_clean:
-	@make -C $(MAKE_HOME)/exo_tem/app clean
-	@make -C $(MAKE_HOME)/pgpcard/app clean
-	@make -C $(MAKE_HOME)/rce_stream/app clean
-	@make -C $(MAKE_HOME)/data_dev/app clean
-
-install: linux_install rce_install
-
-linux_install:
+driver:
 	@mkdir -p $(MAKE_HOME)/install;
 	@ $(foreach ver,$(LOC_VERS), \
 		mkdir -p $(MAKE_HOME)/install/$(ver); \
@@ -70,7 +48,7 @@ linux_install:
 		scp $(MAKE_HOME)/data_dev/driver/*.ko $(MAKE_HOME)/install/$(ver); \
 	)
 
-rce_install:
+rce:
 	@ $(foreach d,$(RCE_DIRS), \
 		mkdir -p $(MAKE_HOME)/install/$(shell make -C $(d) -s kernelversion).arm; \
 		make -C $(MAKE_HOME)/rce_stream/driver KDIR=$(d) clean; \
