@@ -28,9 +28,13 @@ all:
 	@echo "Options: app driver rce"
 
 app:
+	@make -C $(MAKE_HOME)/exo_tem/app clean
 	@make -C $(MAKE_HOME)/exo_tem/app
+	@make -C $(MAKE_HOME)/pgpcard/app clean
 	@make -C $(MAKE_HOME)/pgpcard/app
+	@make -C $(MAKE_HOME)/rce_stream/app clean
 	@make -C $(MAKE_HOME)/rce_stream/app
+	@make -C $(MAKE_HOME)/data_dev/app clean
 	@make -C $(MAKE_HOME)/data_dev/app
 
 driver:
@@ -49,6 +53,7 @@ driver:
 	)
 
 rce:
+	@mkdir -p $(MAKE_HOME)/install;
 	@ $(foreach d,$(RCE_DIRS), \
 		mkdir -p $(MAKE_HOME)/install/$(shell make -C $(d) -s kernelversion).arm; \
 		make -C $(MAKE_HOME)/rce_stream/driver KDIR=$(d) clean; \
