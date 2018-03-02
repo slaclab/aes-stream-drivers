@@ -466,12 +466,6 @@ ssize_t Dma_Write(struct file *filp, const char* buffer, size_t count, loff_t* f
       return(-1);
    }
 
-   // Bad size
-   if ( (wr.size % 4) != 0 ) {
-      dev_warn(dev->device,"Write: Bad size. Must be multiple of 4.\n");
-      return(-1);
-   }
-
    // Bad destination
    destByte = wr.dest / 8;
    destBit  = 1 << (wr.dest % 8);
