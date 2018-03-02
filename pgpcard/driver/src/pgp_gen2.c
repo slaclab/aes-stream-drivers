@@ -323,6 +323,12 @@ int32_t PgpCardG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
    struct PgpInfo      * info;
    struct PgpCardG2Reg * reg;
 
+   if ( (buff->size % 4) != 0 ) {
+      dev_warn(dev->device,"SendBuffer: Frame size not a multiple of 4.\n");
+      dmaQueuePush(&(dev->tq),buff);
+      return(-1);
+   }
+
    reg  = (struct PgpCardG2Reg *)dev->reg;
    info = (struct PgpInfo *)dev->hwData;
 
