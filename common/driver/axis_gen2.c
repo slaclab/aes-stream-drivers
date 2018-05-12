@@ -302,7 +302,7 @@ int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
    hwData = (struct AxisG2Data *)dev->hwData;
 
    // Create descriptor
-   descLow  = (buff->flags >> 16) & 0x00000001; // bit[0] = continue = flags[16]
+   descLow  = (buff->flags >> 13) & 0x00000008; // bit[0] = continue = flags[16]
    descLow += (buff->index <<  4) & 0x0000FFF0; // Bits[15:4] = buffId 
    descLow += (buff->flags <<  8) & 0x00FF0000; // Bits[23:16] = lastUser = flags[15:8]
    descLow += (buff->flags << 24) & 0xFF000000; // Bits[31:24] = firstUser = flags[7:0]
