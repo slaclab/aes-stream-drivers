@@ -189,10 +189,10 @@ void AxisG2_Init(struct DmaDevice *dev) {
    hwData->missedIrq = 0;
    hwData->contCount = 0;
 
-   // Set cache mode, bits3:0 = desc, bits 11:8 = buffer
+   // Set cache mode, bits3:0 = descWr, bits 11:8 = bufferWr, bits 15:12 = bufferRd
    x = 0;
-   if ( dev->cfgMode & BUFF_ARM_ACP   ) x |= 0x0200; // Buffer
-   if ( dev->cfgMode & AXIS2_RING_ACP ) x |= 0x0006; // Desc
+   if ( dev->cfgMode & BUFF_ARM_ACP   ) x |= 0xA600; // Buffer
+   if ( dev->cfgMode & AXIS2_RING_ACP ) x |= 0x00A6; // Desc
    iowrite32(x,&(reg->cacheConfig));
    
    // Set MAX RX                      
