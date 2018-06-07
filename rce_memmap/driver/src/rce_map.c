@@ -180,6 +180,11 @@ uint8_t * Map_Find(struct MapDevice *dev, uint32_t addr) {
 
    cur = dev->maps;
 
+   if ( (addr < MAP_MIN_ADDR) || (addr > MAP_MAX_ADDR) ) {
+      printk(KERN_ERR MOD_NAME " Map_Find: Invalid address %p. Allowed range %p - %p\n",(void *)addr,(void *)MAP_MIN_ADDR,(void*)MAP_MAX_ADDR);
+      return (NULL);
+   }
+
    while (cur != NULL) {
 
       // Current pointer matches
