@@ -30,19 +30,18 @@
 #include <linux/fs.h>
 #include <DmaDriver.h>
 
-// Mapped space
-#define MAP_BASE 0x80000000
-#define MAP_SIZE 0x10000000
+// Map size, 64K
+#define MAP_SIZE 0x10000
+
+// Memory map
+struct MemMap {
+   uint32_t    addr;
+   uint8_t *   base;
+   void *      next;
+};
 
 // Map structure
 struct MapDevice {
-
-   // PCI address regions
-   phys_addr_t baseAddr;
-   uint32_t    baseSize;
-
-   // Base pointer to memory region
-   uint8_t * base;
 
    // Device tracking
    uint32_t        major;
@@ -50,6 +49,7 @@ struct MapDevice {
    char            devName[50];
    struct cdev     charDev;
    struct device * device;
+   struct MemMap * maps;
 
 };
 
@@ -66,6 +66,8 @@ int Map_Release(struct inode *inode, struct file *filp);
 ssize_t Map_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos);
 
 ssize_t Map_Write(struct file *filp, const char* buffer, size_t count, loff_t* f_pos);
+
+uint8_t * Map_Find(struct MapDevice *dev, uint32_t addr);
 
 ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg);
 

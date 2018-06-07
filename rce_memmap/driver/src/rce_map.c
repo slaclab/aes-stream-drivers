@@ -30,6 +30,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/slab.h>
 
 // Module Name
 #define MOD_NAME "rce_map"
@@ -73,15 +74,15 @@ int Map_Init(void) {
    // Allocate device numbers for character device. 1 minor numer starting at 0
    res = alloc_chrdev_region(&(dev.devNum), 0, 1, dev.devName);
    if (res < 0) {
-      dev_err(dev.device,"Init: Cannot register char device\n");
+      printk(KERN_ERR MOD_NAME " Init: Cannot register char device\n");
       return(-1);
    }
 
    // Create class struct if it does not already exist
    if (gCl == NULL) {
-      dev_info(dev.device,"Init: Creating device class\n");
+      printk(KERN_INFO MOD_NAME " Init: Creating device class\n");
       if ((gCl = class_create(THIS_MODULE, dev.devName)) == NULL) {
-         dev_err(dev.device,"Init: Failed to create device class\n");
+         printk(KERN_ERR MOD_NAME " Init: Failed to create device class\n");
          return(-1);
       }
       gCl->devnode = (void *)Map_DevNode;
@@ -89,7 +90,7 @@ int Map_Init(void) {
 
    // Attempt to create the device
    if (device_create(gCl, NULL, dev.devNum, NULL, dev.devName) == NULL) {
-      dev_err(dev.device,"Init: Failed to create device file\n");
+      printk(KERN_ERR MOD_NAME " Init: Failed to create device file\n");
       return -1;
    }
 
@@ -99,25 +100,29 @@ int Map_Init(void) {
 
    // Add the charactor device
    if (cdev_add(&(dev.charDev), dev.devNum, 1) == -1) {
-      dev_err(dev.device,"Init: Failed to add device file.\n");
+      printk(KERN_ERR MOD_NAME " Init: Failed to add device file.\n");
       return -1;
    }                                  
 
-   dev.baseAddr = MAP_BASE;
-   dev.baseSize = MAP_SIZE;
+   // Map initial space
+   dev.maps = (struct MemMap *)kmalloc(sizeof(struct MemMap),GFP_KERNEL);
+   dev.maps->addr = 0x80000000;
 
-   dev_info(dev.device,"Init: Mapping Register space %p with size 0x%x.\n",(void *)dev.baseAddr,dev.baseSize);
-   dev.base = ioremap_nocache(dev.baseAddr, dev.baseSize);
-   if (! dev.base ) {
-      dev_err(dev.device,"Init: Could not remap memory.\n");
-      return -1;
+   // Map space
+   dev.maps->base = ioremap_nocache(dev.maps->addr, MAP_SIZE);
+   if (! dev.maps->base ) {
+      printk(KERN_ERR MOD_NAME " Init: Could not map memory addr %p with size 0x%x.\n",(void *)dev.maps->addr,MAP_SIZE);
+      kfree(dev.maps);
+      return (-1);
    }
-   dev_info(dev.device,"Init: Mapped to %p.\n",dev.base);
+   printk(KERN_INFO MOD_NAME " Init: Mapped addr %p with size 0x%x to %p.\n",(void *)dev.maps->addr,MAP_SIZE,(void *)dev.maps->base);
 
    // Hold memory region
-   if ( request_mem_region(dev.baseAddr, dev.baseSize, dev.devName) == NULL ) {
-      dev_err(dev.device,"Init: Memory in use.\n");
-      return -1;
+   if ( request_mem_region(dev.maps->addr, MAP_SIZE, dev.devName) == NULL ) {
+      printk(KERN_ERR MOD_NAME " Map_Find: Memory in use.\n");
+      iounmap(dev.maps->base);
+      kfree(dev.maps);
+      return (-1);
    }
 
    return(0);
@@ -125,21 +130,26 @@ int Map_Init(void) {
 
 // Cleanup device
 void Map_Exit(void) {
+   struct MemMap *tmp;
 
    // Unregister Device Driver
    if ( gCl != NULL ) device_destroy(gCl, dev.devNum);
-   else dev_warn(dev.device,"Clean: gCl is already NULL.\n");
+   else printk(KERN_ERR MOD_NAME " Clean: gCl is already NULL.\n");
 
    unregister_chrdev_region(dev.devNum, 1);
 
-   // Release memory region
-   release_mem_region(dev.baseAddr, dev.baseSize);
-
    // Unmap
-   iounmap(dev.base);
+   while ( dev.maps != NULL ) {
+      tmp = dev.maps;
+      dev.maps = dev.maps->next;
+
+      release_mem_region(tmp->addr, MAP_SIZE);
+      iounmap(tmp->base);
+      kfree(tmp);
+   }
 
    if (gCl != NULL) {
-      dev_info(dev.device,"Clean: Destroying device class\n");
+      printk(KERN_INFO MOD_NAME " Clean: Destroying device class\n");
       class_destroy(gCl);
       gCl = NULL;
    }
@@ -162,10 +172,62 @@ int Map_Release(struct inode *inode, struct file *filp) {
    return 0;
 }
 
+// Find or allocate map space
+uint8_t * Map_Find(struct MapDevice *dev, uint32_t addr) {
+
+   struct MemMap *cur;
+   struct MemMap *new;
+
+   cur = dev->maps;
+
+   while (cur != NULL) {
+
+      // Current pointer matches
+      if ( (addr >= cur->addr) && (addr < (cur->addr + MAP_SIZE)) ) 
+         return((uint8_t*)(cur->base + (addr-cur->addr)));
+
+      // Next address is too high, insert new structure
+      if ( (cur->next == NULL) || (addr < ((struct MemMap *)cur->next)->addr) ) {
+
+         // Create new map
+         new = (struct MemMap *)kmalloc(sizeof(struct MemMap),GFP_KERNEL);
+
+         // Compute new base
+         new->addr = (addr & MAP_SIZE);
+
+         // Map space
+         new->base = ioremap_nocache(new->addr, MAP_SIZE);
+         if (! new->base ) {
+            printk(KERN_ERR MOD_NAME " Map_Find: Could not map memory addr %p with size 0x%x.\n",(void *)new->addr,MAP_SIZE);
+            kfree(new);
+            return (NULL);
+         }
+         printk(KERN_INFO MOD_NAME " Map_Find: Mapped addr %p with size 0x%x to %p.\n",(void *)new->addr,MAP_SIZE,(void *)new->base);
+
+         // Hold memory region
+         if ( request_mem_region(new->addr, MAP_SIZE, dev->devName) == NULL ) {
+            printk(KERN_ERR MOD_NAME " Map_Find: Memory in use.\n");
+            iounmap(cur->base);
+            kfree(new);
+            return (NULL);
+         }
+
+         // Insert into list
+         new->next = cur->next;
+         cur->next = new;
+      }
+      cur = cur->next;
+
+   }
+
+   return(NULL);
+}
+
 // Perform commands
 ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
    struct MapDevice * dev;
    struct DmaRegisterData rData;
+   uint8_t *base;
    ssize_t ret;
 
    dev = (struct MapDevice *)filp->private_data;
@@ -182,13 +244,13 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
       case DMA_Write_Register:
 
          if ((ret = copy_from_user(&rData,(void *)arg,sizeof(struct DmaRegisterData)))) {
-            dev_warn(dev->device,"Dma_Write_Register: copy_from_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
+            printk(KERN_WARNING MOD_NAME " Dma_Write_Register: copy_from_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
             return(-1);
          }
 
-         if ( (rData.address < dev->baseAddr) || ((rData.address + 4) > (dev->baseAddr + dev->baseSize)) ) return (-1);
+         if ( (base = Map_Find(dev,rData.address)) == NULL ) return(-1);
 
-         iowrite32(rData.data,dev->base+(rData.address-dev->baseAddr));
+         iowrite32(rData.data,base);
          return(0);
          break;
 
@@ -196,15 +258,16 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
       case DMA_Read_Register:
 
          if ((ret=copy_from_user(&rData,(void *)arg,sizeof(struct DmaRegisterData)))) {
-            dev_warn(dev->device,"Dma_Read_Register: copy_from_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
+            printk(KERN_WARNING MOD_NAME " Dma_Read_Register: copy_from_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
             return(-1);
          }
 
-         rData.data = ioread32(dev->base+(rData.address-dev->baseAddr));
+         if ( (base = Map_Find(dev,rData.address)) == NULL ) return(-1);
+         rData.data = ioread32(base);
 
          // Return the data structure
          if ((ret=copy_to_user((void *)arg,&rData,sizeof(struct DmaRegisterData)))) {
-            dev_warn(dev->device,"Dma_Read_Register: copy_to_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
+            printk(KERN_WARNING MOD_NAME " Dma_Read_Register: copy_to_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
             return(-1);
          }
          return(0);
