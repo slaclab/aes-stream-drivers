@@ -24,6 +24,10 @@ Contains top level application include files for all drivers
 
 Contains driver and application code for the pgpcard
 
+#### rce_hp_buffers/
+
+Contains driver that allocates memory blocks for use in a pure firmware dma engine
+
 #### rce_stream/ 
 
 Contains driver and application code for the RCE AXI stream DMA
