@@ -59,5 +59,8 @@ rce:
 		make -C $(MAKE_HOME)/rce_stream/driver KDIR=$(d) clean; \
 		make -C $(MAKE_HOME)/rce_stream/driver KDIR=$(d); \
 		scp $(MAKE_HOME)/rce_stream/driver/*.ko $(MAKE_HOME)/install/$(shell make -C $(d) -s kernelversion).arm/; \
+		make -C $(MAKE_HOME)/rce_memmap/driver KDIR=$(d) clean; \
+		make -C $(MAKE_HOME)/rce_memmap/driver KDIR=$(d); \
+		scp $(MAKE_HOME)/rce_memmap/driver/*.ko $(MAKE_HOME)/install/$(shell make -C $(d) -s kernelversion).arm/; \
 	)
 
