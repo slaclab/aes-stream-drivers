@@ -33,7 +33,7 @@
 #include <linux/slab.h>
 
 // Module Name
-#define MOD_NAME "rce_map"
+#define MOD_NAME "rce_memmap"
 
 MODULE_AUTHOR("Ryan Herbst");
 MODULE_DESCRIPTION("RCE Memory Map Interface");
@@ -118,12 +118,12 @@ int Map_Init(void) {
    printk(KERN_INFO MOD_NAME " Init: Mapped addr %p with size 0x%x to %p.\n",(void *)dev.maps->addr,MAP_SIZE,(void *)dev.maps->base);
 
    // Hold memory region
-   if ( request_mem_region(dev.maps->addr, MAP_SIZE, dev.devName) == NULL ) {
-      printk(KERN_ERR MOD_NAME " Map_Find: Memory in use.\n");
-      iounmap(dev.maps->base);
-      kfree(dev.maps);
-      return (-1);
-   }
+//   if ( request_mem_region(dev.maps->addr, MAP_SIZE, dev.devName) == NULL ) {
+//      printk(KERN_ERR MOD_NAME " Map_Find: Memory in use.\n");
+//      iounmap(dev.maps->base);
+//      kfree(dev.maps);
+//      return (-1);
+//   }
 
    return(0);
 }
@@ -143,7 +143,7 @@ void Map_Exit(void) {
       tmp = dev.maps;
       dev.maps = dev.maps->next;
 
-      release_mem_region(tmp->addr, MAP_SIZE);
+      //release_mem_region(tmp->addr, MAP_SIZE);
       iounmap(tmp->base);
       kfree(tmp);
    }
@@ -191,24 +191,24 @@ uint8_t * Map_Find(uint32_t addr) {
          new = (struct MemMap *)kmalloc(sizeof(struct MemMap),GFP_KERNEL);
 
          // Compute new base
-         new->addr = (addr & MAP_SIZE);
+         new->addr = (addr / MAP_SIZE) * MAP_SIZE;
 
          // Map space
          new->base = ioremap_nocache(new->addr, MAP_SIZE);
          if (! new->base ) {
-            printk(KERN_ERR MOD_NAME " Map_Find: Could not map memory addr %p with size 0x%x.\n",(void *)new->addr,MAP_SIZE);
+            printk(KERN_ERR MOD_NAME " Map_Find: Could not map memory addr %p (%p) with size 0x%x.\n",(void *)new->addr,(void*)addr,MAP_SIZE);
             kfree(new);
             return (NULL);
          }
          printk(KERN_INFO MOD_NAME " Map_Find: Mapped addr %p with size 0x%x to %p.\n",(void *)new->addr,MAP_SIZE,(void *)new->base);
 
          // Hold memory region
-         if ( request_mem_region(new->addr, MAP_SIZE, dev.devName) == NULL ) {
-            printk(KERN_ERR MOD_NAME " Map_Find: Memory in use.\n");
-            iounmap(cur->base);
-            kfree(new);
-            return (NULL);
-         }
+//         if ( request_mem_region(new->addr, MAP_SIZE, dev.devName) == NULL ) {
+//            printk(KERN_ERR MOD_NAME " Map_Find: Memory in use.\n");
+//            iounmap(cur->base);
+//            kfree(new);
+//            return (NULL);
+//         }
 
          // Insert into list
          new->next = cur->next;
