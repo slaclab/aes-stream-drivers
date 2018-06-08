@@ -157,13 +157,6 @@ void Map_Exit(void) {
 
 // Open Returns 0 on success, error code on failure
 int Map_Open(struct inode *inode, struct file *filp) {
-   struct MapDevice * dev;
-
-   // Find device structure
-   dev = container_of(inode->i_cdev, struct MapDevice, charDev);
-
-   // Store for later
-   filp->private_data = dev;
    return 0;
 }
 
@@ -173,12 +166,12 @@ int Map_Release(struct inode *inode, struct file *filp) {
 }
 
 // Find or allocate map space
-uint8_t * Map_Find(struct MapDevice *dev, uint32_t addr) {
+uint8_t * Map_Find(uint32_t addr) {
 
    struct MemMap *cur;
    struct MemMap *new;
 
-   cur = dev->maps;
+   cur = dev.maps;
 
    if ( (addr < MAP_MIN_ADDR) || (addr > MAP_MAX_ADDR) ) {
       printk(KERN_ERR MOD_NAME " Map_Find: Invalid address %p. Allowed range %p - %p\n",(void *)addr,(void *)MAP_MIN_ADDR,(void*)MAP_MAX_ADDR);
@@ -210,7 +203,7 @@ uint8_t * Map_Find(struct MapDevice *dev, uint32_t addr) {
          printk(KERN_INFO MOD_NAME " Map_Find: Mapped addr %p with size 0x%x to %p.\n",(void *)new->addr,MAP_SIZE,(void *)new->base);
 
          // Hold memory region
-         if ( request_mem_region(new->addr, MAP_SIZE, dev->devName) == NULL ) {
+         if ( request_mem_region(new->addr, MAP_SIZE, dev.devName) == NULL ) {
             printk(KERN_ERR MOD_NAME " Map_Find: Memory in use.\n");
             iounmap(cur->base);
             kfree(new);
@@ -230,12 +223,9 @@ uint8_t * Map_Find(struct MapDevice *dev, uint32_t addr) {
 
 // Perform commands
 ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
-   struct MapDevice * dev;
    struct DmaRegisterData rData;
    uint8_t *base;
    ssize_t ret;
-
-   dev = (struct MapDevice *)filp->private_data;
 
    // Determine command
    switch (cmd) {
@@ -253,7 +243,7 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
             return(-1);
          }
 
-         if ( (base = Map_Find(dev,rData.address)) == NULL ) return(-1);
+         if ( (base = Map_Find(rData.address)) == NULL ) return(-1);
 
          iowrite32(rData.data,base);
          return(0);
@@ -267,7 +257,7 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
             return(-1);
          }
 
-         if ( (base = Map_Find(dev,rData.address)) == NULL ) return(-1);
+         if ( (base = Map_Find(rData.address)) == NULL ) return(-1);
          rData.data = ioread32(base);
 
          // Return the data structure
