@@ -105,8 +105,12 @@ int Map_Init(void) {
    }                                  
 
    // Map initial space
-   dev.maps = (struct MemMap *)kmalloc(sizeof(struct MemMap),GFP_KERNEL);
+   if ( (dev.maps = (struct MemMap *)kmalloc(sizeof(struct MemMap),GFP_KERNEL)) == NULL ) {
+      printk(KERN_ERR MOD_NAME " Init: Could not allocate map memory\n");
+      return (-1);
+   }
    dev.maps->addr = 0x80000000;
+   dev.maps->next = NULL;
 
    // Map space
    dev.maps->base = ioremap_nocache(dev.maps->addr, MAP_SIZE);
@@ -188,7 +192,10 @@ uint8_t * Map_Find(uint32_t addr) {
       if ( (cur->next == NULL) || (addr < ((struct MemMap *)cur->next)->addr) ) {
 
          // Create new map
-         new = (struct MemMap *)kmalloc(sizeof(struct MemMap),GFP_KERNEL);
+         if ( (new = (struct MemMap *)kmalloc(sizeof(struct MemMap),GFP_KERNEL)) == NULL ) {
+            printk(KERN_ERR MOD_NAME " Map_Find: Could not allocate map memory\n");
+            return NULL;
+         }
 
          // Compute new base
          new->addr = (addr / MAP_SIZE) * MAP_SIZE;
