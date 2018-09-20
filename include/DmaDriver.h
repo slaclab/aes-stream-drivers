@@ -75,12 +75,22 @@ struct DmaReadData {
    uint32_t   error;
    uint32_t   size;
    uint32_t   is32;
+   int32_t    ret;
 };
 
 // Register data
 struct DmaRegisterData {
    uint32_t   address;
    uint32_t   data;
+};
+
+// Index Count
+#define DMA_INDEX_CNT 500
+
+// Index Data
+struct DmaIndexData {
+   uint32_t  count;
+   uint32_t  data[DMA_INDEX_CNT];
 };
 
 // Everything below is hidden during kernel module compile
@@ -194,11 +204,13 @@ static inline ssize_t dmaRead(int32_t fd, void * buf, size_t maxSize, uint32_t *
 
    ret = read(fd,&r,sizeof(struct DmaReadData));
 
+   if ( ret <= 0 ) return(ret);
+
    if ( dest  != NULL ) *dest  = r.dest;
    if ( flags != NULL ) *flags = r.flags;
    if ( error != NULL ) *error = r.error;
 
-   return(ret);
+   return(r.ret);
 }
 
 // Receive Frame, access memory mapped buffer
@@ -211,17 +223,54 @@ static inline ssize_t dmaReadIndex(int32_t fd, uint32_t * index, uint32_t * flag
 
    ret = read(fd,&r,sizeof(struct DmaReadData));
 
+   if ( ret <= 0 ) return(ret);
+
    if ( dest  != NULL ) *dest  = r.dest;
    if ( flags != NULL ) *flags = r.flags;
    if ( index != NULL ) *index = r.index;
    if ( error != NULL ) *error = r.error;
 
-   return(ret);
+   return(r.ret);
 }
+
+// Receive Frame, access memory mapped buffer
+// Returns receive size
+static inline ssize_t dmaReadBulkIndex(int32_t fd, uint32_t count, int32_t *ret, uint32_t * index, uint32_t * flags, uint32_t *error, uint32_t * dest) {
+   struct DmaReadData r[count];
+   size_t res;
+   size_t x;
+
+   memset(r,0,count * sizeof(struct DmaReadData));
+
+   res = read(fd,r,count * sizeof(struct DmaReadData));
+
+   for (x = 0; x < res; ++x) {
+      if ( dest  != NULL ) dest[x]  = r[x].dest;
+      if ( flags != NULL ) flags[x] = r[x].flags;
+      if ( index != NULL ) index[x] = r[x].index;
+      if ( error != NULL ) error[x] = r[x].error;
+      if ( ret   != NULL ) ret[x]   = r[x].ret;
+   }
+   return(res);
+}
+
 
 // Post Index
 static inline ssize_t dmaRetIndex(int32_t fd, uint32_t index) {
-   return(ioctl(fd,DMA_Ret_Index,index));
+   struct DmaIndexData idx;
+
+   idx.count   = 1;
+   idx.data[0] = index;
+   return(ioctl(fd,DMA_Ret_Index,&idx));
+}
+
+// Post Index List
+static inline ssize_t dmaRetIndexes(int32_t fd, uint32_t count, uint32_t *indexes) {
+   struct DmaIndexData idx;
+
+   idx.count = count;
+   memcpy(idx.data,indexes,count*sizeof(uint32_t));
+   return(ioctl(fd,DMA_Ret_Index,&idx));
 }
 
 // Get write buffer index
@@ -282,13 +331,12 @@ static inline void ** dmaMapDma(int32_t fd, uint32_t *count, uint32_t *size) {
 static inline ssize_t dmaUnMapDma(int32_t fd, void ** buffer) {
    uint32_t  bCount;
    uint32_t  bSize;
-   uint32_t  x;;
+   uint32_t  x;
 
    bCount = ioctl(fd,DMA_Get_Buff_Count,0);
    bSize  = ioctl(fd,DMA_Get_Buff_Size,0);
 
-   // I don't think this is correct.....
-   for (x=0; x < bCount; x++) munmap (buffer, bSize);
+   for (x=0; x < bCount; x++) munmap (buffer[x], bSize);
 
    free(buffer);
    return(0);

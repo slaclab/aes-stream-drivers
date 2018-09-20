@@ -74,6 +74,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
 
       memset(&(hwData->readAddr[hwData->readIndex]),0,8);
       hwData->readIndex = ((hwData->readIndex+1) % hwData->addrCount);
+      if ( handleCount > 4000 ) break;
    }
 
    // Check write descriptor
@@ -129,6 +130,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
 
       memset(&(hwData->writeAddr[hwData->writeIndex]),0,8);
       hwData->writeIndex = ((hwData->writeIndex+1) % hwData->addrCount);
+      if ( handleCount > 4000 ) break;
    }
 
    // Enable interrupt and update ack count
