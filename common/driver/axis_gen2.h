@@ -96,6 +96,12 @@ struct AxisG2Data {
 // Map return
 inline uint8_t AxisG2_MapReturn ( struct AxisG2Return *ret, uint32_t desc64En, uint32_t index, int32_t *data);
 
+// Add buffer to free list
+inline void AxisG2_WriteFree ( struct Dmabuffer *buff, struct AxisG2Data *reg );
+
+// Add buffer to tx list
+inline void AxisG2_WriteTx ( struct Dmabuffer *buff, struct AxisG2Data *reg );
+
 // Interrupt handler
 irqreturn_t AxisG2_Irq(int irq, void *dev_id);
 

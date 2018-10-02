@@ -69,6 +69,19 @@ inline uint8_t AxisG2_MapReturn ( struct AxisG2Return *ret, uint32_t desc64En, u
    return 1;
 }
 
+// Add buffer to free list
+inline void AxisG2_WriteFree ( struct Dmabuffer *buff, uint32_t desc64En, struct AxisG2Data *reg ) {
+
+
+}
+
+// Add buffer to tx list
+inline void AxisG2_WriteTx ( struct Dmabuffer *buff, uint32_t desc64En, struct AxisG2Data *reg ) {
+
+
+
+}
+
 // Interrupt handler
 irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    uint32_t index;
@@ -99,15 +112,13 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    // Check read returns
    while ( AxisG2_MapReturn(&ret,hwData->desc64En,hwData->readIndex,hwData->readAddr) ) {
 
-
-
       index = (dmaData >> 4) & 0xFFF;
       handleCount++;
       if ( dev->debug > 0 ) 
-         dev_info(dev->device,"Irq: Got TX Descriptor: 0x%.16llx, Idx=%i, Pos=%i\n",dmaData,index,hwData->readIndex);
+         dev_info(dev->device,"Irq: Got TX Descriptor: Idx=%i, Pos=%i\n",ret.index,hwData->readIndex);
 
       // Attempt to find buffer in tx pool and return. otherwise return rx entry to hw.
-      if ((buff = dmaRetBufferIdxIrq (dev,index)) != NULL) {
+      if ((buff = dmaRetBufferIdxIrq (dev,ret.index)) != NULL) {
          iowrite32(buff->index,&(reg->writeFifoA));
       }
 
