@@ -22,6 +22,7 @@
 #include <linux/seq_file.h>
 #include <linux/signal.h>
 #include <linux/slab.h>
+#include <linux/sched.h>
 
 #define BUFF_MODE_MIXED 
 
@@ -38,55 +39,102 @@ struct hardware_functions AxisG2_functions = {
 };
 
 
-// Map return
-inline uint8_t AxisG2_MapReturn ( struct AxisG2Return *ret, uint32_t desc64En, uuint32_t index, uint32_t *data) {
-   uint32_t * ptr = (data + (index*(desc64En?4:2)));
+// Map return descriptors to return record
+inline uint8_t AxisG2_MapReturn ( struct AxisG2Return *ret, uint32_t desc128En, uint32_t index, uint32_t *ring) {
+   uint32_t * ptr = (ring + (index*(desc128En?4:2)));
+   uint32_t chan;
+   uint32_t dest;
 
-   if ( desc64En ) {
+   if ( desc128En ) {
       if ( ptr[3] == 0 ) return 0;
 
-      chan   = (ptr[3] >> 8) & 0xF;
-      dest   = ptr[3] & 0xFF;
-      size   = ptr[2];
-      index  = ptr[1];
-      fuser  = (ptr[0] >> 16) & 0xFF;
-      luser  = (ptr[0] >>  8) & 0xFF;
-      cont   = (ptr[0] >>  3) & 0x1;
-      result = ptr[0] & 0x7;
+      chan        = (ptr[3] >> 8) & 0xF;
+      dest        = (ptr[3] & 0xFF);
+      ret->dest   = (chan * 256) + dest;
+      ret->size   = ptr[2];
+      ret->index  = ptr[1];
+      ret->fuser  = (ptr[0] >> 16) & 0xFF;
+      ret->luser  = (ptr[0] >>  8) & 0xFF;
+      ret->cont   = (ptr[0] >>  3) & 0x1;
+      ret->result = ptr[0] & 0x7;
 
    } else {
-       if ( ptr[1] == 0 ) return 0;
+      if ( ptr[1] == 0 ) return 0;
 
-      chan   = 0;
-      dest   = (ptr[2] >> 24) & 0xFF;
-      size   = (ptr[2] & 0xFFFFFF);
-      fuser  = (ptr[0] >> 24) & 0xFF;
-      luser  = (ptr[0] >> 16) & 0xFF;
-      index  = (ptr[0] >>  4) & 0xFFF;
-      cont   = (ptr[0] >>  3) & 0x1;
-      result = ptr[0] & 0x7;
+      ret->dest   = (ptr[1] >> 24) & 0xFF;
+      ret->size   = (ptr[1] & 0xFFFFFF);
+      ret->fuser  = (ptr[0] >> 24) & 0xFF;
+      ret->luser  = (ptr[0] >> 16) & 0xFF;
+      ret->index  = (ptr[0] >>  4) & 0xFFF;
+      ret->cont   = (ptr[0] >>  3) & 0x1;
+      ret->result = ptr[0] & 0x7;
    }
+
+   memset(ptr,0,(desc128En?16:8));
    return 1;
 }
 
 // Add buffer to free list
-inline void AxisG2_WriteFree ( struct Dmabuffer *buff, uint32_t desc64En, struct AxisG2Data *reg ) {
+inline void AxisG2_WriteFree ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En ) {
+   uint32_t wrData[2];
 
+   wrData[0] = buff->index & 0x0FFFFFFF;
 
+   if ( desc128En ) {
+      wrData[0] |= (buff->buffHandle << 24) & 0x0FFFFFFF; // Addr bits 7:4 
+      wrData[1]  = (buff->buffHandle >>  8) & 0xFFFFFFFF; // Addr bits 39:8
+
+      iowrite32(wrData[1],&(reg->writeFifoB));
+   }
+   else iowrite32(buff->buffHandle,&(reg->dmaAddr[buff->index])); // Address table
+
+   iowrite32(wrData[0],&(reg->writeFifoA));
 }
 
 // Add buffer to tx list
-inline void AxisG2_WriteTx ( struct Dmabuffer *buff, uint32_t desc64En, struct AxisG2Data *reg ) {
+inline void AxisG2_WriteTx ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En ) {
+   uint32_t rdData[4];
+   uint32_t dest;
+   uint32_t chan;
 
+   rdData[0]  = (buff->flags >> 13) & 0x00000008; // bit[3] = continue = flags[16]
+   rdData[0] |= (buff->flags <<  8) & 0x00FF0000; // Bits[23:16] = lastUser = flags[15:8]
+   rdData[0] |= (buff->flags << 24) & 0xFF000000; // Bits[31:24] = firstUser = flags[7:0]
 
+   if ( desc128En ) {
+      dest = buff->dest % 256;
+      chan = buff->dest / 256;
 
+      rdData[0] |= (dest << 4) & 0x000000F0;
+      rdData[0] |= (chan << 8) & 0x0000FF00;
+
+      rdData[1] = buff->size;
+
+      rdData[2] = buff->index & 0x0FFFFFFF;
+      rdData[2] |= (buff->buffHandle << 24) & 0xF0000000; // Addr bits 7:4 
+      rdData[3]  = (buff->buffHandle >>  8) & 0xFFFFFFFF; // Addr bits 39:8
+
+      iowrite32(rdData[3],&(reg->readFifoD));
+      iowrite32(rdData[2],&(reg->readFifoC));
+   }
+   else {
+
+      rdData[0] |= (buff->index <<  4) & 0x0000FFF0; // Bits[15:4] = buffId 
+
+      rdData[1]  = buff->size & 0x00FFFFFF;   // bits[23:0]  = size
+      rdData[1] |= (buff->dest << 24) & 0xFF000000; // bits[31:24] = dest
+
+      iowrite32(buff->buffHandle,&(reg->dmaAddr[buff->index])); // Address table
+   }
+
+   iowrite32(rdData[1],&(reg->readFifoB));
+   iowrite32(rdData[0],&(reg->readFifoA));
 }
+
 
 // Interrupt handler
 irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
-   uint32_t index;
    uint32_t handleCount;
-   uint32_t * dmaData;
 
    struct DmaDesc     * desc;
    struct DmaBuffer   * buff;
@@ -100,66 +148,62 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    reg    = (struct AxisG2Reg *)dev->reg;
    hwData = (struct AxisG2Data *)dev->hwData;
 
-   dSize  = (hwData->desc64En?4:2);
-
    // Disable interrupt
    iowrite32(0x0,&(reg->intEnable));
    handleCount = 0;
 
-   if ( dev->debug > 0 ) 
-      dev_info(dev->device,"Irq: Called.\n");
+   if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Called.\n");
+
+   // Grab locks now to avoid multiple lock/unlock cycles
+   spin_lock(&dev->writeHwLock);
+   spin_lock(&dev->maskLock);
 
    // Check read returns
-   while ( AxisG2_MapReturn(&ret,hwData->desc64En,hwData->readIndex,hwData->readAddr) ) {
-
-      index = (dmaData >> 4) & 0xFFF;
+   while ( AxisG2_MapReturn(&ret,hwData->desc128En,hwData->readIndex,hwData->readAddr) ) {
       handleCount++;
-      if ( dev->debug > 0 ) 
-         dev_info(dev->device,"Irq: Got TX Descriptor: Idx=%i, Pos=%i\n",ret.index,hwData->readIndex);
+      if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Got TX Descriptor: Idx=%i, Pos=%i\n",ret.index,hwData->readIndex);
+      --(hwData->hwRdBuffCnt);
 
       // Attempt to find buffer in tx pool and return. otherwise return rx entry to hw.
+      // Must adjust counters here and check for buffer need
       if ((buff = dmaRetBufferIdxIrq (dev,ret.index)) != NULL) {
-         iowrite32(buff->index,&(reg->writeFifoA));
+
+         // Add to software queue
+         if ( hwData->hwWrBuffCnt >= hwData->addrCount ) dmaQueuePushNoLock(&(hwData->wrQueue),buff);
+
+         // Add to hardware queue
+         else {
+            ++(hwData->hwWrBuffCnt);
+            AxisG2_WriteFree(buff,reg,hwData->desc128En);
+         }
       }
 
-      memset(&(hwData->readAddr[hwData->readIndex]),0,8);
       hwData->readIndex = ((hwData->readIndex+1) % hwData->addrCount);
    }
 
    // Check write descriptor
-   while ( AxisG2_MapReturn(&ret,hwData->desc64En,hwData->writeIndex,hwData->writeAddr) ) {
-
-
-
-
-
-      index = (dmaData >> 4) & 0xFFF;
+   while ( AxisG2_MapReturn(&ret,hwData->desc128En,hwData->writeIndex,hwData->writeAddr) ) {
       handleCount++;
 
-      if ( dev->debug > 0 ) 
-         dev_info(dev->device,"Irq: Got RX Descriptor: 0x%.16llx, Idx=%i, Pos=%i\n",dmaData,index,hwData->writeIndex);
+      if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Got RX Descriptor: Idx=%i, Pos=%i\n",ret.index,hwData->writeIndex);
 
-      if ( (buff = dmaGetBufferList(&(dev->rxBuffers),index)) != NULL ) {
+      if ( (buff = dmaGetBufferList(&(dev->rxBuffers),ret.index)) != NULL ) {
          buff->count++;
-         buff->size  = (dmaData >> 32) & 0xFFFFFF;
-         buff->dest  = (dmaData >> 56) & 0xFF;
-         buff->error = (buff->size == 0)?DMA_ERR_FIFO:(dmaData & 0x7);
 
-         buff->flags =  (dmaData >> 24) & 0xFF; // Bits[31:24] = firstUser = flags[7:0]
-         buff->flags += (dmaData >> 8) & 0xFF00; // Bits[23:16] = lastUser = flags[15:8]
-         buff->flags += (dmaData << 13) & 0x10000; // bit[3] = continue = flags[16]
+         buff->size  = ret.size;
+         buff->dest  = ret.dest;
+         buff->error = (ret.size == 0)?DMA_ERR_FIFO:ret.result;
 
-         if (dmaData & 0x8) hwData->contCount++;
+         buff->flags =  ret.fuser;                  // firstUser = flags[7:0]
+         buff->flags |= (ret.luser << 8) & 0x0FF00; // lastUser = flags[15:8]
+         buff->flags |= (ret.cont << 16) & 0x10000; // continue = flags[16]
+
+         hwData->contCount += ret.cont;
 
          if ( dev->debug > 0 ) {
-            dev_info(dev->device,"Irq: Rx size=%i, Dest=%i, Flags=0x%x, Error=0x%x\n",
-               buff->size, buff->dest, buff->flags, buff->error);
+            dev_info(dev->device,"Irq: Rx size=%i, Dest=%i, fuser=%x, luser=%x, cont=%i, Error=0x%x\n",
+               ret.size, ret.dest, ret.fuser, ret.luser, ret.cont, buff->error);
          }
-
-         // Lock mask records
-         // This ensures close does not occur while irq routine is 
-         // pushing data to desc rx queue
-         spin_lock(&dev->maskLock);
 
          // Find owner of lane/vc
          if ( buff->dest < DMA_MAX_DEST ) desc = dev->desc[buff->dest];
@@ -170,21 +214,35 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
             if ( dev->debug > 0 ) {
                dev_info(dev->device,"Irq: Port not open return to free list.\n");
             }
-            iowrite32(buff->index,&(reg->writeFifoA));
+            AxisG2_WriteFree(buff,reg,hwData->desc128En);
          }
 
          // lane/vc is open,  Add to RX Queue
-         else dmaRxBuffer(desc,buff);
-
-         // Unlock
-         spin_unlock(&dev->maskLock);
+         else {
+            --(hwData->hwWrBuffCnt);
+            dmaRxBuffer(desc,buff);
+         }
       }
-      else 
-         dev_warn(dev->device,"Irq: Failed to locate RX buffer index %i.\n", index);
+      else dev_warn(dev->device,"Irq: Failed to locate RX buffer index %i.\n", ret.index);
 
-      memset(&(hwData->writeAddr[hwData->writeIndex]),0,8);
       hwData->writeIndex = ((hwData->writeIndex+1) % hwData->addrCount);
    }
+
+   // Write buffer queue
+   while ( (hwData->hwWrBuffCnt < hwData->addrCount) && ((buff = dmaQueuePopNoLock(&(hwData->wrQueue))) != NULL ) ) {
+      ++(hwData->hwWrBuffCnt);
+      AxisG2_WriteFree(buff,reg,hwData->desc128En);
+   }
+
+   // Read buffer queue
+   while ( (hwData->hwRdBuffCnt < hwData->addrCount) && ((buff = dmaQueuePopNoLock(&(hwData->rdQueue))) != NULL ) ) {
+      ++(hwData->hwRdBuffCnt);
+      AxisG2_WriteTx(buff,reg,hwData->desc128En);
+   }
+
+   // Unlock
+   spin_unlock(&dev->maskLock);
+   spin_unlock(&dev->writeHwLock);
 
    // Enable interrupt and update ack count
    iowrite32(0x30000 + handleCount,&(reg->intAckAndEnable));
@@ -211,7 +269,7 @@ void AxisG2_Init(struct DmaDevice *dev) {
    dev->hwData = hwData;
 
    // 64-bit or 128-bit mode
-   hwData->desc64En = ((ioread32(&(reg->enableVer)) & 0x10000) != 0);
+   hwData->desc128En = ((ioread32(&(reg->enableVer)) & 0x10000) != 0);
 
    // Keep track of the number of buffers in hardware
    hwData->hwWrBuffCnt = 0;
@@ -225,18 +283,18 @@ void AxisG2_Init(struct DmaDevice *dev) {
    hwData->addrCount = (1 << ioread32(&(reg->addrWidth)));
 
    if(dev->cfgMode & AXIS2_RING_ACP) {
-      hwData->readAddr = kmalloc(hwData->addrCount*(hwData->desc64En?16:8), GFP_DMA | GFP_KERNEL);
+      hwData->readAddr = kmalloc(hwData->addrCount*(hwData->desc128En?16:8), GFP_DMA | GFP_KERNEL);
       hwData->readHandle = virt_to_phys(hwData->readAddr);
 
-      hwData->writeAddr = kmalloc(hwData->addrCount*(hwData->desc64En?16:8), GFP_DMA | GFP_KERNEL);
+      hwData->writeAddr = kmalloc(hwData->addrCount*(hwData->desc128En?16:8), GFP_DMA | GFP_KERNEL);
       hwData->writeHandle = virt_to_phys(hwData->writeAddr);
    }
    else {
       hwData->readAddr = 
-         dma_alloc_coherent(dev->device, hwData->addrCount*(hwData->desc64En?16:8), &(hwData->readHandle),GFP_KERNEL);
+         dma_alloc_coherent(dev->device, hwData->addrCount*(hwData->desc128En?16:8), &(hwData->readHandle),GFP_KERNEL);
 
       hwData->writeAddr = 
-         dma_alloc_coherent(dev->device, hwData->addrCount*(hwData->desc64En?16:8), &(hwData->writeHandle),GFP_KERNEL);
+         dma_alloc_coherent(dev->device, hwData->addrCount*(hwData->desc128En?16:8), &(hwData->writeHandle),GFP_KERNEL);
    }
 
    dev_info(dev->device,"Init: Read  ring at: %p\n",(void *)hwData->readHandle);
@@ -279,37 +337,20 @@ void AxisG2_Init(struct DmaDevice *dev) {
    for (x=0; x < dev->rxBuffers.count; x++) {
       buff = dev->rxBuffers.indexed[x];
 
+      // Map failure
+      if ( dmaBufferToHw(buff) < 0 ) dev_warn(dev->device,"Init: Failed to map dma buffer.\n");
+
       // Add to software queue
-      if ( hwData->hwWrBuffCnt >= hwData->addrCount ) dmaQueuePush(&(hwData->wrQueue),buff);
+      else if ( hwData->hwWrBuffCnt >= hwData->addrCount ) dmaQueuePushNoLock(&(hwData->wrQueue),buff);
 
       // Add to hardware queue
       else {
-
-         if ( dmaBufferToHw(buff) < 0 ) 
-            dev_warn(dev->device,"Init: Failed to map dma buffer.\n");
-
-         else if ( hwData->desc64En ) {
-            hwData->hwWrBuffCnt++;
-            iowrite32(buff->index,&(reg->writeFifoA));
-            iowrite32(buff->buffHandle,&(reg->writeFifoB));
-         }
-
-         else {
-            iowrite32(buff->index,&(reg->writeFifoA)); // Free List
-            iowrite32(buff->buffHandle,&(reg->dmaAddr[buff->index])); // Address table
-         }
+         ++hwData->hwWrBuffCnt;
+         AxisG2_WriteFree(buff,reg,hwData->desc128En);
       }
    }
 
-   // Map TX buffers
-   if ( hwData->desc64En ) {
-      for (x=0; x < dev->txBuffers.count; x++) {
-         buff = dev->txBuffers.indexed[x];
-         iowrite32(buff->buffHandle,&(reg->dmaAddr[buff->index])); // Address table
-      }
-   }
-
-   dev_info(dev->device,"Init: Found Version 2 Device.\n");
+   dev_info(dev->device,"Init: Found Version 2 Device. Desc128En=%i\n",hwData->desc128En);
 }
 
 
@@ -362,98 +403,58 @@ void AxisG2_Clear(struct DmaDevice *dev) {
 // Single write so we don't need to lock
 void AxisG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
    struct AxisG2Reg *reg;
-   struct AxisGwData *hwData;
+   struct AxisG2Data *hwData;
+   unsigned long iflags;
 
    reg = (struct AxisG2Reg *)dev->reg;
-   hwData = (struct AxisGwData *)dev->hwData;
+   hwData = (struct AxisG2Data *)dev->hwData;
 
-   // Add to software queue
-   if ( hwData->hwWrBuffCnt >= hwData->addrCount ) dmaQueuePush(&(hwData->wrQueue),buff);
+   // Map failure
+   if ( dmaBufferToHw(buff) < 0 ) dev_warn(dev->device,"RetRxBuffer: Failed to map dma buffer.\n");
 
-   // Add to hardware queue
    else {
+      spin_lock_irqsave(&dev->writeHwLock,iflags);
 
-      if ( dmaBufferToHw(buff) < 0 ) 
-         dev_warn(dev->device,"RetRxBuffer: Failed to map dma buffer.\n");
+      // Add to software queue
+      if ( hwData->hwWrBuffCnt >= hwData->addrCount ) dmaQueuePushNoLock(&(hwData->wrQueue),buff);
 
-      else if ( hwData->desc64En ) {
-         hwData->hwWrBuffCnt++;
-         iowrite32(buff->index,&(reg->writeFifoA));
-         iowrite32(buff->buffHandle,&(reg->writeFifoB));
-      }
-
+      // Add to hardware queue
       else {
-         iowrite32(buff->buffHandle,&(reg->dmaAddr[buff->index])); // Address table
-         iowrite32(buff->index,&(reg->writeFifoA)); // Free List
+         ++(hwData->hwWrBuffCnt);
+         AxisG2_WriteFree(buff,reg,hwData->desc128En);
       }
+      spin_unlock_irqrestore(&dev->writeHwLock,iflags);
    }
 }
 
 
 // Send a buffer
 int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
-   uint32_t descA;
-   uint32_t descB;
-   uint32_t descC;
-   uint32_t descD;
-
    struct AxisG2Data * hwData;
    struct AxisG2Reg *reg;
+   unsigned long iflags;
 
    reg = (struct AxisG2Reg *)dev->reg;
    hwData = (struct AxisG2Data *)dev->hwData;
 
-   // Add to software queue
-   if ( hwData->hwRdBuffCnt >= hwData->addrCount ) dmaQueuePush(&(hwData->rdQueue),buff);
-
-   else if ( dmaBufferToHw(buff) < 0 ) {
+   // Mapping failure
+   if ( dmaBufferToHw(buff) < 0 ) {
       dev_warn(dev->device,"SendBuffer: Failed to map dma buffer.\n");
       return(-1);
    }
 
    else {
+      spin_lock_irqsave(&dev->writeHwLock,iflags);
 
-      descA  = (buff->flags >> 13) & 0x00000008; // bit[3] = continue = flags[16]
-      descA += (buff->flags <<  8) & 0x00FF0000; // Bits[23:16] = lastUser = flags[15:8]
-      descA += (buff->flags << 24) & 0xFF000000; // Bits[31:24] = firstUser = flags[7:0]
+      // Add to software queue
+      if ( hwData->hwRdBuffCnt >= hwData->addrCount ) dmaQueuePushNoLock(&(hwData->rdQueue),buff);
 
-      if ( hwData->desc64En ) {
-         hwData->hwRdBuffCnt++;
-
-         descB = buff->size;
-         descC = buff->index;
-         descD = buff->buffHandle;
-
-         // Write to hardware
-         spin_lock(&dev->writeHwLock);
-         iowrite32(descA,&(reg->readFifoA));
-         iowrite32(descB,&(reg->readFifoB));
-         iowrite32(descC,&(reg->readFifoC));
-         iowrite32(descD,&(reg->readFifoD));
-         spin_unlock(&dev->writeHwLock);
-
-      } else {
-
-         descA += (buff->index <<  4) & 0x0000FFF0; // Bits[15:4] = buffId 
-
-         descB  = buff->size & 0x00FFFFFF;   // bits[23:0]  = size
-         descB += (buff->dest << 24) & 0xFF000000; // bits[31:24] = dest
-
-         iowrite32(buff->buffHandle,&(reg->dmaAddr[buff->index])); // Address table
-
-         // Write to hardware
-         spin_lock(&dev->writeHwLock);
-         iowrite32(descA,&(reg->readFifoA));
-         iowrite32(descB,&(reg->readFifoB));
-         spin_unlock(&dev->writeHwLock);
+      // Add to hardware
+      else {
+         ++(hwData->hwRdBuffCnt);
+         AxisG2_WriteTx (buff, reg, hwData->desc128En);
       }
-
-      if ( dev->debug > 0 ) {
-         dev_info(dev->device,"SendBuffer: Wrote High=0x%x, Low=0x%x, Handle=0x%llx\n",descHigh,descLow,buff->buffHandle);
-         dev_info(dev->device,"SendBuffer: %x %x %x %x %x %x %x %x\n", ((uint8_t*)buff->buffAddr)[0], ((uint8_t*)buff->buffAddr)[1], ((uint8_t*)buff->buffAddr)[2],
-                                                                       ((uint8_t*)buff->buffAddr)[3], ((uint8_t*)buff->buffAddr)[4], ((uint8_t*)buff->buffAddr)[5],
-                                                                       ((uint8_t*)buff->buffAddr)[6], ((uint8_t*)buff->buffAddr)[7]);
-      }
+      spin_unlock_irqrestore(&dev->writeHwLock,iflags);
    }
    return(buff->size);
 }
@@ -504,5 +505,6 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    seq_printf(s,"    Hw Write Buff Count : %i\n",hwData->hwWrBuffCnt);
    seq_printf(s,"     Hw Read Buff Count : %i\n",hwData->hwRdBuffCnt);
    seq_printf(s,"           Cache Config : 0x%x\n",(ioread32(&(reg->cacheConfig))));
+   seq_printf(s,"            Desc 128 En : %i\n",hwData->desc128En);
 }
 

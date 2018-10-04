@@ -163,7 +163,7 @@ int Dma_Init(struct DmaDevice *dev) {
    dmaQueueInit(&(dev->tq),dev->txBuffers.count);
 
    // Populate transmit queue
-   for (x=0; x < dev->txBuffers.count; x++) dmaQueuePush(&(dev->tq),dev->txBuffers.indexed[x]);
+   for (x=0; x < dev->txBuffers.count; x++) dmaQueuePushNoLock(&(dev->tq),dev->txBuffers.indexed[x]);
 
    // Create rx buffers, bidirectional because rx buffers can be passed to tx
    dev_info(dev->device,"Init: Creating %i RX Buffers. Size=%i Bytes. Mode=%i.\n",

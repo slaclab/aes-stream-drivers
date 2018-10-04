@@ -60,18 +60,17 @@ struct AxisG2Reg {
 };
 
 struct AxisG2Return {
-   uint32_t chan;
    uint32_t index;
    uint32_t size;
    uint8_t  result;
    uint8_t  fuser;
    uint8_t  luser;
-   uint8_t  dest;
+   uint16_t dest;
    uint8_t  cont;
 };
 
 struct AxisG2Data {
-   uint32_t    desc64En;
+   uint32_t    desc128En;
 
    uint32_t  * readAddr;
    dma_addr_t  readHandle;
@@ -85,7 +84,7 @@ struct AxisG2Data {
    uint32_t    missedIrq;
 
    uint32_t    hwWrBuffCnt;
-   uint32_t    hwRrBuffCnt;
+   uint32_t    hwRdBuffCnt;
 
    struct DmaQueue wrQueue;
    struct DmaQueue rdQueue;
@@ -94,13 +93,13 @@ struct AxisG2Data {
 };
 
 // Map return
-inline uint8_t AxisG2_MapReturn ( struct AxisG2Return *ret, uint32_t desc64En, uint32_t index, int32_t *data);
+inline uint8_t AxisG2_MapReturn ( struct AxisG2Return *ret, uint32_t desc128En, uint32_t index, uint32_t *ring);
 
 // Add buffer to free list
-inline void AxisG2_WriteFree ( struct Dmabuffer *buff, struct AxisG2Data *reg );
+inline void AxisG2_WriteFree ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En );
 
 // Add buffer to tx list
-inline void AxisG2_WriteTx ( struct Dmabuffer *buff, struct AxisG2Data *reg );
+inline void AxisG2_WriteTx ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En );
 
 // Interrupt handler
 irqreturn_t AxisG2_Irq(int irq, void *dev_id);

@@ -50,7 +50,7 @@ struct DmaBuffer {
    uint8_t          owner;
 
    // Associated data
-   uint8_t     dest;
+   uint16_t    dest;
    uint32_t    flags;
    uint8_t     error;
    uint32_t    size;
@@ -168,13 +168,16 @@ uint32_t dmaQueueNotEmpty ( struct DmaQueue *queue );
 // Push a queue entry
 // Return 1 if fail, 0 if success
 // Use IRQ method inside of IRQ handler
-uint32_t dmaQueuePush    ( struct DmaQueue *queue, struct DmaBuffer *entry );
-uint32_t dmaQueuePushIrq ( struct DmaQueue *queue, struct DmaBuffer *entry );
+uint32_t dmaQueuePushNoLock ( struct DmaQueue *queue, struct DmaBuffer *entry );
+uint32_t dmaQueuePush       ( struct DmaQueue *queue, struct DmaBuffer *entry );
+uint32_t dmaQueuePushIrq    ( struct DmaQueue *queue, struct DmaBuffer *entry );
 
 // Pop a queue entry
 // Return a queue entry, NULL if nothing available
 // Use IRQ method inside of IRQ handler
-struct DmaBuffer * dmaQueuePop ( struct DmaQueue *queue );
+struct DmaBuffer * dmaQueuePopNoLock ( struct DmaQueue *queue );
+struct DmaBuffer * dmaQueuePop       ( struct DmaQueue *queue );
+struct DmaBuffer * dmaQueuePopIrq    ( struct DmaQueue *queue );
 
 // Poll queue
 void dmaQueuePoll ( struct DmaQueue *queue, struct file *filp, poll_table *wait );

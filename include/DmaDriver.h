@@ -27,7 +27,7 @@
 #endif
 
 // API Version
-#define DMA_VERSION  0x04
+#define DMA_VERSION  0x05
 
 // Error values
 #define DMA_ERR_FIFO 0x01
@@ -51,7 +51,7 @@
 #define DMA_Get_TxBuff_Count 0x100D
 
 // Mask size
-#define DMA_MASK_SIZE 32
+#define DMA_MASK_SIZE 512
 
 // TX Structure
 // Size = 0 for return index
