@@ -178,6 +178,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
       }
 
       hwData->readIndex = ((hwData->readIndex+1) % hwData->addrCount);
+      if ( handleCount > 4000 ) break;
    }
 
    // Check write descriptor
@@ -225,6 +226,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
       else dev_warn(dev->device,"Irq: Failed to locate RX buffer index %i.\n", ret.index);
 
       hwData->writeIndex = ((hwData->writeIndex+1) % hwData->addrCount);
+      if ( handleCount > 4000 ) break;
    }
 
    // Write buffer queue
