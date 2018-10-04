@@ -22,7 +22,6 @@
 #include <linux/seq_file.h>
 #include <linux/signal.h>
 #include <linux/slab.h>
-#include <linux/sched.h>
 
 #define BUFF_MODE_MIXED 
 
