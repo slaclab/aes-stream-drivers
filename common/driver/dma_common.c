@@ -595,6 +595,11 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
       case DMA_Ret_Index:
          cnt = (cmd >> 16) & 0xFFFF;
 
+         if ( cnt == 0 ) {
+            dev_warn(dev->device,"Command: Invalid index count posted: %i.\n", cnt);
+            return(-1);
+         }
+
          indexes = kmalloc(cnt * sizeof(uint32_t),GFP_KERNEL);
 
          if (copy_from_user(indexes,(void *)arg,(cnt * sizeof(uint32_t)))) return(-1);
