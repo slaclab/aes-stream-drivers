@@ -84,15 +84,6 @@ struct DmaRegisterData {
    uint32_t   data;
 };
 
-// Index Count
-#define DMA_INDEX_CNT 500
-
-// Index Data
-struct DmaIndexData {
-   uint32_t  count;
-   uint32_t  data[DMA_INDEX_CNT];
-};
-
 // Everything below is hidden during kernel module compile
 #ifndef DMA_IN_KERNEL
 #include <stdlib.h>
@@ -257,20 +248,16 @@ static inline ssize_t dmaReadBulkIndex(int32_t fd, uint32_t count, int32_t *ret,
 
 // Post Index
 static inline ssize_t dmaRetIndex(int32_t fd, uint32_t index) {
-   struct DmaIndexData idx;
+   uint32_t cmd = DMA_Ret_Index | 0x10000;
 
-   idx.count   = 1;
-   idx.data[0] = index;
-   return(ioctl(fd,DMA_Ret_Index,&idx));
+   return(ioctl(fd,cmd,&idx));
 }
 
 // Post Index List
 static inline ssize_t dmaRetIndexes(int32_t fd, uint32_t count, uint32_t *indexes) {
-   struct DmaIndexData idx;
+   uint32_t cmd = DMA_Ret_Index | ((count << 16) & 0xFFFF0000);
 
-   idx.count = count;
-   memcpy(idx.data,indexes,count*sizeof(uint32_t));
-   return(ioctl(fd,DMA_Ret_Index,&idx));
+   return(ioctl(fd,cmd,indexes));
 }
 
 // Get write buffer index

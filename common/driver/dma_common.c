@@ -535,14 +535,16 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
    struct DmaDesc   * desc;
    struct DmaDevice * dev;
    struct DmaBuffer * buff;
-   struct DmaIndexData idx;
-   uint32_t x;
+
+   uint32_t   x;
+   uint32_t   cnt;
+   uint32_t * indexes;
 
    desc = (struct DmaDesc *)filp->private_data;
    dev  = desc->dev;
 
    // Determine command
-   switch (cmd) {
+   switch (cmd & 0xFFFF) {
 
       // Get buffer count
       case DMA_Get_Buff_Count: 
@@ -591,12 +593,16 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
       // Return buffer index
       case DMA_Ret_Index:
-         if (copy_from_user(&idx,(void *)arg,sizeof(struct DmaIndexData))) return(-1);
+         cnt = (cmd >> 16) & 0xFFFF;
 
-         for (x=0; x < idx.count; x++) {
+         indexes = kmalloc(cnt * sizeof(uint32_t),GFP_KERNEL);
+
+         if (copy_from_user(indexes,(void *)arg,(cnt * sizeof(uint32_t)))) return(-1);
+
+         for (x=0; x < cnt; x++) {
 
             // Attempt to find buffer in RX list
-            if ( (buff = dmaGetBufferList(&(dev->rxBuffers),idx.data[x])) != NULL ) {
+            if ( (buff = dmaGetBufferList(&(dev->rxBuffers),indexes[x])) != NULL ) {
 
                // Only return if owned by current desc
                if ( buff->userHas == desc ) {
@@ -608,7 +614,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
             }
 
             // Attempt to find in tx list
-            else if ( (buff = dmaGetBufferList(&(dev->txBuffers),idx.data[x])) != NULL ) {
+            else if ( (buff = dmaGetBufferList(&(dev->txBuffers),indexes[x])) != NULL ) {
 
                // Only return if owned by current desc
                if ( buff->userHas == desc ) {
@@ -619,10 +625,12 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
                }
             }
             else {
-               dev_warn(dev->device,"Command: Invalid index posted: %i.\n", idx.data[x]);
+               dev_warn(dev->device,"Command: Invalid index posted: %i.\n", indexes[x]);
+               kfree(indexes);
                return(-1);
             }
          }
+         kfree(indexes);
          return(0);
          break;
 
