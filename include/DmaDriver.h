@@ -250,7 +250,7 @@ static inline ssize_t dmaReadBulkIndex(int32_t fd, uint32_t count, int32_t *ret,
 static inline ssize_t dmaRetIndex(int32_t fd, uint32_t index) {
    uint32_t cmd = DMA_Ret_Index | 0x10000;
 
-   return(ioctl(fd,cmd,&idx));
+   return(ioctl(fd,cmd,&index));
 }
 
 // Post Index List
