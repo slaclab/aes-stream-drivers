@@ -21,8 +21,7 @@
 **/
 #ifndef __PGP_DRIVER_H__
 #define __PGP_DRIVER_H__
-#include <DmaDriver.h>
-#include <FpgaProm.h>
+#include "DmaDriver.h"
 
 // Card Info
 struct PgpInfo {
