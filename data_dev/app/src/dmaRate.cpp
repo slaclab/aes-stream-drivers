@@ -2,7 +2,7 @@
  *-----------------------------------------------------------------------------
  * Title      : DMA read utility
  * ----------------------------------------------------------------------------
- * File       : dmaRead.cpp
+ * File       : dmaRate.cpp
  * Author     : Ryan Herbst, rherbst@slac.stanford.edu
  * Created    : 2016-08-08
  * Last update: 2016-08-08
@@ -83,7 +83,8 @@ int main (int argc, char **argv) {
    float         rate;
    float         bw;
    float         duration;
-   uint32_t      getCnt;
+
+   uint32_t      getCnt = MAX_RET_CNT_C;
 
    struct timeval sTime;
    struct timeval eTime;
@@ -99,7 +100,7 @@ int main (int argc, char **argv) {
    dmaInitMaskBytes(mask);
    memset(mask,0xFF,DMA_MASK_SIZE);
 
-   for ( getCnt = 1; getCnt <= 100; getCnt += (getCnt==1?4:5) ) {
+   while(1) {
 
       if ( (s = open(args.path, O_RDWR)) <= 0 ) {
          printf("Error opening %s\n",args.path);

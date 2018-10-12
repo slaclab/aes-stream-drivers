@@ -93,7 +93,7 @@ struct AxisG2Data {
 };
 
 // Map return
-inline uint8_t AxisG2_MapReturn ( struct AxisG2Return *ret, uint32_t desc128En, uint32_t index, uint32_t *ring);
+inline uint8_t AxisG2_MapReturn ( struct DmaDevice *dev, struct AxisG2Return *ret, uint32_t desc128En, uint32_t index, uint32_t *ring);
 
 // Add buffer to free list
 inline void AxisG2_WriteFree ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En );

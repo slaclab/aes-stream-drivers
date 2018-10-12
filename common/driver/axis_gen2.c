@@ -23,8 +23,6 @@
 #include <linux/signal.h>
 #include <linux/slab.h>
 
-#define BUFF_MODE_MIXED 
-
 // Set functions for gen2 card
 struct hardware_functions AxisG2_functions = {
    .irq          = AxisG2_Irq,
@@ -39,10 +37,12 @@ struct hardware_functions AxisG2_functions = {
 
 
 // Map return descriptors to return record
-inline uint8_t AxisG2_MapReturn ( struct AxisG2Return *ret, uint32_t desc128En, uint32_t index, uint32_t *ring) {
-   uint32_t * ptr = (ring + (index*(desc128En?4:2)));
+inline uint8_t AxisG2_MapReturn ( struct DmaDevice * dev, struct AxisG2Return *ret, uint32_t desc128En, uint32_t index, uint32_t *ring) {
+   uint32_t * ptr;
    uint32_t chan;
    uint32_t dest;
+
+   ptr = (ring + (index*(desc128En?4:2)));
 
    if ( desc128En ) {
       if ( ptr[3] == 0 ) return 0;
@@ -52,8 +52,8 @@ inline uint8_t AxisG2_MapReturn ( struct AxisG2Return *ret, uint32_t desc128En, 
       ret->dest   = (chan * 256) + dest;
       ret->size   = ptr[2];
       ret->index  = ptr[1];
-      ret->fuser  = (ptr[0] >> 16) & 0xFF;
-      ret->luser  = (ptr[0] >>  8) & 0xFF;
+      ret->fuser  = (ptr[0] >> 24) & 0xFF;
+      ret->luser  = (ptr[0] >> 16) & 0xFF;
       ret->cont   = (ptr[0] >>  3) & 0x1;
       ret->result = ptr[0] & 0x7;
 
@@ -68,6 +68,9 @@ inline uint8_t AxisG2_MapReturn ( struct AxisG2Return *ret, uint32_t desc128En, 
       ret->cont   = (ptr[0] >>  3) & 0x1;
       ret->result = ptr[0] & 0x7;
    }
+
+   if ( dev->debug > 0 ) 
+      dev_info(dev->device,"Irq: desc idx %i, raw 0x%x, 0x%x, 0x%x, 0x%x\n",index,ptr[0],ptr[1],ptr[2],ptr[3]);
 
    memset(ptr,0,(desc128En?16:8));
    return 1;
@@ -104,8 +107,8 @@ inline void AxisG2_WriteTx ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint
       dest = buff->dest % 256;
       chan = buff->dest / 256;
 
-      rdData[0] |= (dest << 4) & 0x000000F0;
-      rdData[0] |= (chan << 8) & 0x0000FF00;
+      rdData[0] |= (chan << 4) & 0x000000F0;
+      rdData[0] |= (dest << 8) & 0x0000FF00;
 
       rdData[1] = buff->size;
 
@@ -158,7 +161,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    spin_lock(&dev->maskLock);
 
    // Check read returns
-   while ( AxisG2_MapReturn(&ret,hwData->desc128En,hwData->readIndex,hwData->readAddr) ) {
+   while ( AxisG2_MapReturn(dev,&ret,hwData->desc128En,hwData->readIndex,hwData->readAddr) ) {
       handleCount++;
       if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Got TX Descriptor: Idx=%i, Pos=%i\n",ret.index,hwData->readIndex);
       --(hwData->hwRdBuffCnt);
@@ -168,7 +171,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
       if ((buff = dmaRetBufferIdxIrq (dev,ret.index)) != NULL) {
 
          // Add to software queue
-         if ( hwData->hwWrBuffCnt >= hwData->addrCount ) dmaQueuePushNoLock(&(hwData->wrQueue),buff);
+         if ( hwData->hwWrBuffCnt >= (hwData->addrCount-1) ) dmaQueuePushNoLock(&(hwData->wrQueue),buff);
 
          // Add to hardware queue
          else {
@@ -182,7 +185,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    }
 
    // Check write descriptor
-   while ( AxisG2_MapReturn(&ret,hwData->desc128En,hwData->writeIndex,hwData->writeAddr) ) {
+   while ( AxisG2_MapReturn(dev,&ret,hwData->desc128En,hwData->writeIndex,hwData->writeAddr) ) {
       handleCount++;
 
       if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Got RX Descriptor: Idx=%i, Pos=%i\n",ret.index,hwData->writeIndex);
@@ -201,7 +204,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
          hwData->contCount += ret.cont;
 
          if ( dev->debug > 0 ) {
-            dev_info(dev->device,"Irq: Rx size=%i, Dest=%i, fuser=%x, luser=%x, cont=%i, Error=0x%x\n",
+            dev_info(dev->device,"Irq: Rx size=%i, Dest=0x%x, fuser=0x%x, luser=0x%x, cont=%i, Error=0x%x\n",
                ret.size, ret.dest, ret.fuser, ret.luser, ret.cont, buff->error);
          }
 
@@ -230,13 +233,13 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    }
 
    // Write buffer queue
-   while ( (hwData->hwWrBuffCnt < hwData->addrCount) && ((buff = dmaQueuePopNoLock(&(hwData->wrQueue))) != NULL ) ) {
+   while ( (hwData->hwWrBuffCnt < (hwData->addrCount-1)) && ((buff = dmaQueuePopNoLock(&(hwData->wrQueue))) != NULL ) ) {
       ++(hwData->hwWrBuffCnt);
       AxisG2_WriteFree(buff,reg,hwData->desc128En);
    }
 
    // Read buffer queue
-   while ( (hwData->hwRdBuffCnt < hwData->addrCount) && ((buff = dmaQueuePopNoLock(&(hwData->rdQueue))) != NULL ) ) {
+   while ( (hwData->hwRdBuffCnt < (hwData->addrCount-1)) && ((buff = dmaQueuePopNoLock(&(hwData->rdQueue))) != NULL ) ) {
       ++(hwData->hwRdBuffCnt);
       AxisG2_WriteTx(buff,reg,hwData->desc128En);
    }
@@ -342,7 +345,7 @@ void AxisG2_Init(struct DmaDevice *dev) {
       if ( dmaBufferToHw(buff) < 0 ) dev_warn(dev->device,"Init: Failed to map dma buffer.\n");
 
       // Add to software queue
-      else if ( hwData->hwWrBuffCnt >= hwData->addrCount ) dmaQueuePushNoLock(&(hwData->wrQueue),buff);
+      else if ( hwData->hwWrBuffCnt >= (hwData->addrCount-1) ) dmaQueuePushNoLock(&(hwData->wrQueue),buff);
 
       // Add to hardware queue
       else {
@@ -417,7 +420,7 @@ void AxisG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
       spin_lock_irqsave(&dev->writeHwLock,iflags);
 
       // Add to software queue
-      if ( hwData->hwWrBuffCnt >= hwData->addrCount ) dmaQueuePushNoLock(&(hwData->wrQueue),buff);
+      if ( hwData->hwWrBuffCnt >= (hwData->addrCount-1) ) dmaQueuePushNoLock(&(hwData->wrQueue),buff);
 
       // Add to hardware queue
       else {
@@ -448,7 +451,7 @@ int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
       spin_lock_irqsave(&dev->writeHwLock,iflags);
 
       // Add to software queue
-      if ( hwData->hwRdBuffCnt >= hwData->addrCount ) dmaQueuePushNoLock(&(hwData->rdQueue),buff);
+      if ( hwData->hwRdBuffCnt >= (hwData->addrCount-1) ) dmaQueuePushNoLock(&(hwData->rdQueue),buff);
 
       // Add to hardware
       else {
