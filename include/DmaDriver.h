@@ -357,7 +357,7 @@ static inline ssize_t dmaWriteRegister(int32_t fd, uint32_t address, uint32_t da
    return(ioctl(fd,DMA_Write_Register,&reg));
 }
 
-// Read from PROM
+// Read Register
 static inline ssize_t dmaReadRegister(int32_t fd, uint32_t address, uint32_t *data) {
    struct DmaRegisterData reg;
    ssize_t res;
