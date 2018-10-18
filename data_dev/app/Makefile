@@ -23,7 +23,7 @@ CC       := g++
 DEF      :=
 BIN      := $(HOME)/bin
 OBJ      := $(HOME)/.obj
-CFLAGS   := -Wall -I$(HOME)/../../include/ -I$(HOME)/../../common/app_lib/
+CFLAGS   := -O2 -Wall -I$(HOME)/../../include/ -I$(HOME)/../../common/app_lib/
 LFLAGS   := -lpthread
 
 # Generic Sources

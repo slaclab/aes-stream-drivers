@@ -348,6 +348,26 @@ uint32_t dmaQueueNotEmpty ( struct DmaQueue *queue ) {
 
 
 // Push a queue entry
+// Not locked
+// Return 1 if fail, 0 if success
+uint32_t dmaQueuePushNoLock ( struct DmaQueue *queue, struct DmaBuffer *entry ) {
+   uint32_t      next;
+   uint32_t      ret;
+
+   next = (queue->write+1) % (queue->count);
+
+   // Buffer overflow, should not occur
+   if ( next == queue->read ) ret = 1;
+   else {
+      queue->queue[queue->write] = entry;
+      queue->write = next;
+      entry->inQ = 1;
+   }
+
+   return(ret);
+}
+
+// Push a queue entry
 // Use this routine outside of interrupt handler
 // Return 1 if fail, 0 if success
 uint32_t dmaQueuePush  ( struct DmaQueue *queue, struct DmaBuffer *entry ) {
@@ -397,6 +417,24 @@ uint32_t dmaQueuePushIrq ( struct DmaQueue *queue, struct DmaBuffer *entry ) {
    return(ret);
 }
 
+// Pop a queue entry
+// No Lock
+// Return a queue entry, NULL if nothing available
+struct DmaBuffer * dmaQueuePopNoLock ( struct DmaQueue *queue ) {
+   struct DmaBuffer * ret;
+
+   if ( queue->read == queue->write ) ret = NULL;
+   else {
+
+      ret = queue->queue[queue->read];
+
+      // Increment read pointer
+      queue->read = (queue->read + 1) % (queue->count);
+
+      ret->inQ = 0;
+   }
+   return(ret);
+}
 
 // Pop a queue entry
 // Use this routine outside of interrupt handler
@@ -418,6 +456,29 @@ struct DmaBuffer * dmaQueuePop  ( struct DmaQueue *queue ) {
       ret->inQ = 0;
    }
    spin_unlock_irqrestore(&(queue->lock),iflags);
+   return(ret);
+}
+
+
+// Pop a queue entry
+// Use this routine inside of interrupt handler
+// Return a queue entry, NULL if nothing available
+struct DmaBuffer * dmaQueuePopIrq ( struct DmaQueue *queue ) {
+   struct DmaBuffer * ret;
+
+   spin_lock(&(queue->lock));
+
+   if ( queue->read == queue->write ) ret = NULL;
+   else {
+
+      ret = queue->queue[queue->read];
+
+      // Increment read pointer
+      queue->read = (queue->read + 1) % (queue->count);
+
+      ret->inQ = 0;
+   }
+   spin_unlock(&(queue->lock));
    return(ret);
 }
 
