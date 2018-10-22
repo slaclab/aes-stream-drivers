@@ -33,7 +33,7 @@
 #include <PrbsData.h>
 using namespace std;
 
-#define MAX_RET_CNT_C 10
+#define MAX_RET_CNT_C 100
 
 const  char * argp_program_version = "dmaRate 1.0";
 const  char * argp_program_bug_address = "rherbst@slac.stanford.edu";
@@ -85,6 +85,7 @@ int main (int argc, char **argv) {
    float         duration;
    int32_t       min;
    int32_t       max;
+   int32_t       total;
 
    uint32_t      getCnt = MAX_RET_CNT_C;
 
@@ -121,6 +122,7 @@ int main (int argc, char **argv) {
       last   = 0.0;
       max    = 0;
       min    = 8000;
+      total  = 0;
       gettimeofday(&sTime,NULL);
 
       while ( rate < args.count ) {
@@ -137,8 +139,11 @@ int main (int argc, char **argv) {
 
          if ( ret > 0 ) dmaRetIndexes(s,ret,dmaIndex);
 
-         if ( ret > max ) max = ret;
-         if ( ret < min ) min = ret;
+	 if ( total == 0 ) {
+            if ( ret > max ) max = ret;
+            if ( ret < min ) min = ret;
+	 }
+	 total += ret;
       }
 
       gettimeofday(&eTime,NULL);
