@@ -83,7 +83,6 @@ int main (int argc, char **argv) {
    float         rate;
    float         bw;
    float         duration;
-   int32_t       min;
    int32_t       max;
    int32_t       total;
 
@@ -99,7 +98,7 @@ int main (int argc, char **argv) {
    memcpy(&args,&DefArgs,sizeof(struct PrgArgs));
    argp_parse(&argp,argc,argv,0,0,&args);
 
-   printf("  minCnt        maxCnt        size      count   duration       rate         bw\n");
+   printf("  maxCnt           size      count   duration       rate         bw     Read uS   Return uS\n");
 
    dmaInitMaskBytes(mask);
    memset(mask,0xFF,DMA_MASK_SIZE);
@@ -122,16 +121,15 @@ int main (int argc, char **argv) {
       rate   = 0.0;
       last   = 0.0;
       max    = 0;
-      min    = 8000;
       total  = 0;
       gettimeofday(&sTime,NULL);
 
       while ( rate < args.count ) {
 
          // DMA Read
-         gettimeofday(&(pTime[0]),NULL); // Timer 0 sec=1540259704 usec=500464
+         gettimeofday(&(pTime[0]),NULL);
          ret = dmaReadBulkIndex(s,getCnt,dmaRet,dmaIndex,rxFlags,NULL,NULL);  // 24 usec
-         gettimeofday(&(pTime[1]),NULL); // Timer 1 sec=1540259704 usec=500488
+         gettimeofday(&(pTime[1]),NULL);
 
          for (x=0; x < ret; ++x) {
             if ( (last = dmaRet[x]) > 0.0 ) {
@@ -140,18 +138,12 @@ int main (int argc, char **argv) {
             }
          }
 
-         gettimeofday(&(pTime[2]),NULL); // Timer 2 sec=1540259704 usec=500495
+         gettimeofday(&(pTime[2]),NULL);
          if ( ret > 0 ) dmaRetIndexes(s,ret,dmaIndex);  // 721 usec
-         gettimeofday(&(pTime[3]),NULL); // Timer 3 sec=1540259704 usec=501216
+         gettimeofday(&(pTime[3]),NULL);
 
-	 if ( total == 0 ) {
-            if ( ret > max ) max = ret;
-            if ( ret < min ) min = ret;
-	 }
-         gettimeofday(&(pTime[4]),NULL); // Timer 4 sec=1540259704 usec=501216
+	 if ( total == 0 ) if ( ret > max ) max = ret;
 	 total += ret; // 0 usec
-         gettimeofday(&(pTime[5]),NULL); // Timer 5 sec=1540259704 usec=501216
-         gettimeofday(&(pTime[6]),NULL); // Timer 6 sec=1540259704 usec=501216
       }
 
       gettimeofday(&eTime,NULL);
@@ -162,15 +154,11 @@ int main (int argc, char **argv) {
       rate = rate / duration;
       bw   = bw   / duration;
 
-      printf("%8i   %8i    %1.3e   %8i   %1.2e   %1.2e   %1.2e\n",min,max,last,args.count,duration,rate,bw);
+      printf("%8i      %1.3e   %8i   %1.2e   %1.2e   %1.2e    %8li    %8li     \n",max,last,args.count,duration,rate,bw,
+         (pTime[1].tv_usec-pTime[0].tv_usec), (pTime[3].tv_usec-pTime[2].tv_usec));
+
       rate = 0.0;
       bw   = 0.0;
-
-      printf("\n");
-      for(x=0; x < 7; x++) {
-         printf("Timer %i sec=%li usec=%li\n",x,pTime[x].tv_sec,pTime[x].tv_usec);
-      }
-      printf("\n");
    }
 
    return(0);
