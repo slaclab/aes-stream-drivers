@@ -25,14 +25,15 @@
 
 // Set functions for gen2 card
 struct hardware_functions AxisG2_functions = {
-   .irq          = AxisG2_Irq,
-   .init         = AxisG2_Init,
-   .enable       = AxisG2_Enable,
-   .clear        = AxisG2_Clear,
-   .retRxBuffer  = AxisG2_RetRxBuffer,
-   .sendBuffer   = AxisG2_SendBuffer,
-   .command      = AxisG2_Command,
-   .seqShow      = AxisG2_SeqShow,
+   .irq             = AxisG2_Irq,
+   .init            = AxisG2_Init,
+   .enable          = AxisG2_Enable,
+   .clear           = AxisG2_Clear,
+   .retRxBuffer     = AxisG2_RetRxBuffer,
+   .retRxBufferList = AxisG2_RetRxBufferList,
+   .sendBuffer      = AxisG2_SendBuffer,
+   .command         = AxisG2_Command,
+   .seqShow         = AxisG2_SeqShow,
 };
 
 
@@ -404,7 +405,6 @@ void AxisG2_Clear(struct DmaDevice *dev) {
 
 
 // Return receive buffer to card
-// Single write so we don't need to lock
 void AxisG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
    struct AxisG2Reg *reg;
    struct AxisG2Data *hwData;
@@ -431,6 +431,37 @@ void AxisG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
    }
 }
 
+// Return buffer list to card
+void AxisG2_RetRxBufferList(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count) {
+   struct AxisG2Reg *reg;
+   struct AxisG2Data *hwData;
+   unsigned long iflags;
+   uint32_t x;
+
+   reg = (struct AxisG2Reg *)dev->reg;
+   hwData = (struct AxisG2Data *)dev->hwData;
+
+   spin_lock_irqsave(&dev->writeHwLock,iflags);
+
+   for (x =0; x < count; x++) {
+
+      // Map failure
+      if ( dmaBufferToHw(buff[x]) < 0 ) dev_warn(dev->device,"RetRxBuffer: Failed to map dma buffer.\n");
+
+      else {
+
+         // Add to software queue
+         if ( hwData->hwWrBuffCnt >= (hwData->addrCount-1) ) dmaQueuePushNoLock(&(hwData->wrQueue),buff[x]);
+
+         // Add to hardware queue
+         else {
+            ++(hwData->hwWrBuffCnt);
+            AxisG2_WriteFree(buff[x],reg,hwData->desc128En);
+         }
+      }
+   }
+   spin_unlock_irqrestore(&dev->writeHwLock,iflags);
+}
 
 // Send a buffer
 int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {

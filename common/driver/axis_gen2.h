@@ -116,6 +116,9 @@ void AxisG2_Clear(struct DmaDevice *dev);
 // Return receive buffer to card
 void AxisG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer *buff);
 
+// Return receive buffers to card
+void AxisG2_RetRxBufferList(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count);
+
 // Send a buffer
 int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff);
 

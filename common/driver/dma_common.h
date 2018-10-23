@@ -119,6 +119,7 @@ struct hardware_functions {
    void        (*enable)(struct DmaDevice *dev);
    void        (*clear)(struct DmaDevice *dev);
    void        (*retRxBuffer)(struct DmaDevice *dev, struct DmaBuffer *buff);
+   void        (*retRxBufferList)(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count);
    int32_t     (*sendBuffer)(struct DmaDevice *dev, struct DmaBuffer *buff);
    int32_t     (*command)(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);
    void        (*seqShow)(struct seq_file *s, struct DmaDevice *dev);

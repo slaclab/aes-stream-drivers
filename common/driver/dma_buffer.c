@@ -482,6 +482,27 @@ struct DmaBuffer * dmaQueuePopIrq ( struct DmaQueue *queue ) {
    return(ret);
 }
 
+// Get a block of buffer from queue
+ssize_t dmaQueuePopList ( struct DmaQueue *queue, struct DmaBuffer**buff, size_t cnt ) {
+   unsigned long iflags;
+   ssize_t ret;
+
+   ret = 0;
+   spin_lock_irqsave(&(queue->lock),iflags);
+
+   while ( (ret < cnt) && (queue->read != queue->write) ) {
+      buff[ret] = queue->queue[queue->read];
+
+      // Increment read pointer
+      queue->read = (queue->read + 1) % (queue->count);
+
+      buff[ret]->inQ = 0;
+      ret++;
+   }
+
+   spin_unlock_irqrestore(&(queue->lock),iflags);
+   return(ret);
+}
 
 // Poll queue
 void dmaQueuePoll ( struct DmaQueue *queue, struct file *filp, poll_table *wait ) {

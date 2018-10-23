@@ -179,6 +179,9 @@ struct DmaBuffer * dmaQueuePopNoLock ( struct DmaQueue *queue );
 struct DmaBuffer * dmaQueuePop       ( struct DmaQueue *queue );
 struct DmaBuffer * dmaQueuePopIrq    ( struct DmaQueue *queue );
 
+// Get a block of buffer from queue
+ssize_t dmaQueuePopList ( struct DmaQueue *queue, struct DmaBuffer**buff, size_t cnt );
+
 // Poll queue
 void dmaQueuePoll ( struct DmaQueue *queue, struct file *filp, poll_table *wait );
 
