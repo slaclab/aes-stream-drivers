@@ -33,7 +33,7 @@
 #include <PrbsData.h>
 using namespace std;
 
-#define MAX_RET_CNT_C 100
+#define MAX_RET_CNT_C 1000
 
 const  char * argp_program_version = "dmaRate 1.0";
 const  char * argp_program_bug_address = "rherbst@slac.stanford.edu";
