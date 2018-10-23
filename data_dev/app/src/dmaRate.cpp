@@ -83,6 +83,9 @@ int main (int argc, char **argv) {
    float         rate;
    float         bw;
    float         duration;
+   int32_t       min;
+   int32_t       max;
+   int32_t       total;
 
    uint32_t      getCnt = MAX_RET_CNT_C;
 
@@ -95,28 +98,31 @@ int main (int argc, char **argv) {
    memcpy(&args,&DefArgs,sizeof(struct PrgArgs));
    argp_parse(&argp,argc,argv,0,0,&args);
 
-   printf("  getCnt        size      count   duration       rate         bw\n");
+   printf("  minCnt        maxCnt        size      count   duration       rate         bw\n");
 
    dmaInitMaskBytes(mask);
    memset(mask,0xFF,DMA_MASK_SIZE);
 
+   if ( (s = open(args.path, O_RDWR)) <= 0 ) {
+      printf("Error opening %s\n",args.path);
+      return(1);
+   }
+
+   if ( (dmaBuffers = dmaMapDma(s,&dmaCount,&dmaSize)) == NULL ) {
+      printf("Failed to map dma buffers!\n");
+      return(0);
+   }
+
+   dmaSetMaskBytes(s,mask);
+
    while(1) {
-
-      if ( (s = open(args.path, O_RDWR)) <= 0 ) {
-         printf("Error opening %s\n",args.path);
-         return(1);
-      }
-
-      if ( (dmaBuffers = dmaMapDma(s,&dmaCount,&dmaSize)) == NULL ) {
-         printf("Failed to map dma buffers!\n");
-         return(0);
-      }
-
-      dmaSetMaskBytes(s,mask);
 
       bw     = 0.0;
       rate   = 0.0;
       last   = 0.0;
+      max    = 0;
+      min    = 8000;
+      total  = 0;
       gettimeofday(&sTime,NULL);
 
       while ( rate < args.count ) {
@@ -132,12 +138,15 @@ int main (int argc, char **argv) {
          }
 
          if ( ret > 0 ) dmaRetIndexes(s,ret,dmaIndex);
+
+	 if ( total == 0 ) {
+            if ( ret > max ) max = ret;
+            if ( ret < min ) min = ret;
+	 }
+	 total += ret;
       }
 
       gettimeofday(&eTime,NULL);
-
-      dmaUnMapDma(s,dmaBuffers);
-      close(s);
 
       timersub(&eTime,&sTime,&dTime);
       duration = dTime.tv_sec + (float)dTime.tv_usec/1000000.0;
@@ -145,7 +154,7 @@ int main (int argc, char **argv) {
       rate = rate / duration;
       bw   = bw   / duration;
 
-      printf("%8i   %1.3e   %8i   %1.2e   %1.2e   %1.2e\n",getCnt,last,args.count,duration,rate,bw);
+      printf("%8i   %8i    %1.3e   %8i   %1.2e   %1.2e   %1.2e\n",min,max,last,args.count,duration,rate,bw);
       rate = 0.0;
       bw   = 0.0;
    }
