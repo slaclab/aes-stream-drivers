@@ -92,6 +92,7 @@ int main (int argc, char **argv) {
    struct timeval sTime;
    struct timeval eTime;
    struct timeval dTime;
+   struct timeval pTime[7];
 
    struct PrgArgs args;
 
@@ -128,7 +129,9 @@ int main (int argc, char **argv) {
       while ( rate < args.count ) {
 
          // DMA Read
-         ret = dmaReadBulkIndex(s,getCnt,dmaRet,dmaIndex,rxFlags,NULL,NULL);
+         gettimeofday(&(pTime[0]),NULL); // Timer 0 sec=1540259704 usec=500464
+         ret = dmaReadBulkIndex(s,getCnt,dmaRet,dmaIndex,rxFlags,NULL,NULL);  // 24 usec
+         gettimeofday(&(pTime[1]),NULL); // Timer 1 sec=1540259704 usec=500488
 
          for (x=0; x < ret; ++x) {
             if ( (last = dmaRet[x]) > 0.0 ) {
@@ -137,13 +140,18 @@ int main (int argc, char **argv) {
             }
          }
 
-         if ( ret > 0 ) dmaRetIndexes(s,ret,dmaIndex);
+         gettimeofday(&(pTime[2]),NULL); // Timer 2 sec=1540259704 usec=500495
+         if ( ret > 0 ) dmaRetIndexes(s,ret,dmaIndex);  // 721 usec
+         gettimeofday(&(pTime[3]),NULL); // Timer 3 sec=1540259704 usec=501216
 
 	 if ( total == 0 ) {
             if ( ret > max ) max = ret;
             if ( ret < min ) min = ret;
 	 }
-	 total += ret;
+         gettimeofday(&(pTime[4]),NULL); // Timer 4 sec=1540259704 usec=501216
+	 total += ret; // 0 usec
+         gettimeofday(&(pTime[5]),NULL); // Timer 5 sec=1540259704 usec=501216
+         gettimeofday(&(pTime[6]),NULL); // Timer 6 sec=1540259704 usec=501216
       }
 
       gettimeofday(&eTime,NULL);
@@ -157,6 +165,12 @@ int main (int argc, char **argv) {
       printf("%8i   %8i    %1.3e   %8i   %1.2e   %1.2e   %1.2e\n",min,max,last,args.count,duration,rate,bw);
       rate = 0.0;
       bw   = 0.0;
+
+      printf("\n");
+      for(x=0; x < 7; x++) {
+         printf("Timer %i sec=%li usec=%li\n",x,pTime[x].tv_sec,pTime[x].tv_usec);
+      }
+      printf("\n");
    }
 
    return(0);
