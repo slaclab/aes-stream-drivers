@@ -444,21 +444,15 @@ void AxisG2_RetRxBufferList(struct DmaDevice *dev, struct DmaBuffer **buff, uint
    spin_lock_irqsave(&dev->writeHwLock,iflags);
 
    for (x =0; x < count; x++) {
-
-      // Map failure
       if ( dmaBufferToHw(buff[x]) < 0 ) dev_warn(dev->device,"RetRxBuffer: Failed to map dma buffer.\n");
+      dmaQueuePushNoLock(&(hwData->wrQueue),buff[x]);
+   }
 
-      else {
-
-         // Add to software queue
-         if ( hwData->hwWrBuffCnt >= (hwData->addrCount-1) ) dmaQueuePushNoLock(&(hwData->wrQueue),buff[x]);
-
-         // Add to hardware queue
-         else {
-            ++(hwData->hwWrBuffCnt);
-            AxisG2_WriteFree(buff[x],reg,hwData->desc128En);
-         }
-      }
+   // Push a buffer to hardware if hardware queue is empty
+   if ( hwData->hwWrBuffCnt == 0 ) {
+      buff[0] = dmaQueuePopNoLock(&(hwData->wrQueue));
+      ++(hwData->hwWrBuffCnt);
+      AxisG2_WriteFree(buff[0],reg,hwData->desc128En);
    }
    spin_unlock_irqrestore(&dev->writeHwLock,iflags);
 }
