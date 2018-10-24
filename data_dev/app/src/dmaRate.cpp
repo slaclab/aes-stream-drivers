@@ -73,9 +73,9 @@ int main (int argc, char **argv) {
    int32_t       s;
    uint32_t      rxFlags[MAX_RET_CNT_C];
    PrbsData      prbs(32,4,1,2,6,31);
-   void **       dmaBuffers;
-   uint32_t      dmaSize;
-   uint32_t      dmaCount;
+   //void **       dmaBuffers;
+   //uint32_t      dmaSize;
+   //uint32_t      dmaCount;
    uint32_t      dmaIndex[MAX_RET_CNT_C];
    int32_t       dmaRet[MAX_RET_CNT_C];
    int32_t       x;
@@ -108,10 +108,12 @@ int main (int argc, char **argv) {
       return(1);
    }
 
+#if 0
    if ( (dmaBuffers = dmaMapDma(s,&dmaCount,&dmaSize)) == NULL ) {
       printf("Failed to map dma buffers!\n");
       return(0);
    }
+#endif
 
    dmaSetMaskBytes(s,mask);
 
