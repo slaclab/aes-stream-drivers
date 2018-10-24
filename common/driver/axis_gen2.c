@@ -30,7 +30,6 @@ struct hardware_functions AxisG2_functions = {
    .enable          = AxisG2_Enable,
    .clear           = AxisG2_Clear,
    .retRxBuffer     = AxisG2_RetRxBuffer,
-   .retRxBufferList = AxisG2_RetRxBufferList,
    .sendBuffer      = AxisG2_SendBuffer,
    .command         = AxisG2_Command,
    .seqShow         = AxisG2_SeqShow,
@@ -138,9 +137,12 @@ inline void AxisG2_WriteTx ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint
 // Interrupt handler
 irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    uint32_t handleCount;
+   uint32_t bCnt;
+   uint32_t x;
 
    struct DmaDesc     * desc;
    struct DmaBuffer   * buff;
+   struct DmaBuffer  ** buffList;
    struct DmaDevice   * dev;
    struct AxisG2Reg   * reg;
    struct AxisG2Data  * hwData;
@@ -157,22 +159,19 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
 
    if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Called.\n");
 
-   // Grab locks now to avoid multiple lock/unlock cycles
-   spin_lock(&dev->writeHwLock);
-   spin_lock(&dev->maskLock);
-
    // Check read returns
    while ( AxisG2_MapReturn(dev,&ret,hwData->desc128En,hwData->readIndex,hwData->readAddr) ) {
-      handleCount++;
-      if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Got TX Descriptor: Idx=%i, Pos=%i\n",ret.index,hwData->readIndex);
+      ++handleCount;
       --(hwData->hwRdBuffCnt);
+
+      if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Got TX Descriptor: Idx=%i, Pos=%i\n",ret.index,hwData->readIndex);
 
       // Attempt to find buffer in tx pool and return. otherwise return rx entry to hw.
       // Must adjust counters here and check for buffer need
       if ((buff = dmaRetBufferIdxIrq (dev,ret.index)) != NULL) {
 
          // Add to software queue
-         if ( hwData->hwWrBuffCnt >= (hwData->addrCount-1) ) dmaQueuePushNoLock(&(hwData->wrQueue),buff);
+         if ( hwData->hwWrBuffCnt >= (hwData->addrCount-1) ) dmaQueuePushIrq(&(hwData->wrQueue),buff);
 
          // Add to hardware queue
          else {
@@ -185,9 +184,13 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
       if ( handleCount > 4000 ) break;
    }
 
+   // Lock mask
+   spin_lock(&dev->maskLock);
+
    // Check write descriptor
    while ( AxisG2_MapReturn(dev,&ret,hwData->desc128En,hwData->writeIndex,hwData->writeAddr) ) {
-      handleCount++;
+      ++handleCount;
+      --(hwData->hwWrBuffCnt);
 
       if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Got RX Descriptor: Idx=%i, Pos=%i\n",ret.index,hwData->writeIndex);
 
@@ -213,19 +216,14 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
          if ( buff->dest < DMA_MAX_DEST ) desc = dev->desc[buff->dest];
          else desc = NULL;
 
-         // Return entry to FPGA if destc is not open
+         // Return entry to FPGA if desc is not open
          if ( desc == NULL ) {
-            if ( dev->debug > 0 ) {
-               dev_info(dev->device,"Irq: Port not open return to free list.\n");
-            }
-            AxisG2_WriteFree(buff,reg,hwData->desc128En);
+            if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Port not open return to free list.\n");
+            dmaQueuePushIrq(&(hwData->wrQueue),buff);
          }
 
          // lane/vc is open,  Add to RX Queue
-         else {
-            --(hwData->hwWrBuffCnt);
-            dmaRxBuffer(desc,buff);
-         }
+         else dmaRxBuffer(desc,buff);
       }
       else dev_warn(dev->device,"Irq: Failed to locate RX buffer index %i.\n", ret.index);
 
@@ -233,21 +231,29 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
       if ( handleCount > 4000 ) break;
    }
 
-   // Write buffer queue
-   while ( (hwData->hwWrBuffCnt < (hwData->addrCount-1)) && ((buff = dmaQueuePopNoLock(&(hwData->wrQueue))) != NULL ) ) {
-      ++(hwData->hwWrBuffCnt);
-      AxisG2_WriteFree(buff,reg,hwData->desc128En);
-   }
-
-   // Read buffer queue
-   while ( (hwData->hwRdBuffCnt < (hwData->addrCount-1)) && ((buff = dmaQueuePopNoLock(&(hwData->rdQueue))) != NULL ) ) {
-      ++(hwData->hwRdBuffCnt);
-      AxisG2_WriteTx(buff,reg,hwData->desc128En);
-   }
-
    // Unlock
    spin_unlock(&dev->maskLock);
-   spin_unlock(&dev->writeHwLock);
+
+   // Enable software queues in 128bit mode
+   if ( hwData->desc128En ) {
+      buffList = (struct DmaBuffer **)kmalloc(hwData->addrCount*sizeof(struct DmaBuffer*),GFP_KERNEL);
+
+      // Write buffer queue
+      bCnt = dmaQueuePopListIrq(&(hwData->wrQueue), buffList, ((hwData->addrCount-1) - hwData->hwWrBuffCnt));
+
+      // Return to hardware
+      for (x = 0; x < bCnt; x++) AxisG2_WriteFree(buffList[x],reg,hwData->desc128En);
+      hwData->hwWrBuffCnt += bCnt;
+
+      // Read buffer queue
+      bCnt = dmaQueuePopListIrq(&(hwData->rdQueue), buffList, ((hwData->addrCount-1) - hwData->hwRdBuffCnt));
+
+      // Push to hardware
+      for (x = 0; x < bCnt; x++) AxisG2_WriteTx(buffList[x],reg,hwData->desc128En);
+      hwData->hwRdBuffCnt += bCnt;
+
+      kfree(buffList);
+   }
 
    // Enable interrupt and update ack count
    iowrite32(0x30000 + handleCount,&(reg->intAckAndEnable));
@@ -280,9 +286,11 @@ void AxisG2_Init(struct DmaDevice *dev) {
    hwData->hwWrBuffCnt = 0;
    hwData->hwRdBuffCnt = 0;
 
-   // Init software buffer queues
-   dmaQueueInit(&hwData->wrQueue,dev->rxBuffers.count);
-   dmaQueueInit(&hwData->rdQueue,dev->txBuffers.count + dev->rxBuffers.count);
+   // Init software buffer queues for 128bit mode
+   if ( hwData->desc128En ) {
+      dmaQueueInit(&hwData->wrQueue,dev->rxBuffers.count);
+      dmaQueueInit(&hwData->rdQueue,dev->txBuffers.count + dev->rxBuffers.count);
+   }
 
    // Set read and write ring buffers
    hwData->addrCount = (1 << ioread32(&(reg->addrWidth)));
@@ -345,8 +353,9 @@ void AxisG2_Init(struct DmaDevice *dev) {
       // Map failure
       if ( dmaBufferToHw(buff) < 0 ) dev_warn(dev->device,"Init: Failed to map dma buffer.\n");
 
-      // Add to software queue
-      else if ( hwData->hwWrBuffCnt >= (hwData->addrCount-1) ) dmaQueuePushNoLock(&(hwData->wrQueue),buff);
+      // Add to software queue, if enabled and hardware is full
+      else if ( hwData->desc128En && (hwData->hwWrBuffCnt >= (hwData->addrCount-1)) ) 
+         dmaQueuePush(&(hwData->wrQueue),buff);
 
       // Add to hardware queue
       else {
@@ -403,91 +412,66 @@ void AxisG2_Clear(struct DmaDevice *dev) {
    kfree(hwData);
 }
 
-
-// Return receive buffer to card
-void AxisG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
-   struct AxisG2Reg *reg;
-   struct AxisG2Data *hwData;
-   unsigned long iflags;
-
-   reg = (struct AxisG2Reg *)dev->reg;
-   hwData = (struct AxisG2Data *)dev->hwData;
-
-   // Map failure
-   if ( dmaBufferToHw(buff) < 0 ) dev_warn(dev->device,"RetRxBuffer: Failed to map dma buffer.\n");
-
-   else {
-      spin_lock_irqsave(&dev->writeHwLock,iflags);
-
-      // Add to software queue
-      if ( hwData->hwWrBuffCnt >= (hwData->addrCount-1) ) dmaQueuePushNoLock(&(hwData->wrQueue),buff);
-
-      // Add to hardware queue
-      else {
-         ++(hwData->hwWrBuffCnt);
-         AxisG2_WriteFree(buff,reg,hwData->desc128En);
-      }
-      spin_unlock_irqrestore(&dev->writeHwLock,iflags);
-   }
-}
-
 // Return buffer list to card
-void AxisG2_RetRxBufferList(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count) {
+void AxisG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count) {
    struct AxisG2Reg *reg;
    struct AxisG2Data *hwData;
-   unsigned long iflags;
    uint32_t x;
 
    reg = (struct AxisG2Reg *)dev->reg;
    hwData = (struct AxisG2Data *)dev->hwData;
 
-   spin_lock_irqsave(&dev->writeHwLock,iflags);
-
+   // Prep for hardware
    for (x =0; x < count; x++) {
-      if ( dmaBufferToHw(buff[x]) < 0 ) dev_warn(dev->device,"RetRxBuffer: Failed to map dma buffer.\n");
-      dmaQueuePushNoLock(&(hwData->wrQueue),buff[x]);
+      if ( dmaBufferToHw(buff[x]) < 0 ) {
+         dev_warn(dev->device,"RetRxBuffer: Failed to map dma buffer.\n");
+         return;
+      }
+
+      // Write to hardware if 64-bit desc, no lock required
+      if ( ! hwData->desc128En ) AxisG2_WriteFree(buff[x],reg,hwData->desc128En);
    }
 
-   // Push a buffer to hardware if hardware queue is empty
-   if ( hwData->hwWrBuffCnt == 0 ) {
-      buff[0] = dmaQueuePopNoLock(&(hwData->wrQueue));
-      ++(hwData->hwWrBuffCnt);
-      AxisG2_WriteFree(buff[0],reg,hwData->desc128En);
+   // Push to software queue for 128bit desc, force an interrupt
+   if ( hwData->desc128En ) {
+      dmaQueuePushList(&(hwData->wrQueue),buff,count);
+      iowrite32(0x1,&(reg->forceInt));
    }
-   spin_unlock_irqrestore(&dev->writeHwLock,iflags);
 }
 
 // Send a buffer
-int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
+int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count) {
    struct AxisG2Data * hwData;
    struct AxisG2Reg *reg;
    unsigned long iflags;
 
+   uint32_t x;
+
    reg = (struct AxisG2Reg *)dev->reg;
    hwData = (struct AxisG2Data *)dev->hwData;
 
-   // Mapping failure
-   if ( dmaBufferToHw(buff) < 0 ) {
-      dev_warn(dev->device,"SendBuffer: Failed to map dma buffer.\n");
-      return(-1);
-   }
-
-   else {
-      spin_lock_irqsave(&dev->writeHwLock,iflags);
-
-      // Add to software queue
-      if ( hwData->hwRdBuffCnt >= (hwData->addrCount-1) ) dmaQueuePushNoLock(&(hwData->rdQueue),buff);
-
-      // Add to hardware
-      else {
-         ++(hwData->hwRdBuffCnt);
-         AxisG2_WriteTx (buff, reg, hwData->desc128En);
+   // Prep for hardware
+   for (x =0; x < count; x++) {
+      if ( dmaBufferToHw(buff[x]) < 0 ) {
+         dev_warn(dev->device,"SendBuffer: Failed to map dma buffer.\n");
+         return(-1);
       }
-      spin_unlock_irqrestore(&dev->writeHwLock,iflags);
-   }
-   return(buff->size);
-}
 
+      // Write directly to hardware for 64-bit desc
+      if ( ! hwData->desc128En ) {
+         spin_lock_irqsave(&dev->writeHwLock,iflags);
+         AxisG2_WriteTx(buff[x],reg,hwData->desc128En);
+         spin_unlock_irqrestore(&dev->writeHwLock,iflags);
+      }
+   }
+
+   // Push to software queue for 128bit desc, force an interrupt
+   if ( hwData-> desc128En ) {
+      dmaQueuePushList(&(hwData->rdQueue),buff,count);
+      iowrite32(0x1,&(reg->forceInt));
+   }
+   return(count);
+}
 
 // Execute command
 int32_t AxisG2_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {

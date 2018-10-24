@@ -348,26 +348,6 @@ uint32_t dmaQueueNotEmpty ( struct DmaQueue *queue ) {
 
 
 // Push a queue entry
-// Not locked
-// Return 1 if fail, 0 if success
-uint32_t dmaQueuePushNoLock ( struct DmaQueue *queue, struct DmaBuffer *entry ) {
-   uint32_t      next;
-   uint32_t      ret;
-
-   next = (queue->write+1) % (queue->count);
-
-   // Buffer overflow, should not occur
-   if ( next == queue->read ) ret = 1;
-   else {
-      queue->queue[queue->write] = entry;
-      queue->write = next;
-      entry->inQ = 1;
-   }
-
-   return(ret);
-}
-
-// Push a queue entry
 // Use this routine outside of interrupt handler
 // Return 1 if fail, 0 if success
 uint32_t dmaQueuePush  ( struct DmaQueue *queue, struct DmaBuffer *entry ) {
@@ -378,6 +358,7 @@ uint32_t dmaQueuePush  ( struct DmaQueue *queue, struct DmaBuffer *entry ) {
    spin_lock_irqsave(&(queue->lock),iflags);
 
    next = (queue->write+1) % (queue->count);
+   ret = 0;
 
    // Buffer overflow, should not occur
    if ( next == queue->read ) ret = 1;
@@ -403,6 +384,7 @@ uint32_t dmaQueuePushIrq ( struct DmaQueue *queue, struct DmaBuffer *entry ) {
    spin_lock(&(queue->lock));
 
    next = (queue->write+1) % (queue->count);
+   ret = 0;
 
    // Buffer overflow, should not occur
    if ( next == queue->read ) ret = 1;
@@ -417,24 +399,73 @@ uint32_t dmaQueuePushIrq ( struct DmaQueue *queue, struct DmaBuffer *entry ) {
    return(ret);
 }
 
-// Pop a queue entry
-// No Lock
-// Return a queue entry, NULL if nothing available
-struct DmaBuffer * dmaQueuePopNoLock ( struct DmaQueue *queue ) {
-   struct DmaBuffer * ret;
 
-   if ( queue->read == queue->write ) ret = NULL;
-   else {
+// Return a block of buffers from queue
+// Return 1 if fail, 0 if success
+uint32_t dmaQueuePushList  ( struct DmaQueue *queue, struct DmaBuffer **buff, size_t cnt) {
+   unsigned long iflags;
+   uint32_t      next;
+   uint32_t      ret;
+   size_t        x;
 
-      ret = queue->queue[queue->read];
+   spin_lock_irqsave(&(queue->lock),iflags);
+   ret = 0;
 
-      // Increment read pointer
-      queue->read = (queue->read + 1) % (queue->count);
+   for (x=0; x < cnt; x++) {
 
-      ret->inQ = 0;
+      next = (queue->write+1) % (queue->count);
+
+      // Buffer overflow, should not occur
+      if ( next == queue->read ) {
+         ret = 1;
+         break;
+      }
+      else {
+         queue->queue[queue->write] = buff[x];
+         queue->write = next;
+         buff[x]->inQ = 1;
+      }
    }
+
+   spin_unlock_irqrestore(&(queue->lock),iflags);
+   wake_up_interruptible(&(queue->wait));
+
    return(ret);
 }
+
+
+// Return a block of buffers from queue
+// Return 1 if fail, 0 if success
+// Use IRQ method inside of IRQ handler
+uint32_t dmaQueuePushListIrq ( struct DmaQueue *queue, struct DmaBuffer **buff, size_t cnt ) {
+   uint32_t      next;
+   uint32_t      ret;
+   size_t        x;
+
+   spin_lock(&(queue->lock));
+   ret = 0;
+
+   for (x=0; x < cnt; x++) {
+
+      next = (queue->write+1) % (queue->count);
+
+      // Buffer overflow, should not occur
+      if ( next == queue->read ) {
+         ret = 1;
+         break;
+      }
+      else {
+         queue->queue[queue->write] = buff[x];
+         queue->write = next;
+         buff[x]->inQ = 1;
+      }
+   }
+   spin_unlock(&(queue->lock));
+   wake_up_interruptible(&(queue->wait));
+
+   return(ret);
+}
+
 
 // Pop a queue entry
 // Use this routine outside of interrupt handler
@@ -482,7 +513,8 @@ struct DmaBuffer * dmaQueuePopIrq ( struct DmaQueue *queue ) {
    return(ret);
 }
 
-// Get a block of buffer from queue
+
+// Get a block of buffers from queue
 ssize_t dmaQueuePopList ( struct DmaQueue *queue, struct DmaBuffer**buff, size_t cnt ) {
    unsigned long iflags;
    ssize_t ret;
@@ -503,6 +535,30 @@ ssize_t dmaQueuePopList ( struct DmaQueue *queue, struct DmaBuffer**buff, size_t
    spin_unlock_irqrestore(&(queue->lock),iflags);
    return(ret);
 }
+
+
+// Get a block of buffers from queue
+// Use IRQ method inside of IRQ handler
+ssize_t dmaQueuePopListIrq ( struct DmaQueue *queue, struct DmaBuffer**buff, size_t cnt ) {
+   ssize_t ret;
+
+   ret = 0;
+   spin_lock(&(queue->lock));
+
+   while ( (ret < cnt) && (queue->read != queue->write) ) {
+      buff[ret] = queue->queue[queue->read];
+
+      // Increment read pointer
+      queue->read = (queue->read + 1) % (queue->count);
+
+      buff[ret]->inQ = 0;
+      ret++;
+   }
+
+   spin_unlock(&(queue->lock));
+   return(ret);
+}
+
 
 // Poll queue
 void dmaQueuePoll ( struct DmaQueue *queue, struct file *filp, poll_table *wait ) {

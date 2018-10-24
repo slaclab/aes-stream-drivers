@@ -55,7 +55,9 @@ struct AxisG2Reg {
    uint32_t readFifoD;       // 0x0064
    uint32_t spareA[2];       // 0x0068 - 0x006C
    uint32_t writeFifoB;      // 0x0070
-   uint32_t spareB[4067];    // 0x0074 - 0x3FFC
+   uint32_t spareB[3];       // 0x0074 - 0x007C
+   uint32_t forceInt;        // 0x0080
+   uint32_t spareC[4063];    // 0x0084 - 0x3FFC
    uint32_t dmaAddr[4096];   // 0x4000 - 0x7FFC
 };
 
@@ -113,14 +115,11 @@ void AxisG2_Enable(struct DmaDevice *dev);
 // Clear card in top level Remove
 void AxisG2_Clear(struct DmaDevice *dev);
 
-// Return receive buffer to card
-void AxisG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer *buff);
-
 // Return receive buffers to card
-void AxisG2_RetRxBufferList(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count);
+void AxisG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count);
 
 // Send a buffer
-int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff);
+int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count);
 
 // Execute command
 int32_t AxisG2_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);

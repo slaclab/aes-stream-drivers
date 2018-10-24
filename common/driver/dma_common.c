@@ -163,7 +163,7 @@ int Dma_Init(struct DmaDevice *dev) {
    dmaQueueInit(&(dev->tq),dev->txBuffers.count);
 
    // Populate transmit queue
-   for (x=0; x < dev->txBuffers.count; x++) dmaQueuePushNoLock(&(dev->tq),dev->txBuffers.indexed[x]);
+   for (x=0; x < dev->txBuffers.count; x++) dmaQueuePush(&(dev->tq),dev->txBuffers.indexed[x]);
 
    // Create rx buffers, bidirectional because rx buffers can be passed to tx
    dev_info(dev->device,"Init: Creating %i RX Buffers. Size=%i Bytes. Mode=%i.\n",
@@ -300,7 +300,7 @@ int Dma_Release(struct inode *inode, struct file *filp) {
    // Release buffers
    cnt = 0;
    while ( (buff = dmaQueuePop(&(desc->q))) != NULL ) {
-      dev->hwFunc->retRxBuffer(dev,buff);
+      dev->hwFunc->retRxBuffer(dev,&buff,1);
       cnt++;
    }
    if ( cnt > 0 ) 
@@ -312,7 +312,7 @@ int Dma_Release(struct inode *inode, struct file *filp) {
       if ( dev->rxBuffers.indexed[x]->userHas == desc ) {
          dev->rxBuffers.indexed[x]->userHas = NULL;
          if (dev->rxBuffers.indexed[x] != NULL) {
-           dev->hwFunc->retRxBuffer(dev,dev->rxBuffers.indexed[x]);
+           dev->hwFunc->retRxBuffer(dev,&(dev->rxBuffers.indexed[x]),1);
          }
          cnt++;
       }
@@ -417,7 +417,7 @@ ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
          }
 
          // Return entry to RX queue
-         dev->hwFunc->retRxBuffer(dev,buff[x]);
+         dev->hwFunc->retRxBuffer(dev,&(buff[x]),1);
       }
 
       // Debug if enabled
@@ -521,14 +521,15 @@ ssize_t Dma_Write(struct file *filp, const char* buffer, size_t count, loff_t* f
    buff->size   = wr.size;
 
    // board specific call 
-   res = dev->hwFunc->sendBuffer(dev,buff);
+   res = dev->hwFunc->sendBuffer(dev,&buff,1);
 
    // Debug
    if ( dev->debug > 0 ) {
-      dev_info(dev->device,"Write: Size=%i, Dest=%i, Flags=0x%.8x\n",
-          buff->size, buff->dest, buff->flags);
+      dev_info(dev->device,"Write: Size=%i, Dest=%i, Flags=0x%.8x, res=%li\n",
+          buff->size, buff->dest, buff->flags, res);
    }
-   return(res);
+   if ( res < 0) return(res);
+   else return buff->size;
 }
 
 
@@ -604,10 +605,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          indexes = kmalloc(cnt * sizeof(uint32_t),GFP_KERNEL);
          if (copy_from_user(indexes,(void *)arg,(cnt * sizeof(uint32_t)))) return(-1);
 
-         if ( dev->hwFunc->retRxBufferList != NULL ) 
-            buffList = (struct DmaBuffer **)kmalloc(cnt * sizeof(struct DmaBuffer *),GFP_KERNEL);
-         else buffList = NULL;
-
+         buffList = (struct DmaBuffer **)kmalloc(cnt * sizeof(struct DmaBuffer *),GFP_KERNEL);
          bCnt = 0;
 
          for (x=0; x < cnt; x++) {
@@ -618,10 +616,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
                // Only return if owned by current desc
                if ( buff->userHas == desc ) {
                   buff->userHas = NULL;
-
-                  // Add to return list
-                  if ( buffList == NULL ) dev->hwFunc->retRxBuffer(dev,buff);
-                  else buffList[bCnt++] = buff;
+                  buffList[bCnt++] = buff;
                }
             }
 
@@ -642,11 +637,11 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
                return(-1);
             }
          }
-        
-         if ( buffList != NULL ) {
-            dev->hwFunc->retRxBufferList(dev,buffList,bCnt);
-            kfree(buffList);
-         }
+       
+         // Return receive buffers 
+         dev->hwFunc->retRxBuffer(dev,buffList,bCnt);
+
+         kfree(buffList);
          kfree(indexes);
          return(0);
          break;
