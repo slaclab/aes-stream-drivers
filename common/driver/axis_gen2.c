@@ -88,10 +88,13 @@ inline void AxisG2_WriteFree ( struct DmaBuffer *buff, struct AxisG2Reg *reg, ui
       wrData[1]  = (buff->buffHandle >>  8) & 0xFFFFFFFF; // Addr bits 39:8
 
       iowrite32(wrData[1],&(reg->writeFifoB));
+      //writew(wrData[1],&(reg->writeFifoB));
    }
    else iowrite32(buff->buffHandle,&(reg->dmaAddr[buff->index])); // Address table
+   //else writew(buff->buffHandle,&(reg->dmaAddr[buff->index])); // Address table
 
    iowrite32(wrData[0],&(reg->writeFifoA));
+   //writew(wrData[0],&(reg->writeFifoA));
 }
 
 // Add buffer to tx list
