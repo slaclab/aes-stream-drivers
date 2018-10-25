@@ -140,12 +140,14 @@ inline void AxisG2_WriteTx ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint
 // Interrupt handler
 irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    uint32_t handleCount;
-   uint32_t bCnt;
-   uint32_t x;
+   //uint32_t bCnt;
+   //uint32_t rCnt;
+   //uint32_t fCnt;
+   //uint32_t x;
 
    struct DmaDesc     * desc;
    struct DmaBuffer   * buff;
-   struct DmaBuffer  ** buffList;
+   //struct DmaBuffer  ** buffList;
    struct DmaDevice   * dev;
    struct AxisG2Reg   * reg;
    struct AxisG2Data  * hwData;
@@ -184,7 +186,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
       }
 
       hwData->readIndex = ((hwData->readIndex+1) % hwData->addrCount);
-      if ( handleCount > 4000 ) break;
+      if ( handleCount > 1000 ) break;
    }
 
    // Lock mask
@@ -222,7 +224,12 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
          // Return entry to FPGA if desc is not open
          if ( desc == NULL ) {
             if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Port not open return to free list.\n");
-            dmaQueuePushIrq(&(hwData->wrQueue),buff);
+
+            if (hwData->hwWrBuffCnt < (hwData->addrCount-1)) {
+               AxisG2_WriteFree(buff,reg,hwData->desc128En);
+               ++hwData->hwWrBuffCnt;
+            }
+            else dmaQueuePushIrq(&(hwData->wrQueue),buff);
          }
 
          // lane/vc is open,  Add to RX Queue
@@ -231,31 +238,32 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
       else dev_warn(dev->device,"Irq: Failed to locate RX buffer index %i.\n", ret.index);
 
       hwData->writeIndex = ((hwData->writeIndex+1) % hwData->addrCount);
-      if ( handleCount > 4000 ) break;
+      if ( handleCount > 1000 ) break;
    }
 
    // Unlock
    spin_unlock(&dev->maskLock);
 
-   // Enable software queues in 128bit mode
+   // Process software queues
    if ( hwData->desc128En ) {
-      buffList = (struct DmaBuffer **)kmalloc(hwData->addrCount*sizeof(struct DmaBuffer*),GFP_KERNEL);
 
-      // Write buffer queue
-      bCnt = dmaQueuePopListIrq(&(hwData->wrQueue), buffList, ((hwData->addrCount-1) - hwData->hwWrBuffCnt));
+      // Free list
+      while ( (hwData->hwWrBuffCnt < (hwData->addrCount-1)) &&
+              ((buff = dmaQueuePopIrq(&(hwData->wrQueue))) != NULL) ) {
 
-      // Return to hardware
-      for (x = 0; x < bCnt; x++) AxisG2_WriteFree(buffList[x],reg,hwData->desc128En);
-      hwData->hwWrBuffCnt += bCnt;
+         // Return to hardware
+         AxisG2_WriteFree(buff,reg,hwData->desc128En);
+         ++hwData->hwWrBuffCnt;
+      }
 
-      // Read buffer queue
-      bCnt = dmaQueuePopListIrq(&(hwData->rdQueue), buffList, ((hwData->addrCount-1) - hwData->hwRdBuffCnt));
+      // Free list
+      while ( (hwData->hwRdBuffCnt < (hwData->addrCount-1)) &&
+              ((buff = dmaQueuePopIrq(&(hwData->rdQueue))) != NULL) ) {
 
-      // Push to hardware
-      for (x = 0; x < bCnt; x++) AxisG2_WriteTx(buffList[x],reg,hwData->desc128En);
-      hwData->hwRdBuffCnt += bCnt;
-
-      kfree(buffList);
+         // Return to hardware
+         AxisG2_WriteTx(buff,reg,hwData->desc128En);
+         ++hwData->hwRdBuffCnt;
+      }
    }
 
    // Enable interrupt and update ack count
