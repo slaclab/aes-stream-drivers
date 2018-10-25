@@ -140,19 +140,18 @@ inline void AxisG2_WriteTx ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint
 // Interrupt handler
 irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    uint32_t handleCount;
-   //uint32_t bCnt;
-   //uint32_t rCnt;
-   //uint32_t fCnt;
-   //uint32_t x;
 
    struct DmaDesc     * desc;
    struct DmaBuffer   * buff;
-   //struct DmaBuffer  ** buffList;
+   struct DmaBuffer  ** buffList;
    struct DmaDevice   * dev;
    struct AxisG2Reg   * reg;
    struct AxisG2Data  * hwData;
-
    struct AxisG2Return ret;
+
+   uint32_t x;
+   uint32_t bCnt;
+   uint32_t rCnt;
 
    dev    = (struct DmaDevice *)dev_id;
    reg    = (struct AxisG2Reg *)dev->reg;
@@ -164,7 +163,8 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
 
    if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Called.\n");
 
-   // Check read returns
+#if 0
+   // Check read (transmit) returns
    while ( AxisG2_MapReturn(dev,&ret,hwData->desc128En,hwData->readIndex,hwData->readAddr) ) {
       ++handleCount;
       --(hwData->hwRdBuffCnt);
@@ -189,6 +189,32 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
       if ( handleCount > 1000 ) break;
    }
 
+   // Process transmit queue
+   if ( hwData->desc128En ) {
+
+      // Free list
+      while ( (hwData->hwRdBuffCnt < (hwData->addrCount-1)) &&
+              ((buff = dmaQueuePopIrq(&(hwData->rdQueue))) != NULL) ) {
+
+         // Return to hardware
+         AxisG2_WriteTx(buff,reg,hwData->desc128En);
+         ++hwData->hwRdBuffCnt;
+      }
+   }
+#endif
+
+   // Get (write / receive) return buffer list
+   if ( hwData->desc128En ) {
+      buffList = (struct DmaBuffer **)kmalloc(1000 * sizeof(struct DmaBuffer *),GFP_ATOMIC);
+      rCnt = ((hwData->addrCount-1) - hwData->hwWrBuffCnt);
+      if (rCnt > 1000 ) rCnt = 1000;
+      bCnt = dmaQueuePopListIrq(&(hwData->wrQueue),buffList,rCnt);
+   }
+   else {
+      bCnt = 0;
+      buffList = NULL;
+   }
+         
    // Lock mask
    spin_lock(&dev->maskLock);
 
@@ -237,34 +263,31 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
       }
       else dev_warn(dev->device,"Irq: Failed to locate RX buffer index %i.\n", ret.index);
 
+      // Update index
       hwData->writeIndex = ((hwData->writeIndex+1) % hwData->addrCount);
+
+      // Check write queue
+      if ( bCnt > 0 ) {
+         AxisG2_WriteFree(buffList[--bCnt],reg,hwData->desc128En);
+         ++hwData->hwWrBuffCnt;
+      }
+
       if ( handleCount > 1000 ) break;
    }
 
    // Unlock
    spin_unlock(&dev->maskLock);
 
-   // Process software queues
+   // Finish write queue
    if ( hwData->desc128En ) {
-
-      // Free list
-      while ( (hwData->hwWrBuffCnt < (hwData->addrCount-1)) &&
-              ((buff = dmaQueuePopIrq(&(hwData->wrQueue))) != NULL) ) {
-
-         // Return to hardware
-         AxisG2_WriteFree(buff,reg,hwData->desc128En);
+      while ( bCnt > 0 ) {
+         AxisG2_WriteFree(buffList[--bCnt],reg,hwData->desc128En);
          ++hwData->hwWrBuffCnt;
       }
-
-      // Free list
-      while ( (hwData->hwRdBuffCnt < (hwData->addrCount-1)) &&
-              ((buff = dmaQueuePopIrq(&(hwData->rdQueue))) != NULL) ) {
-
-         // Return to hardware
-         AxisG2_WriteTx(buff,reg,hwData->desc128En);
-         ++hwData->hwRdBuffCnt;
-      }
+      kfree(buffList);
    }
+
+   if ( hwData->desc128En ) kfree(buffList);
 
    // Enable interrupt and update ack count
    iowrite32(0x30000 + handleCount,&(reg->intAckAndEnable));
