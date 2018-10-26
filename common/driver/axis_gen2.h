@@ -43,32 +43,65 @@ struct AxisG2Reg {
    uint32_t channelCount;    // 0x0034
    uint32_t addrWidth;       // 0x0038
    uint32_t cacheConfig;     // 0x003C
-   uint32_t readFifoLow;     // 0x0040
-   uint32_t readFifoHigh;    // 0x0044
-   uint32_t writeFifo;       // 0x0048
+   uint32_t readFifoA;       // 0x0040
+   uint32_t readFifoB;       // 0x0044
+   uint32_t writeFifoA;      // 0x0048
    uint32_t intAckAndEnable; // 0x004C
    uint32_t intReqCount;     // 0x0050
    uint32_t hwWrIndex;       // 0x0054
    uint32_t hwRdIndex;       // 0x0058
    uint32_t wrReqMissed;     // 0x005C
-   uint32_t spareB[4072];    // 0x0060 - 0x3FFC
+   uint32_t readFifoC;       // 0x0060
+   uint32_t readFifoD;       // 0x0064
+   uint32_t spareA[2];       // 0x0068 - 0x006C
+   uint32_t writeFifoB;      // 0x0070
+   uint32_t spareB[3];       // 0x0074 - 0x007C
+   uint32_t forceInt;        // 0x0080
+   uint32_t spareC[4063];    // 0x0084 - 0x3FFC
    uint32_t dmaAddr[4096];   // 0x4000 - 0x7FFC
 };
 
+struct AxisG2Return {
+   uint32_t index;
+   uint32_t size;
+   uint8_t  result;
+   uint8_t  fuser;
+   uint8_t  luser;
+   uint16_t dest;
+   uint8_t  cont;
+};
+
 struct AxisG2Data {
-   uint64_t  * readAddr;
+   uint32_t    desc128En;
+
+   uint32_t  * readAddr;
    dma_addr_t  readHandle;
    uint32_t    readIndex;
 
-   uint64_t  * writeAddr;
+   uint32_t  * writeAddr;
    dma_addr_t  writeHandle;
    uint32_t    writeIndex;
 
    uint32_t    addrCount;
    uint32_t    missedIrq;
 
+   uint32_t    hwWrBuffCnt;
+   uint32_t    hwRdBuffCnt;
+
+   struct DmaQueue wrQueue;
+   struct DmaQueue rdQueue;
+
    uint32_t    contCount;
 };
+
+// Map return
+inline uint8_t AxisG2_MapReturn ( struct DmaDevice *dev, struct AxisG2Return *ret, uint32_t desc128En, uint32_t index, uint32_t *ring);
+
+// Add buffer to free list
+inline void AxisG2_WriteFree ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En );
+
+// Add buffer to tx list
+inline void AxisG2_WriteTx ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En );
 
 // Interrupt handler
 irqreturn_t AxisG2_Irq(int irq, void *dev_id);
@@ -82,11 +115,11 @@ void AxisG2_Enable(struct DmaDevice *dev);
 // Clear card in top level Remove
 void AxisG2_Clear(struct DmaDevice *dev);
 
-// Return receive buffer to card
-void AxisG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer *buff);
+// Return receive buffers to card
+void AxisG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count);
 
 // Send a buffer
-int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff);
+int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count);
 
 // Execute command
 int32_t AxisG2_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);

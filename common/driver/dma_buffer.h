@@ -50,7 +50,7 @@ struct DmaBuffer {
    uint8_t          owner;
 
    // Associated data
-   uint8_t     dest;
+   uint16_t    dest;
    uint32_t    flags;
    uint8_t     error;
    uint32_t    size;
@@ -168,13 +168,25 @@ uint32_t dmaQueueNotEmpty ( struct DmaQueue *queue );
 // Push a queue entry
 // Return 1 if fail, 0 if success
 // Use IRQ method inside of IRQ handler
-uint32_t dmaQueuePush    ( struct DmaQueue *queue, struct DmaBuffer *entry );
-uint32_t dmaQueuePushIrq ( struct DmaQueue *queue, struct DmaBuffer *entry );
+uint32_t dmaQueuePush       ( struct DmaQueue *queue, struct DmaBuffer *entry );
+uint32_t dmaQueuePushIrq    ( struct DmaQueue *queue, struct DmaBuffer *entry );
+
+// Return a block of buffers from queue
+// Return 1 if fail, 0 if success
+// Use IRQ method inside of IRQ handler
+uint32_t dmaQueuePushList    ( struct DmaQueue *queue, struct DmaBuffer **buff, size_t cnt );
+uint32_t dmaQueuePushListIrq ( struct DmaQueue *queue, struct DmaBuffer **buff, size_t cnt );
 
 // Pop a queue entry
 // Return a queue entry, NULL if nothing available
 // Use IRQ method inside of IRQ handler
-struct DmaBuffer * dmaQueuePop ( struct DmaQueue *queue );
+struct DmaBuffer * dmaQueuePop       ( struct DmaQueue *queue );
+struct DmaBuffer * dmaQueuePopIrq    ( struct DmaQueue *queue );
+
+// Get a block of buffers from queue
+// Use IRQ method inside of IRQ handler
+ssize_t dmaQueuePopList    ( struct DmaQueue *queue, struct DmaBuffer **buff, size_t cnt );
+ssize_t dmaQueuePopListIrq ( struct DmaQueue *queue, struct DmaBuffer **buff, size_t cnt );
 
 // Poll queue
 void dmaQueuePoll ( struct DmaQueue *queue, struct file *filp, poll_table *wait );
