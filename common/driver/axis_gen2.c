@@ -87,13 +87,10 @@ inline void AxisG2_WriteFree ( struct DmaBuffer *buff, struct AxisG2Reg *reg, ui
       wrData[1]  = (buff->buffHandle >>  8) & 0xFFFFFFFF; // Addr bits 39:8
 
       iowrite32(wrData[1],&(reg->writeFifoB));
-      //writew(wrData[1],&(reg->writeFifoB));
    }
    else iowrite32(buff->buffHandle,&(reg->dmaAddr[buff->index])); // Address table
-   //else writew(buff->buffHandle,&(reg->dmaAddr[buff->index])); // Address table
 
    iowrite32(wrData[0],&(reg->writeFifoA));
-   //writew(wrData[0],&(reg->writeFifoA));
 }
 
 // Add buffer to tx list
@@ -163,7 +160,8 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
 
    if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Called.\n");
 
-#if 0
+   ////////////////// Transmit Buffers /////////////////////////
+
    // Check read (transmit) returns
    while ( AxisG2_MapReturn(dev,&ret,hwData->desc128En,hwData->readIndex,hwData->readAddr) ) {
       ++handleCount;
@@ -189,32 +187,19 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
       if ( handleCount > 1000 ) break;
    }
 
-   // Process transmit queue
+   // Process transmit software queue
    if ( hwData->desc128En ) {
-
-      // Free list
       while ( (hwData->hwRdBuffCnt < (hwData->addrCount-1)) &&
               ((buff = dmaQueuePopIrq(&(hwData->rdQueue))) != NULL) ) {
 
-         // Return to hardware
+         // Write to hardware
          AxisG2_WriteTx(buff,reg,hwData->desc128En);
          ++hwData->hwRdBuffCnt;
       }
    }
-#endif
 
-   // Get (write / receive) return buffer list
-   if ( hwData->desc128En ) {
-      buffList = (struct DmaBuffer **)kmalloc(1000 * sizeof(struct DmaBuffer *),GFP_ATOMIC);
-      rCnt = ((hwData->addrCount-1) - hwData->hwWrBuffCnt);
-      if (rCnt > 1000 ) rCnt = 1000;
-      bCnt = dmaQueuePopListIrq(&(hwData->wrQueue),buffList,rCnt);
-   }
-   else {
-      bCnt = 0;
-      buffList = NULL;
-   }
-         
+   ////////////////// Receive Buffers /////////////////////////
+
    // Lock mask
    spin_lock(&dev->maskLock);
 
@@ -266,28 +251,26 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
       // Update index
       hwData->writeIndex = ((hwData->writeIndex+1) % hwData->addrCount);
 
-      // Check write queue
-      if ( bCnt > 0 ) {
-         AxisG2_WriteFree(buffList[--bCnt],reg,hwData->desc128En);
-         ++hwData->hwWrBuffCnt;
-      }
-
-      if ( handleCount > 1000 ) break;
+      if ( handleCount > 2000 ) break;
    }
 
    // Unlock
    spin_unlock(&dev->maskLock);
 
-   // Finish write queue
-   if ( hwData->desc128En ) {
-      while ( bCnt > 0 ) {
-         AxisG2_WriteFree(buffList[--bCnt],reg,hwData->desc128En);
-         ++hwData->hwWrBuffCnt;
-      }
+   // Get (write / receive) return buffer list
+   if ( hwData->desc128En && ((buffList = (struct DmaBuffer **)kmalloc(1000 * sizeof(struct DmaBuffer *),GFP_ATOMIC)) != NULL)) {
+      do {
+         rCnt = ((hwData->addrCount-1) - hwData->hwWrBuffCnt);
+         if (rCnt > 1000 ) rCnt = 1000;
+         bCnt = dmaQueuePopListIrq(&(hwData->wrQueue),buffList,rCnt);
+         for (x=0; x < bCnt; x++) {
+            AxisG2_WriteFree(buffList[x],reg,hwData->desc128En);
+            ++hwData->hwWrBuffCnt;
+         }
+      } while(bCnt > 0);
+
       kfree(buffList);
    }
-
-   if ( hwData->desc128En ) kfree(buffList);
 
    // Enable interrupt and update ack count
    iowrite32(0x30000 + handleCount,&(reg->intAckAndEnable));
