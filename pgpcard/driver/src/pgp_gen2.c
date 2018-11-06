@@ -303,92 +303,99 @@ void PgpCardG2_Clear(struct DmaDevice *dev) {
 
 // Return receive buffer to card
 // Single write so we don't need to lock
-void PgpCardG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
+void PgpCardG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count) {
    struct PgpCardG2Reg *reg;
+   uint32_t x;
+
    reg = (struct PgpCardG2Reg *)dev->reg;
 
-   if ( dmaBufferToHw(buff) < 0 ) 
-      dev_warn(dev->device,"RetRxBuffer: Failed to map dma buffer.\n");
-   else iowrite32(buff->buffHandle,&(reg->rxFree));
+   for (x=0; x < count; x++) {
+      if ( dmaBufferToHw(buff[x]) < 0 ) 
+         dev_warn(dev->device,"RetRxBuffer: Failed to map dma buffer.\n");
+      else iowrite32(buff[x]->buffHandle,&(reg->rxFree));
+   }
 }
 
 
 // Send a buffer
-int32_t PgpCardG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
+int32_t PgpCardG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count) {
    uint32_t descA;
    uint32_t descB;
    uint32_t dmaId;
    uint32_t subId;
+   uint32_t x;
 
    struct PgpInfo      * info;
    struct PgpCardG2Reg * reg;
 
-   if ( (buff->size % 4) != 0 ) {
-      dev_warn(dev->device,"SendBuffer: Frame size not a multiple of 4.\n");
-      dmaQueuePush(&(dev->tq),buff);
-      return(-1);
-   }
-
    reg  = (struct PgpCardG2Reg *)dev->reg;
    info = (struct PgpInfo *)dev->hwData;
 
-   // Lane remap for VC interleaved card where each DMA engine is a single VC
-   if ( info->type == PGP_GEN2_VCI ) {
-      dmaId = (buff->dest / 4) + (buff->dest % 4);
-      subId = 0;
-   } else {
-      dmaId = buff->dest / 4;
-      subId = buff->dest % 4;
+   for (x=0; x < count; x++) {
+
+      if ( (buff[x]->size % 4) != 0 ) {
+         dev_warn(dev->device,"SendBuffer: Frame size not a multiple of 4.\n");
+         dmaQueuePush(&(dev->tq),buff[x]);
+         return(-1);
+      }
+
+      // Lane remap for VC interleaved card where each DMA engine is a single VC
+      if ( info->type == PGP_GEN2_VCI ) {
+         dmaId = (buff[x]->dest / 4) + (buff[x]->dest % 4);
+         subId = 0;
+      } else {
+         dmaId = buff[x]->dest / 4;
+         subId = buff[x]->dest % 4;
+      }
+
+      if ( dmaBufferToHw(buff[x]) < 0 ) {
+         dev_warn(dev->device,"SendBuffer: Failed to map dma buffer.\n");
+         return(-1);
+      }
+
+      // Generate Tx descriptor
+      descA  = (dmaId          << 30) & 0xC0000000; // Bits 31:30 = Lane
+      descA += (subId          << 28) & 0x30000000; // Bits 29:28 = VC
+      descA += (buff[x]->flags << 27) & 0x08000000; // Bits 27    = Cont
+      descA += (buff[x]->size / 4   ) & 0x00FFFFFF; // Bits 23:0  = Length
+      descB = buff[x]->buffHandle;
+
+      // Lock hw
+      spin_lock(&dev->writeHwLock);
+
+      // Write descriptor
+      switch ( dmaId ) {
+         case 0:
+            iowrite32(descA,&(reg->txL0Wr0));
+            asm("nop");
+            iowrite32(descB,&(reg->txL0Wr1));
+            asm("nop");
+            break;
+         case 1:
+            iowrite32(descA,&(reg->txL1Wr0));
+            asm("nop");
+            iowrite32(descB,&(reg->txL1Wr1));
+            asm("nop");
+            break;
+         case 2:
+            iowrite32(descA,&(reg->txL2Wr0));
+            asm("nop");
+            iowrite32(descB,&(reg->txL2Wr1));
+            asm("nop");
+            break;
+         case 3:
+            iowrite32(descA,&(reg->txL3Wr0));
+            asm("nop");
+            iowrite32(descB,&(reg->txL3Wr1));
+            asm("nop");
+            break;
+         default: break;
+      }
+
+      // UnLock hw
+      spin_unlock(&dev->writeHwLock);
    }
-
-   if ( dmaBufferToHw(buff) < 0 ) {
-      dev_warn(dev->device,"SendBuffer: Failed to map dma buffer.\n");
-      return(-1);
-   }
-
-   // Generate Tx descriptor
-   descA  = (dmaId       << 30) & 0xC0000000; // Bits 31:30 = Lane
-   descA += (subId       << 28) & 0x30000000; // Bits 29:28 = VC
-   descA += (buff->flags << 27) & 0x08000000; // Bits 27    = Cont
-   descA += (buff->size / 4   ) & 0x00FFFFFF; // Bits 23:0  = Length
-   descB = buff->buffHandle;
-
-   // Lock hw
-   spin_lock(&dev->writeHwLock);
-
-   // Write descriptor
-   switch ( dmaId ) {
-      case 0:
-         iowrite32(descA,&(reg->txL0Wr0));
-         asm("nop");
-         iowrite32(descB,&(reg->txL0Wr1));
-         asm("nop");
-         break;
-      case 1:
-         iowrite32(descA,&(reg->txL1Wr0));
-         asm("nop");
-         iowrite32(descB,&(reg->txL1Wr1));
-         asm("nop");
-         break;
-      case 2:
-         iowrite32(descA,&(reg->txL2Wr0));
-         asm("nop");
-         iowrite32(descB,&(reg->txL2Wr1));
-         asm("nop");
-         break;
-      case 3:
-         iowrite32(descA,&(reg->txL3Wr0));
-         asm("nop");
-         iowrite32(descB,&(reg->txL3Wr1));
-         asm("nop");
-         break;
-      default: break;
-   }
-
-   // UnLock hw
-   spin_unlock(&dev->writeHwLock);
-
-   return(buff->size);
+   return(count);
 }
 
 
