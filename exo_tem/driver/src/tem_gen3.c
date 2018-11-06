@@ -270,55 +270,63 @@ void TemG3_Clear(struct DmaDevice *dev) {
 
 // Return receive buffer to card
 // Single write so we don't need to lock
-void TemG3_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
+void TemG3_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count) {
    struct TemG3Reg *reg;
+   uint32_t x;
+
    reg = (struct TemG3Reg *)dev->reg;
 
-   if ( dmaBufferToHw(buff) < 0 )
-      dev_warn(dev->device,"RetRxBuffer: Failed to map dma buffer.\n");
-   else iowrite32(buff->buffHandle,&(reg->rxFree[buff->owner]));
+   for (x=0; x < count; x++) {
+      if ( dmaBufferToHw(buff[x]) < 0 )
+         dev_warn(dev->device,"RetRxBuffer: Failed to map dma buffer.\n");
+      else iowrite32(buff[x]->buffHandle,&(reg->rxFree[buff[x]->owner]));
+   }
 }
 
 
 // Send a buffer
-int32_t TemG3_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
+int32_t TemG3_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count) {
    uint32_t descA;
    uint32_t descB;
    uint32_t dmaId;
    uint32_t subId;
+   uint32_t x;
 
    struct TemG3Reg * reg;
 
    reg  = (struct TemG3Reg *)dev->reg;
 
-   // each DMA lane is a destination
-   dmaId = buff->dest;
-   subId = 0;
+   for (x=0; x < count; x++) {
 
-   if ( dmaBufferToHw(buff) < 0 ) {
-      dev_warn(dev->device,"SendBuffer: Failed to map dma buffer.\n");
-      return(-1);
+      // each DMA lane is a destination
+      dmaId = buff[x]->dest;
+      subId = 0;
+
+      if ( dmaBufferToHw(buff[x]) < 0 ) {
+         dev_warn(dev->device,"SendBuffer: Failed to map dma buffer.\n");
+         return(-1);
+      }
+
+      // Generate Tx descriptor
+      descA  = (buff[x]->flags << 26) & 0x04000000; // Bits 26    = Cont
+      descA += (subId          << 24) & 0x03000000; // Bits 25:24 = VC
+      descA += (buff[x]->size  / 4  ) & 0x00FFFFFF; // Bits 23:0  = Length
+      descB = buff[x]->buffHandle;
+
+      // Lock hw
+      spin_lock(&dev->writeHwLock);
+
+      // Write descriptor
+      iowrite32(descA,&(reg->txWrA[dmaId]));
+      asm("nop");
+      iowrite32(descB,&(reg->txWrB[dmaId]));
+      asm("nop");
+
+      // UnLock hw
+      spin_unlock(&dev->writeHwLock);
    }
 
-   // Generate Tx descriptor
-   descA  = (buff->flags << 26) & 0x04000000; // Bits 26    = Cont
-   descA += (subId       << 24) & 0x03000000; // Bits 25:24 = VC
-   descA += (buff->size  / 4  ) & 0x00FFFFFF; // Bits 23:0  = Length
-   descB = buff->buffHandle;
-
-   // Lock hw
-   spin_lock(&dev->writeHwLock);
-
-   // Write descriptor
-   iowrite32(descA,&(reg->txWrA[dmaId]));
-   asm("nop");
-   iowrite32(descB,&(reg->txWrB[dmaId]));
-   asm("nop");
-
-   // UnLock hw
-   spin_unlock(&dev->writeHwLock);
-
-   return(buff->size);
+   return(count);
 }
 
 

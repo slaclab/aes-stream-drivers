@@ -99,10 +99,10 @@ void PgpCardG2_Enable(struct DmaDevice *dev);
 void PgpCardG2_Clear(struct DmaDevice *dev);
 
 // Return receive buffer to card
-void PgpCardG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer *buff);
+void PgpCardG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count);
 
 // Send a buffer
-int32_t PgpCardG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff);
+int32_t PgpCardG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count);
 
 // Execute command
 int32_t PgpCardG2_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);

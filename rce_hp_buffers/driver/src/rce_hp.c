@@ -82,10 +82,10 @@ void RceHp_Clear(struct DmaDevice *dev) {
 
 // Return receive buffer to card
 // Single write so we don't need to lock
-void RceHp_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {}
+void RceHp_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count) {}
 
 // Send a buffer
-int32_t RceHp_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
+int32_t RceHp_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count) {
    return 0;
 }
 

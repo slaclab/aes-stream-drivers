@@ -106,10 +106,10 @@ void TemG3_Enable(struct DmaDevice *dev);
 void    TemG3_Clear(struct DmaDevice *dev);
 
 // Return receive buffer to card
-void    TemG3_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer *buff);
+void    TemG3_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count);
 
 // Send a buffer
-int32_t TemG3_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff);
+int32_t TemG3_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count);
 
 // Execute command
 int32_t TemG3_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);

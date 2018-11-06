@@ -61,10 +61,10 @@ void AxisG1_Enable(struct DmaDevice *dev);
 void AxisG1_Clear(struct DmaDevice *dev);
 
 // Return receive buffer to card
-void AxisG1_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer *buff);
+void AxisG1_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count);
 
 // Send a buffer
-int32_t AxisG1_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff);
+int32_t AxisG1_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count);
 
 // Execute command
 int32_t AxisG1_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);

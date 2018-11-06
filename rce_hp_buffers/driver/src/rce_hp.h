@@ -41,10 +41,10 @@ void RceHp_Enable(struct DmaDevice *dev);
 void RceHp_Clear(struct DmaDevice *dev);
 
 // Return receive buffer to card
-void RceHp_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer *buff);
+void RceHp_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count);
 
 // Send a buffer
-int32_t RceHp_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff);
+int32_t RceHp_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count);
 
 // Execute command
 int32_t RceHp_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);

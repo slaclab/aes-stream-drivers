@@ -240,42 +240,49 @@ void AxisG1_Clear(struct DmaDevice *dev) {
 
 // Return receive buffer to card
 // Single write so we don't need to lock
-void AxisG1_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
+void AxisG1_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count) {
    struct AxisG1Reg *reg;
+   uint32_t x;
+
    reg = (struct AxisG1Reg *)dev->reg;
 
-   if ( dmaBufferToHw(buff) < 0 )
-      dev_warn(dev->device,"RetRxBuffer: Failed to map dma buffer.\n");
-   else iowrite32(buff->buffHandle,&(reg->rxFree));
+   for (x=0; x < count; x++) {
+      if ( dmaBufferToHw(buff[x]) < 0 )
+         dev_warn(dev->device,"RetRxBuffer: Failed to map dma buffer.\n");
+      else iowrite32(buff[x]->buffHandle,&(reg->rxFree));
+   }
 }
 
 
 // Send a buffer
-int32_t AxisG1_SendBuffer(struct DmaDevice *dev, struct DmaBuffer *buff) {
+int32_t AxisG1_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count) {
    uint32_t control;
+   uint32_t x;
 
    struct AxisG1Reg *reg;
    reg = (struct AxisG1Reg *)dev->reg;
 
-   // Create descriptor
-   control  = (buff->dest       ) & 0x000000FF;
-   control += (buff->flags <<  8) & 0x00FFFF00; // flags[15:9] = luser, flags[7:0] = fuser
+   for (x=0; x < count; x++) {
 
-   if ( dmaBufferToHw(buff) < 0 ) {
-      dev_warn(dev->device,"SendBuffer: Failed to map dma buffer.\n");
-      return(-1);
+      // Create descriptor
+      control  = (buff[x]->dest       ) & 0x000000FF;
+      control += (buff[x]->flags <<  8) & 0x00FFFF00; // flags[15:9] = luser, flags[7:0] = fuser
+
+      if ( dmaBufferToHw(buff[x]) < 0 ) {
+         dev_warn(dev->device,"SendBuffer: Failed to map dma buffer.\n");
+         return(-1);
+      }
+
+      // Write to hardware
+      spin_lock(&dev->writeHwLock);
+
+      iowrite32(buff[x]->buffHandle,&(reg->txPostA));
+      iowrite32(buff[x]->size,&(reg->txPostB));
+      iowrite32(control,&(reg->txPostC));
+
+      spin_unlock(&dev->writeHwLock);
    }
-
-   // Write to hardware
-   spin_lock(&dev->writeHwLock);
-
-   iowrite32(buff->buffHandle,&(reg->txPostA));
-   iowrite32(buff->size,&(reg->txPostB));
-   iowrite32(control,&(reg->txPostC));
-
-   spin_unlock(&dev->writeHwLock);
-
-   return(buff->size);
+   return(count);
 }
 
 
