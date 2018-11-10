@@ -32,6 +32,7 @@
 #define BUFF_COHERENT  0x1
 #define BUFF_STREAM    0x2
 #define BUFF_ARM_ACP   0x4
+#define BUFF_64BIT     0x8
 
 // Forward declaration
 struct DmaDevice;
