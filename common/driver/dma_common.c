@@ -153,7 +153,7 @@ int Dma_Init(struct DmaDevice *dev) {
    dev_info(dev->device,"Init: Creating %i TX Buffers. Size=%i Bytes. Mode=%i.\n",
         dev->cfgTxCount,dev->cfgSize,dev->cfgMode);
    res = dmaAllocBuffers (dev, &(dev->txBuffers), dev->cfgTxCount, 0, DMA_TO_DEVICE );
-   dev_info(dev->device,"Init: Created  %i out of %i TX Buffers. %i Bytes.\n",
+   dev_info(dev->device,"Init: Created  %i out of %i TX Buffers. %u Bytes.\n",
         res,dev->cfgTxCount,(res*dev->cfgSize));
 
    // Bad buffer allocation
@@ -169,7 +169,7 @@ int Dma_Init(struct DmaDevice *dev) {
    dev_info(dev->device,"Init: Creating %i RX Buffers. Size=%i Bytes. Mode=%i.\n",
         dev->cfgRxCount,dev->cfgSize,dev->cfgMode);
    res = dmaAllocBuffers (dev, &(dev->rxBuffers), dev->cfgRxCount, dev->txBuffers.count, DMA_BIDIRECTIONAL);
-   dev_info(dev->device,"Init: Created  %i out of %i RX Buffers. %i Bytes.\n",
+   dev_info(dev->device,"Init: Created  %i out of %i RX Buffers. %u Bytes.\n",
         res,dev->cfgRxCount,(res*dev->cfgSize));
 
    // Bad buffer allocation

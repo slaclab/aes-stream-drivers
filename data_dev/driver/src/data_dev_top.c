@@ -1,6 +1,6 @@
 /**
  *-----------------------------------------------------------------------------
- * Title      : Top level module
+
  * ----------------------------------------------------------------------------
  * File       : data_dev_top.c
  * Created    : 2017-03-17
@@ -157,6 +157,17 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->reg    = dev->base + AGEN2_OFF;
    dev->rwBase = dev->base + PHY_OFF;
    dev->rwSize = (2*USER_SIZE) - PHY_OFF;
+
+   // 128bit desc, = 64-bit address map
+   if ( (ioread32(dev->reg) & 0x10000) != 0) {
+      if (!dma_set_mask_and_coherent(dev->device, DMA_BIT_MASK(40))) {
+         dev_info(dev->device,"Init: Using 40-bit DMA mask.\n");
+      } else if (!dma_set_mask_and_coherent(dev->device, DMA_BIT_MASK(32))) {
+         dev_info(dev->device,"Init: Using 32-bit DMA mask.\n");
+      } else {
+         dev_warn(dev->device,"Init: Failed to set DMA mask.\n");
+      }
+   }
 
    // Call common dma init function
    if ( Dma_Init(dev) < 0 ) return(-1);

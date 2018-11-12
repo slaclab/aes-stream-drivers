@@ -282,9 +282,6 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
 // Init card in top level Probe
 void AxisG2_Init(struct DmaDevice *dev) {
    uint32_t x;
-   uint32_t baseAddr;
-   uint32_t baseTemp;
-   bool     baseValid;
 
    struct DmaBuffer  *buff;
    struct AxisG2Data *hwData;
@@ -366,25 +363,12 @@ void AxisG2_Init(struct DmaDevice *dev) {
    iowrite32(0x1,&(reg->contEnable)); 
    iowrite32(0x0,&(reg->dropEnable)); 
 
-   baseValid = false;
-
    // Push RX buffers to hardware and map
    for (x=0; x < dev->rxBuffers.count; x++) {
       buff = dev->rxBuffers.indexed[x];
 
       // Map failure
       if ( dmaBufferToHw(buff) < 0 ) dev_warn(dev->device,"Init: Failed to map dma buffer.\n");
-
-      // Bit 40 and above is considered the base address
-      baseTemp = (buff->buff->buffHandle >> 32) & 0xFFFFFF00;
-
-      // Determine base address and check if there is a mismatch
-      if (!baseValid) baseAddr = baseTemp;
-      else {
-         if ( baseAddr != baseTemp ) 
-            dev_warn(dev->device,"Init: Base address mismatch curr=0x%x, new=0x%x\n",baseTemp);
-      }
-      baseValid = true;
 
       // Add to software queue, if enabled and hardware is full
       else if ( hwData->desc128En && (hwData->hwWrBuffCnt >= (hwData->addrCount-1)) ) 
@@ -397,8 +381,6 @@ void AxisG2_Init(struct DmaDevice *dev) {
       }
    }
 
-   // Set base address register
-   iowrite32(baseAddr,&(reg->buffBaseAddr));
    dev_info(dev->device,"Init: Found Version 2 Device. Desc128En=%i\n",hwData->desc128En);
 }
 
