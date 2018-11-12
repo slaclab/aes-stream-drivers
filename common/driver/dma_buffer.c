@@ -32,6 +32,7 @@
 size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
                          uint32_t count, uint32_t baseIdx, enum dma_data_direction direction) {
    uint32_t x;
+   uint32_t dmaFlags;
 
    if ( count == 0 ) return(0);
    list->count     = 0;
@@ -42,6 +43,10 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
    // Allocate space for tracking arrays
    list->indexed = (struct DmaBuffer **) kmalloc((sizeof(struct DmaBuffer *) * count), GFP_KERNEL);
    list->sorted  = (struct DmaBuffer **) kmalloc((sizeof(struct DmaBuffer *) * count), GFP_KERNEL);
+
+   // Do we support 64-bit mode
+   if ( list->dev->cfgMode & BUFF_64BIT ) dmaFlags = GFP_DMA64 | GFP_KERNEL;
+   else dmaFlags = GFP_DMA32 | GFP_KERNEL;
 
    // Allocate buffers
    for (x=0; x < count; x++) {
@@ -56,12 +61,12 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
       // Coherent buffer, map dma coherent buffers
       if ( list->dev->cfgMode & BUFF_COHERENT ) {
          list->indexed[x]->buffAddr = 
-            dma_alloc_coherent(list->dev->device, list->dev->cfgSize, &(list->indexed[x]->buffHandle), GFP_DMA32 | GFP_KERNEL);
+            dma_alloc_coherent(list->dev->device, list->dev->cfgSize, &(list->indexed[x]->buffHandle), dmaFlags);
       }
 
       // Streaming buffer type, standard kernel memory
       else if ( list->dev->cfgMode & BUFF_STREAM ) {
-         list->indexed[x]->buffAddr = kmalloc(list->dev->cfgSize, GFP_DMA32 | GFP_KERNEL);
+         list->indexed[x]->buffAddr = kmalloc(list->dev->cfgSize, dmaFlags);
 
          if (list->indexed[x]->buffAddr != NULL) {
             list->indexed[x]->buffHandle = dma_map_single(list->dev->device,list->indexed[x]->buffAddr,
