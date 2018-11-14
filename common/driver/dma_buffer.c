@@ -53,18 +53,18 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
       return(0);
    }
 
-   // Sorted lists are not always available. Disable for streaming mode or when we have too many buffers for
-   // a single sorted list
-   if ( (list->subCount == 1) && ((list->dev->cfgMode & BUFF_STREAM) == 0) ) {
-      list->sorted = (struct DmaBuffer **) kmalloc(sizeof(struct DmaBuffer**) * count, GFP_KERNEL);
-   }
-
    // Allocate sub lists
    for (x=0; x < list->subCount; x++) {
       if ((list->indexed[x] = (struct DmaBuffer **) kmalloc((sizeof(struct DmaBuffer *) * BUFFERS_PER_LIST), GFP_KERNEL)) == NULL) {
          dev_warn(dev->device,"dmaAllocBuffers: Failed to allocate sub list. Idx=%u.\n",x);
          return (0);
       }
+   }
+
+   // Sorted lists are not always available. Disable for streaming mode or when we have too many buffers for
+   // a single sorted list
+   if ( (list->subCount == 1) && ((list->dev->cfgMode & BUFF_STREAM) == 0) ) {
+      list->sorted = (struct DmaBuffer **) kmalloc(sizeof(struct DmaBuffer**) * count, GFP_KERNEL);
    }
 
    // Allocate buffers
