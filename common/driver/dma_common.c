@@ -163,7 +163,8 @@ int Dma_Init(struct DmaDevice *dev) {
    dmaQueueInit(&(dev->tq),dev->txBuffers.count);
 
    // Populate transmit queue
-   for (x=0; x < dev->txBuffers.count; x++) dmaQueuePush(&(dev->tq),dev->txBuffers.indexed[x]);
+   for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++) {
+      dmaQueuePush(&(dev->tq),dmaGetBufferList(dev->txBuffers,x));
 
    // Create rx buffers, bidirectional because rx buffers can be passed to tx
    dev_info(dev->device,"Init: Creating %i RX Buffers. Size=%i Bytes. Mode=%i.\n",
@@ -308,12 +309,12 @@ int Dma_Release(struct inode *inode, struct file *filp) {
 
    // Find rx buffers still owned by descriptor 
    cnt = 0;
-   for (x=0; x < dev->rxBuffers.count; x++) {
-      if ( dev->rxBuffers.indexed[x]->userHas == desc ) {
-         dev->rxBuffers.indexed[x]->userHas = NULL;
-         if (dev->rxBuffers.indexed[x] != NULL) {
-           dev->hwFunc->retRxBuffer(dev,&(dev->rxBuffers.indexed[x]),1);
-         }
+   for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
+      buff = dmaGetBufferList(dev->rxBuffers,x);
+
+      if ( buff->userHas == desc ) {
+         buff->userHas = NULL;
+         dev->hwFunc->retRxBuffer(dev,&buff,1);
          cnt++;
       }
    }
@@ -323,10 +324,12 @@ int Dma_Release(struct inode *inode, struct file *filp) {
 
    // Find tx buffers still owned by descriptor 
    cnt = 0;
-   for (x=0; x < dev->txBuffers.count; x++) {
-      if ( dev->txBuffers.indexed[x]->userHas == desc ) {
-         dev->txBuffers.indexed[x]->userHas = NULL;
-         dmaQueuePush(&(dev->tq),dev->txBuffers.indexed[x]);
+   for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++) {
+      buff = dmaGetBufferList(dev->txBuffers,x);
+
+      if ( buff->userHas == desc ) {
+         buff->userHas = NULL;
+         dmaQueuePush(&(dev->tq),buff);
          cnt++;
       }
    }
@@ -827,6 +830,7 @@ void Dma_SeqStop(struct seq_file *s, void *v) {
 
 // Sequence show
 int Dma_SeqShow(struct seq_file *s, void *v) {
+   struct   DmaBuffer * buff;
    struct   DmaDevice * dev;
    uint32_t max;
    uint32_t min;
@@ -859,18 +863,19 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    max     = 0;
    min     = 0xFFFFFFFF;
    sum     = 0;
-   for (x=0; x < dev->rxBuffers.count; x++) {
-      if ( dev->rxBuffers.indexed[x]->count > max ) max = dev->rxBuffers.indexed[x]->count;
-      if ( dev->rxBuffers.indexed[x]->count < min ) min = dev->rxBuffers.indexed[x]->count;
-      if ( dev->rxBuffers.indexed[x]->userHas ) userCnt++;
-      if ( dev->rxBuffers.indexed[x]->inHw    ) hwCnt++;
-      if ( dev->rxBuffers.indexed[x]->inQ     ) qCnt++;
 
-      if ( dev->rxBuffers.indexed[x]->userHas == NULL &&
-           dev->rxBuffers.indexed[x]->inHw == 0 &&
-           dev->rxBuffers.indexed[x]->inQ == 0 ) miss++;
+   for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
+      buff = dmaGetBufferList(dev->rxBuffers,x);
 
-      sum += dev->rxBuffers.indexed[x]->count;
+      if ( buff->count > max ) max = buff->count;
+      if ( buff->count < min ) min = buff->count;
+      if ( buff->userHas ) userCnt++;
+      if ( buff->inHw    ) hwCnt++;
+      if ( buff->inQ     ) qCnt++;
+
+      if ( buff->userHas == NULL && buff->inHw == 0 && buff->inQ == 0 ) miss++;
+
+      sum += buff->count;
    }
    if (dev->rxBuffers.count == 0) {
       min = 0;
@@ -900,18 +905,19 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    max     = 0;
    min     = 0xFFFFFFFF;
    sum     = 0;
-   for (x=0; x < dev->txBuffers.count; x++) {
-      if ( dev->txBuffers.indexed[x]->count > max ) max = dev->txBuffers.indexed[x]->count;
-      if ( dev->txBuffers.indexed[x]->count < min ) min = dev->txBuffers.indexed[x]->count;
-      if ( dev->txBuffers.indexed[x]->userHas ) userCnt++;
-      if ( dev->txBuffers.indexed[x]->inHw    ) hwCnt++;
-      if ( dev->txBuffers.indexed[x]->inQ     ) qCnt++;
 
-      if ( dev->txBuffers.indexed[x]->userHas == NULL &&
-           dev->txBuffers.indexed[x]->inHw == 0 &&
-           dev->txBuffers.indexed[x]->inQ == 0 ) miss++;
+   for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++) {
+      buff = dmaGetBufferList(dev->txBuffers,x);
 
-      sum += dev->txBuffers.indexed[x]->count;
+      if ( buff->count > max ) max = buff->count;
+      if ( buff->count < min ) min = buff->count;
+      if ( buff->userHas ) userCnt++;
+      if ( buff->inHw    ) hwCnt++;
+      if ( buff->inQ     ) qCnt++;
+
+      if ( buff->userHas == NULL && buff->inHw == 0 && buff->inQ == 0 ) miss++;
+
+      sum += buff->count;
    }
    if (dev->txBuffers.count == 0) {
       min = 0;

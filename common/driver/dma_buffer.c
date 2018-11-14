@@ -32,74 +32,102 @@
 size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
                          uint32_t count, uint32_t baseIdx, enum dma_data_direction direction) {
    uint32_t x;
+   uint32_t sl;
+   uint32_t sli;
 
-   if ( count == 0 ) return(0);
+   // Determine number of sub-lists
+   list->subCount = (count / BUFFERS_PER_LIST) + 1;
+
+   list->indexed   = NULL;
+   list->sorted    = NULL;
    list->count     = 0;
    list->direction = direction;
    list->dev       = dev;
    list->baseIdx   = baseIdx;
 
-   // Allocate space for tracking arrays
-   list->indexed = (struct DmaBuffer **) kmalloc((sizeof(struct DmaBuffer *) * count), GFP_KERNEL);
-   list->sorted  = (struct DmaBuffer **) kmalloc((sizeof(struct DmaBuffer *) * count), GFP_KERNEL);
+   if ( count == 0 ) return(0);
+
+   // Allocate first level pointers
+   if ((list->indexed = (struct DmaBuffer ***) kmalloc(sizeof(struct DmaBuffer**) * list->subCount, GFP_KERNEL)) == NULL ) {
+      dev_warn(dev->device,"dmaAllocBuffers: Failed to allocate indexed list pointer. Count=%u.\n",list->subCount)
+      return(0);
+   }
+
+   // Sorted lists are not always available. Disable for streaming mode or when we have too many buffers for
+   // a single sorted list
+   if ( (list->subCount == 0) && ((list->dev->cfgMode & BUFF_STREAM) == 0) ) {
+      list->sorted = (struct DmaBuffer **) kmalloc(sizeof(struct DmaBuffer**) * count, GFP_KERNEL);
+   }
+
+   // Allocate sub lists
+   for (x=0; x < list->subCount; x++) {
+      if ((list->indexed[x] = (struct DmaBuffer **) kmalloc((sizeof(struct DmaBuffer *) * BUFFERS_PER_LIST), GFP_KERNEL)) == NULL) {
+         dev_warn(dev->device,"dmaAllocBuffers: Failed to allocate sub list. Idx=%u.\n",x);
+         return (0);
+      }
+   }
 
    // Allocate buffers
    for (x=0; x < count; x++) {
-      list->indexed[x] = (struct DmaBuffer *) kmalloc(sizeof(struct DmaBuffer), GFP_KERNEL);
+      sl  = x / BUFFERS_PER_LIST;
+      sli = x % BUFFERS_PER_LIST;
+
+      if ( (list->indexed[sl][sli] = (struct DmaBuffer *) kmalloc(sizeof(struct DmaBuffer), GFP_KERNEL)) == NULL) {
+         dev_warn(dev->device,"dmaAllocBuffers: Failed to create buffer structure index %ui.\n",x);
+         break;
+      }
 
       // Init record
-      memset(list->indexed[x],0,sizeof(struct DmaBuffer));
+      memset(list->indexed[sl][sli],0,sizeof(struct DmaBuffer));
 
       // Setup pointer back to list
-      list->indexed[x]->buffList = list;
+      list->indexed[sl][sli]->buffList = list;
 
       // Coherent buffer, map dma coherent buffers
       if ( list->dev->cfgMode & BUFF_COHERENT ) {
-         list->indexed[x]->buffAddr = 
-            dma_alloc_coherent(list->dev->device, list->dev->cfgSize, &(list->indexed[x]->buffHandle), GFP_DMA32 | GFP_KERNEL);
+         list->indexed[sl]-[sli]>buffAddr = 
+            dma_alloc_coherent(list->dev->device, list->dev->cfgSize, &(list->indexed[sl][sli]->buffHandle), GFP_KERNEL);
       }
 
       // Streaming buffer type, standard kernel memory
       else if ( list->dev->cfgMode & BUFF_STREAM ) {
-         list->indexed[x]->buffAddr = kmalloc(list->dev->cfgSize, GFP_DMA32 | GFP_KERNEL);
+         list->indexed[sl][sli]->buffAddr = kmalloc(list->dev->cfgSize, GFP_KERNEL);
 
-         if (list->indexed[x]->buffAddr != NULL) {
-            list->indexed[x]->buffHandle = dma_map_single(list->dev->device,list->indexed[x]->buffAddr,
-                                                          list->dev->cfgSize,direction);
-
+         if (list->indexed[sl][sli]->buffAddr != NULL) {
+            list->indexed[sl][sli]->buffHandle = dma_map_single(list->dev->device,list->indexed[sl][sli]->buffAddr,
+                                                               list->dev->cfgSize,direction);
+    
             // Map error
-            if ( dma_mapping_error(list->dev->device,list->indexed[x]->buffHandle) ) {
-               list->indexed[x]->buffHandle = 0;
+            if ( dma_mapping_error(list->dev->device,list->indexed[sl][sli]->buffHandle) ) {
+               list->indexed[sl][sli]->buffHandle = 0;
             }
          }
       }
 
       // ACP type with permament handle mapping, dma capable kernel memory
       else if ( list->dev->cfgMode & BUFF_ARM_ACP ) {
-         list->indexed[x]->buffAddr = kmalloc(list->dev->cfgSize, GFP_DMA | GFP_KERNEL);
-         if (list->indexed[x]->buffAddr != NULL)
-            list->indexed[x]->buffHandle = virt_to_phys(list->indexed[x]->buffAddr);
+         list->indexed[sl][sli]->buffAddr = kmalloc(list->dev->cfgSize, GFP_DMA | GFP_KERNEL);
+         if (list->indexed[sl][sli]->buffAddr != NULL)
+            list->indexed[sl][sli]->buffHandle = virt_to_phys(list->indexed[sl][sli]->buffAddr);
       }
 
       // Alloc or mapping failed
-      if ( list->indexed[x]->buffAddr == NULL || list->indexed[x]->buffHandle == 0) {
-         if ( list->indexed[x]->buffAddr != NULL ) kfree(list->indexed[x]->buffAddr);
-         kfree(list->indexed[x]);
+      if ( list->indexed[sl][sli]->buffAddr == NULL || list->indexed[sl][sli]->buffHandle == 0) {
+         if ( list->indexed[sl][sli]->buffAddr != NULL ) kfree(list->indexed[sl][sli]->buffAddr);
+         kfree(list->indexed[sl][sli]);
          break; 
       }
 
       // Set index
-      list->indexed[x]->index = x + list->baseIdx;
+      list->indexed[sl][sli]->index = x + list->baseIdx;
 
       // Populate entry in sorted list for later sort
-      list->sorted[x] = list->indexed[x];
+      if ( list->sorted != NULL ) list->sorted[sli] = list->indexed[sl][sli];
       list->count++;
-
-      //dev_warn(dev->device,"dmaAllocBuffers: Mapped buffer %i 0x%x to 0x%x.\n",x,list->indexed[x]->buffAddr,list->indexed[x]->buffHandle);
    }
 
    // Sort the buffers
-   if ( list->count > 0 ) sort(list->sorted,list->count,sizeof(struct DmaBuffer *),dmaSortComp,NULL);
+   if ( list->sorted != NULL ) sort(list->sorted,list->count,sizeof(struct DmaBuffer *),dmaSortComp,NULL);
 
    return(list->count);
 }
@@ -108,31 +136,35 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
 // Free a list of buffers
 void dmaFreeBuffers ( struct DmaBufferList *list ) {
    uint32_t x;
+   uint32_t sl;
+   uint32_t sli;
 
    for (x=0; x < list->count; x++) {
-      if ( list->indexed[x]->buffAddr != NULL ) {
+      sl  = x / BUFFERS_PER_LIST;
+      sli = x % BUFFERS_PER_LIST;
+
+      if ( list->indexed[sl][sli]->buffAddr != NULL ) {
 
          // Coherent buffer
          if ( list->dev->cfgMode & BUFF_COHERENT ) {
-            dma_free_coherent(list->dev->device, list->dev->cfgSize,list->indexed[x]->buffAddr,list->indexed[x]->buffHandle);
+            dma_free_coherent(list->dev->device, list->dev->cfgSize,list->indexed[sl][sli]->buffAddr,list->indexed[sl][sli]->buffHandle);
          }
 
          // Streaming type
          if ( list->dev->cfgMode & BUFF_STREAM ) {
-            dma_unmap_single(list->dev->device,list->indexed[x]->buffHandle,list->dev->cfgSize,list->direction);
+            dma_unmap_single(list->dev->device,list->indexed[sl][sli]->buffHandle,list->dev->cfgSize,list->direction);
          }
 
          // Streaming buffer type or ARM ACP
          if ( (list->dev->cfgMode & BUFF_STREAM) || (list->dev->cfgMode & BUFF_ARM_ACP) ) {
-            kfree(list->indexed[x]->buffAddr);
+            kfree(list->indexed[sl][sli]->buffAddr);
          }
       }
-      kfree(list->indexed[x]);
+      kfree(list->indexed[sl][sli]);
    }
-   if ( list->count > 0 ) {
-      kfree(list->indexed);
-      kfree(list->sorted);
-   }
+   for (x=0; x < list->subCount; x++) kfree(list->indexed[x]);
+   if ( list->indexed != NULL ) kfree(list->indexed);
+   if ( list->sorted  != NULL ) kfree(list->sorted);
 }
 
 
@@ -184,11 +216,16 @@ int32_t dmaSearchComp (const void *key, const void *element) {
 // Find a buffer, return index, or -1 on error
 struct DmaBuffer * dmaFindBufferList ( struct DmaBufferList *list, dma_addr_t handle ) {
    uint32_t x;
+   uint32_t sl;
+   uint32_t sli;
 
    // Stream buffers have to be found with a loop because entries are dynamic and unsorted
-   if ( list->dev->cfgMode & BUFF_STREAM ) {
+   // We can only search if there is a single sub list
+   if ( list->sorted == NULL ) {
       for ( x=0; x < list->count; x++ ) {
-         if ( list->indexed[x]->buffHandle == handle ) return(list->indexed[x]);
+         sl  = x / BUFFERS_PER_LIST;
+         sli = x % BUFFERS_PER_LIST;
+         if ( list->indexed[sl][sli]->buffHandle == handle ) return(list->indexed[sl][sli]);
       }
 
       // Not found
@@ -216,8 +253,15 @@ struct DmaBuffer * dmaFindBuffer ( struct DmaDevice *dev, dma_addr_t handle ) {
 
 // Get a buffer using index, in passed list
 struct DmaBuffer * dmaGetBufferList ( struct DmaBufferList *list, uint32_t index ) {
+   uint32_t sl;
+   uint32_t sli;
+
    if ( index < list->baseIdx || index >= (list->baseIdx + list->count) ) return(NULL);
-   else return(list->indexed[index - list->baseIdx]);
+   else {
+      sl  = (x - list->baseIdx) / BUFFERS_PER_LIST;
+      sli = (x - list->baseIdx) % BUFFERS_PER_LIST;
+      return(list->indexed[sl][sli]);
+   }
 }
 
 // Get a buffer using index, in either list

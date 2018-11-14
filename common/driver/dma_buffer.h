@@ -33,6 +33,9 @@
 #define BUFF_STREAM    0x2
 #define BUFF_ARM_ACP   0x4
 
+// Number of buffers per list
+#define BUFFERS_PER_LIST 100000
+
 // Forward declaration
 struct DmaDevice;
 struct DmaDesc;
@@ -75,10 +78,13 @@ struct DmaBufferList {
    struct DmaDevice * dev;
 
    // Buffer list
-   struct DmaBuffer ** indexed;
+   struct DmaBuffer *** indexed;
 
    // Sorted buffer list
    struct DmaBuffer ** sorted;
+
+   // Number of lists
+   uint32_t subCount;
 
    // Number of buffers in list
    uint32_t count;

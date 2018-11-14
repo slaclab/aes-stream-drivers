@@ -186,6 +186,7 @@ void TemG3_Init(struct DmaDevice *dev) {
    uint64_t tmpL;
    uint32_t x;
 
+   struct DmaBuffer * buff;
    struct TemInfo  * info;
    struct TemG3Reg * reg;
    reg = (struct TemG3Reg *)dev->reg;
@@ -204,12 +205,14 @@ void TemG3_Init(struct DmaDevice *dev) {
 
    // Push receive buffers to hardware
    // Distribute rx bufferes evently between free lists
-   for (x=0; x < dev->rxBuffers.count; x++) {
-      if ( dmaBufferToHw(dev->rxBuffers.indexed[x]) < 0 ) 
+   for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
+      buff = dmaGetBufferList(dev->rxBuffers,x);
+
+      if ( dmaBufferToHw(buff) < 0 ) 
          dev_warn(dev->device,"Init: Failed to map dma buffer.\n");
       else {
-         iowrite32(dev->rxBuffers.indexed[x]->buffHandle,&(reg->rxFree[x % 8]));
-         dev->rxBuffers.indexed[x]->owner = (x % 8);
+         iowrite32(buff->buffHandle,&(reg->rxFree[x % 8]));
+         buff->owner = (x % 8);
       }
    }
 
