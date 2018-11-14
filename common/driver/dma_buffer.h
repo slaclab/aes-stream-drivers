@@ -60,8 +60,11 @@ struct DmaBuffer {
 
    // Pointers
    struct DmaBufferList * buffList;
+   uint32_t    alignShift;
+   void      * rawAddr;
    void      * buffAddr;
    dma_addr_t  buffHandle;
+   dma_addr_t  rawHandle;
 
 };
 
@@ -108,6 +111,9 @@ struct DmaQueue {
    // Queue wait
    wait_queue_head_t wait;
 };
+
+// Update buffer alignment
+void dmaAlignBuffer ( struct DmaBuffer *buff);
 
 // Create a list of buffer
 // Return number of buffers created
