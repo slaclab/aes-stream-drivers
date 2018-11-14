@@ -55,7 +55,7 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
 
    // Sorted lists are not always available. Disable for streaming mode or when we have too many buffers for
    // a single sorted list
-   if ( (list->subCount == 0) && ((list->dev->cfgMode & BUFF_STREAM) == 0) ) {
+   if ( (list->subCount == 1) && ((list->dev->cfgMode & BUFF_STREAM) == 0) ) {
       list->sorted = (struct DmaBuffer **) kmalloc(sizeof(struct DmaBuffer**) * count, GFP_KERNEL);
    }
 
