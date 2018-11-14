@@ -206,7 +206,7 @@ void TemG3_Init(struct DmaDevice *dev) {
    // Push receive buffers to hardware
    // Distribute rx bufferes evently between free lists
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
-      buff = dmaGetBufferList(dev->rxBuffers,x);
+      buff = dmaGetBufferList(&(dev->rxBuffers),x);
 
       if ( dmaBufferToHw(buff) < 0 ) 
          dev_warn(dev->device,"Init: Failed to map dma buffer.\n");

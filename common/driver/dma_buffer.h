@@ -93,9 +93,10 @@ struct DmaBufferList {
 // DMA Queue
 struct DmaQueue {
    uint32_t count;
+   uint32_t subCount;
 
    // Entries
-   struct DmaBuffer **queue;
+   struct DmaBuffer ***queue;
 
    // Read and write pointers
    uint32_t read;

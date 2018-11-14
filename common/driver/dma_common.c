@@ -98,6 +98,7 @@ int Dma_Init(struct DmaDevice *dev) {
 
    int32_t x;
    int32_t res;
+   uint64_t tot;
 
    // Default debug disable
    dev->debug = 0;
@@ -153,8 +154,9 @@ int Dma_Init(struct DmaDevice *dev) {
    dev_info(dev->device,"Init: Creating %i TX Buffers. Size=%i Bytes. Mode=%i.\n",
         dev->cfgTxCount,dev->cfgSize,dev->cfgMode);
    res = dmaAllocBuffers (dev, &(dev->txBuffers), dev->cfgTxCount, 0, DMA_TO_DEVICE );
-   dev_info(dev->device,"Init: Created  %i out of %i TX Buffers. %u Bytes.\n",
-        res,dev->cfgTxCount,(res*dev->cfgSize));
+   tot = res * dev->cfgSize;
+
+   dev_info(dev->device,"Init: Created  %i out of %i TX Buffers. %llu Bytes.\n", res,dev->cfgTxCount,tot);
 
    // Bad buffer allocation
    if ( dev->cfgTxCount > 0 && res == 0 ) return(-1);
@@ -163,15 +165,16 @@ int Dma_Init(struct DmaDevice *dev) {
    dmaQueueInit(&(dev->tq),dev->txBuffers.count);
 
    // Populate transmit queue
-   for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++) {
-      dmaQueuePush(&(dev->tq),dmaGetBufferList(dev->txBuffers,x));
+   for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++) 
+      dmaQueuePush(&(dev->tq),dmaGetBufferList(&(dev->txBuffers),x));
 
    // Create rx buffers, bidirectional because rx buffers can be passed to tx
    dev_info(dev->device,"Init: Creating %i RX Buffers. Size=%i Bytes. Mode=%i.\n",
         dev->cfgRxCount,dev->cfgSize,dev->cfgMode);
    res = dmaAllocBuffers (dev, &(dev->rxBuffers), dev->cfgRxCount, dev->txBuffers.count, DMA_BIDIRECTIONAL);
-   dev_info(dev->device,"Init: Created  %i out of %i RX Buffers. %u Bytes.\n",
-        res,dev->cfgRxCount,(res*dev->cfgSize));
+   tot = res * dev->cfgSize;
+
+   dev_info(dev->device,"Init: Created  %i out of %i RX Buffers. %llu Bytes.\n", res,dev->cfgRxCount,tot);
 
    // Bad buffer allocation
    if ( dev->cfgRxCount > 0 && res == 0 ) return(-1);
@@ -310,7 +313,7 @@ int Dma_Release(struct inode *inode, struct file *filp) {
    // Find rx buffers still owned by descriptor 
    cnt = 0;
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
-      buff = dmaGetBufferList(dev->rxBuffers,x);
+      buff = dmaGetBufferList(&(dev->rxBuffers),x);
 
       if ( buff->userHas == desc ) {
          buff->userHas = NULL;
@@ -325,7 +328,7 @@ int Dma_Release(struct inode *inode, struct file *filp) {
    // Find tx buffers still owned by descriptor 
    cnt = 0;
    for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++) {
-      buff = dmaGetBufferList(dev->txBuffers,x);
+      buff = dmaGetBufferList(&(dev->txBuffers),x);
 
       if ( buff->userHas == desc ) {
          buff->userHas = NULL;
@@ -865,7 +868,7 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    sum     = 0;
 
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
-      buff = dmaGetBufferList(dev->rxBuffers,x);
+      buff = dmaGetBufferList(&(dev->rxBuffers),x);
 
       if ( buff->count > max ) max = buff->count;
       if ( buff->count < min ) min = buff->count;
@@ -907,7 +910,7 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    sum     = 0;
 
    for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++) {
-      buff = dmaGetBufferList(dev->txBuffers,x);
+      buff = dmaGetBufferList(&(dev->txBuffers),x);
 
       if ( buff->count > max ) max = buff->count;
       if ( buff->count < min ) min = buff->count;

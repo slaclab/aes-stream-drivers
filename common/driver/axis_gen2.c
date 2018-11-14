@@ -365,7 +365,7 @@ void AxisG2_Init(struct DmaDevice *dev) {
 
    // Push RX buffers to hardware and map
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
-      buff = dmaGetBufferList(dev->rxBuffers,x);
+      buff = dmaGetBufferList(&(dev->rxBuffers),x);
 
       // Map failure
       if ( dmaBufferToHw(buff) < 0 ) dev_warn(dev->device,"Init: Failed to map dma buffer.\n");
