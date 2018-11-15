@@ -283,7 +283,6 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
 void AxisG2_Init(struct DmaDevice *dev) {
    uint32_t x;
    uint32_t size;
-   uint32_t shift;
 
    struct DmaBuffer  *buff;
    struct AxisG2Data *hwData;
@@ -332,26 +331,24 @@ void AxisG2_Init(struct DmaDevice *dev) {
          dma_alloc_coherent(dev->device, size, &(hwData->writeHandle),GFP_KERNEL);
    }
 
-   // Align read ring buffer
-   shift = dev->cfgAlign - (hwData->readHandle % dev->cfgAlign);
-   if ( shift == dev->cfgAlign ) shift = 0;
-   dev_info(dev->device,"Init: Read  ring at: sw 0x%llx -> hw 0x%llx. Shift=%i\n",(uint64_t)hwData->readAddr,(uint64_t)hwData->readHandle,shift);
+   dev_info(dev->device,"Init: Read  ring at: sw 0x%llx -> hw 0x%llx.\n",(uint64_t)hwData->readAddr,(uint64_t)hwData->readHandle);
+   dev_info(dev->device,"Init: Write ring at: sw 0x%llx -> hw 0x%llx.\n",(uint64_t)hwData->writeAddr,(uint64_t)hwData->writeHandle);
 
-   // Align write ring buffer
-   shift = dev->cfgAlign - (hwData->writeHandle % dev->cfgAlign);
-   if ( shift == dev->cfgAlign ) shift = 0;
-   dev_info(dev->device,"Init: Write ring at: sw 0x%llx -> hw 0x%llx. Shift=%i\n",(uint64_t)hwData->writeAddr,(uint64_t)hwData->writeHandle,shift);
+   if ( (dev->cfgAlign != 0) && ( ((hwData->readHandle % dev->cfgAlign) != 0) || ((hwData->writeHandle % dev->cfgAlign) != 0) ) ) {
+      dev_warn(dev->device,"Init: Detected bad ring buffer alignment\n");
+      return;
+   }
 
    // Init and set ring address
    iowrite32(hwData->readHandle&0xFFFFFFFF,&(reg->rdBaseAddrLow));
    iowrite32((hwData->readHandle >> 32)&0xFFFFFFFF,&(reg->rdBaseAddrHigh));
-   memset(hwData->readAddr,0,hwData->addrCount*8);
+   memset(hwData->readAddr,0,size);
    hwData->readIndex = 0;
 
    // Init and set ring address
    iowrite32(hwData->writeHandle&0xFFFFFFFF,&(reg->wrBaseAddrLow));
    iowrite32((hwData->writeHandle>>32)&0xFFFFFFFF,&(reg->wrBaseAddrHigh));
-   memset(hwData->writeAddr,0,hwData->addrCount*8);
+   memset(hwData->writeAddr,0,size);
    hwData->writeIndex = 0;
 
    hwData->missedIrq = 0;
