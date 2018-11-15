@@ -60,11 +60,8 @@ struct DmaBuffer {
 
    // Pointers
    struct DmaBufferList * buffList;
-   uint32_t    alignShift;
-   void      * rawAddr;
    void      * buffAddr;
    dma_addr_t  buffHandle;
-   dma_addr_t  rawHandle;
 
 };
 

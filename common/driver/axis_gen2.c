@@ -315,35 +315,31 @@ void AxisG2_Init(struct DmaDevice *dev) {
    hwData->addrCount = (1 << ioread32(&(reg->addrWidth)));
 
    // Set alloc size
-   size = hwData->addrCount*(hwData->desc128En?16:8) + dev->cfgAlign;
+   size = hwData->addrCount*(hwData->desc128En?16:8);
 
    if(dev->cfgMode & AXIS2_RING_ACP) {
-      hwData->rrawAddr   = kmalloc(size, GFP_DMA | GFP_KERNEL);
-      hwData->rrawHandle = virt_to_phys(hwData->rrawAddr);
+      hwData->readAddr   = kmalloc(size, GFP_DMA | GFP_KERNEL);
+      hwData->readHandle = virt_to_phys(hwData->readAddr);
 
-      hwData->wrawAddr   = kmalloc(size, GFP_DMA | GFP_KERNEL);
-      hwData->wrawHandle = virt_to_phys(hwData->wrawAddr);
+      hwData->writeAddr   = kmalloc(size, GFP_DMA | GFP_KERNEL);
+      hwData->writeHandle = virt_to_phys(hwData->writeAddr);
    }
    else {
-      hwData->rrawAddr = 
-         dma_alloc_coherent(dev->device, size, &(hwData->rrawHandle),GFP_KERNEL);
+      hwData->readAddr = 
+         dma_alloc_coherent(dev->device, size, &(hwData->readHandle),GFP_KERNEL);
 
-      hwData->wrawAddr = 
-         dma_alloc_coherent(dev->device, size, &(hwData->wrawHandle),GFP_KERNEL);
+      hwData->writeAddr = 
+         dma_alloc_coherent(dev->device, size, &(hwData->writeHandle),GFP_KERNEL);
    }
 
    // Align read ring buffer
-   shift = dev->cfgAlign - (hwData->rrawHandle % dev->cfgAlign);
+   shift = dev->cfgAlign - (hwData->readHandle % dev->cfgAlign);
    if ( shift == dev->cfgAlign ) shift = 0;
-   hwData->readAddr   = hwData->rrawAddr   + shift;
-   hwData->readHandle = hwData->rrawHandle + shift;
    dev_info(dev->device,"Init: Read  ring at: sw 0x%llx -> hw 0x%llx. Shift=%i\n",(uint64_t)hwData->readAddr,(uint64_t)hwData->readHandle,shift);
 
    // Align write ring buffer
-   shift = dev->cfgAlign - (hwData->wrawHandle % dev->cfgAlign);
+   shift = dev->cfgAlign - (hwData->writeHandle % dev->cfgAlign);
    if ( shift == dev->cfgAlign ) shift = 0;
-   hwData->writeAddr   = hwData->wrawAddr   + shift;
-   hwData->writeHandle = hwData->wrawHandle + shift;
    dev_info(dev->device,"Init: Write ring at: sw 0x%llx -> hw 0x%llx. Shift=%i\n",(uint64_t)hwData->writeAddr,(uint64_t)hwData->writeHandle,shift);
 
    // Init and set ring address
@@ -440,8 +436,8 @@ void AxisG2_Clear(struct DmaDevice *dev) {
       kfree(hwData->writeAddr);
    }
    else {
-      dma_free_coherent(dev->device, hwData->addrCount*8, hwData->writeAddr, hwData->wrawHandle);
-      dma_free_coherent(dev->device, hwData->addrCount*8, hwData->readAddr, hwData->rrawHandle);
+      dma_free_coherent(dev->device, hwData->addrCount*8, hwData->writeAddr, hwData->writeHandle);
+      dma_free_coherent(dev->device, hwData->addrCount*8, hwData->readAddr, hwData->readHandle);
    }
 
    kfree(hwData);

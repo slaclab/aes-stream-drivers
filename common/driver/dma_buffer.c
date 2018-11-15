@@ -34,6 +34,7 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
    uint32_t x;
    uint32_t sl;
    uint32_t sli;
+   uint32_t shift;
 
    struct DmaBuffer * buff;
 
@@ -87,47 +88,43 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
 
       // Coherent buffer, map dma coherent buffers
       if ( list->dev->cfgMode & BUFF_COHERENT ) {
-         buff->rawAddr = 
-            dma_alloc_coherent(list->dev->device, list->dev->cfgSize + list->dev->cfgAlign, &(buff->rawHandle), GFP_DMA32 | GFP_KERNEL);
+         buff->buffAddr = 
+            dma_alloc_coherent(list->dev->device, list->dev->cfgSize, &(buff->buffHandle), GFP_DMA32 | GFP_KERNEL);
       }
 
       // Streaming buffer type, standard kernel memory
       else if ( list->dev->cfgMode & BUFF_STREAM ) {
-         buff->rawAddr = kmalloc(list->dev->cfgSize + list->dev->cfgAlign, GFP_DMA32 | GFP_KERNEL);
+         buff->buffAddr = kmalloc(list->dev->cfgSize, GFP_DMA32 | GFP_KERNEL);
 
-         if (buff->rawAddr != NULL) {
-            buff->rawHandle = dma_map_single(list->dev->device,buff->rawAddr,
-                                             list->dev->cfgSize + list->dev->cfgAlign,direction);
+         if (buff->buffAddr != NULL) {
+            buff->buffHandle = dma_map_single(list->dev->device,buff->buffAddr,
+                                             list->dev->cfgSize,direction);
     
             // Map error
-            if ( dma_mapping_error(list->dev->device,buff->rawHandle) ) {
-               buff->rawHandle = 0;
+            if ( dma_mapping_error(list->dev->device,buff->buffHandle) ) {
+               buff->buffHandle = 0;
             }
          }
       }
 
       // ACP type with permament handle mapping, dma capable kernel memory
       else if ( list->dev->cfgMode & BUFF_ARM_ACP ) {
-         buff->rawAddr = kmalloc(list->dev->cfgSize + list->dev->cfgAlign, GFP_DMA | GFP_KERNEL);
-         if (buff->rawAddr != NULL)
-            buff->rawHandle = virt_to_phys(buff->rawAddr);
+         buff->buffAddr = kmalloc(list->dev->cfgSize, GFP_DMA | GFP_KERNEL);
+         if (buff->buffAddr != NULL)
+            buff->buffHandle = virt_to_phys(buff->buffAddr);
       }
 
       // Alloc or mapping failed
-      if ( buff->rawAddr == NULL || buff->rawHandle == 0) {
-         if ( buff->rawAddr != NULL ) kfree(buff->rawAddr);
+      if ( buff->buffAddr == NULL || buff->buffHandle == 0) {
+         if ( buff->buffAddr != NULL ) kfree(buff->buffAddr);
          kfree(buff);
          break; 
       }
 
-      // Align the local address
-      buff->alignShift = dev->cfgAlign - ((uint64_t)buff->rawAddr % dev->cfgAlign);
-      if ( buff->alignShift == dev->cfgAlign ) buff->alignShift = 0;
-      else {
-         dev_warn(dev->device,"dmaAllocBuffers: Found nonzero shift=%i, sw=0x%llx, hw=0x%llx.\n",buff->alignShift,(uint64_t)buff->rawAddr,(uint64_t)buff->rawHandle);
-         buff->buffAddr   = buff->rawAddr   + buff->alignShift;
-         buff->buffHandle = buff->rawHandle + buff->alignShift;
-      }
+      // Check buffer alignment
+      shift = dev->cfgAlign - ((uint64_t)buff->buffAddr % dev->cfgAlign);
+      if ( shift != dev->cfgAlign ) 
+         dev_warn(dev->device,"dmaAllocBuffers: Found nonzero shift=%i, sw=0x%llx, hw=0x%llx.\n",shift,(uint64_t)buff->buffAddr,(uint64_t)buff->buffHandle);
 
       // Set index
       buff->index = x + list->baseIdx;
@@ -155,21 +152,21 @@ void dmaFreeBuffers ( struct DmaBufferList *list ) {
       sl  = x / BUFFERS_PER_LIST;
       sli = x % BUFFERS_PER_LIST;
 
-      if ( list->indexed[sl][sli]->rawAddr != NULL ) {
+      if ( list->indexed[sl][sli]->buffAddr != NULL ) {
 
          // Coherent buffer
          if ( list->dev->cfgMode & BUFF_COHERENT ) {
-            dma_free_coherent(list->dev->device, list->dev->cfgSize + list->dev->cfgAlign,list->indexed[sl][sli]->rawAddr,list->indexed[sl][sli]->rawHandle);
+            dma_free_coherent(list->dev->device, list->dev->cfgSize,list->indexed[sl][sli]->buffAddr,list->indexed[sl][sli]->buffHandle);
          }
 
          // Streaming type
          if ( list->dev->cfgMode & BUFF_STREAM ) {
-            dma_unmap_single(list->dev->device,list->indexed[sl][sli]->rawHandle,list->dev->cfgSize + list->dev->cfgAlign,list->direction);
+            dma_unmap_single(list->dev->device,list->indexed[sl][sli]->buffHandle,list->dev->cfgSize,list->direction);
          }
 
          // Streaming buffer type or ARM ACP
          if ( (list->dev->cfgMode & BUFF_STREAM) || (list->dev->cfgMode & BUFF_ARM_ACP) ) {
-            kfree(list->indexed[sl][sli]->rawAddr);
+            kfree(list->indexed[sl][sli]->buffAddr);
          }
       }
       kfree(list->indexed[sl][sli]);
@@ -207,8 +204,8 @@ int32_t dmaSortComp (const void *p1, const void *p2) {
    struct DmaBuffer ** b1 = (struct DmaBuffer **)p1;
    struct DmaBuffer ** b2 = (struct DmaBuffer **)p2;
 
-   if ( (*b1)->rawHandle > (*b2)->rawHandle ) return 1;
-   if ( (*b1)->rawHandle < (*b2)->rawHandle ) return -1;
+   if ( (*b1)->buffHandle > (*b2)->buffHandle ) return 1;
+   if ( (*b1)->buffHandle < (*b2)->buffHandle ) return -1;
    return(0);
 }
 
@@ -352,11 +349,9 @@ int32_t dmaBufferToHw ( struct DmaBuffer *buff) {
    // Buffer is stream mode, sync
    if ( buff->buffList->dev->cfgMode & BUFF_STREAM ) {
       dma_sync_single_for_device(buff->buffList->dev->device, 
-                                 buff->rawHandle, 
-                                 buff->buffList->dev->cfgSize + buff->buffList->dev->cfgAlign,
+                                 buff->buffHandle, 
+                                 buff->buffList->dev->cfgSize,
                                  buff->buffList->direction);
-
-      buff->buffHandle = buff->rawHandle + buff->alignShift;
    }
 
    buff->inHw = 1;
@@ -370,8 +365,8 @@ void dmaBufferFromHw ( struct DmaBuffer *buff ) {
    // Buffer is stream mode, sync
    if ( buff->buffList->dev->cfgMode & BUFF_STREAM ) {
       dma_sync_single_for_cpu(buff->buffList->dev->device, 
-                              buff->rawHandle, 
-                              buff->buffList->dev->cfgSize + buff->buffList->dev->cfgAlign,
+                              buff->buffHandle, 
+                              buff->buffList->dev->cfgSize,
                               buff->buffList->direction);
    }
 }

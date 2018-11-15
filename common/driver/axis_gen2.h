@@ -74,15 +74,11 @@ struct AxisG2Return {
 struct AxisG2Data {
    uint32_t    desc128En;
 
-   uint32_t  * rrawAddr;
    uint32_t  * readAddr;
-   dma_addr_t  rrawHandle;
    dma_addr_t  readHandle;
    uint32_t    readIndex;
 
-   uint32_t  * wrawAddr;
    uint32_t  * writeAddr;
-   dma_addr_t  wrawHandle;
    dma_addr_t  writeHandle;
    uint32_t    writeIndex;
 
