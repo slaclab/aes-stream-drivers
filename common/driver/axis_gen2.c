@@ -324,11 +324,8 @@ void AxisG2_Init(struct DmaDevice *dev) {
       hwData->writeHandle = virt_to_phys(hwData->writeAddr);
    }
    else {
-      hwData->readAddr = 
-         dma_alloc_coherent(dev->device, size, &(hwData->readHandle),GFP_KERNEL);
-
-      hwData->writeAddr = 
-         dma_alloc_coherent(dev->device, size, &(hwData->writeHandle),GFP_KERNEL);
+      hwData->readAddr = dma_alloc_coherent(dev->device, size, &(hwData->readHandle), GFP_DMA32 | GFP_KERNEL);
+      hwData->writeAddr = dma_alloc_coherent(dev->device, size, &(hwData->writeHandle), GFP_DMA32 | GFP_KERNEL);
    }
 
    dev_info(dev->device,"Init: Read  ring at: sw 0x%llx -> hw 0x%llx.\n",(uint64_t)hwData->readAddr,(uint64_t)hwData->readHandle);
