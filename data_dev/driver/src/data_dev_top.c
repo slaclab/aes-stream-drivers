@@ -146,6 +146,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->cfgSize    = cfgSize;
    dev->cfgMode    = cfgMode;
    dev->cfgCont    = cfgCont;
+   dev->cfgAlign   = 8;
 
    // Get IRQ from pci_dev structure. 
    dev->irq = pcidev->irq;
@@ -160,6 +161,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    // 128bit desc, = 64-bit address map
    if ( (ioread32(dev->reg) & 0x10000) != 0) {
+      dev->cfgAlign = 16;
       if (!dma_set_mask_and_coherent(dev->device, DMA_BIT_MASK(40))) {
          dev_info(dev->device,"Init: Using 40-bit DMA mask.\n");
       } else if (!dma_set_mask_and_coherent(dev->device, DMA_BIT_MASK(32))) {
@@ -172,8 +174,8 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    // Call common dma init function
    if ( Dma_Init(dev) < 0 ) return(-1);
 
-   dev_info(dev->device,"Init: Reg  space mapped to %p.\n",dev->reg);
-   dev_info(dev->device,"Init: User space mapped to %p with size 0x%x.\n",dev->rwBase,dev->rwSize);
+   dev_info(dev->device,"Init: Reg  space mapped to 0x%llx.\n",(uint64_t)dev->reg);
+   dev_info(dev->device,"Init: User space mapped to 0x%llx with size 0x%x.\n",(uint64_t)dev->rwBase,dev->rwSize);
    dev_info(dev->device,"Init: Top Register = 0x%x\n",ioread32(dev->reg));
 
    return(0);

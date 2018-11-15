@@ -334,28 +334,27 @@ void AxisG2_Init(struct DmaDevice *dev) {
 
    // Align read ring buffer
    shift = dev->cfgAlign - (hwData->rrawHandle % dev->cfgAlign);
-   if ( shift != dev->cfgAlign ) {
-      hwData->readAddr   = hwData->rrawAddr   + shift;
-      hwData->readHandle = hwData->rrawHandle + shift;
-   }
+   if ( shift == dev->cfgAlign ) shift = 0;
+   hwData->readAddr   = hwData->rrawAddr   + shift;
+   hwData->readHandle = hwData->rrawHandle + shift;
+   dev_info(dev->device,"Init: Read  ring at: sw 0x%llx -> hw 0x%llx. Shift=%i\n",(uint64_t)hwData->readAddr,(uint64_t)hwData->readHandle,shift);
 
    // Align write ring buffer
    shift = dev->cfgAlign - (hwData->wrawHandle % dev->cfgAlign);
-   if ( shift != dev->cfgAlign ) {
-      hwData->writeAddr   = hwData->wrawAddr   + shift;
-      hwData->writeHandle = hwData->wrawHandle + shift;
-   }
-
-   dev_info(dev->device,"Init: Read  ring at: sw %p -> hw %p\n",hwData->readAddr,(void *)hwData->readHandle);
-   dev_info(dev->device,"Init: Write ring at: sw %p -> hw %p\n",hwData->writeAddr,(void *)hwData->writeHandle);
+   if ( shift == dev->cfgAlign ) shift = 0;
+   hwData->writeAddr   = hwData->wrawAddr   + shift;
+   hwData->writeHandle = hwData->wrawHandle + shift;
+   dev_info(dev->device,"Init: Write ring at: sw 0x%llx -> hw 0x%llx. Shift=%i\n",(uint64_t)hwData->writeAddr,(uint64_t)hwData->writeHandle,shift);
 
    // Init and set ring address
-   iowrite32(hwData->readHandle,&(reg->rdBaseAddrLow));
+   iowrite32(hwData->readHandle&0xFFFFFFFF,&(reg->rdBaseAddrLow));
+   iowrite32((hwData->readHandle >> 32)&0xFFFFFFFF,&(reg->rdBaseAddrHigh));
    memset(hwData->readAddr,0,hwData->addrCount*8);
    hwData->readIndex = 0;
 
    // Init and set ring address
-   iowrite32(hwData->writeHandle,&(reg->wrBaseAddrLow));
+   iowrite32(hwData->writeHandle&0xFFFFFFFF,&(reg->wrBaseAddrLow));
+   iowrite32((hwData->writeHandle>>32)&0xFFFFFFFF,&(reg->wrBaseAddrHigh));
    memset(hwData->writeAddr,0,hwData->addrCount*8);
    hwData->writeIndex = 0;
 

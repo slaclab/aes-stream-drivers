@@ -34,8 +34,8 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
    uint32_t x;
    uint32_t sl;
    uint32_t sli;
-   uint32_t extra;
-   uint32_t rem;
+
+   struct DmaBuffer * buff;
 
    // Determine number of sub-lists
    list->subCount = (count / BUFFERS_PER_LIST) + 1;
@@ -74,66 +74,68 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
       sl  = x / BUFFERS_PER_LIST;
       sli = x % BUFFERS_PER_LIST;
 
-      if ( (list->indexed[sl][sli] = (struct DmaBuffer *) kmalloc(sizeof(struct DmaBuffer), GFP_KERNEL)) == NULL) {
+      if ( (buff = (struct DmaBuffer *) kmalloc(sizeof(struct DmaBuffer), GFP_KERNEL)) == NULL) {
          dev_warn(dev->device,"dmaAllocBuffers: Failed to create buffer structure index %ui.\n",x);
          break;
       }
 
       // Init record
-      memset(list->indexed[sl][sli],0,sizeof(struct DmaBuffer));
+      memset(buff,0,sizeof(struct DmaBuffer));
 
       // Setup pointer back to list
-      list->indexed[sl][sli]->buffList = list;
+      buff->buffList = list;
 
       // Coherent buffer, map dma coherent buffers
       if ( list->dev->cfgMode & BUFF_COHERENT ) {
-         list->indexed[sl][sli]->rawAddr = 
-            dma_alloc_coherent(list->dev->device, list->dev->cfgSize + list->dev->cfgAlign, &(list->indexed[sl][sli]->rawHandle), GFP_DMA32 | GFP_KERNEL);
+         buff->rawAddr = 
+            dma_alloc_coherent(list->dev->device, list->dev->cfgSize + list->dev->cfgAlign, &(buff->rawHandle), GFP_DMA32 | GFP_KERNEL);
       }
 
       // Streaming buffer type, standard kernel memory
       else if ( list->dev->cfgMode & BUFF_STREAM ) {
-         list->indexed[sl][sli]->rawAddr = kmalloc(list->dev->cfgSize + list->dev->cfgAlign, GFP_DMA32 | GFP_KERNEL);
+         buff->rawAddr = kmalloc(list->dev->cfgSize + list->dev->cfgAlign, GFP_DMA32 | GFP_KERNEL);
 
-         if (list->indexed[sl][sli]->rawAddr != NULL) {
-            list->indexed[sl][sli]->rawHandle = dma_map_single(list->dev->device,list->indexed[sl][sli]->rawAddr,
-                                                               list->dev->cfgSize + list->dev->cfgAlign,direction);
+         if (buff->rawAddr != NULL) {
+            buff->rawHandle = dma_map_single(list->dev->device,buff->rawAddr,
+                                             list->dev->cfgSize + list->dev->cfgAlign,direction);
     
             // Map error
-            if ( dma_mapping_error(list->dev->device,list->indexed[sl][sli]->rawHandle) ) {
-               list->indexed[sl][sli]->rawHandle = 0;
+            if ( dma_mapping_error(list->dev->device,buff->rawHandle) ) {
+               buff->rawHandle = 0;
             }
          }
       }
 
       // ACP type with permament handle mapping, dma capable kernel memory
       else if ( list->dev->cfgMode & BUFF_ARM_ACP ) {
-         list->indexed[sl][sli]->rawAddr = kmalloc(list->dev->cfgSize + list->dev->cfgAlign, GFP_DMA | GFP_KERNEL);
-         if (list->indexed[sl][sli]->rawAddr != NULL)
-            list->indexed[sl][sli]->rawHandle = virt_to_phys(list->indexed[sl][sli]->rawAddr);
+         buff->rawAddr = kmalloc(list->dev->cfgSize + list->dev->cfgAlign, GFP_DMA | GFP_KERNEL);
+         if (buff->rawAddr != NULL)
+            buff->rawHandle = virt_to_phys(buff->rawAddr);
       }
 
       // Alloc or mapping failed
-      if ( list->indexed[sl][sli]->rawAddr == NULL || list->indexed[sl][sli]->rawHandle == 0) {
-         if ( list->indexed[sl][sli]->rawAddr != NULL ) kfree(list->indexed[sl][sli]->rawAddr);
-         kfree(list->indexed[sl][sli]);
+      if ( buff->rawAddr == NULL || buff->rawHandle == 0) {
+         if ( buff->rawAddr != NULL ) kfree(buff->rawAddr);
+         kfree(buff);
          break; 
       }
 
+      // Align the local address
+      buff->alignShift = dev->cfgAlign - ((uint64_t)buff->rawAddr % dev->cfgAlign);
+      if ( buff->alignShift == dev->cfgAlign ) buff->alignShift = 0;
+      else {
+         dev_warn(dev->device,"dmaAllocBuffers: Found nonzero shift=%i, sw=0x%llx, hw=0x%llx.\n",buff->alignShift,(uint64_t)buff->rawAddr,(uint64_t)buff->rawHandle);
+         buff->buffAddr   = buff->rawAddr   + buff->alignShift;
+         buff->buffHandle = buff->rawHandle + buff->alignShift;
+      }
+
       // Set index
-      list->indexed[sl][sli]->index = x + list->baseIdx;
+      buff->index = x + list->baseIdx;
+      list->indexed[sl][sli] = buff;
 
       // Populate entry in sorted list for later sort
-      if ( list->sorted != NULL ) list->sorted[sli] = list->indexed[sl][sli];
+      if ( list->sorted != NULL ) list->sorted[sli] = buff;
       list->count++;
-   }
-
-   // Align the local address
-   buff->alignShift = dev->cfgAlign - (buff->rawAddr % dev->cfgAlign);
-   if ( buff->alignShift == dev->cfgAlign ) buff->alignShift = 0;
-   else {
-      buff->buffAddr   = buff->rawAddr   + buff->alignShift;
-      buff->buffHandle = buff->rawHandle + buff->alignShift;
    }
 
    // Sort the buffers
