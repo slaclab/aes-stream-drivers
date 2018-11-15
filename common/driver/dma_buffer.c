@@ -34,7 +34,6 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
    uint32_t x;
    uint32_t sl;
    uint32_t sli;
-   uint32_t shift;
 
    struct DmaBuffer * buff;
 
