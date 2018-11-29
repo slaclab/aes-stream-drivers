@@ -498,7 +498,8 @@ ssize_t Dma_Write(struct file *filp, const char* buffer, size_t count, loff_t* f
 
       // First look in tx buffer list then look in rx list 
       // Rx list is alid if user is passing index of previously received buffer
-      if ( ((buff=dmaGetBuffer(dev,wr.index)) == NULL ) || buff->userHas != desc ) {
+      //if ( ((buff=dmaGetBuffer(dev,wr.index)) == NULL ) || buff->userHas != desc ) {
+      if ( (buff=dmaGetBuffer(dev,wr.index)) == NULL ) {
          dev_warn(dev->device,"Write: Invalid index posted: %i.\n", wr.index);
          return(-1);
       }
