@@ -150,6 +150,10 @@ struct DmaBuffer * dmaRetBufferIrq ( struct DmaDevice *device, dma_addr_t handle
 
 // Conditionally return buffer to transmit buffer. If buffer is not found in 
 // transmit list return a pointer to the buffer. Passed value is the dma handle.
+struct DmaBuffer * dmaRetBufferIdx ( struct DmaDevice *device, uint32_t index );
+
+// Conditionally return buffer to transmit buffer. If buffer is not found in 
+// transmit list return a pointer to the buffer. Passed value is the dma handle.
 struct DmaBuffer * dmaRetBufferIdxIrq ( struct DmaDevice *device, uint32_t index );
 
 // Push buffer to descriptor receive queue

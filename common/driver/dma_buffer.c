@@ -307,6 +307,30 @@ struct DmaBuffer * dmaRetBufferIrq ( struct DmaDevice *dev, dma_addr_t handle ) 
 
 // Conditionally return buffer to transmit buffer. If buffer is not found in 
 // transmit list return a pointer to the buffer. Passed value is the dma handle.
+struct DmaBuffer * dmaRetBufferIdx ( struct DmaDevice *dev, uint32_t index ) {
+   struct DmaBuffer *buff;
+
+   // Return buffer to transmit queue if it is found
+   if ( (buff = dmaGetBufferList (&(dev->txBuffers),index)) != NULL) {
+      dmaBufferFromHw(buff);
+      dmaQueuePush(&(dev->tq),buff);
+      return(NULL);
+   }
+
+   // Return rx buffer
+   else if ( (buff = dmaGetBufferList (&(dev->rxBuffers),index)) != NULL) {
+      return(buff);
+   }
+
+   // Buffer is not found
+   else {
+      dev_warn(dev->device,"dmaRetBufferIdxIrq: Failed to locate descriptor %i.\n",index);
+      return(NULL);
+   }
+}
+
+// Conditionally return buffer to transmit buffer. If buffer is not found in 
+// transmit list return a pointer to the buffer. Passed value is the dma handle.
 struct DmaBuffer * dmaRetBufferIdxIrq ( struct DmaDevice *dev, uint32_t index ) {
    struct DmaBuffer *buff;
 
