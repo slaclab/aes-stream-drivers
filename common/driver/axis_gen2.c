@@ -137,6 +137,7 @@ inline void AxisG2_WriteTx ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint
 // Interrupt handler
 irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    uint32_t handleCount;
+   unsigned long iflags;
 
    struct DmaDesc     * desc;
    struct DmaBuffer   * buff;
@@ -171,14 +172,16 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
 
       // Attempt to find buffer in tx pool and return. otherwise return rx entry to hw.
       // Must adjust counters here and check for buffer need
-      if ((buff = dmaRetBufferIdxIrq (dev,ret.index)) != NULL) {
+      //if ((buff = dmaRetBufferIdxIrq (dev,ret.index)) != NULL) {
+      if ((buff = dmaRetBufferIdx (dev,ret.index)) != NULL) {
 
          // Add to software queue
-         if ( hwData->hwRdBuffCnt >= (hwData->addrCount-1) ) dmaQueuePushIrq(&(hwData->rdQueue),buff);
+         //if ( hwData->hwWrBuffCnt >= (hwData->addrCount-1) ) dmaQueuePushIrq(&(hwData->wrQueue),buff);
+         if ( hwData->hwWrBuffCnt >= (hwData->addrCount-1) ) dmaQueuePush(&(hwData->wrQueue),buff);
 
          // Add to hardware queue
          else {
-            ++(hwData->hwRdBuffCnt);
+            ++(hwData->hwWrBuffCnt);
             AxisG2_WriteFree(buff,reg,hwData->desc128En);
          }
       }
@@ -189,8 +192,10 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
 
    // Process transmit software queue
    if ( hwData->desc128En ) {
+      //while ( (hwData->hwRdBuffCnt < (hwData->addrCount-1)) &&
+              //((buff = dmaQueuePopIrq(&(hwData->rdQueue))) != NULL) ) {
       while ( (hwData->hwRdBuffCnt < (hwData->addrCount-1)) &&
-              ((buff = dmaQueuePopIrq(&(hwData->rdQueue))) != NULL) ) {
+              ((buff = dmaQueuePop(&(hwData->rdQueue))) != NULL) ) {
 
          // Write to hardware
          AxisG2_WriteTx(buff,reg,hwData->desc128En);
@@ -201,7 +206,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    ////////////////// Receive Buffers /////////////////////////
 
    // Lock mask
-   spin_lock(&dev->maskLock);
+   spin_lock_irqsave(&dev->maskLock,iflags);
 
    // Check write descriptor
    while ( AxisG2_MapReturn(dev,&ret,hwData->desc128En,hwData->writeIndex,hwData->writeAddr) ) {
@@ -240,7 +245,8 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
                AxisG2_WriteFree(buff,reg,hwData->desc128En);
                ++hwData->hwWrBuffCnt;
             }
-            else dmaQueuePushIrq(&(hwData->wrQueue),buff);
+            //else dmaQueuePushIrq(&(hwData->wrQueue),buff);
+            else dmaQueuePush(&(hwData->wrQueue),buff);
          }
 
          // lane/vc is open,  Add to RX Queue
@@ -255,14 +261,15 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    }
 
    // Unlock
-   spin_unlock(&dev->maskLock);
+   spin_unlock_irqrestore(&dev->maskLock,iflags);
 
    // Get (write / receive) return buffer list
    if ( hwData->desc128En && ((buffList = (struct DmaBuffer **)kmalloc(1000 * sizeof(struct DmaBuffer *),GFP_ATOMIC)) != NULL)) {
       do {
          rCnt = ((hwData->addrCount-1) - hwData->hwWrBuffCnt);
          if (rCnt > 1000 ) rCnt = 1000;
-         bCnt = dmaQueuePopListIrq(&(hwData->wrQueue),buffList,rCnt);
+         //bCnt = dmaQueuePopListIrq(&(hwData->wrQueue),buffList,rCnt);
+         bCnt = dmaQueuePopList(&(hwData->wrQueue),buffList,rCnt);
          for (x=0; x < bCnt; x++) {
             AxisG2_WriteFree(buffList[x],reg,hwData->desc128En);
             ++hwData->hwWrBuffCnt;
