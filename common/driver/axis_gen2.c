@@ -175,11 +175,11 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
       //if ((buff = dmaRetBufferIdxIrq (dev,ret.index)) != NULL) {
       if ((buff = dmaRetBufferIdx (dev,ret.index)) != NULL) {
 
-         // Add to software queue
+         // Add to receive/write software queue
          //if ( hwData->hwWrBuffCnt >= (hwData->addrCount-1) ) dmaQueuePushIrq(&(hwData->wrQueue),buff);
          if ( hwData->hwWrBuffCnt >= (hwData->addrCount-1) ) dmaQueuePush(&(hwData->wrQueue),buff);
 
-         // Add to hardware queue
+         // Add to receive/write hardware queue
          else {
             ++(hwData->hwWrBuffCnt);
             AxisG2_WriteFree(buff,reg,hwData->desc128En);
