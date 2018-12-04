@@ -356,7 +356,7 @@ struct DmaBuffer * dmaRetBufferIdxIrq ( struct DmaDevice *dev, uint32_t index ) 
 // Push buffer to descriptor receive queue
 void dmaRxBuffer ( struct DmaDesc *desc, struct DmaBuffer *buff ) {
    dmaBufferFromHw(buff);
-   dmaQueuePushIrq(&(desc->q),buff);
+   dmaQueuePush(&(desc->q),buff);
    if (desc->async_queue) kill_fasync(&desc->async_queue, SIGIO, POLL_IN);
 }
 

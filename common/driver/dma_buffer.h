@@ -109,9 +109,6 @@ struct DmaQueue {
    wait_queue_head_t wait;
 };
 
-// Update buffer alignment
-void dmaAlignBuffer ( struct DmaBuffer *buff);
-
 // Create a list of buffer
 // Return number of buffers created
 size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,

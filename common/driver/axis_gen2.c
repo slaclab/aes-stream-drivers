@@ -137,7 +137,6 @@ inline void AxisG2_WriteTx ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint
 // Interrupt handler
 irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    uint32_t handleCount;
-   unsigned long iflags;
 
    struct DmaDesc     * desc;
    struct DmaBuffer   * buff;
@@ -146,6 +145,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    struct AxisG2Reg   * reg;
    struct AxisG2Data  * hwData;
    struct AxisG2Return ret;
+   unsigned long iflags;
 
    uint32_t x;
    uint32_t bCnt;
@@ -206,6 +206,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    ////////////////// Receive Buffers /////////////////////////
 
    // Lock mask
+   dev_info(dev->device,"Irq: Getting mask lock\n");
    spin_lock_irqsave(&dev->maskLock,iflags);
 
    // Check write descriptor
@@ -246,11 +247,17 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
                ++hwData->hwWrBuffCnt;
             }
             //else dmaQueuePushIrq(&(hwData->wrQueue),buff);
-            else dmaQueuePush(&(hwData->wrQueue),buff);
+            else {
+               dev_info(dev->device,"Irq: pushing to wrQueue\n");
+               dmaQueuePush(&(hwData->wrQueue),buff);
+            }
          }
 
          // lane/vc is open,  Add to RX Queue
-         else dmaRxBuffer(desc,buff);
+         else {
+            dev_info(dev->device,"Irq: pushing to rx queue\n");
+            dmaRxBuffer(desc,buff);
+         }
       }
       else dev_warn(dev->device,"Irq: Failed to locate RX buffer index %i.\n", ret.index);
 
@@ -262,6 +269,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
 
    // Unlock
    spin_unlock_irqrestore(&dev->maskLock,iflags);
+   dev_info(dev->device,"Irq: released mask lock\n");
 
    // Get (write / receive) return buffer list
    if ( hwData->desc128En && ((buffList = (struct DmaBuffer **)kmalloc(1000 * sizeof(struct DmaBuffer *),GFP_ATOMIC)) != NULL)) {
