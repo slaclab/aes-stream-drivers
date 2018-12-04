@@ -169,7 +169,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
       --(hwData->hwRdBuffCnt);
 
       if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Got TX Descriptor: Idx=%i, Pos=%i\n",ret.index,hwData->readIndex);
-
+#if 0
       // Attempt to find buffer in tx pool and return. otherwise return rx entry to hw.
       // Must adjust counters here and check for buffer need
       //if ((buff = dmaRetBufferIdxIrq (dev,ret.index)) != NULL) {
@@ -185,7 +185,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
             AxisG2_WriteFree(buff,reg,hwData->desc128En);
          }
       }
-
+#endif 
       hwData->readIndex = ((hwData->readIndex+1) % hwData->addrCount);
       if ( handleCount > 1000 ) break;
    }
