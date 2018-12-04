@@ -247,22 +247,20 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
                ++hwData->hwWrBuffCnt;
             }
             //else dmaQueuePushIrq(&(hwData->wrQueue),buff);
-            else {
-               dev_info(dev->device,"Irq: pushing to wrQueue 0x%x\n",desc);
-               for(x=0; x < 10; x++) dev_info(dev->device,"Irq: pushing to wrQueue A %i\n",x);
-               dmaBufferFromHw(buff);
-               for(x=0; x < 10; x++) dev_info(dev->device,"Irq: pushing to wrQueue B %i\n",x);
-               dmaQueuePush(&(desc->q),buff);
-               for(x=0; x < 10; x++) dev_info(dev->device,"Irq: pushing to wrQueue C %i\n",x);
-               //if (desc->async_queue) kill_fasync(&desc->async_queue, SIGIO, POLL_IN);
-               //dmaQueuePush(&(hwData->wrQueue),buff);
-            }
+            else dmaQueuePush(&(hwData->wrQueue),buff);
          }
 
          // lane/vc is open,  Add to RX Queue
          else {
-            dev_info(dev->device,"Irq: pushing to rx queue\n");
-            dmaRxBuffer(desc,buff);
+            dev_info(dev->device,"Irq: pushing to rx Queue 0x%x\n",desc);
+            for(x=0; x < 10; x++) dev_info(dev->device,"Irq: pushing to rx Queue A %i\n",x);
+            dmaBufferFromHw(buff);
+            for(x=0; x < 10; x++) dev_info(dev->device,"Irq: pushing to rx Queue B %i\n",x);
+            dmaQueuePush(&(desc->q),buff);
+            for(x=0; x < 10; x++) dev_info(dev->device,"Irq: pushing to rx Queue C %i\n",x);
+            //if (desc->async_queue) kill_fasync(&desc->async_queue, SIGIO, POLL_IN);
+            //dev_info(dev->device,"Irq: pushing to rx queue\n");
+            //dmaRxBuffer(desc,buff);
          }
       }
       else dev_warn(dev->device,"Irq: Failed to locate RX buffer index %i.\n", ret.index);
