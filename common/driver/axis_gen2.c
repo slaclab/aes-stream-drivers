@@ -253,11 +253,12 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
          // lane/vc is open,  Add to RX Queue
          else {
             dev_info(dev->device,"Irq: pushing to rx Queue 0x%x\n",desc);
-            for(x=0; x < 10; x++) dev_info(dev->device,"Irq: pushing to rx Queue A %i\n",x);
+            for(x=0; x < 20; x++) dev_info(dev->device,"Irq: pushing to rx Queue A %i 0x%x\n",x,dev->desc[buff->dest]);
             dmaBufferFromHw(buff);
-            for(x=0; x < 10; x++) dev_info(dev->device,"Irq: pushing to rx Queue B %i\n",x);
+            for(x=0; x < 20; x++) dev_info(dev->device,"Irq: pushing to rx Queue B %i - 0x%x\n",x,&(desc->q));
+            for(x=0; x < 20; x++) dev_info(dev->device,"Irq: pushing to rx Queue C %i\n",x);
             dmaQueuePush(&(desc->q),buff);
-            for(x=0; x < 10; x++) dev_info(dev->device,"Irq: pushing to rx Queue C %i\n",x);
+            for(x=0; x < 20; x++) dev_info(dev->device,"Irq: pushing to rx Queue D %i\n",x);
             //if (desc->async_queue) kill_fasync(&desc->async_queue, SIGIO, POLL_IN);
             //dev_info(dev->device,"Irq: pushing to rx queue\n");
             //dmaRxBuffer(desc,buff);
