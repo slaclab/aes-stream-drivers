@@ -873,9 +873,9 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
       if ( buff->count > max ) max = buff->count;
       if ( buff->count < min ) min = buff->count;
       if ( buff->userHas ) userCnt++;
-      if (  buff->inHw && !buff->inQ ) hwCnt++;
-      if (  buff->inHw &&  buff->inQ ) hwQCnt++;
-      if ( !buff->inHw &&  buff->inQ ) qCnt++;
+      if (  buff->inHw   && (!buff->inQ) ) hwCnt++;
+      if (  buff->inHw   &&  buff->inQ   ) hwQCnt++;
+      if ( (!buff->inHw) &&  buff->inQ   ) qCnt++;
 
       if ( buff->userHas == NULL && buff->inHw == 0 && buff->inQ == 0 ) miss++;
 
@@ -918,9 +918,9 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
       if ( buff->count > max ) max = buff->count;
       if ( buff->count < min ) min = buff->count;
       if ( buff->userHas ) userCnt++;
-      if (  buff->inHw && !buff->inQ ) hwCnt++;
-      if (  buff->inHw &&  buff->inQ ) hwQCnt++;
-      if ( !buff->inHw &&  buff->inQ ) qCnt++;
+      if (  buff->inHw   && (!buff->inQ) ) hwCnt++;
+      if (  buff->inHw   &&  buff->inQ   ) hwQCnt++;
+      if ( (!buff->inHw) &&  buff->inQ   ) qCnt++;
 
       if ( buff->userHas == NULL && buff->inHw == 0 && buff->inQ == 0 ) miss++;
 
