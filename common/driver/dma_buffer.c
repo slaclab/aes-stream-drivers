@@ -360,6 +360,14 @@ void dmaRxBuffer ( struct DmaDesc *desc, struct DmaBuffer *buff ) {
    if (desc->async_queue) kill_fasync(&desc->async_queue, SIGIO, POLL_IN);
 }
 
+// Push buffer to descriptor receive queue
+// Called inside IRQ routine
+void dmaRxBufferIrq ( struct DmaDesc *desc, struct DmaBuffer *buff ) {
+   dmaBufferFromHw(buff);
+   dmaQueuePushIrq(&(desc->q),buff);
+   if (desc->async_queue) kill_fasync(&desc->async_queue, SIGIO, POLL_IN);
+}
+
 // Sort a buffer list
 void dmaSortBuffers ( struct DmaBufferList *list ) {
    if ( list->count > 0 ) 

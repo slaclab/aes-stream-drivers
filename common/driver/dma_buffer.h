@@ -156,6 +156,10 @@ struct DmaBuffer * dmaRetBufferIdxIrq ( struct DmaDevice *device, uint32_t index
 // Push buffer to descriptor receive queue
 void dmaRxBuffer ( struct DmaDesc *desc, struct DmaBuffer *buff );
 
+// Push buffer to descriptor receive queue
+// Called inside IRQ routine
+void dmaRxBufferIrq ( struct DmaDesc *desc, struct DmaBuffer *buff );
+
 // Sort a buffer list
 void dmaSortBuffers ( struct DmaBufferList *list );
 

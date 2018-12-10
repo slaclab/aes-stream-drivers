@@ -286,13 +286,9 @@ int Dma_Release(struct inode *inode, struct file *filp) {
 
    desc = (struct DmaDesc *)filp->private_data;
    dev  = desc->dev;
-   dev_info(dev->device,"Release: entered release");
 
    // Make sure we can't receive data while adjusting mask flags
-   dev_info(dev->device,"Release: entered lock");
    spin_lock_irqsave(&dev->maskLock,iflags);
-   dev_info(dev->device,"Release: I have the lock");
-   for (x=0; x < 0xFF; x++) dev_info(dev->device,"Release: lock count %i",x);
 
    // Clear pointers
    for (x=0; x < DMA_MAX_DEST; x++) {
@@ -302,20 +298,16 @@ int Dma_Release(struct inode *inode, struct file *filp) {
    }
 
    spin_unlock_irqrestore(&dev->maskLock,iflags);
-   dev_info(dev->device,"Release: exited lock");
 
    if (desc->async_queue) Dma_Fasync(-1,filp,0);
 
    // Release buffers
-   dev_info(dev->device,"Release: releasing buffers");
    cnt = 0;
    while ( (buff = dmaQueuePop(&(desc->q))) != NULL ) {
       dev->hwFunc->retRxBuffer(dev,&buff,1);
       cnt++;
    }
-   if ( cnt > 0 ) 
-      dev_info(dev->device,"Release: Removed %i buffers from closed device.\n", cnt);
-   dev_info(dev->device,"Release: releasing user buffers");
+   if ( cnt > 0 ) dev_info(dev->device,"Release: Removed %i buffers from closed device.\n", cnt);
 
    // Find rx buffers still owned by descriptor 
    cnt = 0;
@@ -328,13 +320,10 @@ int Dma_Release(struct inode *inode, struct file *filp) {
          cnt++;
       }
    }
-   dev_info(dev->device,"Release: done releasing user buffers");
 
-   if ( cnt > 0 ) 
-      dev_info(dev->device,"Release: Removed %i rx buffers held by user.\n", cnt);
+   if ( cnt > 0 ) dev_info(dev->device,"Release: Removed %i rx buffers held by user.\n", cnt);
 
    // Find tx buffers still owned by descriptor 
-   dev_info(dev->device,"Release: releasing tx buffers");
    cnt = 0;
    for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++) {
       buff = dmaGetBufferList(&(dev->txBuffers),x);
@@ -345,10 +334,8 @@ int Dma_Release(struct inode *inode, struct file *filp) {
          cnt++;
       }
    }
-   dev_info(dev->device,"Release: done releasing tx buffers");
 
-   if ( cnt > 0 ) 
-      dev_info(dev->device,"Release: Removed %i tx buffers held by user.\n", cnt);
+   if ( cnt > 0 ) dev_info(dev->device,"Release: Removed %i tx buffers held by user.\n", cnt);
 
    // CLear tx queue
    dmaQueueFree(&(desc->q));
@@ -853,6 +840,7 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    uint32_t miss;
    uint32_t userCnt;
    uint32_t hwCnt;
+   uint32_t hwQCnt;
    uint32_t qCnt;
    uint32_t x;
 
@@ -872,6 +860,7 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
 
    userCnt = 0;
    hwCnt   = 0;
+   hwQCnt   = 0;
    qCnt    = 0;
    miss    = 0;
    max     = 0;
@@ -884,8 +873,9 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
       if ( buff->count > max ) max = buff->count;
       if ( buff->count < min ) min = buff->count;
       if ( buff->userHas ) userCnt++;
-      if ( buff->inHw    ) hwCnt++;
-      if ( buff->inQ     ) qCnt++;
+      if (  buff->inHw && !buff->inQ ) hwCnt++;
+      if (  buff->inHw &&  buff->inQ ) hwQCnt++;
+      if ( !buff->inHw &&  buff->inQ ) qCnt++;
 
       if ( buff->userHas == NULL && buff->inHw == 0 && buff->inQ == 0 ) miss++;
 
@@ -899,7 +889,8 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
 
    seq_printf(s,"      Buffers In User : %i\n",userCnt);
    seq_printf(s,"        Buffers In Hw : %i\n",hwCnt);
-   seq_printf(s,"     Buffers In Queue : %i\n",qCnt);
+   seq_printf(s,"  Buffers In Pre-Hw Q : %i\n",hwQCnt);
+   seq_printf(s,"  Buffers In Rx Queue : %i\n",qCnt);
    seq_printf(s,"      Missing Buffers : %i\n",miss);
    seq_printf(s,"       Min Buffer Use : %i\n",min);
    seq_printf(s,"       Max Buffer Use : %i\n",max);
@@ -914,6 +905,7 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
 
    userCnt = 0;
    hwCnt   = 0;
+   hwQCnt  = 0;
    qCnt    = 0;
    miss    = 0;
    max     = 0;
@@ -926,8 +918,9 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
       if ( buff->count > max ) max = buff->count;
       if ( buff->count < min ) min = buff->count;
       if ( buff->userHas ) userCnt++;
-      if ( buff->inHw    ) hwCnt++;
-      if ( buff->inQ     ) qCnt++;
+      if (  buff->inHw && !buff->inQ ) hwCnt++;
+      if (  buff->inHw &&  buff->inQ ) hwQCnt++;
+      if ( !buff->inHw &&  buff->inQ ) qCnt++;
 
       if ( buff->userHas == NULL && buff->inHw == 0 && buff->inQ == 0 ) miss++;
 
@@ -941,7 +934,8 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
 
    seq_printf(s,"      Buffers In User : %i\n",userCnt);
    seq_printf(s,"        Buffers In Hw : %i\n",hwCnt);
-   seq_printf(s,"     Buffers In Queue : %i\n",qCnt);
+   seq_printf(s,"  Buffers In Pre-Hw Q : %i\n",hwQCnt);
+   seq_printf(s,"  Buffers In Sw Queue : %i\n",qCnt);
    seq_printf(s,"      Missing Buffers : %i\n",miss);
    seq_printf(s,"       Min Buffer Use : %i\n",min);
    seq_printf(s,"       Max Buffer Use : %i\n",max);
