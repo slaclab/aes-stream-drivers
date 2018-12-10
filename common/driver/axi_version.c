@@ -91,3 +91,14 @@ void AxiVersion_Show(struct seq_file *s, struct DmaDevice *dev, struct AxiVersio
    seq_printf(s,"         Build String : %s\n",aVer->buildString);
 }
 
+// AXI Version Set User Reset
+void AxiVersion_SetUserReset(void *base, bool state) {
+   struct AxiVersion_Reg *reg = (struct AxiVersion_Reg *)base;
+   uint32_t val;
+
+   if ( state ) val = 0x1;
+   else val = 0x0;
+   
+   iowrite32(val,&(reg->userReset));
+}
+

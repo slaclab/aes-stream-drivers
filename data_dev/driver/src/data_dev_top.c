@@ -159,6 +159,12 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->rwBase = dev->base + PHY_OFF;
    dev->rwSize = (2*USER_SIZE) - PHY_OFF;
 
+   // Set and clear reset
+   dev_info(dev->device,"Init: Setting user reset\n");
+   AxiVersion_SetUserReset(dev->base + AVER_OFF,true);
+   dev_info(dev->device,"Init: Clearing user reset\n");
+   AxiVersion_SetUserReset(dev->base + AVER_OFF,false);
+
    // 128bit desc, = 64-bit address map
    if ( (ioread32(dev->reg) & 0x10000) != 0) {
       dev->cfgAlign = 16;
