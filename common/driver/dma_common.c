@@ -289,10 +289,12 @@ int Dma_Release(struct inode *inode, struct file *filp) {
    dev_info(dev->device,"Release: entered release");
 
    // Make sure we can't receive data while adjusting mask flags
-   dev_info(dev->device,"Release: entered lock");
+   if ( dev->debug > 0 ) dev_info(dev->device,"Release: entered lock");
    spin_lock_irqsave(&dev->maskLock,iflags);
-   dev_info(dev->device,"Release: I have the lock");
-   for (x=0; x < 0xFF; x++) dev_info(dev->device,"Release: lock count %i",x);
+   if ( dev->debug > 0 ) dev_info(dev->device,"Release: I have the lock");
+   if ( dev->debug > 0 ) {
+     for (x=0; x < 0xFF; x++) dev_info(dev->device,"Release: lock count %i",x);
+   }
 
    // Clear pointers
    for (x=0; x < DMA_MAX_DEST; x++) {

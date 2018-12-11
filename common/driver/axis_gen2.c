@@ -206,7 +206,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    ////////////////// Receive Buffers /////////////////////////
 
    // Lock mask
-   dev_info(dev->device,"Irq: Getting mask lock\n");
+   if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Getting mask lock\n");
    spin_lock_irqsave(&dev->maskLock,iflags);
 
    // Check write descriptor
@@ -252,13 +252,19 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
 
          // lane/vc is open,  Add to RX Queue
          else {
-            dev_info(dev->device,"Irq: pushing to rx Queue 0x%x\n",desc);
-            for(x=0; x < 20; x++) dev_info(dev->device,"Irq: pushing to rx Queue A %i 0x%x\n",x,dev->desc[buff->dest]);
+           if ( dev->debug > 0 ) {
+             dev_info(dev->device,"Irq: pushing to rx Queue 0x%x\n",desc);
+             for(x=0; x < 20; x++) dev_info(dev->device,"Irq: pushing to rx Queue A %i 0x%x\n",x,dev->desc[buff->dest]);
+           }
             dmaBufferFromHw(buff);
-            for(x=0; x < 20; x++) dev_info(dev->device,"Irq: pushing to rx Queue B %i - 0x%x\n",x,&(desc->q));
-            for(x=0; x < 20; x++) dev_info(dev->device,"Irq: pushing to rx Queue C %i\n",x);
+            if ( dev->debug > 0 ) {
+              for(x=0; x < 20; x++) dev_info(dev->device,"Irq: pushing to rx Queue B %i - 0x%x\n",x,&(desc->q));
+              for(x=0; x < 20; x++) dev_info(dev->device,"Irq: pushing to rx Queue C %i\n",x);
+            }
             dmaQueuePush(&(desc->q),buff);
-            for(x=0; x < 20; x++) dev_info(dev->device,"Irq: pushing to rx Queue D %i\n",x);
+            if ( dev->debug > 0 ) {
+              for(x=0; x < 20; x++) dev_info(dev->device,"Irq: pushing to rx Queue D %i\n",x);
+            }
             //if (desc->async_queue) kill_fasync(&desc->async_queue, SIGIO, POLL_IN);
             //dev_info(dev->device,"Irq: pushing to rx queue\n");
             //dmaRxBuffer(desc,buff);
@@ -274,7 +280,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
 
    // Unlock
    spin_unlock_irqrestore(&dev->maskLock,iflags);
-   dev_info(dev->device,"Irq: released mask lock\n");
+   if ( dev->debug > 0 ) dev_info(dev->device,"Irq: released mask lock\n");
 
    // Get (write / receive) return buffer list
    if ( hwData->desc128En && ((buffList = (struct DmaBuffer **)kmalloc(1000 * sizeof(struct DmaBuffer *),GFP_ATOMIC)) != NULL)) {
