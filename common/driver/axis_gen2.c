@@ -364,9 +364,6 @@ void AxisG2_Init(struct DmaDevice *dev) {
    // Set MAX RX                      
    iowrite32(dev->cfgSize,&(reg->maxSize));
 
-   // Enable
-   iowrite32(0x1,&(reg->enableVer));
-
    // Clear FIFOs                     
    iowrite32(0x1,&(reg->fifoReset)); 
    iowrite32(0x0,&(reg->fifoReset)); 
@@ -402,6 +399,9 @@ void AxisG2_Enable(struct DmaDevice *dev) {
    struct AxisG2Reg  *reg;
 
    reg = (struct AxisG2Reg *)dev->reg;
+
+   // Enable
+   iowrite32(0x1,&(reg->enableVer));
 
    // Online
    iowrite32(0x1,&(reg->online));
