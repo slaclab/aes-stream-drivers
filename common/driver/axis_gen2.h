@@ -36,7 +36,7 @@ struct AxisG2Reg {
    uint32_t rdBaseAddrLow;   // 0x0018
    uint32_t rdBaseAddrHigh;  // 0x001C
    uint32_t fifoReset;       // 0x0020
-   uint32_t buffBaseAddr;    // 0x0024
+   uint32_t spareA;          // 0x0024
    uint32_t maxSize;         // 0x0028
    uint32_t online;          // 0x002C
    uint32_t acknowledge;     // 0x0030
@@ -53,11 +53,11 @@ struct AxisG2Reg {
    uint32_t wrReqMissed;     // 0x005C
    uint32_t readFifoC;       // 0x0060
    uint32_t readFifoD;       // 0x0064
-   uint32_t spareA[2];       // 0x0068 - 0x006C
+   uint32_t spareB[2];       // 0x0068 - 0x006C
    uint32_t writeFifoB;      // 0x0070
-   uint32_t spareB[3];       // 0x0074 - 0x007C
+   uint32_t spareC[3];       // 0x0074 - 0x007C
    uint32_t forceInt;        // 0x0080
-   uint32_t spareC[4063];    // 0x0084 - 0x3FFC
+   uint32_t spareD[4063];    // 0x0084 - 0x3FFC
    uint32_t dmaAddr[4096];   // 0x4000 - 0x7FFC
 };
 

@@ -33,6 +33,9 @@
 #define BUFF_STREAM    0x2
 #define BUFF_ARM_ACP   0x4
 
+// Number of buffers per list
+#define BUFFERS_PER_LIST 100000
+
 // Forward declaration
 struct DmaDevice;
 struct DmaDesc;
@@ -75,10 +78,13 @@ struct DmaBufferList {
    struct DmaDevice * dev;
 
    // Buffer list
-   struct DmaBuffer ** indexed;
+   struct DmaBuffer *** indexed;
 
    // Sorted buffer list
    struct DmaBuffer ** sorted;
+
+   // Number of lists
+   uint32_t subCount;
 
    // Number of buffers in list
    uint32_t count;
@@ -87,9 +93,10 @@ struct DmaBufferList {
 // DMA Queue
 struct DmaQueue {
    uint32_t count;
+   uint32_t subCount;
 
    // Entries
-   struct DmaBuffer **queue;
+   struct DmaBuffer ***queue;
 
    // Read and write pointers
    uint32_t read;
@@ -140,10 +147,18 @@ struct DmaBuffer * dmaRetBufferIrq ( struct DmaDevice *device, dma_addr_t handle
 
 // Conditionally return buffer to transmit buffer. If buffer is not found in 
 // transmit list return a pointer to the buffer. Passed value is the dma handle.
+struct DmaBuffer * dmaRetBufferIdx ( struct DmaDevice *device, uint32_t index );
+
+// Conditionally return buffer to transmit buffer. If buffer is not found in 
+// transmit list return a pointer to the buffer. Passed value is the dma handle.
 struct DmaBuffer * dmaRetBufferIdxIrq ( struct DmaDevice *device, uint32_t index );
 
 // Push buffer to descriptor receive queue
 void dmaRxBuffer ( struct DmaDesc *desc, struct DmaBuffer *buff );
+
+// Push buffer to descriptor receive queue
+// Called inside IRQ routine
+void dmaRxBufferIrq ( struct DmaDesc *desc, struct DmaBuffer *buff );
 
 // Sort a buffer list
 void dmaSortBuffers ( struct DmaBufferList *list );
