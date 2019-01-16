@@ -92,6 +92,7 @@ struct DmaRegisterData {
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
+#include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/signal.h>
 #include <sys/fcntl.h>
@@ -300,12 +301,16 @@ static inline void ** dmaMapDma(int32_t fd, uint32_t *count, uint32_t *size) {
    if ( count != NULL ) *count = bCount;
    if ( size  != NULL ) *size  = bSize;
 
-   if ( (ret = (void **)malloc(sizeof(void *) * bCount)) == 0 ) return(NULL);
+   if ( (ret = (void **)malloc(sizeof(void *) * bCount)) == 0 ) {
+      //printf("Failed to map holding buffer\n");
+      return(NULL);
+   }
 
    for (x=0; x < bCount; x++) {
 
       if ( (temp = mmap (0, bSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, (bSize*x))) == MAP_FAILED) {
          free(ret);
+         //printf("Failed to map buffer %i. errno=%i\n",x,errno);
          return(NULL);
       }
 

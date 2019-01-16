@@ -60,6 +60,7 @@ struct DmaDevice {
    uint32_t cfgRxCount;
    uint32_t cfgMode;
    uint32_t cfgCont;
+   uint32_t cfgAlign;
 
    // Device tracking
    uint32_t        index;

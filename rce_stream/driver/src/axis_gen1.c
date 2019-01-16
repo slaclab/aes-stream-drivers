@@ -177,6 +177,7 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
 void AxisG1_Init(struct DmaDevice *dev) {
    uint32_t x;
 
+   struct DmaBuffer  *buff;
    struct AxisG1Reg *reg;
    reg = (struct AxisG1Reg *)dev->reg;
 
@@ -192,10 +193,11 @@ void AxisG1_Init(struct DmaDevice *dev) {
    iowrite32(0x1,&(reg->txEnable));
 
    // Push RX buffers to hardware
-   for (x=0; x < dev->rxBuffers.count; x++) {
-      if ( dmaBufferToHw(dev->rxBuffers.indexed[x]) < 0 ) 
+   for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
+      buff = dmaGetBufferList(&(dev->rxBuffers),x);
+      if ( dmaBufferToHw(buff) < 0 ) 
          dev_warn(dev->device,"Init: Failed to map dma buffer.\n");
-      else iowrite32(dev->rxBuffers.indexed[x]->buffHandle,&(reg->rxFree));
+      else iowrite32(buff->buffHandle,&(reg->rxFree));
    }
 
    // Set cache mode

@@ -32,74 +32,111 @@
 size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
                          uint32_t count, uint32_t baseIdx, enum dma_data_direction direction) {
    uint32_t x;
+   uint32_t sl;
+   uint32_t sli;
 
-   if ( count == 0 ) return(0);
+   struct DmaBuffer * buff;
+
+   // Determine number of sub-lists
+   list->subCount = (count / BUFFERS_PER_LIST) + 1;
+
+   list->indexed   = NULL;
+   list->sorted    = NULL;
    list->count     = 0;
    list->direction = direction;
    list->dev       = dev;
    list->baseIdx   = baseIdx;
 
-   // Allocate space for tracking arrays
-   list->indexed = (struct DmaBuffer **) kmalloc((sizeof(struct DmaBuffer *) * count), GFP_KERNEL);
-   list->sorted  = (struct DmaBuffer **) kmalloc((sizeof(struct DmaBuffer *) * count), GFP_KERNEL);
+   if ( count == 0 ) return(0);
+
+   // Allocate first level pointers
+   if ((list->indexed = (struct DmaBuffer ***) kmalloc(sizeof(struct DmaBuffer**) * list->subCount, GFP_KERNEL)) == NULL ) {
+      dev_warn(dev->device,"dmaAllocBuffers: Failed to allocate indexed list pointer. Count=%u.\n",list->subCount);
+      return(0);
+   }
+
+   // Allocate sub lists
+   for (x=0; x < list->subCount; x++) {
+      if ((list->indexed[x] = (struct DmaBuffer **) kmalloc((sizeof(struct DmaBuffer *) * BUFFERS_PER_LIST), GFP_KERNEL)) == NULL) {
+         dev_warn(dev->device,"dmaAllocBuffers: Failed to allocate sub list. Idx=%u.\n",x);
+         return (0);
+      }
+   }
+
+   // Sorted lists are not always available. Disable for streaming mode or when we have too many buffers for
+   // a single sorted list
+   if ( (list->subCount == 1) && ((list->dev->cfgMode & BUFF_STREAM) == 0) ) {
+      list->sorted = (struct DmaBuffer **) kmalloc(sizeof(struct DmaBuffer**) * count, GFP_KERNEL);
+   }
 
    // Allocate buffers
    for (x=0; x < count; x++) {
-      list->indexed[x] = (struct DmaBuffer *) kmalloc(sizeof(struct DmaBuffer), GFP_KERNEL);
+      sl  = x / BUFFERS_PER_LIST;
+      sli = x % BUFFERS_PER_LIST;
+
+      if ( (buff = (struct DmaBuffer *) kmalloc(sizeof(struct DmaBuffer), GFP_KERNEL)) == NULL) {
+         dev_warn(dev->device,"dmaAllocBuffers: Failed to create buffer structure index %ui.\n",x);
+         break;
+      }
 
       // Init record
-      memset(list->indexed[x],0,sizeof(struct DmaBuffer));
+      memset(buff,0,sizeof(struct DmaBuffer));
 
       // Setup pointer back to list
-      list->indexed[x]->buffList = list;
+      buff->buffList = list;
 
       // Coherent buffer, map dma coherent buffers
       if ( list->dev->cfgMode & BUFF_COHERENT ) {
-         list->indexed[x]->buffAddr = 
-            dma_alloc_coherent(list->dev->device, list->dev->cfgSize, &(list->indexed[x]->buffHandle), GFP_DMA32 | GFP_KERNEL);
+         buff->buffAddr = 
+            dma_alloc_coherent(list->dev->device, list->dev->cfgSize, &(buff->buffHandle), GFP_DMA32 | GFP_KERNEL);
       }
 
       // Streaming buffer type, standard kernel memory
       else if ( list->dev->cfgMode & BUFF_STREAM ) {
-         list->indexed[x]->buffAddr = kmalloc(list->dev->cfgSize, GFP_DMA32 | GFP_KERNEL);
+         buff->buffAddr = kmalloc(list->dev->cfgSize, GFP_DMA32 | GFP_KERNEL);
 
-         if (list->indexed[x]->buffAddr != NULL) {
-            list->indexed[x]->buffHandle = dma_map_single(list->dev->device,list->indexed[x]->buffAddr,
-                                                          list->dev->cfgSize,direction);
-
+         if (buff->buffAddr != NULL) {
+            buff->buffHandle = dma_map_single(list->dev->device,buff->buffAddr,
+                                             list->dev->cfgSize,direction);
+    
             // Map error
-            if ( dma_mapping_error(list->dev->device,list->indexed[x]->buffHandle) ) {
-               list->indexed[x]->buffHandle = 0;
+            if ( dma_mapping_error(list->dev->device,buff->buffHandle) ) {
+               buff->buffHandle = 0;
             }
          }
       }
 
       // ACP type with permament handle mapping, dma capable kernel memory
       else if ( list->dev->cfgMode & BUFF_ARM_ACP ) {
-         list->indexed[x]->buffAddr = kmalloc(list->dev->cfgSize, GFP_DMA | GFP_KERNEL);
-         if (list->indexed[x]->buffAddr != NULL)
-            list->indexed[x]->buffHandle = virt_to_phys(list->indexed[x]->buffAddr);
+         buff->buffAddr = kmalloc(list->dev->cfgSize, GFP_DMA | GFP_KERNEL);
+         if (buff->buffAddr != NULL)
+            buff->buffHandle = virt_to_phys(buff->buffAddr);
       }
 
       // Alloc or mapping failed
-      if ( list->indexed[x]->buffAddr == NULL || list->indexed[x]->buffHandle == 0) {
-         if ( list->indexed[x]->buffAddr != NULL ) kfree(list->indexed[x]->buffAddr);
-         kfree(list->indexed[x]);
+      if ( buff->buffAddr == NULL || buff->buffHandle == 0) {
+         if ( buff->buffAddr != NULL ) kfree(buff->buffAddr);
+         kfree(buff);
          break; 
       }
 
+      // Check buffer alignment
+      if ( (dev->cfgAlign != 0) && (((uint64_t)buff->buffAddr % dev->cfgAlign) != 0) ) {
+         dev_warn(dev->device,"dmaAllocBuffers: Found nonzero shift. sw=0x%llx, hw=0x%llx.\n",(uint64_t)buff->buffAddr,(uint64_t)buff->buffHandle);
+         break;
+      }
+
       // Set index
-      list->indexed[x]->index = x + list->baseIdx;
+      buff->index = x + list->baseIdx;
+      list->indexed[sl][sli] = buff;
 
       // Populate entry in sorted list for later sort
-      list->sorted[x] = list->indexed[x];
+      if ( list->sorted != NULL ) list->sorted[sli] = buff;
       list->count++;
-
-      //dev_warn(dev->device,"dmaAllocBuffers: Mapped buffer %i 0x%x to 0x%x.\n",x,list->indexed[x]->buffAddr,list->indexed[x]->buffHandle);
    }
 
    // Sort the buffers
-   if ( list->count > 0 ) sort(list->sorted,list->count,sizeof(struct DmaBuffer *),dmaSortComp,NULL);
+   if ( list->sorted != NULL ) sort(list->sorted,list->count,sizeof(struct DmaBuffer *),dmaSortComp,NULL);
 
    return(list->count);
 }
@@ -108,31 +145,35 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
 // Free a list of buffers
 void dmaFreeBuffers ( struct DmaBufferList *list ) {
    uint32_t x;
+   uint32_t sl;
+   uint32_t sli;
 
    for (x=0; x < list->count; x++) {
-      if ( list->indexed[x]->buffAddr != NULL ) {
+      sl  = x / BUFFERS_PER_LIST;
+      sli = x % BUFFERS_PER_LIST;
+
+      if ( list->indexed[sl][sli]->buffAddr != NULL ) {
 
          // Coherent buffer
          if ( list->dev->cfgMode & BUFF_COHERENT ) {
-            dma_free_coherent(list->dev->device, list->dev->cfgSize,list->indexed[x]->buffAddr,list->indexed[x]->buffHandle);
+            dma_free_coherent(list->dev->device, list->dev->cfgSize,list->indexed[sl][sli]->buffAddr,list->indexed[sl][sli]->buffHandle);
          }
 
          // Streaming type
          if ( list->dev->cfgMode & BUFF_STREAM ) {
-            dma_unmap_single(list->dev->device,list->indexed[x]->buffHandle,list->dev->cfgSize,list->direction);
+            dma_unmap_single(list->dev->device,list->indexed[sl][sli]->buffHandle,list->dev->cfgSize,list->direction);
          }
 
          // Streaming buffer type or ARM ACP
          if ( (list->dev->cfgMode & BUFF_STREAM) || (list->dev->cfgMode & BUFF_ARM_ACP) ) {
-            kfree(list->indexed[x]->buffAddr);
+            kfree(list->indexed[sl][sli]->buffAddr);
          }
       }
-      kfree(list->indexed[x]);
+      kfree(list->indexed[sl][sli]);
    }
-   if ( list->count > 0 ) {
-      kfree(list->indexed);
-      kfree(list->sorted);
-   }
+   for (x=0; x < list->subCount; x++) kfree(list->indexed[x]);
+   if ( list->indexed != NULL ) kfree(list->indexed);
+   if ( list->sorted  != NULL ) kfree(list->sorted);
 }
 
 
@@ -184,11 +225,16 @@ int32_t dmaSearchComp (const void *key, const void *element) {
 // Find a buffer, return index, or -1 on error
 struct DmaBuffer * dmaFindBufferList ( struct DmaBufferList *list, dma_addr_t handle ) {
    uint32_t x;
+   uint32_t sl;
+   uint32_t sli;
 
    // Stream buffers have to be found with a loop because entries are dynamic and unsorted
-   if ( list->dev->cfgMode & BUFF_STREAM ) {
+   // We can only search if there is a single sub list
+   if ( list->sorted == NULL ) {
       for ( x=0; x < list->count; x++ ) {
-         if ( list->indexed[x]->buffHandle == handle ) return(list->indexed[x]);
+         sl  = x / BUFFERS_PER_LIST;
+         sli = x % BUFFERS_PER_LIST;
+         if ( list->indexed[sl][sli]->buffHandle == handle ) return(list->indexed[sl][sli]);
       }
 
       // Not found
@@ -216,8 +262,15 @@ struct DmaBuffer * dmaFindBuffer ( struct DmaDevice *dev, dma_addr_t handle ) {
 
 // Get a buffer using index, in passed list
 struct DmaBuffer * dmaGetBufferList ( struct DmaBufferList *list, uint32_t index ) {
+   uint32_t sl;
+   uint32_t sli;
+
    if ( index < list->baseIdx || index >= (list->baseIdx + list->count) ) return(NULL);
-   else return(list->indexed[index - list->baseIdx]);
+   else {
+      sl  = (index - list->baseIdx) / BUFFERS_PER_LIST;
+      sli = (index - list->baseIdx) % BUFFERS_PER_LIST;
+      return(list->indexed[sl][sli]);
+   }
 }
 
 // Get a buffer using index, in either list
@@ -254,6 +307,30 @@ struct DmaBuffer * dmaRetBufferIrq ( struct DmaDevice *dev, dma_addr_t handle ) 
 
 // Conditionally return buffer to transmit buffer. If buffer is not found in 
 // transmit list return a pointer to the buffer. Passed value is the dma handle.
+struct DmaBuffer * dmaRetBufferIdx ( struct DmaDevice *dev, uint32_t index ) {
+   struct DmaBuffer *buff;
+
+   // Return buffer to transmit queue if it is found
+   if ( (buff = dmaGetBufferList (&(dev->txBuffers),index)) != NULL) {
+      dmaBufferFromHw(buff);
+      dmaQueuePush(&(dev->tq),buff);
+      return(NULL);
+   }
+
+   // Return rx buffer
+   else if ( (buff = dmaGetBufferList (&(dev->rxBuffers),index)) != NULL) {
+      return(buff);
+   }
+
+   // Buffer is not found
+   else {
+      dev_warn(dev->device,"dmaRetBufferIdxIrq: Failed to locate descriptor %i.\n",index);
+      return(NULL);
+   }
+}
+
+// Conditionally return buffer to transmit buffer. If buffer is not found in 
+// transmit list return a pointer to the buffer. Passed value is the dma handle.
 struct DmaBuffer * dmaRetBufferIdxIrq ( struct DmaDevice *dev, uint32_t index ) {
    struct DmaBuffer *buff;
 
@@ -278,6 +355,14 @@ struct DmaBuffer * dmaRetBufferIdxIrq ( struct DmaDevice *dev, uint32_t index ) 
 
 // Push buffer to descriptor receive queue
 void dmaRxBuffer ( struct DmaDesc *desc, struct DmaBuffer *buff ) {
+   dmaBufferFromHw(buff);
+   dmaQueuePush(&(desc->q),buff);
+   if (desc->async_queue) kill_fasync(&desc->async_queue, SIGIO, POLL_IN);
+}
+
+// Push buffer to descriptor receive queue
+// Called inside IRQ routine
+void dmaRxBufferIrq ( struct DmaDesc *desc, struct DmaBuffer *buff ) {
    dmaBufferFromHw(buff);
    dmaQueuePushIrq(&(desc->q),buff);
    if (desc->async_queue) kill_fasync(&desc->async_queue, SIGIO, POLL_IN);
@@ -321,23 +406,33 @@ void dmaBufferFromHw ( struct DmaBuffer *buff ) {
 // Init queue
 // Return number initialized
 size_t dmaQueueInit ( struct DmaQueue *queue, uint32_t count ) {
-   queue->count = count+1;
-   queue->read  = 0;
-   queue->write = 0;
-   queue->queue = (struct DmaBuffer **)kmalloc(queue->count * sizeof(struct DmaBuffer *),GFP_KERNEL);
+   uint32_t x;
+
+   queue->count    = count+1;
+   queue->subCount = (queue->count / BUFFERS_PER_LIST) + 1;
+   queue->read     = 0;
+   queue->write    = 0;
+
+   queue->queue = (struct DmaBuffer ***)kmalloc(queue->subCount * sizeof(struct DmaBuffer **),GFP_KERNEL);
+
+   for(x=0; x < queue->subCount; x++) 
+      queue->queue[x] = (struct DmaBuffer **)kmalloc(BUFFERS_PER_LIST * sizeof(struct DmaBuffer *),GFP_KERNEL);
 
    spin_lock_init(&(queue->lock));
    init_waitqueue_head(&(queue->wait));
    return(count);
 }
 
-
 // Free queue
 void dmaQueueFree ( struct DmaQueue *queue ) {
+   uint32_t x;
+
    queue->count = 0;
+   for (x=0; x < queue->subCount; x++) kfree(queue->queue[x]);
+
+   queue->subCount = 0;
    kfree(queue->queue);
 }
-
 
 // Dma queue is not empty
 // Return 0 if empty, 1 if not empty
@@ -345,7 +440,6 @@ uint32_t dmaQueueNotEmpty ( struct DmaQueue *queue ) {
    if ( queue->read == queue->write ) return(0);
    else return(1);
 }
-
 
 // Push a queue entry
 // Use this routine outside of interrupt handler
@@ -363,7 +457,7 @@ uint32_t dmaQueuePush  ( struct DmaQueue *queue, struct DmaBuffer *entry ) {
    // Buffer overflow, should not occur
    if ( next == queue->read ) ret = 1;
    else {
-      queue->queue[queue->write] = entry;
+      queue->queue[queue->write / BUFFERS_PER_LIST][queue->write % BUFFERS_PER_LIST] = entry;
       queue->write = next;
       entry->inQ = 1;
    }
@@ -389,7 +483,7 @@ uint32_t dmaQueuePushIrq ( struct DmaQueue *queue, struct DmaBuffer *entry ) {
    // Buffer overflow, should not occur
    if ( next == queue->read ) ret = 1;
    else {
-      queue->queue[queue->write] = entry;
+      queue->queue[queue->write / BUFFERS_PER_LIST][queue->write % BUFFERS_PER_LIST] = entry;
       queue->write = next;
       entry->inQ = 1;
    }
@@ -421,7 +515,7 @@ uint32_t dmaQueuePushList  ( struct DmaQueue *queue, struct DmaBuffer **buff, si
          break;
       }
       else {
-         queue->queue[queue->write] = buff[x];
+         queue->queue[queue->write / BUFFERS_PER_LIST][queue->write % BUFFERS_PER_LIST] = buff[x];
          queue->write = next;
          buff[x]->inQ = 1;
       }
@@ -455,7 +549,7 @@ uint32_t dmaQueuePushListIrq ( struct DmaQueue *queue, struct DmaBuffer **buff, 
          break;
       }
       else {
-         queue->queue[queue->write] = buff[x];
+         queue->queue[queue->write / BUFFERS_PER_LIST][queue->write % BUFFERS_PER_LIST] = buff[x];
          queue->write = next;
          buff[x]->inQ = 1;
       }
@@ -479,7 +573,7 @@ struct DmaBuffer * dmaQueuePop  ( struct DmaQueue *queue ) {
    if ( queue->read == queue->write ) ret = NULL;
    else {
 
-      ret = queue->queue[queue->read];
+      ret = queue->queue[queue->read / BUFFERS_PER_LIST][queue->read % BUFFERS_PER_LIST];
 
       // Increment read pointer
       queue->read = (queue->read + 1) % (queue->count);
@@ -502,7 +596,7 @@ struct DmaBuffer * dmaQueuePopIrq ( struct DmaQueue *queue ) {
    if ( queue->read == queue->write ) ret = NULL;
    else {
 
-      ret = queue->queue[queue->read];
+      ret = queue->queue[queue->read / BUFFERS_PER_LIST][queue->read % BUFFERS_PER_LIST];
 
       // Increment read pointer
       queue->read = (queue->read + 1) % (queue->count);
@@ -523,7 +617,7 @@ ssize_t dmaQueuePopList ( struct DmaQueue *queue, struct DmaBuffer**buff, size_t
    spin_lock_irqsave(&(queue->lock),iflags);
 
    while ( (ret < cnt) && (queue->read != queue->write) ) {
-      buff[ret] = queue->queue[queue->read];
+      buff[ret] = queue->queue[queue->read / BUFFERS_PER_LIST][queue->read % BUFFERS_PER_LIST];
 
       // Increment read pointer
       queue->read = (queue->read + 1) % (queue->count);
@@ -546,7 +640,7 @@ ssize_t dmaQueuePopListIrq ( struct DmaQueue *queue, struct DmaBuffer**buff, siz
    spin_lock(&(queue->lock));
 
    while ( (ret < cnt) && (queue->read != queue->write) ) {
-      buff[ret] = queue->queue[queue->read];
+      buff[ret] = queue->queue[queue->read / BUFFERS_PER_LIST][queue->read % BUFFERS_PER_LIST];
 
       // Increment read pointer
       queue->read = (queue->read + 1) % (queue->count);
