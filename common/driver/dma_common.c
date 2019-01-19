@@ -854,9 +854,9 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    seq_printf(s,"          Dma Version : 0x%x\n",DMA_VERSION);
    seq_printf(s,"          Git Version : " GITV "\n\n");
    seq_printf(s,"-------------- Read Buffers ---------------\n");
-   seq_printf(s,"         Buffer Count : %i\n",dev->rxBuffers.count);
-   seq_printf(s,"          Buffer Size : %i\n",dev->cfgSize);
-   seq_printf(s,"          Buffer Mode : %i\n",dev->cfgMode);
+   seq_printf(s,"         Buffer Count : %u\n",dev->rxBuffers.count);
+   seq_printf(s,"          Buffer Size : %u\n",dev->cfgSize);
+   seq_printf(s,"          Buffer Mode : %u\n",dev->cfgMode);
 
    userCnt = 0;
    hwCnt   = 0;
@@ -887,21 +887,21 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    }
    else avg = sum/dev->rxBuffers.count;
 
-   seq_printf(s,"      Buffers In User : %i\n",userCnt);
-   seq_printf(s,"        Buffers In Hw : %i\n",hwCnt);
-   seq_printf(s,"  Buffers In Pre-Hw Q : %i\n",hwQCnt);
-   seq_printf(s,"  Buffers In Rx Queue : %i\n",qCnt);
-   seq_printf(s,"      Missing Buffers : %i\n",miss);
-   seq_printf(s,"       Min Buffer Use : %i\n",min);
-   seq_printf(s,"       Max Buffer Use : %i\n",max);
-   seq_printf(s,"       Avg Buffer Use : %i\n",avg);
-   seq_printf(s,"       Tot Buffer Use : %i\n",sum);
+   seq_printf(s,"      Buffers In User : %u\n",userCnt);
+   seq_printf(s,"        Buffers In Hw : %u\n",hwCnt);
+   seq_printf(s,"  Buffers In Pre-Hw Q : %u\n",hwQCnt);
+   seq_printf(s,"  Buffers In Rx Queue : %u\n",qCnt);
+   seq_printf(s,"      Missing Buffers : %u\n",miss);
+   seq_printf(s,"       Min Buffer Use : %u\n",min);
+   seq_printf(s,"       Max Buffer Use : %u\n",max);
+   seq_printf(s,"       Avg Buffer Use : %u\n",avg);
+   seq_printf(s,"       Tot Buffer Use : %u\n",sum);
 
    seq_printf(s,"\n");
    seq_printf(s,"-------------- Write Buffers ---------------\n");
-   seq_printf(s,"         Buffer Count : %i\n",dev->txBuffers.count);
-   seq_printf(s,"          Buffer Size : %i\n",dev->cfgSize);
-   seq_printf(s,"          Buffer Mode : %i\n",dev->cfgMode);
+   seq_printf(s,"         Buffer Count : %u\n",dev->txBuffers.count);
+   seq_printf(s,"          Buffer Size : %u\n",dev->cfgSize);
+   seq_printf(s,"          Buffer Mode : %u\n",dev->cfgMode);
 
    userCnt = 0;
    hwCnt   = 0;
@@ -932,15 +932,15 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    }
    else avg = sum/dev->txBuffers.count;
 
-   seq_printf(s,"      Buffers In User : %i\n",userCnt);
-   seq_printf(s,"        Buffers In Hw : %i\n",hwCnt);
-   seq_printf(s,"  Buffers In Pre-Hw Q : %i\n",hwQCnt);
-   seq_printf(s,"  Buffers In Sw Queue : %i\n",qCnt);
-   seq_printf(s,"      Missing Buffers : %i\n",miss);
-   seq_printf(s,"       Min Buffer Use : %i\n",min);
-   seq_printf(s,"       Max Buffer Use : %i\n",max);
-   seq_printf(s,"       Avg Buffer Use : %i\n",avg);
-   seq_printf(s,"       Tot Buffer Use : %i\n",sum);
+   seq_printf(s,"      Buffers In User : %u\n",userCnt);
+   seq_printf(s,"        Buffers In Hw : %u\n",hwCnt);
+   seq_printf(s,"  Buffers In Pre-Hw Q : %u\n",hwQCnt);
+   seq_printf(s,"  Buffers In Sw Queue : %u\n",qCnt);
+   seq_printf(s,"      Missing Buffers : %u\n",miss);
+   seq_printf(s,"       Min Buffer Use : %u\n",min);
+   seq_printf(s,"       Max Buffer Use : %u\n",max);
+   seq_printf(s,"       Avg Buffer Use : %u\n",avg);
+   seq_printf(s,"       Tot Buffer Use : %u\n",sum);
    seq_printf(s,"\n");
 
    return 0;
