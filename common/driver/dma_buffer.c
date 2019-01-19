@@ -93,7 +93,7 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
 
       // Streaming buffer type, standard kernel memory
       else if ( list->dev->cfgMode & BUFF_STREAM ) {
-         buff->buffAddr = kmalloc(list->dev->cfgSize, GFP_DMA32 | GFP_KERNEL);
+         buff->buffAddr = kmalloc(list->dev->cfgSize, GFP_KERNEL);
 
          if (buff->buffAddr != NULL) {
             buff->buffHandle = dma_map_single(list->dev->device,buff->buffAddr,
