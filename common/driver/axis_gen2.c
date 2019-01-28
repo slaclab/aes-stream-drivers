@@ -187,7 +187,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
 
    // Process transmit software queue
    if ( hwData->desc128En ) {
-      while ( (hwData->hwRdBuffCnt < (hwData->addrCount-1)) && //((buff = dmaQueuePopIrq(&(hwData->rdQueue))) != NULL) ) {
+      while ( (hwData->hwRdBuffCnt < (hwData->addrCount-1)) && ((buff = dmaQueuePopIrq(&(hwData->rdQueue))) != NULL) ) {
 
          // Write to hardware
          AxisG2_WriteTx(buff,reg,hwData->desc128En);
