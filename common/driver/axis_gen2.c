@@ -83,7 +83,7 @@ inline void AxisG2_WriteFree ( struct DmaBuffer *buff, struct AxisG2Reg *reg, ui
    wrData[0] = buff->index & 0x0FFFFFFF;
 
    if ( desc128En ) {
-      wrData[0] |= (buff->buffHandle << 24) & 0x0FFFFFFF; // Addr bits 7:4 
+      wrData[0] |= (buff->buffHandle << 24) & 0xF0000000; // Addr bits 7:4 
       wrData[1]  = (buff->buffHandle >>  8) & 0xFFFFFFFF; // Addr bits 39:8
 
       iowrite32(wrData[1],&(reg->writeFifoB));

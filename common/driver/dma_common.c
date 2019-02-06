@@ -717,8 +717,8 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
    struct DmaDevice * dev;
    struct DmaBuffer * buff;
 
-   uint32_t offset;
-   uint32_t vsize;
+   off_t    offset;
+   off_t    vsize;
    uint32_t idx;
    uint32_t ret;
 
@@ -734,7 +734,7 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
    vma->vm_pgoff = 0;
 
    // Compute index, rx and tx buffers are the same size
-   idx = offset / dev->cfgSize;
+   idx = (uint32_t)(offset / (off_t)dev->cfgSize);
 
    // Attempt to find buffer
    if ( (buff = dmaGetBuffer(dev,idx)) == NULL ) {
@@ -744,7 +744,7 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
 
    // Size must match the buffer size and offset must be size aligned
    if ( (vsize < dev->cfgSize) || (offset % dev->cfgSize) != 0 ) {
-      dev_warn(dev->device,"map: Invalid map size (%i) and offset (%i). cfgSize=%i\n",
+      dev_warn(dev->device,"map: Invalid map size (%li) and offset (%li). cfgSize=%i\n",
             vsize,offset,dev->cfgSize);
       return(-1);
    }
@@ -774,8 +774,8 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
    else ret = -1;
 
    if ( ret < 0 )
-      dev_warn(dev->device,"map: Failed to map. start 0x%.8x, end 0x%.8x, offset %i, size %i, index %i, Ret=%i.\n",
-            (uint32_t)vma->vm_start,(uint32_t)vma->vm_end,offset,vsize,idx,ret);
+      dev_warn(dev->device,"map: Failed to map. start 0x%.8lx, end 0x%.8lx, offset %li, size %li, index %i, Ret=%i.\n",
+            vma->vm_start,vma->vm_end,offset,vsize,idx,ret);
 
    return (ret);
 }
