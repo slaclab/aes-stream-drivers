@@ -328,11 +328,6 @@ void AxisG2_Init(struct DmaDevice *dev) {
    dev_info(dev->device,"Init: Read  ring at: sw 0x%llx -> hw 0x%llx.\n",(uint64_t)hwData->readAddr,(uint64_t)hwData->readHandle);
    dev_info(dev->device,"Init: Write ring at: sw 0x%llx -> hw 0x%llx.\n",(uint64_t)hwData->writeAddr,(uint64_t)hwData->writeHandle);
 
-   if ( (dev->cfgAlign != 0) && ( ((hwData->readHandle % dev->cfgAlign) != 0) || ((hwData->writeHandle % dev->cfgAlign) != 0) ) ) {
-      dev_warn(dev->device,"Init: Detected bad ring buffer alignment\n");
-      return;
-   }
-
    // Init and set ring address
    iowrite32(hwData->readHandle&0xFFFFFFFF,&(reg->rdBaseAddrLow));
    iowrite32((hwData->readHandle >> 32)&0xFFFFFFFF,&(reg->rdBaseAddrHigh));
