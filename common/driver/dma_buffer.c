@@ -120,12 +120,6 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
          break; 
       }
 
-      // Check buffer alignment
-      if ( (dev->cfgAlign != 0) && (((uint64_t)buff->buffAddr % dev->cfgAlign) != 0) ) {
-         dev_warn(dev->device,"dmaAllocBuffers: Found nonzero shift. sw=0x%llx, hw=0x%llx.\n",(uint64_t)buff->buffAddr,(uint64_t)buff->buffHandle);
-         break;
-      }
-
       // Set index
       buff->index = x + list->baseIdx;
       list->indexed[sl][sli] = buff;
