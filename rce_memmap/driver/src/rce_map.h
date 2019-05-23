@@ -31,8 +31,6 @@
 #include <DmaDriver.h>
 
 // Map size, 64K
-#define MAP_MIN_ADDR 0x80000000
-#define MAP_MAX_ADDR 0xBFFFFFFF
 #define MAP_SIZE     0x10000
 
 // Memory map
