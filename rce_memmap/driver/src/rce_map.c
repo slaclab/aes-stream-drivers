@@ -35,6 +35,9 @@
 // Module Name
 #define MOD_NAME "rce_memmap"
 
+unsigned int cfgMinAddr = 0x80000000;
+unsigned int cfgMaxAddr = 0xBFFFFFFF;
+
 MODULE_AUTHOR("Ryan Herbst");
 MODULE_DESCRIPTION("RCE Memory Map Interface");
 MODULE_LICENSE("GPL");
@@ -109,7 +112,7 @@ int Map_Init(void) {
       printk(KERN_ERR MOD_NAME " Init: Could not allocate map memory\n");
       return (-1);
    }
-   dev.maps->addr = 0x80000000;
+   dev.maps->addr = cfgMinAddr;
    dev.maps->next = NULL;
 
    // Map space
@@ -177,8 +180,8 @@ uint8_t * Map_Find(uint32_t addr) {
 
    cur = dev.maps;
 
-   if ( (addr < MAP_MIN_ADDR) || (addr > MAP_MAX_ADDR) ) {
-      printk(KERN_ERR MOD_NAME " Map_Find: Invalid address %p. Allowed range %p - %p\n",(void *)addr,(void *)MAP_MIN_ADDR,(void*)MAP_MAX_ADDR);
+   if ( (addr < cfgMinAddr) || (addr > cfgMaxAddr) ) {
+      printk(KERN_ERR MOD_NAME " Map_Find: Invalid address %p. Allowed range %p - %p\n",(void *)addr,(void *)cfgMinAddr,(void*)cfgMaxAddr);
       return (NULL);
    }
 
@@ -290,4 +293,10 @@ ssize_t Map_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
 ssize_t Map_Write(struct file *filp, const char* buffer, size_t count, loff_t* f_pos) {
    return -1;
 }
+
+module_param(cfgMinAddr,uint,0);
+MODULE_PARM_DESC(cfgMinAddr, "Min Map Addr");
+
+module_param(cfgMaxAddr,uint,0);
+MODULE_PARM_DESC(cfgMaxAddr, "Max Map Addr");
 
