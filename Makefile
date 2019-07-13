@@ -19,7 +19,9 @@
 # 
 MAKE_HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
-LOC_VERS := $(shell ls /lib/modules/)
+LOC_VERS := $(wildcard /lib/modules/*/build)
+LOC_VERS := $(patsubst %/,%,$(dir $(LOC_VERS)))
+LOC_VERS := $(notdir $(LOC_VERS))
 RCE_DIRS := /afs/slac/g/cci/volumes/vol1/xilinx/linux-xlnx-v2015.2.03
 RCE_DIRS += /afs/slac/g/cci/volumes/vol1/xilinx/linux-xlnx-v2016.4
 RCE_DIRS += /afs/slac/g/cci/volumes/vol1/xilinx/backup/linux-xlnx-v2016.1.01
