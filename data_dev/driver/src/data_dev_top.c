@@ -94,6 +94,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    int32_t x;
    int32_t dummy;
+   int32_t axiWidth;
 
    if ( cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM ) {
       pr_warning("%s: Probe: Invalid buffer mode = %i.\n",MOD_NAME,cfgMode);
@@ -166,10 +167,10 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    // 128bit desc, = 64-bit address map
    if ( (ioread32(dev->reg) & 0x10000) != 0) {
-      if (!dma_set_mask_and_coherent(dev->device, DMA_BIT_MASK(40))) {
-         dev_info(dev->device,"Init: Using 40-bit DMA mask.\n");
-      } else if (!dma_set_mask_and_coherent(dev->device, DMA_BIT_MASK(32))) {
-         dev_info(dev->device,"Init: Using 32-bit DMA mask.\n");
+      // Get the AXI Address width (in units of bits)
+      axiWidth = (ioread32(dev->reg+0x34) >> 8) & 0xFF;
+      if ( !dma_set_mask_and_coherent(dev->device, DMA_BIT_MASK(axiWidth)) ) {
+         dev_info(dev->device,"Init: Using %d-bit DMA mask.\n",axiWidth);
       } else {
          dev_warn(dev->device,"Init: Failed to set DMA mask.\n");
       }
