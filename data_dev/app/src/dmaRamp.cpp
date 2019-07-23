@@ -43,14 +43,18 @@ struct PrgArgs {
    uint32_t     count;
 };
 
-static struct PrgArgs DefArgs = { "/dev/datadev_0",10000000 };
+#define	DEF_DEV_PATH	"/dev/datadev_0"
+#define DEF_COUNT		10000000 
+static struct PrgArgs DefArgs = { DEF_DEV_PATH, DEF_COUNT };
 
 static char   args_doc[] = "";
 static char   doc[]      = "";
 
+#define STRING(N)       #N
+#define XSTRING(N)      STRING(N)
 static struct argp_option options[] = {
-   { "path",    'p', "PATH",   OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/axi_stream_dma_0.",0},
-   { "count",   'c', "COUNT",  OPTION_ARG_OPTIONAL, "Total iterations",0},
+   { "path",    'p', "PATH",   OPTION_ARG_OPTIONAL, "Path of datadev device to use. Default=" DEF_DEV_PATH, 0},
+   { "count",   'c', "COUNT",  OPTION_ARG_OPTIONAL, "Total iterations. Default=" XSTRING(DEF_COUNT),0},
    {0}
 };
 
