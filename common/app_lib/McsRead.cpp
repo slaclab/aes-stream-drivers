@@ -112,7 +112,7 @@ uint32_t McsRead::addrSize ( ) {
 
 // Get next memory data and address index
 int32_t McsRead::read (McsReadData *mem) {
-   int32_t status;
+   int32_t status = 0;
 
    //check if we need to read the next line 
    if(promPntr==16) {
