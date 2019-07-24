@@ -835,7 +835,7 @@ void PgpCardG3_SetEvrControl(struct DmaDevice *dev, struct PgpEvrControl *contro
    tempVal = ioread32(&(reg->evrCardStat[0]));
    mask = 0xFFFFFFFF ^ (0x1 << (lane+16));
    tempVal &= mask;
-   tempVal |= (control->laneRunMask << (lane+8));
+   tempVal |= (control->laneRunMask << (lane+16));
    iowrite32(tempVal,&(reg->evrCardStat[0]));
 
    spin_unlock(&dev->commandLock);
