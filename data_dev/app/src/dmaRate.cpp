@@ -30,7 +30,7 @@
 #include <stdlib.h>
 #include <argp.h>
 #include <AxisDriver.h>
-#include <PrbsData.h>
+//#include <PrbsData.h>
 using namespace std;
 
 #define MAX_RET_CNT_C 1000
@@ -43,14 +43,18 @@ struct PrgArgs {
    uint32_t     count;
 };
 
-static struct PrgArgs DefArgs = { "/dev/datadev_0",10000000 };
+#define	DEF_DEV_PATH	"/dev/datadev_0"
+#define DEF_COUNT		10000000 
+static struct PrgArgs DefArgs = { DEF_DEV_PATH, DEF_COUNT };
 
 static char   args_doc[] = "";
 static char   doc[]      = "";
 
+#define STRING(N)       #N
+#define XSTRING(N)      STRING(N)
 static struct argp_option options[] = {
-   { "path",    'p', "PATH",   OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/axi_stream_dma_0.",0},
-   { "count",   'c', "COUNT",  OPTION_ARG_OPTIONAL, "Total iterations",0},
+   { "path",    'p', "PATH",   OPTION_ARG_OPTIONAL, "Path of datadev device to use. Default=" DEF_DEV_PATH, 0},
+   { "count",   'c', "COUNT",  OPTION_ARG_OPTIONAL, "Total iterations. Default=" XSTRING(DEF_COUNT),0},
    {0}
 };
 
@@ -72,7 +76,7 @@ int main (int argc, char **argv) {
    int32_t       ret;
    int32_t       s;
    uint32_t      rxFlags[MAX_RET_CNT_C];
-   PrbsData      prbs(32,4,1,2,6,31);
+   //PrbsData      prbs(32,4,1,2,6,31);
    void **       dmaBuffers;
    uint32_t      dmaSize;
    uint32_t      dmaCount;
