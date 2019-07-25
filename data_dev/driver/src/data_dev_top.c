@@ -32,9 +32,9 @@
 #include <axis_gen2.h>
 
 // Init Configuration values
-int cfgTxCount = 4;
-int cfgRxCount = 8192;
-int cfgSize    = 327680;
+int cfgTxCount = 1024;
+int cfgRxCount = 1024;
+int cfgSize    = 65536;
 int cfgMode    = BUFF_COHERENT;
 int cfgCont    = 1;
 
