@@ -536,6 +536,7 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    seq_printf(s,"     Hw Read Buff Count : %i\n",hwData->hwRdBuffCnt);
    seq_printf(s,"           Cache Config : 0x%x\n",(ioread32(&(reg->cacheConfig))));
    seq_printf(s,"            Desc 128 En : %i\n",hwData->desc128En);
+   seq_printf(s,"            Envable Var : 0x%x\n",(ioread32(&(reg->enableVer))));
    seq_printf(s,"      Driver Load Count : %u\n",((ioread32(&(reg->enableVer)))>>8)&0xFF);
 
 }
