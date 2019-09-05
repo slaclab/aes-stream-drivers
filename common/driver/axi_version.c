@@ -70,13 +70,13 @@ void AxiVersion_Show(struct seq_file *s, struct DmaDevice *dev, struct AxiVersio
    seq_printf(s,"           ScratchPad : 0x%x\n",aVer->scratchPad);
    seq_printf(s,"        Up Time Count : %u\n",aVer->upTimeCount);
    
-   seq_printf(s,"             Fd Value : 0x");
-   for (x=0; x < 8; x++) seq_printf(s,"%.02x",aVer->fdValue[x]);
-   seq_printf(s,"\n");   
+   // seq_printf(s,"             Fd Value : 0x");
+   // for (x=0; x < 8; x++) seq_printf(s,"%.02x",aVer->fdValue[8-x]);
+   // seq_printf(s,"\n");   
    
 
-   //for (x=0; x < 64; x++)
-   //   seq_printf(s,"          User Values : 0x%x\n",aVer->userValues[x]);
+   // for (x=0; x < 64; x++)
+   // seq_printf(s,"          User Values : 0x%x\n",aVer->userValues[x]);
 
    seq_printf(s,"            Device ID : 0x%x\n",aVer->deviceId);
 
@@ -85,7 +85,7 @@ void AxiVersion_Show(struct seq_file *s, struct DmaDevice *dev, struct AxiVersio
    seq_printf(s,"\n");
 
    seq_printf(s,"            DNA Value : 0x");
-   for (x=0; x < 16; x++) seq_printf(s,"%.02x",aVer->dnaValue[x]);
+   for (x=0; x < 16; x++) seq_printf(s,"%.02x",aVer->dnaValue[15-x]);
    seq_printf(s,"\n");
 
    seq_printf(s,"         Build String : %s\n",aVer->buildString);
