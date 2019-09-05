@@ -140,6 +140,7 @@ int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    // Enable the device
    dummy = pci_enable_device(pcidev);
+   pci_set_master(pcidev);
 
    // Get Base Address of registers from pci structure.
    dev->baseAddr = pci_resource_start (pcidev, 0);
