@@ -18,7 +18,7 @@
 # ----------------------------------------------------------------------------
 # 
 MAKE_HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-
+ARCH ?= arm
 LOC_VERS := $(wildcard /lib/modules/*/build)
 LOC_VERS := $(patsubst %/,%,$(dir $(LOC_VERS)))
 LOC_VERS := $(notdir $(LOC_VERS))
@@ -57,12 +57,12 @@ driver:
 rce:
 	@mkdir -p $(MAKE_HOME)/install;
 	@ $(foreach d,$(RCE_DIRS), \
-		mkdir -p $(MAKE_HOME)/install/$(shell make -C $(d) -s kernelversion).arm; \
+		mkdir -p $(MAKE_HOME)/install/$(shell make -C $(d) -s kernelversion).$(ARCH); \
 		make -C $(MAKE_HOME)/rce_stream/driver KDIR=$(d) clean; \
 		make -C $(MAKE_HOME)/rce_stream/driver KDIR=$(d); \
-		scp $(MAKE_HOME)/rce_stream/driver/*.ko $(MAKE_HOME)/install/$(shell make -C $(d) -s kernelversion).arm/; \
+		scp $(MAKE_HOME)/rce_stream/driver/*.ko $(MAKE_HOME)/install/$(shell make -C $(d) -s kernelversion).$(ARCH)/; \
 		make -C $(MAKE_HOME)/rce_memmap/driver KDIR=$(d) clean; \
 		make -C $(MAKE_HOME)/rce_memmap/driver KDIR=$(d); \
-		scp $(MAKE_HOME)/rce_memmap/driver/*.ko $(MAKE_HOME)/install/$(shell make -C $(d) -s kernelversion).arm/; \
+		scp $(MAKE_HOME)/rce_memmap/driver/*.ko $(MAKE_HOME)/install/$(shell make -C $(d) -s kernelversion).$(ARCH)/; \
 	)
 
