@@ -193,11 +193,13 @@ int Rce_Probe(struct platform_device *pdev) {
    }
 
    // Coherent
+   /* not available on arm64 */
+#if ! defined( __aarch64__)
    if( (dev->cfgMode & BUFF_ARM_ACP) || (dev->cfgMode & AXIS2_RING_ACP) ) {
        set_dma_ops(&pdev->dev,&arm_coherent_dma_ops);
        dev_info(dev->device,"Probe: Set COHERENT DMA =%i\n",dev->cfgMode);
    }
-
+#endif
    // Call common dma init function
    return(Dma_Init(dev));
 }
