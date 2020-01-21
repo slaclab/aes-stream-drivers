@@ -16,8 +16,8 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
-#ifndef __GPU_ASYNC_H__
-#define __GPU_ASYNC_H__
+#ifndef __GPU_ASYNC_2_H__
+#define __GPU_ASYNC_2_H__
 
 #include <dma_common.h>
 #include <dma_buffer.h>
@@ -45,9 +45,14 @@ struct GpuBuffers {
 };
 
 struct GpuData {
-   struct AxisG2GpuBuffers gpuWriteBuffers;
-   struct AxisG2GpuBuffers gpuReadBuffers;
+   uint8_t * base;
+
+   struct GpuBuffers writeBuffers;
+   struct GpuBuffers readBuffers;
 };
+
+// Execute command
+void Gpu_Init(struct DmaDevice *dev, uint32_t offset);
 
 // Execute command
 int32_t Gpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);

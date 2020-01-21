@@ -197,9 +197,6 @@ int Dma_Init(struct DmaDevice *dev) {
    // Enable card
    dev->hwFunc->enable(dev);
 
-   // Init util commands
-   dev->utilCommand = NULL;
-
    return 0;
 }
 
@@ -556,12 +553,6 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
    desc = (struct DmaDesc *)filp->private_data;
    dev  = desc->dev;
-
-   // Util Command
-   if (cmd & DMA_Util_Cmd_Mask) {
-      if ( dev->utilCommand != NULL ) return(dev->utilCommand(dev,cmd,arg));
-      else return (-1);
-   }
 
    // Determine command
    switch (cmd & 0xFFFF) {

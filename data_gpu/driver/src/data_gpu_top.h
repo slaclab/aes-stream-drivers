@@ -17,8 +17,8 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
-#ifndef __DATA_DEV_TOP_H__
-#define __DATA_DEV_TOP_H__
+#ifndef __DATA_GPU_TOP_H__
+#define __DATA_GPU_TOP_H__
 
 #include <linux/types.h>
 #include <linux/device.h>
@@ -43,26 +43,28 @@
 #define USER_OFF    0x00800000
 #define USER_SIZE   0x00800000
 
+#define GPU_OFF     0x00A00000
+
 // Init Kernel Module
-int32_t DataDev_Init(void);
+int32_t DataGpu_Init(void);
 
 // Exit Kernel Module
-void DataDev_Exit(void);
+void DataGpu_Exit(void);
 
 // Create and init device
-int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id);
+int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id);
 
 // Cleanup device
-void  DataDev_Remove(struct pci_dev *pcidev);
+void  DataGpu_Remove(struct pci_dev *pcidev);
 
 // Execute command
-int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);
+int32_t DataGpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);
 
 // Add data to proc dump
-void DataDev_SeqShow(struct seq_file *s, struct DmaDevice *dev);
+void DataGpu_SeqShow(struct seq_file *s, struct DmaDevice *dev);
 
 // Set functions for gen2 card
-extern struct hardware_functions DataDev_functions;
+extern struct hardware_functions DataGpu_functions;
 
 #endif
 

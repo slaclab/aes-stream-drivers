@@ -16,7 +16,7 @@
 # contained in the LICENSE.txt file.
 # ----------------------------------------------------------------------------
  
-NAME := datadev
+NAME := datagpu
 HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 KVER := $(shell uname -r)
 SRCS := $(wildcard src/*.c)
@@ -31,11 +31,8 @@ ccflags-y += -DDMA_IN_KERNEL=1 -DGITV=\"$(GITV)\"
 ccflags-y += -I/usr/src/nvidia-418.56/nvidia/
 
 $(NAME)-objs := src/dma_buffer.o src/dma_common.o
-$(NAME)-objs += src/axi_version.o src/axis_gen2.o src/data_dev_top.o 
+$(NAME)-objs += src/axi_version.o src/axis_gen2.o src/gpu_async.o src/data_gpu_top.o 
 obj-m        := $(NAME).o
-
-#/lib/modules/5.0.0-36-generic/updates/dkms/nvidia.ko
-#KBUILD_EXTRA_SYMBOLS := <path to kernel build directory>/Module.symvers
 
 all:
 	@echo $(GITV)

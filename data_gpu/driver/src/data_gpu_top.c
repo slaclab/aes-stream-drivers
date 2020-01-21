@@ -17,7 +17,7 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
-#include <data_dev_top.h>
+#include <data_gpu_top.h>
 #include <AxiVersion.h>
 #include <axi_version.h>
 #include <linux/module.h>
@@ -30,6 +30,8 @@
 #include <linux/signal.h>
 #include <linux/pci.h>
 #include <axis_gen2.h>
+#include <GpuAsync.h>
+#include <gpu_async.h>
 
 // Init Configuration values
 int cfgTxCount = 1024;
@@ -41,29 +43,29 @@ int cfgCont    = 1;
 struct DmaDevice gDmaDevices[MAX_DMA_DEVICES];
 
 // PCI device IDs
-static struct pci_device_id DataDev_Ids[] = {
+static struct pci_device_id DataGpu_Ids[] = {
    { PCI_DEVICE(PCI_VENDOR_ID_SLAC,   PCI_DEVICE_ID_DDEV)   },
    { 0, }
 };
 
 // Module Name
-#define MOD_NAME "datadev"
+#define MOD_NAME "datagpu"
 
 MODULE_LICENSE("GPL");
-MODULE_DEVICE_TABLE(pci, DataDev_Ids);
-module_init(DataDev_Init);
-module_exit(DataDev_Exit);
+MODULE_DEVICE_TABLE(pci, DataGpu_Ids);
+module_init(DataGpu_Init);
+module_exit(DataGpu_Exit);
 
 // PCI driver structure
-static struct pci_driver DataDevDriver = {
+static struct pci_driver DataGpuDriver = {
   .name     = MOD_NAME,
-  .id_table = DataDev_Ids,
-  .probe    = DataDev_Probe,
-  .remove   = DataDev_Remove,
+  .id_table = DataGpu_Ids,
+  .probe    = DataGpu_Probe,
+  .remove   = DataGpu_Remove,
 };
 
 // Init Kernel Module
-int32_t DataDev_Init(void) {
+int32_t DataGpu_Init(void) {
 
    /* Allocate and clear memory for all devices. */
    memset(gDmaDevices, 0, sizeof(struct DmaDevice)*MAX_DMA_DEVICES);
@@ -75,19 +77,19 @@ int32_t DataDev_Init(void) {
    gDmaDevCount = 0;
 
    // Register driver
-   return(pci_register_driver(&DataDevDriver));
+   return(pci_register_driver(&DataGpuDriver));
 }
 
 
 // Exit Kernel Module
-void DataDev_Exit(void) {
+void DataGpu_Exit(void) {
    pr_info("%s: Exit.\n",MOD_NAME);
-   pci_unregister_driver(&DataDevDriver);
+   pci_unregister_driver(&DataGpuDriver);
 }
 
 
 // Create and init device
-int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
+int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    struct DmaDevice *dev;
    struct pci_device_id *id;
    struct hardware_functions *hfunc;
@@ -102,7 +104,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    }
 
    // Set hardware functions
-   hfunc = &(DataDev_functions);
+   hfunc = &(DataGpu_functions);
 
    id = (struct pci_device_id *) dev_id;
 
@@ -161,6 +163,9 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->rwBase = dev->base + PHY_OFF;
    dev->rwSize = (2*USER_SIZE) - PHY_OFF;
 
+   // GPU Init
+   Gpu_Init(dev, GPU_OFF);
+
    // Set and clear reset
    dev_info(dev->device,"Init: Setting user reset\n");
    AxiVersion_SetUserReset(dev->base + AVER_OFF,true);
@@ -189,7 +194,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 }
 
 // Cleanup device
-void  DataDev_Remove(struct pci_dev *pcidev) {
+void  DataGpu_Remove(struct pci_dev *pcidev) {
    uint32_t x;
 
    struct DmaDevice *dev = NULL;
@@ -222,8 +227,14 @@ void  DataDev_Remove(struct pci_dev *pcidev) {
 }
 
 // Execute command
-int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
+int32_t DataGpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    switch (cmd) {
+
+      // GPU Commands
+      case GPU_Add_Nvidia_Memory:
+      case GPU_Rem_Nvidia_Memory:
+         return(Gpu_Command(dev,cmd,arg));
+         break;
 
       // AXI Version Read
       case AVER_Get:
@@ -238,7 +249,7 @@ int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
 }
 
 // Add data to proc dump
-void DataDev_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
+void DataGpu_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    struct AxiVersion aVer;
    AxiVersion_Read(dev, dev->base + AVER_OFF, &aVer);
    AxiVersion_Show(s, dev, &aVer);
@@ -246,15 +257,15 @@ void DataDev_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
 }
 
 // Set functions
-struct hardware_functions DataDev_functions = {
+struct hardware_functions DataGpu_functions = {
    .irq          = AxisG2_Irq,
    .init         = AxisG2_Init,
    .clear        = AxisG2_Clear,
    .enable       = AxisG2_Enable,
    .retRxBuffer  = AxisG2_RetRxBuffer,
    .sendBuffer   = AxisG2_SendBuffer,
-   .command      = DataDev_Command,
-   .seqShow      = DataDev_SeqShow,
+   .command      = DataGpu_Command,
+   .seqShow      = DataGpu_SeqShow,
 };
 
 // Parameters

@@ -51,9 +51,6 @@
 #define DMA_Get_TxBuff_Count  0x100D
 #define DMA_Get_Bar           0x100E
 
-// Util command base
-#define DMA_Util_Cmd_Mask     0x8000
-
 // Mask size
 #define DMA_MASK_SIZE 512
 

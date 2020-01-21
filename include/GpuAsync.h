@@ -21,8 +21,8 @@
 #include "DmaDriver.h"
 
 // Commands
-#define GPU_Add_Nvidia_Memory 0x2002
-#define GPU_Rem_Nvidia_Memory 0x2003
+#define GPU_Add_Nvidia_Memory 0x8002
+#define GPU_Rem_Nvidia_Memory 0x8003
 
 // NVidia Data
 struct GpuNvidiaData {
