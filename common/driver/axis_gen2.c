@@ -159,7 +159,6 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    handleCount = 0;
 
    if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Called.\n");
-   dev_info(dev->device,"Irq: Called.\n");
 
    ////////////////// Transmit Buffers /////////////////////////
 
@@ -397,7 +396,6 @@ void AxisG2_Enable(struct DmaDevice *dev) {
 
    // Enable interrupt
    iowrite32(0x1,&(reg->intEnable));
-   iowrite32(0x1,&(reg->forceInt));
 }
 
 // Clear card in top level Remove

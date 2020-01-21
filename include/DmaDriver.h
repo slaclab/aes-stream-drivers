@@ -36,20 +36,19 @@
 #define DMA_ERR_BUS  0x08
 
 // Commands
-#define DMA_Get_Buff_Count    0x1001
-#define DMA_Get_Buff_Size     0x1002
-#define DMA_Set_Debug         0x1003
-#define DMA_Set_Mask          0x1004
-#define DMA_Ret_Index         0x1005
-#define DMA_Get_Index         0x1006
-#define DMA_Read_Ready        0x1007
-#define DMA_Set_MaskBytes     0x1008
-#define DMA_Get_Version       0x1009
-#define DMA_Write_Register    0x100A
-#define DMA_Read_Register     0x100B
-#define DMA_Get_RxBuff_Count  0x100C
-#define DMA_Get_TxBuff_Count  0x100D
-#define DMA_Get_Bar           0x100E
+#define DMA_Get_Buff_Count   0x1001
+#define DMA_Get_Buff_Size    0x1002
+#define DMA_Set_Debug        0x1003
+#define DMA_Set_Mask         0x1004
+#define DMA_Ret_Index        0x1005
+#define DMA_Get_Index        0x1006
+#define DMA_Read_Ready       0x1007
+#define DMA_Set_MaskBytes    0x1008
+#define DMA_Get_Version      0x1009
+#define DMA_Write_Register   0x100A
+#define DMA_Read_Register    0x100B
+#define DMA_Get_RxBuff_Count 0x100C
+#define DMA_Get_TxBuff_Count 0x100D
 
 // Mask size
 #define DMA_MASK_SIZE 512
@@ -83,12 +82,6 @@ struct DmaReadData {
 struct DmaRegisterData {
    uint32_t   address;
    uint32_t   data;
-};
-
-// Bar map
-struct DmaBarData {
-   uint32_t   address;
-   uint32_t   size;
 };
 
 // Everything below is hidden during kernel module compile

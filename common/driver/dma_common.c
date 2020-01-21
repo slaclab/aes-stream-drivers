@@ -196,7 +196,6 @@ int Dma_Init(struct DmaDevice *dev) {
 
    // Enable card
    dev->hwFunc->enable(dev);
-
    return 0;
 }
 
@@ -584,8 +583,6 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
       // Set debug level
       case DMA_Set_Debug:
-
-
          dev->debug = arg;
          dev_info(dev->device,"debug set to %u.\n",(uint32_t)arg);
          return(0);
