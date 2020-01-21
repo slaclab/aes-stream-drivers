@@ -27,7 +27,7 @@
 #endif
 
 // API Version
-#define DMA_VERSION  0x05
+#define DMA_VERSION  0x06
 
 // Error values
 #define DMA_ERR_FIFO 0x01
@@ -36,19 +36,23 @@
 #define DMA_ERR_BUS  0x08
 
 // Commands
-#define DMA_Get_Buff_Count   0x1001
-#define DMA_Get_Buff_Size    0x1002
-#define DMA_Set_Debug        0x1003
-#define DMA_Set_Mask         0x1004
-#define DMA_Ret_Index        0x1005
-#define DMA_Get_Index        0x1006
-#define DMA_Read_Ready       0x1007
-#define DMA_Set_MaskBytes    0x1008
-#define DMA_Get_Version      0x1009
-#define DMA_Write_Register   0x100A
-#define DMA_Read_Register    0x100B
-#define DMA_Get_RxBuff_Count 0x100C
-#define DMA_Get_TxBuff_Count 0x100D
+#define DMA_Get_Buff_Count    0x1001
+#define DMA_Get_Buff_Size     0x1002
+#define DMA_Set_Debug         0x1003
+#define DMA_Set_Mask          0x1004
+#define DMA_Ret_Index         0x1005
+#define DMA_Get_Index         0x1006
+#define DMA_Read_Ready        0x1007
+#define DMA_Set_MaskBytes     0x1008
+#define DMA_Get_Version       0x1009
+#define DMA_Write_Register    0x100A
+#define DMA_Read_Register     0x100B
+#define DMA_Get_RxBuff_Count  0x100C
+#define DMA_Get_TxBuff_Count  0x100D
+#define DMA_Get_Bar           0x100E
+
+// Util command base
+#define DMA_Util_Cmd_Mask     0x8000
 
 // Mask size
 #define DMA_MASK_SIZE 512
@@ -82,6 +86,12 @@ struct DmaReadData {
 struct DmaRegisterData {
    uint32_t   address;
    uint32_t   data;
+};
+
+// Bar map
+struct DmaBarData {
+   uint32_t   address;
+   uint32_t   size;
 };
 
 // Everything below is hidden during kernel module compile
@@ -411,6 +421,27 @@ static inline ssize_t dmaReadRegister(int32_t fd, uint32_t address, uint32_t *da
    if ( data != NULL ) *data = reg.data;
 
    return(res);
+}
+
+// Return user space mapping to a relative register space 
+static inline void * dmaMapRegister(int32_t fd, off_t offset, uint32_t size) {
+   uint32_t bCount;
+   uint32_t bSize;
+   off_t    intOffset;
+
+   bSize  = ioctl(fd,DMA_Get_Buff_Size,0);
+   bCount = ioctl(fd,DMA_Get_Buff_Count,0);
+
+   intOffset = (bSize * bCount) + offset;
+
+   // Attempt to map
+   return(mmap (0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, intOffset));
+}
+
+// Free space mapping to dma buffers
+static inline ssize_t dmaUnMapRegister(int32_t fd, void *ptr, uint32_t size) {
+   munmap (ptr, size);
+   return(0);
 }
 
 #endif

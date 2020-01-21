@@ -22,6 +22,7 @@
 #include <linux/seq_file.h>
 #include <linux/signal.h>
 #include <linux/slab.h>
+#include <nv-p2p.h>
 
 // Set functions for gen2 card
 struct hardware_functions AxisG2_functions = {
@@ -344,6 +345,9 @@ void AxisG2_Init(struct DmaDevice *dev) {
    hwData->missedIrq = 0;
    hwData->contCount = 0;
 
+   hwData->gpuWriteBuffers.count = 0;
+   hwData->gpuReadBuffers.count  = 0;
+
    // Set cache mode, bits3:0 = descWr, bits 11:8 = bufferWr, bits 15:12 = bufferRd
    x = 0;
    if ( dev->cfgMode & BUFF_ARM_ACP   ) x |= 0xA600; // Buffer
@@ -507,11 +511,158 @@ int32_t AxisG2_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
          return(0);
          break;
 
+      // Add NVIDIA Memory
+      case AXIS_Add_Nvidia_Memory:
+         return(AxisG2_AddNvidia(dev,arg));
+         break;
+
+      // Rem NVIDIA Memory
+      case AXIS_Rem_Nvidia_Memory:
+         return(AxisG2_RemNvidia(dev,arg));
+         break;
+
       default:
          dev_warn(dev->device,"Command: Invalid command=%i\n",cmd); 
          return(-1);
          break;
    }
+}
+
+// Add NVIDIA Memory
+int32_t AxisG2_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
+   int32_t ret;
+   uint32_t x;
+   u64     virt_start;
+   size_t  pin_size;
+   size_t  mapSize;
+
+   struct AxisG2Data * hwData;
+   struct AxisG2GpuBuffer  *buffer;
+   struct AxisNvidiaData dat;
+
+   hwData = (struct AxisG2Data *)dev->hwData;
+
+   if ((ret = copy_from_user(&dat,(void *)arg,sizeof(struct AxisNvidiaData)))) {
+      dev_warn(dev->device,"Axis_AddNvidia: copy_from_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &dat);
+      return(-1);
+   }
+
+   if (!dat.size) return -EINVAL;
+
+   // Set pointers
+   if (dat.write) buffer = &(hwData->gpuWriteBuffers.list[hwData->gpuWriteBuffers.count]);
+   else buffer = &(hwData->gpuReadBuffers.list[hwData->gpuReadBuffers.count]);
+
+   buffer->write   = dat.write;
+   buffer->address = dat.address;
+   buffer->size    = dat.size;
+   buffer->pageTable  = 0;
+   buffer->dmaMapping = 0;
+
+   // do proper alignment, as required by NVIDIA kernel driver
+   virt_start = buffer->address & GPU_BOUND_MASK;
+   pin_size = buffer->address + buffer->size - virt_start;
+
+   dev_warn(dev->device,"Axis_AddNvidia: attemping to map. address=0x%llx, size=%i, virt_start=0x%llx, pin_size=%li, write=%i\n",
+         buffer->address,buffer->size,virt_start,pin_size,buffer->write);
+
+   ret = nvidia_p2p_get_pages(0, 0, virt_start, pin_size, &(buffer->pageTable), AxisG2_FreeNvidia, dev);
+
+   if (ret == 0) {
+      dev_warn(dev->device,"Axis_AddNvidia: mapped memory with address=0x%llx, size=%i, page count=%i, write=%i\n",buffer->address,buffer->size,buffer->pageTable->entries,buffer->write);
+
+      ret = nvidia_p2p_dma_map_pages(dev->pcidev, buffer->pageTable, &(buffer->dmaMapping));
+      dev_warn(dev->device,"Axis_AddNvidia: dma map done. ret = %i\n",ret);
+
+      if (ret != 0) {
+         dev_warn(dev->device,"Axis_AddNvidia: error mapping page tables ret=%i\n",ret);
+      }
+      else {
+
+         // Determine how much memory is contiguous
+         mapSize = 0;
+         for (x=0; x < buffer->dmaMapping->entries; x++) {
+            if (buffer->dmaMapping->dma_addresses[0] + mapSize == buffer->dmaMapping->dma_addresses[x] )
+               mapSize += GPU_BOUND_SIZE;
+            else break;
+         }
+
+         dev_warn(dev->device,"Axis_AddNvidia: dma address 0 = 0x%llx, total = %li, pages = %i\n", 
+               buffer->dmaMapping->dma_addresses[0],mapSize,x);
+
+         if (buffer->write){
+            iowrite32(buffer->dmaMapping->dma_addresses[0], dev->base+0x00A00100+hwData->gpuWriteBuffers.count*16);
+            iowrite32(mapSize,dev->base+0x00A00108+hwData->gpuWriteBuffers.count*16);
+            hwData->gpuWriteBuffers.count++;
+         } else {
+            iowrite32(buffer->dmaMapping->dma_addresses[0], dev->base+0x00A00200+hwData->gpuReadBuffers.count*16);
+            hwData->gpuReadBuffers.count++;
+         }
+      }
+   } else {
+       dev_warn(dev->device,"Axis_AddNvidia: failed to pin memory with address=0x%llx. ret=%i\n", dat.address,ret);
+       return(-1);
+   }
+
+   x = 0;
+
+   if (hwData->gpuWriteBuffers.count > 0 ) {
+      x |= 0x00000100;
+      x |= (hwData->gpuWriteBuffers.count-1);
+   }
+
+   if (hwData->gpuReadBuffers.count > 0 ) {
+      x |= 0x01000000;
+      x |= (hwData->gpuReadBuffers.count-1) << 16;
+   }
+
+   iowrite32(x,dev->base+0x00A00008);
+   return(0);
+}
+
+// REm NVIDIA Memory
+int32_t AxisG2_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
+   uint32_t x;
+   u64      virt_start;
+
+   struct AxisG2Data * hwData;
+   struct AxisG2GpuBuffer *buffer;
+
+   hwData = (struct AxisG2Data *)dev->hwData;
+
+   for (x=0; x < hwData->gpuWriteBuffers.count; x++) {
+      buffer = &(hwData->gpuWriteBuffers.list[x]);
+
+      virt_start = buffer->address & GPU_BOUND_MASK;
+
+      nvidia_p2p_dma_unmap_pages(dev->pcidev, buffer->pageTable, buffer->dmaMapping);
+      nvidia_p2p_put_pages(0, 0, virt_start, buffer->pageTable);
+
+      dev_warn(dev->device,"Axis_AddNvidia: unmapped write memory with address=0x%llx\n", buffer->address);
+   }
+
+   for (x=0; x < hwData->gpuReadBuffers.count; x++) {
+      buffer = &(hwData->gpuReadBuffers.list[x]);
+
+      virt_start = buffer->address & GPU_BOUND_MASK;
+
+      nvidia_p2p_dma_unmap_pages(dev->pcidev, buffer->pageTable, buffer->dmaMapping);
+      nvidia_p2p_put_pages(0, 0, virt_start, buffer->pageTable);
+
+      dev_warn(dev->device,"Axis_AddNvidia: unmapped read memory with address=0x%llx\n", buffer->address);
+   }
+
+   hwData->gpuWriteBuffers.count = 0;
+   hwData->gpuReadBuffers.count  = 0;
+   iowrite32(0,dev->base+0x00A00008);
+   return(0);
+}
+
+// NVIDIA Callback
+void AxisG2_FreeNvidia(void *data) {
+   struct DmaDevice * dev = (struct DmaDevice *)data;
+   dev_warn(dev->device,"Axis_FreeNvidia: Called\n");
+   AxisG2_RemNvidia(dev,0);
 }
 
 // Add data to proc dump

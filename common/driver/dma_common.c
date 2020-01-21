@@ -75,14 +75,14 @@ char *Dma_DevNode(struct device *dev, umode_t *mode){
 // Map address space in buffer
 int Dma_MapReg ( struct DmaDevice *dev ) {
    if ( dev->base == NULL ) {
-      dev_info(dev->device,"Init: Mapping Register space %p with size 0x%x.\n",(void *)dev->baseAddr,dev->baseSize);
+      dev_info(dev->device,"Init: Mapping Register space 0x%llx with size 0x%x.\n",dev->baseAddr,dev->baseSize);
       dev->base = ioremap_nocache(dev->baseAddr, dev->baseSize);
       if (! dev->base ) {
          dev_err(dev->device,"Init: Could not remap memory.\n");
          return -1;
       }
       dev->reg = dev->base;
-      dev_info(dev->device,"Init: Mapped to %p.\n",dev->base);
+      dev_info(dev->device,"Init: Mapped to 0x%llx.\n",(uint64_t)dev->base);
 
       // Hold memory region
       if ( request_mem_region(dev->baseAddr, dev->baseSize, dev->devName) == NULL ) {
@@ -196,6 +196,10 @@ int Dma_Init(struct DmaDevice *dev) {
 
    // Enable card
    dev->hwFunc->enable(dev);
+
+   // Init util commands
+   dev->utilCommand = NULL;
+
    return 0;
 }
 
@@ -553,6 +557,12 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
    desc = (struct DmaDesc *)filp->private_data;
    dev  = desc->dev;
 
+   // Util Command
+   if (cmd & DMA_Util_Cmd_Mask) {
+      if ( dev->utilCommand != NULL ) return(dev->utilCommand(dev,cmd,arg));
+      else return (-1);
+   }
+
    // Determine command
    switch (cmd & 0xFFFF) {
 
@@ -583,6 +593,8 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
       // Set debug level
       case DMA_Set_Debug:
+
+
          dev->debug = arg;
          dev_info(dev->device,"debug set to %u.\n",(uint32_t)arg);
          return(0);
@@ -716,9 +728,12 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
    struct DmaDesc   * desc;
    struct DmaDevice * dev;
    struct DmaBuffer * buff;
+   phys_addr_t physical;
 
    off_t    offset;
    off_t    vsize;
+   off_t    base;
+   off_t    relMap;
    uint32_t idx;
    uint32_t ret;
 
@@ -729,57 +744,87 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
    offset = vma->vm_pgoff << PAGE_SHIFT;
    vsize  = vma->vm_end - vma->vm_start;
 
-   // After we use the offset to figure out the index, we must zero it out so
-   // the map call will map to the start of our space from dma_alloc_coherent()
-   vma->vm_pgoff = 0;
-
    // Compute index, rx and tx buffers are the same size
    idx = (uint32_t)(offset / (off_t)dev->cfgSize);
 
-   // Attempt to find buffer
-   if ( (buff = dmaGetBuffer(dev,idx)) == NULL ) {
-      dev_warn(dev->device,"map: Invalid index posted: %i.\n", idx);
-      return(-1);
-   }
+   // Check if index is in the range of buffers
+   if ( idx < (dev->rxBuffers.count + dev->txBuffers.count) ) {
 
-   // Size must match the buffer size and offset must be size aligned
-   if ( (vsize < dev->cfgSize) || (offset % dev->cfgSize) != 0 ) {
-      dev_warn(dev->device,"map: Invalid map size (%li) and offset (%li). cfgSize=%i\n",
-            vsize,offset,dev->cfgSize);
-      return(-1);
-   }
+      // After we use the offset to figure out the index, we must zero it out so
+      // the map call will map to the start of our space from dma_alloc_coherent()
+      vma->vm_pgoff = 0;
 
-   // Coherent buffer
-   if ( dev->cfgMode & BUFF_COHERENT ) {
+      // Attempt to find buffer
+      if ( (buff = dmaGetBuffer(dev,idx)) == NULL ) {
+         dev_warn(dev->device,"map: Invalid index posted: %i.\n", idx);
+         return(-1);
+      }
 
-// Avoid mapping warnings for x86
+      // Size must match the buffer size and offset must be size aligned
+      if ( (vsize < dev->cfgSize) || (offset % dev->cfgSize) != 0 ) {
+         dev_warn(dev->device,"map: Invalid map size (%li) and offset (%li). cfgSize=%i\n",
+               vsize,offset,dev->cfgSize);
+         return(-1);
+      }
+
+      // Coherent buffer
+      if ( dev->cfgMode & BUFF_COHERENT ) {
+
+         // Avoid mapping warnings for x86
 #if defined(dma_mmap_coherent) && (! defined(CONFIG_X86))
-      ret = dma_mmap_coherent(dev->device,vma,buff->buffAddr,buff->buffHandle,dev->cfgSize);
+         ret = dma_mmap_coherent(dev->device,vma,buff->buffAddr,buff->buffHandle,dev->cfgSize);
 #else
-      ret = remap_pfn_range(vma, vma->vm_start, 
-                            virt_to_phys((void *)buff->buffAddr) >> PAGE_SHIFT,
-                            vsize,
-                            vma->vm_page_prot);
+         ret = remap_pfn_range(vma, vma->vm_start, 
+                               virt_to_phys((void *)buff->buffAddr) >> PAGE_SHIFT,
+                               vsize,
+                               vma->vm_page_prot);
 #endif
 
+      }
+
+      // Streaming buffer type or ARM ACP
+      else if ( (dev->cfgMode & BUFF_STREAM) || (dev->cfgMode & BUFF_ARM_ACP) ) {
+         ret = remap_pfn_range(vma, vma->vm_start, 
+                               virt_to_phys((void *)buff->buffAddr) >> PAGE_SHIFT,
+                               vsize,
+                               vma->vm_page_prot);
+      }
+      else ret = -1;
+
+      if ( ret < 0 )
+         dev_warn(dev->device,"map: Failed to map. start 0x%.8lx, end 0x%.8lx, offset %li, size %li, index %i, Ret=%i.\n",
+               vma->vm_start,vma->vm_end,offset,vsize,idx,ret);
+
+      return (ret);
    }
 
-   // Streaming buffer type or ARM ACP
-   else if ( (dev->cfgMode & BUFF_STREAM) || (dev->cfgMode & BUFF_ARM_ACP) ) {
-      ret = remap_pfn_range(vma, vma->vm_start, 
-                            virt_to_phys((void *)buff->buffAddr) >> PAGE_SHIFT,
-                            vsize,
-                            vma->vm_page_prot);
+   // Map register space
+   else {
+
+      // Compute relative base
+      base = (off_t)dev->cfgSize * (dev->rxBuffers.count + dev->txBuffers.count);
+      relMap = offset - base;
+      physical = dev->baseAddr + relMap;
+
+      // Don't allow mapping below allowed base address
+      if ( (dev->base + relMap) < dev->rwBase ) {
+         dev_warn(dev->device,"map: Bad map range. start 0x%.8lx, end 0x%.8lx, offset %li, size %li, relMap %li\n",
+               vma->vm_start,vma->vm_end,offset,vsize,relMap);
+         return -1;
+      }
+
+      dev_warn(dev->device,"map: Mapping offset relMap (0x%lx), physical (0x%llx) with size (%li)\n",relMap,physical,vsize);
+
+      ret = io_remap_pfn_range(vma, vma->vm_start, physical >> PAGE_SHIFT, vsize, vma->vm_page_prot);
+
+      if ( ret < 0 ) {
+         dev_warn(dev->device,"map: Failed to map. start 0x%.8lx, end 0x%.8lx, offset %li, size %li, relMap %li\n",
+               vma->vm_start,vma->vm_end,offset,vsize,relMap);
+         return -1;
+      }
+      return 0;
    }
-   else ret = -1;
-
-   if ( ret < 0 )
-      dev_warn(dev->device,"map: Failed to map. start 0x%.8lx, end 0x%.8lx, offset %li, size %li, index %i, Ret=%i.\n",
-            vma->vm_start,vma->vm_end,offset,vsize,idx,ret);
-
-   return (ret);
 }
-
 
 // Flush queue
 int Dma_Fasync(int fd, struct file *filp, int mode) {
