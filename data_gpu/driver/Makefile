@@ -1,11 +1,8 @@
 # ----------------------------------------------------------------------------
-# Title      : Data development driver makefile
+# Title      : Data GPU driver makefile
 # ----------------------------------------------------------------------------
 # File       : Makefile
 # Created    : 2017-03-17
-# ----------------------------------------------------------------------------
-# Description:
-# PGP card driver makefile
 # ----------------------------------------------------------------------------
 # This file is part of the aes_stream_drivers package. It is subject to 
 # the license terms in the LICENSE.txt file found in the top-level directory 

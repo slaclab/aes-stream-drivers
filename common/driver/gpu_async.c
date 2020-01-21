@@ -1,12 +1,11 @@
 /**
  *-----------------------------------------------------------------------------
- * Title      : AXIS Gen2 Functions
+ * Title      : GPU Async Functions
  * ----------------------------------------------------------------------------
- * File       : axis_gen2.c
- * Created    : 2017-02-03
+ * File       : gpu_async.c
  * ----------------------------------------------------------------------------
  * Description:
- * Access functions for Gen2 AXIS DMA
+ * Helper functions for GPU Async interface
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to 
  * the license terms in the LICENSE.txt file found in the top-level directory 
