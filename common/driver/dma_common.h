@@ -68,11 +68,13 @@ struct DmaDevice {
    char            devName[50];
    struct cdev     charDev;
    struct device * device;
+   struct pci_dev *pcidev;
 
    // Card Info
    struct hardware_functions * hwFunc;
    uint8_t destMask[DMA_MASK_SIZE];
    void *  hwData;
+   void *  utilData;
 
    // Debug flag
    uint8_t debug;
