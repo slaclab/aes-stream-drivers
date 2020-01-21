@@ -512,6 +512,7 @@ int32_t AxisG2_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    }
 }
 
+
 // Add data to proc dump
 void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    struct AxisG2Reg *reg;
