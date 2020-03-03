@@ -40,6 +40,7 @@ jobs:
         - sudo cp $MODULE_DIR/dkms.conf $DEST_DIR
         - sudo echo "PACKAGE_VERSION=$VERSION" | sudo tee -a $DEST_DIR/dkms.conf
       script:
+        - sudo dkms add -m $MODULE -v $VERSION
         - sudo dkms mkdeb -m $MODULE -v $VERSION --source-only
       after_success:
         # Upload conda package
