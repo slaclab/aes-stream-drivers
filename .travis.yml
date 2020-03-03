@@ -14,6 +14,7 @@ python:
 env:
   global:
     - PACKAGE_DIR: $HOME/packages
+    - GIT_REPO: slaclab/aes-stream-drivers
       #- VERSION: $TRAVIS_TAG
     - VERSION: 5.7.2
 
@@ -51,5 +52,5 @@ jobs:
       script:
         - sudo dkms add -m $MODULE -v $VERSION
         - sudo dkms mkdeb -m $MODULE -v $VERSION --source-only
-        - python uploadTag.py --tag=$VERSION --file=/var/lib/dkms/$MODULE/$TRAVIS_TAG/deb/$MODULE-dkms_$TRAVIS_TAG_amd64.deb
+        - python uploadTag.py --tag=$VERSION --repo=$GIT_REPO --file=/var/lib/dkms/$MODULE/$TRAVIS_TAG/deb/$MODULE-dkms_$TRAVIS_TAG_amd64.deb
 
