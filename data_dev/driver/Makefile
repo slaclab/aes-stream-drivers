@@ -28,7 +28,6 @@ ifndef GITV
 	GITV := $(if $(filter $(GITD),0),$(GITT),$(GITT)-dirty)
 endif
 
-ccflags-y := -I$(HOME)/../../include
 ccflags-y += -I$(HOME)/src
 ccflags-y += -DDMA_IN_KERNEL=1 -DGITV=\"$(GITV)\"
 
