@@ -46,8 +46,8 @@ remRepo = gh.get_repo(args.repo)
 try:
 
     release = remRepo.get_release(args.tag)
-    remRel.upload_asset(args.file)
+    release.upload_asset(args.file)
 
-except Exception:
-    sys.exit(f"Failed to find and download tag {args.tag}")
+except Exception as e:
+    sys.exit(f"Failed to find and upload tag {args.tag}: {e}")
 
