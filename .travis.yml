@@ -38,18 +38,18 @@ jobs:
       env:
         - MODULE=datadev
         - MODULE_DIR=data_dev/driver
-        - DEST_DIR=/usr/src/$MODULE-$VERSION
+        - DEST_DIR=/usr/src/${MODULE}-${VERSION}
       install:
         - pip install -r pip_requirements.txt
       before_script:
         - sudo mkdir $DEST_DIR
         - sudo mkdir $DEST_DIR/src
-        - sudo cp $MODULE_DIR/src/* $DEST_DIR/src
-        - sudo cp $MODULE_DIR/Makefile $DEST_DIR
-        - sudo cp $MODULE_DIR/dkms.conf $DEST_DIR
-        - sudo echo "PACKAGE_VERSION=$VERSION" | sudo tee -a $DEST_DIR/dkms.conf
+        - sudo cp ${MODULE_DIR}/src/* ${DEST_DIR}/src
+        - sudo cp ${MODULE_DIR}/Makefile $DEST_DIR
+        - sudo cp ${MODULE_DIR}/dkms.conf $DEST_DIR
+        - sudo echo "PACKAGE_VERSION=$VERSION" | sudo tee -a ${DEST_DIR}/dkms.conf
       script:
         - sudo dkms add -m $MODULE -v $VERSION
         - sudo dkms mkdeb -m $MODULE -v $VERSION --source-only
-        - python scripts/uploadTag.py --tag=$VERSION --repo=$GIT_REPO --file=/var/lib/dkms/$MODULE/$TRAVIS_TAG/deb/$MODULE-dkms_$TRAVIS_TAG_amd64.deb
+        - python scripts/uploadTag.py --tag=$VERSION --repo=$GIT_REPO --file=/var/lib/dkms/${MODULE}/${VERSION}/deb/{$MODULE}-dkms_${VERSION}_amd64.deb
 
