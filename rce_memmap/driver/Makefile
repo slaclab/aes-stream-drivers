@@ -9,15 +9,15 @@
 # Description:
 # RCE stream driver makefile
 # ----------------------------------------------------------------------------
-# This file is part of the aes_stream_drivers package. It is subject to 
-# the license terms in the LICENSE.txt file found in the top-level directory 
-# of this distribution and at: 
-#    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
-# No part of the aes_stream_drivers package, including this file, may be 
-# copied, modified, propagated, or distributed except according to the terms 
+# This file is part of the aes_stream_drivers package. It is subject to
+# the license terms in the LICENSE.txt file found in the top-level directory
+# of this distribution and at:
+#    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+# No part of the aes_stream_drivers package, including this file, may be
+# copied, modified, propagated, or distributed except according to the terms
 # contained in the LICENSE.txt file.
 # ----------------------------------------------------------------------------
-# 
+#
 
 NAME := rce_memmap
 HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
@@ -29,9 +29,12 @@ SRCS := $(wildcard src/*.c)
 OBJS := $(patsubst %.c,%.o,$(SRCS))
 GCC  := $(COMP)gcc
 TEST := $(shell which $(GCC) 2> /dev/null)
-GITT := $(shell cd $(HOME); git describe --tags)
-GITD := $(shell cd $(HOME); git status --short -uno | wc -l)
-GITV := $(if $(filter $(GITD),0),$(GITT),$(GITT)-dirty)
+
+ifndef GITV
+	GITT := $(shell cd $(HOME); git describe --tags)
+	GITD := $(shell cd $(HOME); git status --short -uno | wc -l)
+	GITV := $(if $(filter $(GITD),0),$(GITT),$(GITT)-dirty)
+endif
 
 ccflags-y := -I$(HOME)/../../include
 ccflags-y += -I$(HOME)/src
