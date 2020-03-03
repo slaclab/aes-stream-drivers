@@ -51,6 +51,7 @@ if locRepo.is_dirty():
     raise(Exception("Cannot create tag! Git repo is dirty!"))
 
 # Git server
+print(f"Using github repo slaclab/{project}"
 gh = Github(token)
 remRepo = gh.get_repo(f'slaclab/{project}')
 
@@ -95,6 +96,7 @@ for line in loginfo.splitlines():
 records = sorted(records, key=lambda v : v['changes'], reverse=True)
 
 # Generate text
+print("Generating release notes")
 md = f'# Pull Requests Since {oldTag}\n'
 
 for i, entry in enumerate(records):
