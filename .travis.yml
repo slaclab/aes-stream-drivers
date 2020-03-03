@@ -4,11 +4,18 @@ sudo: true
 # Setup for Ubuntu Bionic (18.04)
 dist: bionic
 
+language:
+  - python
+
+python:
+  - 3.7
+
 # Environment variables
 env:
   global:
     - PACKAGE_DIR: $HOME/packages
-    - VERSION: $TRAVIS_TAG
+      #- VERSION: $TRAVIS_TAG
+    - VERSION: 5.7.2
 
 # Install dependencies
 addons:
@@ -20,7 +27,7 @@ addons:
 
 stages:
     - name: deploy_tag
-      if: tag IS present
+      #if: tag IS present
 
 # Generate and deploy documentation
 jobs:
@@ -32,6 +39,8 @@ jobs:
         - MODULE=datadev
         - MODULE_DIR=data_dev/driver
         - DEST_DIR=/usr/src/$MODULE-$VERSION
+      install:
+        - pip install -r pip_requirements.txt
       before_script:
         - sudo mkdir $DEST_DIR
         - sudo mkdir $DEST_DIR/src
@@ -42,16 +51,5 @@ jobs:
       script:
         - sudo dkms add -m $MODULE -v $VERSION
         - sudo dkms mkdeb -m $MODULE -v $VERSION --source-only
-      deploy:
-        provider: releases
-        api_key:
-          secure: NCttMzn34g2x07BhQukiixo6Aekyzblana8xhTuHSaTMJi/4As5eKj031XTqYqsaJSfo12Yo+KC6pN9gioWCgPnO4+VlSqoNb+RKM7sb7cQj956Kgk/N2k8k/1QCF9mZmWhepO+W6t79ANYMK0gPgFUvOtRimodIvYYECreQUzh2El60RnkaKroiUEbL9gnQl/1zd3PIWVHSpAazV1FvuHOx3g1+8AfAwrBsRUnPHJ+NUhsmocZkSZt11qHAnepA6tX+tw56QBVCIaeTPIaMuUgGv1UmnYQXZUfHACxVNPqxAHcUpl+WVFcR0LkRyk73FRZ10QiIM2rsbc0mtqRgNeJqkBiuZjhkY+zNeVgouFHc3u3aI+5wsmzpur+9CE1iZvNA59c5LdLdLB9Hu7RYyECZChaWmUpuecnVIxHedlTumXVaUbeN68A54svlTExgEhdaIraaj7gEW8rhjszM7VOH4ySXYov65xyRpOlEiC7qLNZ29JU+DASzXaGzVYX4CgkIyXN+EPEcBH5uLV0V4nJPS2kWjTp3t9gd/MdljIYtc9cVN6XAf3+TGPsmhxETHKYm3PMqjmFHcAfzLoi8gHRgKQ4wEit/qX85lDI4lc1ezjco7f2bImdzJ1BjEJYWZVdi7CqLiQoOEPbQj4EzHwExRdNLFit6/SVyYutZmTc=
-        file: "/var/lib/dkms/$MODULE/$TRAVIS_TAG/deb/$MODULE-dkms_$TRAVIS_TAG_amd64.deb"
-
-        # Upload conda package
-        #- anaconda -t $CONDA_UPLOAD_TOKEN_TAG upload bld-dir/`echo $TRAVIS_OS_NAME`-64/*.tar.bz2
-
-    # - <<: *deploy-conda-stage   # Conda for MacOS
-    #os: osx
-    #language: ruby  # osx does not support language=python
+        - python uploadTag.py --tag=$VERSION --file=/var/lib/dkms/$MODULE/$TRAVIS_TAG/deb/$MODULE-dkms_$TRAVIS_TAG_amd64.deb
 
