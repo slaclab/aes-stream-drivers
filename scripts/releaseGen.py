@@ -51,7 +51,7 @@ if locRepo.is_dirty():
     raise(Exception("Cannot create tag! Git repo is dirty!"))
 
 # Git server
-print(f"Using github repo slaclab/{project}"
+print(f"Using github repo slaclab/{project}")
 gh = Github(token)
 remRepo = gh.get_repo(f'slaclab/{project}')
 
