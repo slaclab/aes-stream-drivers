@@ -57,7 +57,6 @@ jobs:
       script:
         - sudo dkms add -m $MODULE -v $VERSION
         - sudo dkms mkdeb -m $MODULE -v $VERSION --source-only
-        - sudo dkms mkrpm -m $MODULE -v $VERSION --source-only
         - python scripts/uploadTag.py --tag=$VERSION --repo=$GIT_REPO --file=/var/lib/dkms/${MODULE}/${VERSION}/deb/${MODULE}-dkms_${VERSION}_amd64.deb
         - tar -cvvzpf ${MODULE}-${VERSION}.tgz $DEST_DIR
         - python scripts/uploadTag.py --tag=$VERSION --repo=$GIT_REPO --file=${MODULE}-${VERSION}.tgz
