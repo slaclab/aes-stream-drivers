@@ -8,6 +8,7 @@ dist: bionic
 env:
   global:
     - PACKAGE_DIR: $HOME/packages
+    - VERSION: 1.1.1
 
 # Install dependencies
 addons:
@@ -24,23 +25,22 @@ stages:
 # Generate and deploy documentation
 jobs:
   include:
-    - stage:
     - &deploy-dkms-stage
       stage: deploy_tag
       name: "Deploy Data Dev"
       env:
         - MODULE=datadev
         - MODULE_DIR=data_dev/driver
-        - DEST_DIR=/usr/src/$MODULE-$TRAVIS_TAG
+        - DEST_DIR=/usr/src/$MODULE-$VERSION
       before_script:
         - mkdir $DEST_DIR
         - mkdir $DEST_DIR/src
         - cp $MODULE_DIR/src/* $DEST_DIR/src
         - cp $MODULE_DIR/Makefile $DEST_DIR
         - cp $MODULE_DIR/dkms.conf $DEST_DIR
-        - echo "PACKAGE_VERSION=$TRAVIS_TAG" >> $DEST_DIR/dkms.conf $DEST_DIR
+        - echo "PACKAGE_VERSION=$VERSION" >> $DEST_DIR/dkms.conf $DEST_DIR
       script:
-        - dkms mkdeb -m datadev -v 5.7.0 --source-only
+        - dkms mkdeb -m $MODULE -v $VERSION --source-only
       after_success:
         # Upload conda package
         #- anaconda -t $CONDA_UPLOAD_TOKEN_TAG upload bld-dir/`echo $TRAVIS_OS_NAME`-64/*.tar.bz2
