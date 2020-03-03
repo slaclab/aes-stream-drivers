@@ -33,14 +33,14 @@ jobs:
         - MODULE_DIR=data_dev/driver
         - DEST_DIR=/usr/src/$MODULE-$VERSION
       before_script:
-        - mkdir $DEST_DIR
-        - mkdir $DEST_DIR/src
-        - cp $MODULE_DIR/src/* $DEST_DIR/src
-        - cp $MODULE_DIR/Makefile $DEST_DIR
-        - cp $MODULE_DIR/dkms.conf $DEST_DIR
-        - echo "PACKAGE_VERSION=$VERSION" >> $DEST_DIR/dkms.conf $DEST_DIR
+        - sudo mkdir $DEST_DIR
+        - sudo mkdir $DEST_DIR/src
+        - sudo cp $MODULE_DIR/src/* $DEST_DIR/src
+        - sudo cp $MODULE_DIR/Makefile $DEST_DIR
+        - sudo cp $MODULE_DIR/dkms.conf $DEST_DIR
+        - sudo echo "PACKAGE_VERSION=$VERSION" >> $DEST_DIR/dkms.conf $DEST_DIR
       script:
-        - dkms mkdeb -m $MODULE -v $VERSION --source-only
+        - sudo dkms mkdeb -m $MODULE -v $VERSION --source-only
       after_success:
         # Upload conda package
         #- anaconda -t $CONDA_UPLOAD_TOKEN_TAG upload bld-dir/`echo $TRAVIS_OS_NAME`-64/*.tar.bz2
