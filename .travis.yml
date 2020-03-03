@@ -52,7 +52,7 @@ jobs:
         - sudo echo "PACKAGE_VERSION=$VERSION" | sudo tee -a ${DEST_DIR}/dkms.conf
         - sudo echo "#!/bin/bash" | sudo tee -a ${DEST_DIR}/install.sh
         - sudo echo "dkms add -m $MODULE -v $VERSION" | sudo tee -a ${DEST_DIR}/install.sh
-        - sudo echo "dkms install -m $MODULE -v $VERSION -all" | sudo tee -a ${DEST_DIR}/install.sh
+        - sudo echo "dkms install -m $MODULE -v $VERSION --all" | sudo tee -a ${DEST_DIR}/install.sh
         - sudo chmod a+rx ${DEST_DIR}/install.sh
       script:
         - sudo dkms add -m $MODULE -v $VERSION
