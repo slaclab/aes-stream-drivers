@@ -24,6 +24,7 @@ addons:
       - debhelper
       - dkms
       - fakeroot
+      - rpm
 
 stages:
     - name: deploy_tag
@@ -47,11 +48,19 @@ jobs:
         - sudo cp ${MODULE_DIR}/src/* ${DEST_DIR}/src
         - sudo cp ${MODULE_DIR}/Makefile $DEST_DIR
         - sudo cp ${MODULE_DIR}/dkms.conf $DEST_DIR
+        - sudo cp ${MODULE_DIR}/${MODULE}.conf $DEST_DIR
         - sudo echo "PACKAGE_VERSION=$VERSION" | sudo tee -a ${DEST_DIR}/dkms.conf
+        - sudo echo "#!/bin/bash" | sudo tee -a ${DEST_DIR}/install.sh
+        - sudo echo "dkms add -m $MODULE -v $VERSION" | sudo tee -a ${DEST_DIR}/install.sh
+        - sudo echo "dkms install -m $MODULE -v $VERSION -all" | sudo tee -a ${DEST_DIR}/install.sh
+        - sudo chmod a+rx ${DEST_DIR}/install.sh
       script:
         - sudo dkms add -m $MODULE -v $VERSION
         - sudo dkms mkdeb -m $MODULE -v $VERSION --source-only
+        - sudo dkms mkrpm -m $MODULE -v $VERSION --source-only
         - python scripts/uploadTag.py --tag=$VERSION --repo=$GIT_REPO --file=/var/lib/dkms/${MODULE}/${VERSION}/deb/${MODULE}-dkms_${VERSION}_amd64.deb
+        - tar -cvvzpf $DEST_DIR ${MODULE}-${VERSION}.tgz
+        - python scripts/uploadTag.py --tag=$VERSION --repo=$GIT_REPO --file=${MODULE}-${VERSION}.tgz
 
     - <<: *deploy-dkms-stage
       name: "Deploy Data Gpu"
