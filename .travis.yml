@@ -35,6 +35,7 @@ jobs:
     - &deploy-dkms-stage
       stage: deploy_tag
       name: "Deploy Data Dev" env:
+      env:
         - MODULE=datadev
         - MODULE_DIR=data_dev/driver
         - DEST_DIR=/usr/src/${MODULE}-${VERSION}
@@ -54,6 +55,7 @@ jobs:
 
     - <<: *deploy-dkms-stage
       name: "Deploy Data Gpu" env:
+      env:
         - MODULE=datagpu
         - MODULE_DIR=data_gpu/driver
         - DEST_DIR=/usr/src/${MODULE}-${VERSION}
