@@ -1,0 +1,51 @@
+# This will run on Travis' 'new' container-based infrastructure
+sudo: true
+
+# Setup for Ubuntu Bionic (18.04)
+dist: bionic
+
+# Environment variables
+env:
+  global:
+    - PACKAGE_DIR: $HOME/packages
+
+# Install dependencies
+addons:
+  apt:
+    packages:
+      - debhelper
+      - dkms
+      - fakeroot
+
+stages:
+    - name: deploy_tag
+      #if: tag IS present
+
+# Generate and deploy documentation
+jobs:
+  include:
+    - stage:
+    - &deploy-dkms-stage
+      stage: deploy_tag
+      name: "Deploy Data Dev"
+      env:
+        - MODULE=datadev
+        - MODULE_DIR=data_dev/driver
+        - DEST_DIR=/usr/src/$MODULE-$TRAVIS_TAG
+      before_script:
+        - mkdir $DEST_DIR
+        - mkdir $DEST_DIR/src
+        - cp $MODULE_DIR/src/* $DEST_DIR/src
+        - cp $MODULE_DIR/Makefile $DEST_DIR
+        - cp $MODULE_DIR/dkms.conf $DEST_DIR
+        - echo "PACKAGE_VERSION=$TRAVIS_TAG" >> $DEST_DIR/dkms.conf $DEST_DIR
+      script:
+        - dkms mkdeb -m datadev -v 5.7.0 --source-only
+      after_success:
+        # Upload conda package
+        #- anaconda -t $CONDA_UPLOAD_TOKEN_TAG upload bld-dir/`echo $TRAVIS_OS_NAME`-64/*.tar.bz2
+
+    # - <<: *deploy-conda-stage   # Conda for MacOS
+    #os: osx
+    #language: ruby  # osx does not support language=python
+
