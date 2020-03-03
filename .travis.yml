@@ -1,0 +1,60 @@
+# This will run on Travis' 'new' container-based infrastructure
+sudo: true
+
+# Setup for Ubuntu Bionic (18.04)
+dist: bionic
+
+language:
+  - python
+
+python:
+  - 3.7
+
+# Environment variables
+env:
+  global:
+    - PACKAGE_DIR: $HOME/packages
+    - GIT_REPO: slaclab/aes-stream-drivers
+    - VERSION: $TRAVIS_TAG
+
+# Install dependencies
+addons:
+  apt:
+    packages:
+      - debhelper
+      - dkms
+      - fakeroot
+
+stages:
+    - name: deploy_tag
+      if: tag IS present
+
+# Generate and deploy documentation
+jobs:
+  include:
+    - &deploy-dkms-stage
+      stage: deploy_tag
+      name: "Deploy Data Dev" env:
+        - MODULE=datadev
+        - MODULE_DIR=data_dev/driver
+        - DEST_DIR=/usr/src/${MODULE}-${VERSION}
+      install:
+        - pip install -r pip_requirements.txt
+      before_script:
+        - sudo mkdir $DEST_DIR
+        - sudo mkdir $DEST_DIR/src
+        - sudo cp ${MODULE_DIR}/src/* ${DEST_DIR}/src
+        - sudo cp ${MODULE_DIR}/Makefile $DEST_DIR
+        - sudo cp ${MODULE_DIR}/dkms.conf $DEST_DIR
+        - sudo echo "PACKAGE_VERSION=$VERSION" | sudo tee -a ${DEST_DIR}/dkms.conf
+      script:
+        - sudo dkms add -m $MODULE -v $VERSION
+        - sudo dkms mkdeb -m $MODULE -v $VERSION --source-only
+        - python scripts/uploadTag.py --tag=$VERSION --repo=$GIT_REPO --file=/var/lib/dkms/${MODULE}/${VERSION}/deb/${MODULE}-dkms_${VERSION}_amd64.deb
+
+    - <<: *deploy-dkms-stage
+      name: "Deploy Data Gpu" env:
+        - MODULE=datagpu
+        - MODULE_DIR=data_gpu/driver
+        - DEST_DIR=/usr/src/${MODULE}-${VERSION}
+

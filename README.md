@@ -12,15 +12,27 @@ Contains shared kernel and application libraries
 
 Contains driver and application code for TID-AIR generic DAQ PCIe cards
 
+/etc/modprobe.d/datadev.conf
+
+options datadev cfgTxCount=1024 cfgRxCount=1024 cfgSize=131072 cfgMode=1 cfgCont=1
+
+#### data_gpu/
+
+Contains driver and application code for TID-AIR generic DAQ PCIe cards with DirectGPU Async Support
+
+/etc/modprobe.d/datagpu.conf
+
+options datagpu cfgTxCount=1024 cfgRxCount=1024 cfgSize=131072 cfgMode=1 cfgCont=1
+
 #### exo_tem/
 
 Contains driver and application code for EXO TEM.
 
-#### include/ 
+#### include/
 
 Contains top level application include files for all drivers
 
-#### pgpcard/ 
+#### pgpcard/
 
 Contains driver and application code for the pgpcard
 
@@ -28,7 +40,7 @@ Contains driver and application code for the pgpcard
 
 Contains driver that allocates memory blocks for use in a pure firmware dma engine
 
-#### rce_stream/ 
+#### rce_stream/
 
 Contains driver and application code for the RCE AXI stream DMA
 
