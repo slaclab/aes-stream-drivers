@@ -361,7 +361,7 @@ void AxisG2_Init(struct DmaDevice *dev) {
    iowrite32(0x0,&(reg->dropEnable));
 
    // IRQ Holdoff
-   iowrite32(dev->cfgIrqHold,&(reg->irqHoldOff));
+   if ( ((ioread32(&(reg->enableVer)) >> 24) & 0xFF) >= 3 ) iowrite32(dev->cfgIrqHold,&(reg->irqHoldOff));
 
    // Push RX buffers to hardware and map
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
