@@ -87,8 +87,8 @@ jobs:
     - stage: gen_release
       name: "Generate Release"
       install:
-         - git clone https://github.com/slaclab/ruckus.git
+         - git clone https://github.com/slaclab/ruckus.git -b alt_version
          - pip install -r ruckus/scripts/pip_requirements.txt
       script:
          - python ruckus/scripts/releaseGen.py
-         
+
