@@ -8,12 +8,12 @@
  * Description:
  * Top level module types and functions.
  * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to 
- * the license terms in the LICENSE.txt file found in the top-level directory 
- * of this distribution and at: 
- *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
- * No part of the aes_stream_drivers package, including this file, may be 
- * copied, modified, propagated, or distributed except according to the terms 
+ * This file is part of the aes_stream_drivers package. It is subject to
+ * the license terms in the LICENSE.txt file found in the top-level directory
+ * of this distribution and at:
+ *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ * No part of the aes_stream_drivers package, including this file, may be
+ * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
@@ -37,9 +37,9 @@ int cfgRxCount = 1024;
 int cfgSize    = 0x20000; // 128kB
 int cfgMode    = BUFF_COHERENT;
 int cfgCont    = 1;
+int cfgIrqHold = 10000;
 
 struct DmaDevice gDmaDevices[MAX_DMA_DEVICES];
-
 // PCI device IDs
 static struct pci_device_id DataDev_Ids[] = {
    { PCI_DEVICE(PCI_VENDOR_ID_SLAC,   PCI_DEVICE_ID_DDEV)   },
@@ -148,8 +148,9 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->cfgSize    = cfgSize;
    dev->cfgMode    = cfgMode;
    dev->cfgCont    = cfgCont;
+   dev->cfgIrqHold = cfgIrqHold;
 
-   // Get IRQ from pci_dev structure. 
+   // Get IRQ from pci_dev structure.
    dev->irq = pcidev->irq;
 
    // Set device fields
@@ -272,4 +273,7 @@ MODULE_PARM_DESC(cfgMode, "RX buffer mode");
 
 module_param(cfgCont,int,0);
 MODULE_PARM_DESC(cfgCont, "RX continue enable");
+
+module_param(cfgIrqHold,int,0);
+MODULE_PARM_DESC(cfgIrqHold, "IRQ Holdoff");
 

@@ -10,12 +10,12 @@
  * Description:
  * Common access functions, not card specific
  * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to 
- * the license terms in the LICENSE.txt file found in the top-level directory 
- * of this distribution and at: 
- *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
- * No part of the aes_stream_drivers package, including this file, may be 
- * copied, modified, propagated, or distributed except according to the terms 
+ * This file is part of the aes_stream_drivers package. It is subject to
+ * the license terms in the LICENSE.txt file found in the top-level directory
+ * of this distribution and at:
+ *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ * No part of the aes_stream_drivers package, including this file, may be
+ * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
@@ -60,6 +60,7 @@ struct DmaDevice {
    uint32_t cfgRxCount;
    uint32_t cfgMode;
    uint32_t cfgCont;
+   uint32_t cfgIrqHold;
 
    // Device tracking
    uint32_t        index;
@@ -108,7 +109,7 @@ struct DmaDesc {
    struct DmaQueue q;
 
    // Async queue
-   struct fasync_struct *async_queue;   
+   struct fasync_struct *async_queue;
 
    // Pointer back to card structure
    struct DmaDevice * dev;
@@ -132,7 +133,7 @@ extern struct DmaDevice gDmaDevices[];
 // Number of active devices
 extern uint32_t gDmaDevCount;
 
-// Global variable for the device class 
+// Global variable for the device class
 extern struct class * gCl;
 
 // Function structure for below functions
