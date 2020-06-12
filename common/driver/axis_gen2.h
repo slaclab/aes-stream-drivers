@@ -8,12 +8,12 @@
  * Description:
  * Access functions for Gen2 AXIS DMA
  * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to 
- * the license terms in the LICENSE.txt file found in the top-level directory 
- * of this distribution and at: 
- *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
- * No part of the aes_stream_drivers package, including this file, may be 
- * copied, modified, propagated, or distributed except according to the terms 
+ * This file is part of the aes_stream_drivers package. It is subject to
+ * the license terms in the LICENSE.txt file found in the top-level directory
+ * of this distribution and at:
+ *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ * No part of the aes_stream_drivers package, including this file, may be
+ * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
@@ -57,7 +57,8 @@ struct AxisG2Reg {
    uint32_t writeFifoB;      // 0x0070
    uint32_t spareC[3];       // 0x0074 - 0x007C
    uint32_t forceInt;        // 0x0080
-   uint32_t spareD[4063];    // 0x0084 - 0x3FFC
+   uint32_t irqHoldOff;      // 0x0084
+   uint32_t spareD[4062];    // 0x0088 - 0x3FFC
    uint32_t dmaAddr[4096];   // 0x4000 - 0x7FFC
 };
 

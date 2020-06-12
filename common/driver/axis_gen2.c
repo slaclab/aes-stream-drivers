@@ -8,12 +8,12 @@
  * Description:
  * Access functions for Gen2 AXIS DMA
  * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to 
- * the license terms in the LICENSE.txt file found in the top-level directory 
- * of this distribution and at: 
- *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
- * No part of the aes_stream_drivers package, including this file, may be 
- * copied, modified, propagated, or distributed except according to the terms 
+ * This file is part of the aes_stream_drivers package. It is subject to
+ * the license terms in the LICENSE.txt file found in the top-level directory
+ * of this distribution and at:
+ *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ * No part of the aes_stream_drivers package, including this file, may be
+ * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
@@ -69,7 +69,7 @@ inline uint8_t AxisG2_MapReturn ( struct DmaDevice * dev, struct AxisG2Return *r
       ret->result = ptr[0] & 0x7;
    }
 
-   if ( dev->debug > 0 ) 
+   if ( dev->debug > 0 )
       dev_info(dev->device,"Irq: desc idx %i, raw 0x%x, 0x%x, 0x%x, 0x%x\n",index,ptr[0],ptr[1],ptr[2],ptr[3]);
 
    memset(ptr,0,(desc128En?16:8));
@@ -83,7 +83,7 @@ inline void AxisG2_WriteFree ( struct DmaBuffer *buff, struct AxisG2Reg *reg, ui
    wrData[0] = buff->index & 0x0FFFFFFF;
 
    if ( desc128En ) {
-      wrData[0] |= (buff->buffHandle << 24) & 0xF0000000; // Addr bits 7:4 
+      wrData[0] |= (buff->buffHandle << 24) & 0xF0000000; // Addr bits 7:4
       wrData[1]  = (buff->buffHandle >>  8) & 0xFFFFFFFF; // Addr bits 39:8
 
       iowrite32(wrData[1],&(reg->writeFifoB));
@@ -113,7 +113,7 @@ inline void AxisG2_WriteTx ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint
       rdData[1] = buff->size;
 
       rdData[2] = buff->index & 0x0FFFFFFF;
-      rdData[2] |= (buff->buffHandle << 24) & 0xF0000000; // Addr bits 7:4 
+      rdData[2] |= (buff->buffHandle << 24) & 0xF0000000; // Addr bits 7:4
       rdData[3]  = (buff->buffHandle >>  8) & 0xFFFFFFFF; // Addr bits 39:8
 
       iowrite32(rdData[3],&(reg->readFifoD));
@@ -121,7 +121,7 @@ inline void AxisG2_WriteTx ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint
    }
    else {
 
-      rdData[0] |= (buff->index <<  4) & 0x0000FFF0; // Bits[15:4] = buffId 
+      rdData[0] |= (buff->index <<  4) & 0x0000FFF0; // Bits[15:4] = buffId
 
       rdData[1]  = buff->size & 0x00FFFFFF;   // bits[23:0]  = size
       rdData[1] |= (buff->dest << 24) & 0xFF000000; // bits[31:24] = dest
@@ -348,17 +348,20 @@ void AxisG2_Init(struct DmaDevice *dev) {
    if ( dev->cfgMode & BUFF_ARM_ACP   ) x |= 0xA600; // Buffer
    if ( dev->cfgMode & AXIS2_RING_ACP ) x |= 0x00A6; // Desc
    iowrite32(x,&(reg->cacheConfig));
-   
-   // Set MAX RX                      
+
+   // Set MAX RX
    iowrite32(dev->cfgSize,&(reg->maxSize));
 
-   // Clear FIFOs                     
-   iowrite32(0x1,&(reg->fifoReset)); 
-   iowrite32(0x0,&(reg->fifoReset)); 
+   // Clear FIFOs
+   iowrite32(0x1,&(reg->fifoReset));
+   iowrite32(0x0,&(reg->fifoReset));
 
    // Continue and drop
-   iowrite32(0x1,&(reg->contEnable)); 
-   iowrite32(0x0,&(reg->dropEnable)); 
+   iowrite32(0x1,&(reg->contEnable));
+   iowrite32(0x0,&(reg->dropEnable));
+
+   // IRQ Holdoff
+   iowrite32(dev->cfgIrqHold,&(reg->irqHoldOff));
 
    // Push RX buffers to hardware and map
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
@@ -368,7 +371,7 @@ void AxisG2_Init(struct DmaDevice *dev) {
       if ( dmaBufferToHw(buff) < 0 ) dev_warn(dev->device,"Init: Failed to map dma buffer.\n");
 
       // Add to software queue, if enabled and hardware is full
-      else if ( hwData->desc128En && (hwData->hwWrBuffCnt >= (hwData->addrCount-1)) ) 
+      else if ( hwData->desc128En && (hwData->hwWrBuffCnt >= (hwData->addrCount-1)) )
          dmaQueuePush(&(hwData->wrQueue),buff);
 
       // Add to hardware queue
@@ -506,7 +509,7 @@ int32_t AxisG2_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
          break;
 
       default:
-         dev_warn(dev->device,"Command: Invalid command=%i\n",cmd); 
+         dev_warn(dev->device,"Command: Invalid command=%i\n",cmd);
          return(-1);
          break;
    }
@@ -536,7 +539,7 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    seq_printf(s,"     Hw Read Buff Count : %i\n",hwData->hwRdBuffCnt);
    seq_printf(s,"           Cache Config : 0x%x\n",(ioread32(&(reg->cacheConfig))));
    seq_printf(s,"            Desc 128 En : %i\n",hwData->desc128En);
-   seq_printf(s,"            Envable Var : 0x%x\n",(ioread32(&(reg->enableVer))));
+   seq_printf(s,"            Enable Ver  : 0x%x\n",(ioread32(&(reg->enableVer))));
    seq_printf(s,"      Driver Load Count : %u\n",((ioread32(&(reg->enableVer)))>>8)&0xFF);
 
 }
