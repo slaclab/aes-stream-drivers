@@ -35,10 +35,10 @@ args = parser.parse_args()
 
 print("\nLogging into github....\n")
 
-token = os.environ.get('GITHUB_TOKEN')
+token = os.environ.get('GH_REPO_TOKEN')
 
 if token is None:
-    sys.exit("Failed to get github token from GITHUB_TOKEN environment variable")
+    sys.exit("Failed to get github token from GH_REPO_TOKEN environment variable")
 
 gh = github.Github(token)
 remRepo = gh.get_repo(args.repo)
