@@ -29,6 +29,8 @@ addons:
 stages:
     - name: gen_release
       if: tag IS present
+    - name: deploy_tag
+      if: tag IS present
     # On master branch (but not on PRs to master) or in tagged releases
     # generate and deploy the documentation
     #- name: generate_and_deploy
@@ -45,6 +47,14 @@ stages:
 # Generate and deploy documentation
 jobs:
   include:
+    - stage: gen_release
+      name: "Generate Release"
+      install:
+         - git clone https://github.com/slaclab/ruckus.git
+         - pip install -r ruckus/scripts/pip_requirements.txt
+      script:
+         - python ruckus/scripts/releaseGen.py
+
     - &deploy-dkms-stage
       stage: deploy_tag
       name: "Deploy Data Dev"
@@ -83,13 +93,4 @@ jobs:
         - MODULE=datagpu
         - MODULE_DIR=data_gpu/driver
         - DEST_DIR=/usr/src/${MODULE}-${VERSION}
-
-    - stage: gen_release
-      name: "Generate Release"
-      install:
-         - git clone https://github.com/slaclab/ruckus.git
-         - pip install -r ruckus/scripts/pip_requirements.txt
-      script:
-         - python ruckus/scripts/releaseGen.py
-
 
