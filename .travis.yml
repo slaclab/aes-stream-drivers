@@ -29,20 +29,8 @@ addons:
 stages:
     - name: gen_release
       if: tag IS present
-    - name: deploy_tag
+    - name: deploy_dkms
       if: tag IS present
-    # On master branch (but not on PRs to master) or in tagged releases
-    # generate and deploy the documentation
-    #- name: generate_and_deploy
-    #  if: (branch = master AND NOT (type = pull_request)) OR tag IS present
-    # On all other branches or PRs, but not on tagged releases
-    # only try to generate the documentation
-    #- name: generate
-    #  if: (branch != master OR (type == pull_request)) AND tag IS blank
-    #- name: deploy_dev
-    #  if: branch = pre-release AND tag IS blank AND NOT (type = pull_request)
-    #- name: deploy_tag
-    #if: tag IS present
 
 # Generate and deploy documentation
 jobs:
@@ -56,7 +44,7 @@ jobs:
          - python ruckus/scripts/releaseGen.py
 
     - &deploy-dkms-stage
-      stage: deploy_tag
+      stage: deploy_dkms
       name: "Deploy Data Dev"
       env:
         - MODULE=datadev
