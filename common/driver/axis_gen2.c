@@ -385,6 +385,7 @@ void AxisG2_Init(struct DmaDevice *dev) {
    }
 
    // Setup buffer groups
+   hwData->bgEnable = 0;
    if ( ((ioread32(&(reg->enableVer)) >> 24) & 0xFF) >= 4 ) {
       for (x =0; x < 8; x++) {
          if ( hwData->bgThold[x] != 0 ) hwData->bgEnable |= (1 << x);
