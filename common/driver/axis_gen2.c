@@ -385,9 +385,11 @@ void AxisG2_Init(struct DmaDevice *dev) {
    }
 
    // Setup buffer groups
-   for (x =0; x < 8; x++) {
-      if ( hwData->bgThold[x] != 0 ) hwData->bgEnable |= (1 << x);
-      iowrite32(hwData->bgThold[x],&(reg->bgThold[x]));
+   if ( ((ioread32(&(reg->enableVer)) >> 24) & 0xFF) >= 4 ) {
+      for (x =0; x < 8; x++) {
+         if ( hwData->bgThold[x] != 0 ) hwData->bgEnable |= (1 << x);
+         iowrite32(hwData->bgThold[x],&(reg->bgThold[x]));
+      }
    }
 
    dev_info(dev->device,"Init: Found Version 2 Device. Desc128En=%i\n",hwData->desc128En);
