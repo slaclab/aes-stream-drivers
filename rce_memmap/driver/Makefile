@@ -22,7 +22,7 @@
 NAME := rce_memmap
 HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 COMP ?= arm-xilinx-linux-gnueabi-
-ARCH := arm
+ARCH ?= arm
 KDIR ?= /afs/slac/g/cci/volumes/vol1/xilinx/linux-xlnx
 KVER := $(shell make -C $(KDIR) -s kernelversion).arm
 SRCS := $(wildcard src/*.c)
