@@ -10,12 +10,12 @@
  * Description:
  * Common access functions, not card specific
  * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to 
- * the license terms in the LICENSE.txt file found in the top-level directory 
- * of this distribution and at: 
- *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
- * No part of the aes_stream_drivers package, including this file, may be 
- * copied, modified, propagated, or distributed except according to the terms 
+ * This file is part of the aes_stream_drivers package. It is subject to
+ * the license terms in the LICENSE.txt file found in the top-level directory
+ * of this distribution and at:
+ *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ * No part of the aes_stream_drivers package, including this file, may be
+ * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
@@ -42,6 +42,19 @@ struct file_operations DmaFunctions = {
    mmap:           Dma_Mmap
 };
 
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
+
+// Setup proc file operations
+static struct proc_ops DmaProcOps = {
+   .proc_open    = Dma_ProcOpen,
+   .proc_read    = seq_read,
+   .proc_lseek  = seq_lseek,
+   .proc_release = seq_release
+};
+
+#else
+
 // Setup proc file operations
 static struct file_operations DmaProcOps = {
    .owner   = THIS_MODULE,
@@ -50,6 +63,8 @@ static struct file_operations DmaProcOps = {
    .llseek  = seq_lseek,
    .release = seq_release
 };
+
+#endif
 
 // Sequence operations
 static struct seq_operations DmaSeqOps = {
@@ -62,7 +77,7 @@ static struct seq_operations DmaSeqOps = {
 // Number of active devices
 uint32_t gDmaDevCount;
 
-// Global variable for the device class 
+// Global variable for the device class
 struct class * gCl;
 
 
@@ -76,7 +91,13 @@ char *Dma_DevNode(struct device *dev, umode_t *mode){
 int Dma_MapReg ( struct DmaDevice *dev ) {
    if ( dev->base == NULL ) {
       dev_info(dev->device,"Init: Mapping Register space 0x%llx with size 0x%x.\n",dev->baseAddr,dev->baseSize);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25)
+      dev->base = ioremap(dev->baseAddr, dev->baseSize);
+#else
       dev->base = ioremap_nocache(dev->baseAddr, dev->baseSize);
+#endif
+
       if (! dev->base ) {
          dev_err(dev->device,"Init: Could not remap memory.\n");
          return -1;
@@ -134,7 +155,7 @@ int Dma_Init(struct DmaDevice *dev) {
    if (cdev_add(&(dev->charDev), dev->devNum, 1) == -1) {
       dev_err(dev->device,"Init: Failed to add device file.\n");
       return -1;
-   }                                  
+   }
 
    // Setup /proc
    proc_create_data(dev->devName, 0, NULL, &DmaProcOps, dev);
@@ -165,7 +186,7 @@ int Dma_Init(struct DmaDevice *dev) {
    dmaQueueInit(&(dev->tq),dev->txBuffers.count);
 
    // Populate transmit queue
-   for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++) 
+   for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++)
       dmaQueuePush(&(dev->tq),dmaGetBufferList(&(dev->txBuffers),x));
 
    // Create rx buffers, bidirectional because rx buffers can be passed to tx
@@ -257,7 +278,7 @@ int Dma_Open(struct inode *inode, struct file *filp) {
    // Find device structure
    dev = container_of(inode->i_cdev, struct DmaDevice, charDev);
 
-   // Init descriptor  
+   // Init descriptor
    desc = (struct DmaDesc *)kmalloc(sizeof(struct DmaDesc),GFP_KERNEL);
    memset(desc,0,sizeof(struct DmaDesc));
    dmaQueueInit(&(desc->q),dev->cfgRxCount);
@@ -309,7 +330,7 @@ int Dma_Release(struct inode *inode, struct file *filp) {
    }
    if ( cnt > 0 ) dev_info(dev->device,"Release: Removed %i buffers from closed device.\n", cnt);
 
-   // Find rx buffers still owned by descriptor 
+   // Find rx buffers still owned by descriptor
    cnt = 0;
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
       buff = dmaGetBufferList(&(dev->rxBuffers),x);
@@ -323,7 +344,7 @@ int Dma_Release(struct inode *inode, struct file *filp) {
 
    if ( cnt > 0 ) dev_info(dev->device,"Release: Removed %i rx buffers held by user.\n", cnt);
 
-   // Find tx buffers still owned by descriptor 
+   // Find tx buffers still owned by descriptor
    cnt = 0;
    for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++) {
       buff = dmaGetBufferList(&(dev->txBuffers),x);
@@ -481,7 +502,7 @@ ssize_t Dma_Write(struct file *filp, const char* buffer, size_t count, loff_t* f
    destByte = wr.dest / 8;
    destBit  = 1 << (wr.dest % 8);
    if ( (wr.dest > DMA_MAX_DEST) || ((destBit & dev->destMask[destByte]) == 0 ) ) {
-      dev_warn(dev->device,"Write: Invalid destination. Byte %i, Got=0x%x. Mask=0x%x.\n", 
+      dev_warn(dev->device,"Write: Invalid destination. Byte %i, Got=0x%x. Mask=0x%x.\n",
             destByte,destBit,dev->destMask[destByte]);
       return(-1);
    }
@@ -493,7 +514,7 @@ ssize_t Dma_Write(struct file *filp, const char* buffer, size_t count, loff_t* f
    // if pointer is zero, index is used
    if ( dp == 0 ) {
 
-      // First look in tx buffer list then look in rx list 
+      // First look in tx buffer list then look in rx list
       // Rx list is alid if user is passing index of previously received buffer
       //if ( ((buff=dmaGetBuffer(dev,wr.index)) == NULL ) || buff->userHas != desc ) {
       if ( (buff=dmaGetBuffer(dev,wr.index)) == NULL ) {
@@ -501,7 +522,7 @@ ssize_t Dma_Write(struct file *filp, const char* buffer, size_t count, loff_t* f
          return(-1);
       }
       buff->userHas = NULL;
-   }      
+   }
 
    // Copy data if pointer is provided
    else {
@@ -524,7 +545,7 @@ ssize_t Dma_Write(struct file *filp, const char* buffer, size_t count, loff_t* f
    buff->flags  = wr.flags;
    buff->size   = wr.size;
 
-   // board specific call 
+   // board specific call
    res = dev->hwFunc->sendBuffer(dev,&buff,1);
 
    // Debug
@@ -557,27 +578,27 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
    switch (cmd & 0xFFFF) {
 
       // Get buffer count
-      case DMA_Get_Buff_Count: 
+      case DMA_Get_Buff_Count:
          return(dev->rxBuffers.count + dev->txBuffers.count);
          break;
 
       // Get rx buffer count
-      case DMA_Get_RxBuff_Count: 
+      case DMA_Get_RxBuff_Count:
          return(dev->rxBuffers.count);
          break;
 
       // Get tx buffer count
-      case DMA_Get_TxBuff_Count: 
+      case DMA_Get_TxBuff_Count:
          return(dev->txBuffers.count);
          break;
 
       // Get buffer size, same size for rx and tx
-      case DMA_Get_Buff_Size: 
+      case DMA_Get_Buff_Size:
          return(dev->cfgSize);
          break;
 
       // Check if read is ready
-      case DMA_Read_Ready: 
+      case DMA_Read_Ready:
          return(dmaQueueNotEmpty(&(desc->q)));
          break;
 
@@ -641,8 +662,8 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
                return(-1);
             }
          }
-       
-         // Return receive buffers 
+
+         // Return receive buffers
          dev->hwFunc->retRxBuffer(dev,buffList,bCnt);
 
          kfree(buffList);
@@ -661,7 +682,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          else {
             buff->userHas = desc;
 
-            if ( dev->debug > 0 ) 
+            if ( dev->debug > 0 )
                dev_info(dev->device,"Command: Returning buffer %i to user\n",buff->index);
             return(buff->index);
          }
@@ -682,7 +703,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          return(Dma_ReadRegister(dev,arg));
          break;
 
-      // All other commands handled by card specific functions   
+      // All other commands handled by card specific functions
       default:
          return(dev->hwFunc->command(dev,cmd,arg));
          break;
@@ -762,7 +783,7 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
 #if defined(dma_mmap_coherent) && (! defined(CONFIG_X86))
          ret = dma_mmap_coherent(dev->device,vma,buff->buffAddr,buff->buffHandle,dev->cfgSize);
 #else
-         ret = remap_pfn_range(vma, vma->vm_start, 
+         ret = remap_pfn_range(vma, vma->vm_start,
                                virt_to_phys((void *)buff->buffAddr) >> PAGE_SHIFT,
                                vsize,
                                vma->vm_page_prot);
@@ -772,7 +793,7 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
 
       // Streaming buffer type or ARM ACP
       else if ( (dev->cfgMode & BUFF_STREAM) || (dev->cfgMode & BUFF_ARM_ACP) ) {
-         ret = remap_pfn_range(vma, vma->vm_start, 
+         ret = remap_pfn_range(vma, vma->vm_start,
                                virt_to_phys((void *)buff->buffAddr) >> PAGE_SHIFT,
                                vsize,
                                vma->vm_page_prot);
@@ -988,7 +1009,7 @@ int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t * mask
 
    // Can only be called once
    static const uint8_t zero[DMA_MASK_SIZE] = { 0 };
-   if (memcmp(desc->destMask,zero,DMA_MASK_SIZE)) return(-1); 
+   if (memcmp(desc->destMask,zero,DMA_MASK_SIZE)) return(-1);
 
    // Make sure we can't receive data while adjusting mask flags
    // Interrupts are disabled

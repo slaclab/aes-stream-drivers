@@ -32,12 +32,20 @@
 #include <axis_gen2.h>
 
 // Init Configuration values
-int cfgTxCount = 1024;
-int cfgRxCount = 1024;
-int cfgSize    = 0x20000; // 128kB
-int cfgMode    = BUFF_COHERENT;
-int cfgCont    = 1;
-int cfgIrqHold = 10000;
+int cfgTxCount  = 1024;
+int cfgRxCount  = 1024;
+int cfgSize     = 0x20000; // 128kB
+int cfgMode     = BUFF_COHERENT;
+int cfgCont     = 1;
+int cfgIrqHold  = 10000;
+int cfgBgThold0 = 0;
+int cfgBgThold1 = 0;
+int cfgBgThold2 = 0;
+int cfgBgThold3 = 0;
+int cfgBgThold4 = 0;
+int cfgBgThold5 = 0;
+int cfgBgThold6 = 0;
+int cfgBgThold7 = 0;
 
 struct DmaDevice gDmaDevices[MAX_DMA_DEVICES];
 // PCI device IDs
@@ -96,8 +104,10 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    int32_t dummy;
    int32_t axiWidth;
 
+   struct AxisG2Data *hwData;
+
    if ( cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM ) {
-      pr_warning("%s: Probe: Invalid buffer mode = %i.\n",MOD_NAME,cfgMode);
+      pr_warn("%s: Probe: Invalid buffer mode = %i.\n",MOD_NAME,cfgMode);
       return(-1);
    }
 
@@ -119,7 +129,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    // Overflow
    if (id->driver_data < 0) {
-      pr_warning("%s: Probe: Too Many Devices.\n",MOD_NAME);
+      pr_warn("%s: Probe: Too Many Devices.\n",MOD_NAME);
       return (-1);
    }
    dev = &gDmaDevices[id->driver_data];
@@ -148,7 +158,6 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->cfgSize    = cfgSize;
    dev->cfgMode    = cfgMode;
    dev->cfgCont    = cfgCont;
-   dev->cfgIrqHold = cfgIrqHold;
 
    // Get IRQ from pci_dev structure.
    dev->irq = pcidev->irq;
@@ -181,6 +190,19 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    // Call common dma init function
    if ( Dma_Init(dev) < 0 ) return(-1);
+
+   // Get hardware data structure
+   hwData = (struct AxisG2Data *)dev->hwData;
+
+   hwData->bgThold[0] = cfgBgThold0;
+   hwData->bgThold[1] = cfgBgThold1;
+   hwData->bgThold[2] = cfgBgThold2;
+   hwData->bgThold[3] = cfgBgThold3;
+   hwData->bgThold[4] = cfgBgThold4;
+   hwData->bgThold[5] = cfgBgThold5;
+   hwData->bgThold[6] = cfgBgThold6;
+   hwData->bgThold[7] = cfgBgThold7;
+   hwData->irqHold    = cfgIrqHold;
 
    dev_info(dev->device,"Init: Reg  space mapped to 0x%llx.\n",(uint64_t)dev->reg);
    dev_info(dev->device,"Init: User space mapped to 0x%llx with size 0x%x.\n",(uint64_t)dev->rwBase,dev->rwSize);
@@ -276,4 +298,28 @@ MODULE_PARM_DESC(cfgCont, "RX continue enable");
 
 module_param(cfgIrqHold,int,0);
 MODULE_PARM_DESC(cfgIrqHold, "IRQ Holdoff");
+
+module_param(cfgBgThold0,int,0);
+MODULE_PARM_DESC(cfgBgThold0, "Buff Group Threshold 0");
+
+module_param(cfgBgThold1,int,0);
+MODULE_PARM_DESC(cfgBgThold1, "Buff Group Threshold 1");
+
+module_param(cfgBgThold2,int,0);
+MODULE_PARM_DESC(cfgBgThold2, "Buff Group Threshold 2");
+
+module_param(cfgBgThold3,int,0);
+MODULE_PARM_DESC(cfgBgThold3, "Buff Group Threshold 3");
+
+module_param(cfgBgThold4,int,0);
+MODULE_PARM_DESC(cfgBgThold4, "Buff Group Threshold 4");
+
+module_param(cfgBgThold5,int,0);
+MODULE_PARM_DESC(cfgBgThold5, "Buff Group Threshold 5");
+
+module_param(cfgBgThold6,int,0);
+MODULE_PARM_DESC(cfgBgThold6, "Buff Group Threshold 6");
+
+module_param(cfgBgThold7,int,0);
+MODULE_PARM_DESC(cfgBgThold7, "Buff Group Threshold 7");
 
