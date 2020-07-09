@@ -364,7 +364,7 @@ void AxisG2_Init(struct DmaDevice *dev) {
    iowrite32(0x0,&(reg->dropEnable));
 
    // IRQ Holdoff
-   if ( ((ioread32(&(reg->enableVer)) >> 24) & 0xFF) >= 3 ) iowrite32(hwData->irqHold,&(reg->irqHoldOff));
+   if ( ((ioread32(&(reg->enableVer)) >> 24) & 0xFF) >= 3 ) iowrite32(dev->cfgIrqHold,&(reg->irqHoldOff));
 
    // Push RX buffers to hardware and map
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
@@ -388,8 +388,8 @@ void AxisG2_Init(struct DmaDevice *dev) {
    hwData->bgEnable = 0;
    if ( ((ioread32(&(reg->enableVer)) >> 24) & 0xFF) >= 4 ) {
       for (x =0; x < 8; x++) {
-         if ( hwData->bgThold[x] != 0 ) hwData->bgEnable |= (1 << x);
-         iowrite32(hwData->bgThold[x],&(reg->bgThold[x]));
+         if ( dev->cfgBgThold[x] != 0 ) hwData->bgEnable |= (1 << x);
+         iowrite32(dev->cfgBgThold[x],&(reg->bgThold[x]));
       }
    }
 
@@ -565,6 +565,8 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    seq_printf(s,"            Desc 128 En : %i\n",hwData->desc128En);
    seq_printf(s,"            Enable Ver  : 0x%x\n",(ioread32(&(reg->enableVer))));
    seq_printf(s,"      Driver Load Count : %u\n",((ioread32(&(reg->enableVer)))>>8)&0xFF);
+   seq_printf(s,"               IRG Hold : %u\n",(ioread32(&(reg->irqHoldOff))));
+   seq_printf(s,"              BG Enable : 0x%x\n",hwData->bgEnable);
 
    for ( x=0; x < 8; x++ ) {
       if ( (hwData->bgEnable >> x) & 0x1 ) {
