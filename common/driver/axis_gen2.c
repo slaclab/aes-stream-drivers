@@ -54,6 +54,7 @@ inline uint8_t AxisG2_MapReturn ( struct DmaDevice * dev, struct AxisG2Return *r
       ret->index  = ptr[1];
       ret->fuser  = (ptr[0] >> 24) & 0xFF;
       ret->luser  = (ptr[0] >> 16) & 0xFF;
+      ret->id     = (ptr[0] >>  8) & 0xFF;
       ret->cont   = (ptr[0] >>  3) & 0x1;
       ret->result = ptr[0] & 0x7;
 
@@ -67,6 +68,7 @@ inline uint8_t AxisG2_MapReturn ( struct DmaDevice * dev, struct AxisG2Return *r
       ret->index  = (ptr[0] >>  4) & 0xFFF;
       ret->cont   = (ptr[0] >>  3) & 0x1;
       ret->result = ptr[0] & 0x7;
+      ret->id     = 0;
    }
 
    if ( dev->debug > 0 )
@@ -213,10 +215,11 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
          buff->size  = ret.size;
          buff->dest  = ret.dest;
          buff->error = (ret.size == 0)?DMA_ERR_FIFO:ret.result;
+         buff->id    = ret.id;
 
-         buff->flags =  ret.fuser;                  // firstUser = flags[7:0]
-         buff->flags |= (ret.luser << 8) & 0x0FF00; // lastUser = flags[15:8]
-         buff->flags |= (ret.cont << 16) & 0x10000; // continue = flags[16]
+         buff->flags =  ret.fuser;                     // firstUser = flags[7:0]
+         buff->flags |= (ret.luser << 8) & 0x0000FF00; // lastUser = flags[15:8]
+         buff->flags |= (ret.cont << 16) & 0x00010000; // continue = flags[16]
 
          hwData->contCount += ret.cont;
 
@@ -361,7 +364,7 @@ void AxisG2_Init(struct DmaDevice *dev) {
    iowrite32(0x0,&(reg->dropEnable));
 
    // IRQ Holdoff
-   if ( ((ioread32(&(reg->enableVer)) >> 24) & 0xFF) >= 3 ) iowrite32(dev->cfgIrqHold,&(reg->irqHoldOff));
+   if ( ((ioread32(&(reg->enableVer)) >> 24) & 0xFF) >= 3 ) iowrite32(hwData->irqHold,&(reg->irqHoldOff));
 
    // Push RX buffers to hardware and map
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
@@ -378,6 +381,15 @@ void AxisG2_Init(struct DmaDevice *dev) {
       else {
          ++hwData->hwWrBuffCnt;
          AxisG2_WriteFree(buff,reg,hwData->desc128En);
+      }
+   }
+
+   // Setup buffer groups
+   hwData->bgEnable = 0;
+   if ( ((ioread32(&(reg->enableVer)) >> 24) & 0xFF) >= 4 ) {
+      for (x =0; x < 8; x++) {
+         if ( hwData->bgThold[x] != 0 ) hwData->bgEnable |= (1 << x);
+         iowrite32(hwData->bgThold[x],&(reg->bgThold[x]));
       }
    }
 
@@ -455,6 +467,16 @@ void AxisG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t
    // Push to software queue for 128bit desc, force an interrupt
    if ( hwData->desc128En ) {
       dmaQueuePushList(&(hwData->wrQueue),buff,count);
+
+      // Process buffer group credits
+      if ( hwData->bgEnable != 0 ) {
+         for (x =0; x < count; x++) {
+            if ( (hwData->bgEnable >> buff[x]->id) & 0x1 ) {
+               iowrite32(0x1,&(reg->bgCount[buff[x]->id]));
+            }
+         }
+      }
+
       iowrite32(0x1,&(reg->forceInt));
    }
 }
@@ -521,6 +543,8 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    struct AxisG2Reg *reg;
    struct AxisG2Data * hwData;
 
+   uint32_t x;
+
    reg = (struct AxisG2Reg *)dev->reg;
    hwData = (struct AxisG2Data *)dev->hwData;
 
@@ -542,5 +566,11 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    seq_printf(s,"            Enable Ver  : 0x%x\n",(ioread32(&(reg->enableVer))));
    seq_printf(s,"      Driver Load Count : %u\n",((ioread32(&(reg->enableVer)))>>8)&0xFF);
 
+   for ( x=0; x < 8; x++ ) {
+      if ( (hwData->bgEnable >> x) & 0x1 ) {
+         seq_printf(s,"         BG %i Threshold : %u\n",x,ioread32(&(reg->bgThold[x])));
+         seq_printf(s,"             BG %i Count : %u\n",x,ioread32(&(reg->bgCount[x])));
+      }
+   }
 }
 

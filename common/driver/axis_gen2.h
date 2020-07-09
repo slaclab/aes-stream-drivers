@@ -58,7 +58,13 @@ struct AxisG2Reg {
    uint32_t spareC[3];       // 0x0074 - 0x007C
    uint32_t forceInt;        // 0x0080
    uint32_t irqHoldOff;      // 0x0084
-   uint32_t spareD[4062];    // 0x0088 - 0x3FFC
+
+   uint32_t spareD[2];       // 0x0088 - 0x008C
+   uint32_t bgThold[8];      // 0x0090 - 0x00AC
+   uint32_t bgCount[8];      // 0x00B0 - 0x00CC
+
+   uint32_t spareE[4044];    // 0x00D0 - 0x3FFC
+
    uint32_t dmaAddr[4096];   // 0x4000 - 0x7FFC
 };
 
@@ -70,6 +76,7 @@ struct AxisG2Return {
    uint8_t  luser;
    uint16_t dest;
    uint8_t  cont;
+   uint8_t  id;
 };
 
 struct AxisG2Data {
@@ -93,6 +100,11 @@ struct AxisG2Data {
    struct DmaQueue rdQueue;
 
    uint32_t    contCount;
+
+   uint32_t    irqHold;
+
+   uint32_t    bgEnable;
+   uint32_t    bgThold[8];
 };
 
 // Map return

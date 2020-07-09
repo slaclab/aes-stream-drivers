@@ -10,12 +10,12 @@
  * Description:
  * General purpose DMA buffers for drivers.
  * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to 
- * the license terms in the LICENSE.txt file found in the top-level directory 
- * of this distribution and at: 
- *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
- * No part of the aes_stream_drivers package, including this file, may be 
- * copied, modified, propagated, or distributed except according to the terms 
+ * This file is part of the aes_stream_drivers package. It is subject to
+ * the license terms in the LICENSE.txt file found in the top-level directory
+ * of this distribution and at:
+ *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ * No part of the aes_stream_drivers package, including this file, may be
+ * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
@@ -57,6 +57,7 @@ struct DmaBuffer {
    uint32_t    flags;
    uint8_t     error;
    uint32_t    size;
+   uint32_t    id;
 
    // Pointers
    struct DmaBufferList * buffList;
@@ -141,15 +142,15 @@ struct DmaBuffer * dmaGetBufferList ( struct DmaBufferList *list, uint32_t index
 // Get a buffer using index, in either list
 struct DmaBuffer * dmaGetBuffer ( struct DmaDevice *dev, uint32_t index );
 
-// Conditionally return buffer to transmit buffer. If buffer is not found in 
+// Conditionally return buffer to transmit buffer. If buffer is not found in
 // transmit list return a pointer to the buffer. Passed value is the dma handle.
 struct DmaBuffer * dmaRetBufferIrq ( struct DmaDevice *device, dma_addr_t handle );
 
-// Conditionally return buffer to transmit buffer. If buffer is not found in 
+// Conditionally return buffer to transmit buffer. If buffer is not found in
 // transmit list return a pointer to the buffer. Passed value is the dma handle.
 struct DmaBuffer * dmaRetBufferIdx ( struct DmaDevice *device, uint32_t index );
 
-// Conditionally return buffer to transmit buffer. If buffer is not found in 
+// Conditionally return buffer to transmit buffer. If buffer is not found in
 // transmit list return a pointer to the buffer. Passed value is the dma handle.
 struct DmaBuffer * dmaRetBufferIdxIrq ( struct DmaDevice *device, uint32_t index );
 
