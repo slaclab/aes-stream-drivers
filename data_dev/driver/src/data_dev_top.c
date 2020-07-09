@@ -153,11 +153,20 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    if ( Dma_MapReg(dev) < 0 ) return(-1);
 
    // Set configuration
-   dev->cfgTxCount = cfgTxCount;
-   dev->cfgRxCount = cfgRxCount;
-   dev->cfgSize    = cfgSize;
-   dev->cfgMode    = cfgMode;
-   dev->cfgCont    = cfgCont;
+   dev->cfgTxCount    = cfgTxCount;
+   dev->cfgRxCount    = cfgRxCount;
+   dev->cfgSize       = cfgSize;
+   dev->cfgMode       = cfgMode;
+   dev->cfgCont       = cfgCont;
+   dev->cfgIrqHold    = cfgIrqHold;
+   dev->cfgBgThold[0] = cfgBgThold0;
+   dev->cfgBgThold[1] = cfgBgThold1;
+   dev->cfgBgThold[2] = cfgBgThold2;
+   dev->cfgBgThold[3] = cfgBgThold3;
+   dev->cfgBgThold[4] = cfgBgThold4;
+   dev->cfgBgThold[5] = cfgBgThold5;
+   dev->cfgBgThold[6] = cfgBgThold6;
+   dev->cfgBgThold[7] = cfgBgThold7;
 
    // Get IRQ from pci_dev structure.
    dev->irq = pcidev->irq;
@@ -194,15 +203,6 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    // Get hardware data structure
    hwData = (struct AxisG2Data *)dev->hwData;
 
-   hwData->bgThold[0] = cfgBgThold0;
-   hwData->bgThold[1] = cfgBgThold1;
-   hwData->bgThold[2] = cfgBgThold2;
-   hwData->bgThold[3] = cfgBgThold3;
-   hwData->bgThold[4] = cfgBgThold4;
-   hwData->bgThold[5] = cfgBgThold5;
-   hwData->bgThold[6] = cfgBgThold6;
-   hwData->bgThold[7] = cfgBgThold7;
-   hwData->irqHold    = cfgIrqHold;
 
    dev_info(dev->device,"Init: Reg  space mapped to 0x%llx.\n",(uint64_t)dev->reg);
    dev_info(dev->device,"Init: User space mapped to 0x%llx with size 0x%x.\n",(uint64_t)dev->rwBase,dev->rwSize);

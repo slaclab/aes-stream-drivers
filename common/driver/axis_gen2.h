@@ -101,10 +101,7 @@ struct AxisG2Data {
 
    uint32_t    contCount;
 
-   uint32_t    irqHold;
-
    uint32_t    bgEnable;
-   uint32_t    bgThold[8];
 };
 
 // Map return
