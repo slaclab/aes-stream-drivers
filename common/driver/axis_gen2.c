@@ -241,6 +241,10 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
                ++hwData->hwWrBuffCnt;
             }
             else dmaQueuePushIrq(&(hwData->wrQueue),buff);
+
+            if ( (hwData->bgEnable >> buff->id) & 0x1 ) {
+               iowrite32(0x1,&(reg->bgCount[buff->id]));
+            }
          }
 
          // lane/vc is open,  Add to RX Queue
