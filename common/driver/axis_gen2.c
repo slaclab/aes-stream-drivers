@@ -569,7 +569,7 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    seq_printf(s,"            Desc 128 En : %i\n",hwData->desc128En);
    seq_printf(s,"            Enable Ver  : 0x%x\n",(ioread32(&(reg->enableVer))));
    seq_printf(s,"      Driver Load Count : %u\n",((ioread32(&(reg->enableVer)))>>8)&0xFF);
-   seq_printf(s,"               IRG Hold : %u\n",(ioread32(&(reg->irqHoldOff))));
+   seq_printf(s,"               IRQ Hold : %u\n",(ioread32(&(reg->irqHoldOff))));
    seq_printf(s,"              BG Enable : 0x%x\n",hwData->bgEnable);
 
    for ( x=0; x < 8; x++ ) {
