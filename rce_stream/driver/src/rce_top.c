@@ -10,12 +10,12 @@
  * Description:
  * Top level module types and functions.
  * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to 
- * the license terms in the LICENSE.txt file found in the top-level directory 
- * of this distribution and at: 
- *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
- * No part of the aes_stream_drivers package, including this file, may be 
- * copied, modified, propagated, or distributed except according to the terms 
+ * This file is part of the aes_stream_drivers package. It is subject to
+ * the license terms in the LICENSE.txt file found in the top-level directory
+ * of this distribution and at:
+ *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ * No part of the aes_stream_drivers package, including this file, may be
+ * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
@@ -138,7 +138,7 @@ int Rce_Probe(struct platform_device *pdev) {
    dev->baseAddr = pdev->resource[0].start;
    dev->baseSize = pdev->resource[0].end - pdev->resource[0].start + 1;
 
-   // Get IRQ from pci_dev structure. 
+   // Get IRQ from pci_dev structure.
    dev->irq = irq_of_parse_and_map(pdev->dev.of_node, 0);;
 
    // Set device fields
@@ -177,7 +177,7 @@ int Rce_Probe(struct platform_device *pdev) {
 
    // Set hardware functions
    // Version 2
-   if ( (ioread32(dev->reg) & 0xFF000000) == 0x02000000 ) {
+   if ( ((ioread32(dev->reg) >> 24) & 0xFF) >= 2 ) {
       dev->hwFunc = &(AxisG2_functions);
    }
 
