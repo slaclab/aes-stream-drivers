@@ -1,0 +1,147 @@
+# ----------------------------------------------------------------------------
+# Title      : AES Stream Drivers GitHub Actions Script
+# ----------------------------------------------------------------------------
+# This file is part of the AES Stream Drivers package. It is subject to
+# the license terms in the LICENSE.txt file found in the top-level directory
+# of this distribution and at:
+#    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+# No part of the AES Stream Drivers package, including this file, may be
+# copied, modified, propagated, or distributed except according to the terms
+# contained in the LICENSE.txt file.
+# ----------------------------------------------------------------------------
+# The following environment variables are required for this process:
+# secrets.GH_TOKEN
+
+name: Repo Integration
+on: [push]
+
+jobs:
+
+  gen_release:
+    name: Generate Release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Get Image Information
+        id: get_image_info
+        run: |
+          echo ::set-output name=tag::`git describe --tags`
+
+      - name: Get Ruckus
+        run: |
+          git clone https://github.com/slaclab/ruckus.git
+          python -m pip install --upgrade pip
+          pip install -r ruckus/scripts/pip_requirements.txt
+
+      - name: Gen Release
+        env:
+          TRAVIS_REPO_SLUG: ${{ github.repository }}
+          TRAVIS_TAG: ${{ steps.get_image_info.outputs.tag }}
+          GH_REPO_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          python ruckus/scripts/releaseGen.py
+
+  generate_dkms:
+    name: Generate DKMS
+    needs: [gen_release]
+    runs-on: ubuntu-latest
+
+    if: startsWith(github.ref, 'refs/tags/')
+    strategy:
+      matrix:
+        mod:
+          - datadev
+          - datagpu
+
+    steps:
+
+      # This step checks out a copy of your repository.
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get install debhelper dkms fakeroot rpm
+          python -m pip install --upgrade pip
+          pip install -r pip_requirements.txt
+
+      - name: Get Image Information
+        id: get_image_info
+        env:
+          MOD: ${{ matrix.mod }}
+        run: |
+          echo ::set-output name=tag::`git describe --tags`
+
+          if [ $MOD == "datadev" ]
+          then
+             echo ::set-output name=module::"datadev"
+             echo ::set-output name=dir::"data_dev/driver"
+          else
+             echo ::set-output name=module::"datagpu"
+             echo ::set-output name=dir::"data_gpu/driver"
+          fi
+
+      - name: Setup Package
+        env:
+          DEST_DIR: /usr/src/${{ steps.get_image_info.outputs.module }}-${{ steps.get_image_info.outputs.tag }}
+          MODULE_DIR: ${{ steps.get_image_info.outputs.dir }}
+          MODULE: ${{ steps.get_image_info.outputs.module }}
+          VERSION: ${{ steps.get_image_info.outputs.tag }}
+
+        run: |
+          sudo mkdir $DEST_DIR
+          sudo mkdir $DEST_DIR/src
+          sudo cp ${MODULE_DIR}/src/* ${DEST_DIR}/src
+          sudo cp ${MODULE_DIR}/Makefile $DEST_DIR
+          sudo cp ${MODULE_DIR}/dkms.conf $DEST_DIR
+          sudo cp ${MODULE_DIR}/${MODULE}.conf $DEST_DIR
+          sudo echo "PACKAGE_VERSION=$VERSION" | sudo tee -a ${DEST_DIR}/dkms.conf
+          sudo echo "echo ${MODULE}" | sudo tee -a ${DEST_DIR}/datadev_load.conf
+          sudo echo "#!/bin/bash" | sudo tee -a ${DEST_DIR}/install.sh
+          sudo echo "dkms add -m $MODULE -v $VERSION" | sudo tee -a ${DEST_DIR}/install.sh
+          sudo echo "dkms build -m $MODULE -v $VERSION -a x86_64" | sudo tee -a ${DEST_DIR}/install.sh
+          sudo echo "dkms install -m $MODULE -v $VERSION -a x86_64" | sudo tee -a ${DEST_DIR}/install.sh
+          sudo echo "scp ${MODULE}_load.conf /etc/modules-load.d" | sudo tee -a ${DEST_DIR}/install.sh
+          sudo echo "modprobe ${MODULE}" | sudo tee -a ${DEST_DIR}/install.sh
+          sudo chmod a+rx ${DEST_DIR}/install.sh
+
+      - name: Build Debian Package
+        env:
+          MODULE: ${{ steps.get_image_info.outputs.module }}
+          VERSION: ${{ steps.get_image_info.outputs.tag }}
+
+        run: |
+          sudo dkms add -m $MODULE -v $VERSION
+          sudo dkms mkdeb -m $MODULE -v $VERSION --source-only
+
+      - name: Build Tarball
+        env:
+          MODULE: ${{ steps.get_image_info.outputs.module }}
+          VERSION: ${{ steps.get_image_info.outputs.tag }}
+          DEST_DIR: /usr/src/${{ steps.get_image_info.outputs.module }}-${{ steps.get_image_info.outputs.tag }}
+
+        run: tar -cvvzpf ${MODULE}-${VERSION}.tgz $DEST_DIR
+
+      - name: Upload Assets
+        env:
+          VERSION: ${{ steps.get_image_info.outputs.tag }}
+          GIT_REPO: ${{ github.repository }}
+          MODULE: ${{ steps.get_image_info.outputs.module }}
+
+        run: |
+          python scripts/uploadTag.py --tag=$VERSION --repo=$GIT_REPO --file=/var/lib/dkms/${MODULE}/${VERSION}/deb/${MODULE}-dkms_${VERSION}_amd64.deb
+          python scripts/uploadTag.py --tag=$VERSION --repo=$GIT_REPO --file=${MODULE}-${VERSION}.tgz
