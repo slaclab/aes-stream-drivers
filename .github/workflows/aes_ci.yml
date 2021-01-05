@@ -54,14 +54,12 @@ jobs:
     name: Generate DKMS
     needs: [gen_release]
     runs-on: ubuntu-latest
-
     if: startsWith(github.ref, 'refs/tags/')
     strategy:
       matrix:
         mod:
           - datadev
           - datagpu
-
     steps:
 
       # This step checks out a copy of your repository.
@@ -75,6 +73,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo apt-get update
           sudo apt-get install debhelper dkms fakeroot rpm
           python -m pip install --upgrade pip
           pip install -r pip_requirements.txt
@@ -141,6 +140,7 @@ jobs:
           VERSION: ${{ steps.get_image_info.outputs.tag }}
           GIT_REPO: ${{ github.repository }}
           MODULE: ${{ steps.get_image_info.outputs.module }}
+          GH_REPO_TOKEN: ${{ secrets.GH_TOKEN }}
 
         run: |
           python scripts/uploadTag.py --tag=$VERSION --repo=$GIT_REPO --file=/var/lib/dkms/${MODULE}/${VERSION}/deb/${MODULE}-dkms_${VERSION}_amd64.deb
