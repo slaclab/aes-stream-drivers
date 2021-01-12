@@ -420,10 +420,13 @@ void AxisG2_Enable(struct DmaDevice *dev) {
    iowrite32(0x1,&(reg->intEnable));
 
    // Start workqueue
-   hwData->wqEnable = 1;
-   INIT_DELAYED_WORK(&(hwData->dlyWork), AxisG2_WqTask);
-   queue_delayed_work(hwData->wq,&(hwData->dlyWork),10);
-
+   if ( hwData->desc128En ) {
+      hwData->wqEnable = 1;
+      hwData->wq = create_workqueue("AXIS_G2_WORKQ");
+      INIT_DELAYED_WORK(&(hwData->dlyWork), AxisG2_WqTask);
+      queue_delayed_work(hwData->wq,&(hwData->dlyWork),10);
+   }
+   else hwData->wqEnable = 0;
 }
 
 // Clear card in top level Remove
@@ -435,9 +438,11 @@ void AxisG2_Clear(struct DmaDevice *dev) {
    hwData = (struct AxisG2Data *)dev->hwData;
 
    // Stop work queue
-   hwData->wqEnable = 0;
-   flush_workqueue(hwData->wq);
-   destroy_workqueue(hwData->wq);
+   if ( hwData->wqEnable ) {
+      hwData->wqEnable = 0;
+      flush_workqueue(hwData->wq);
+      destroy_workqueue(hwData->wq);
+   }
 
    // Disable interrupt
    iowrite32(0x0,&(reg->intEnable));
