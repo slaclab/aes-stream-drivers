@@ -23,6 +23,7 @@
 #include <dma_common.h>
 #include <dma_buffer.h>
 #include <linux/interrupt.h>
+#include <linux/workqueue.h>
 
 #define AXIS2_RING_ACP 0x10
 
@@ -102,6 +103,10 @@ struct AxisG2Data {
    uint32_t    contCount;
 
    uint32_t    bgEnable;
+   uint32_t    wqEnable;
+
+   struct work_struct task;
+   struct workqueue_struct *wq;
 };
 
 // Map return
@@ -139,6 +144,9 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev);
 
 // Set functions for gen2 card
 extern struct hardware_functions AxisG2_functions;
+
+// Work queue task
+static void AxisG2_Task ( void *ptr );
 
 #endif
 
