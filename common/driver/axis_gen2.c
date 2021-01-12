@@ -422,7 +422,7 @@ void AxisG2_Enable(struct DmaDevice *dev) {
    // Start workqueue
    hwData->wqEnable = 1;
    INIT_DELAYED_WORK(&(hwData->dlyWork), AxisG2_WqTask);
-   queue_delayed_work(hwData->wq,&(hwData->dlyWork),1);
+   queue_delayed_work(hwData->wq,&(hwData->dlyWork),10);
 
 }
 
@@ -608,6 +608,6 @@ void AxisG2_WqTask ( struct work_struct *work ) {
 
    iowrite32(0x1,&(reg->forceInt));
 
-   if ( hwData->wqEnable ) queue_delayed_work(hwData->wq,&(hwData->dlyWork),1);
+   if ( hwData->wqEnable ) queue_delayed_work(hwData->wq,&(hwData->dlyWork),10);
 }
 
