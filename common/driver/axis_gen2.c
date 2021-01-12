@@ -397,6 +397,9 @@ void AxisG2_Init(struct DmaDevice *dev) {
       }
    }
 
+   // Create periodic work queue
+   hwData->wq = create_workqueue("AXIS_GEN2_WQ");
+
    dev_info(dev->device,"Init: Found Version 2 Device. Desc128En=%i\n",hwData->desc128En);
 }
 
@@ -404,8 +407,10 @@ void AxisG2_Init(struct DmaDevice *dev) {
 // Enable the card
 void AxisG2_Enable(struct DmaDevice *dev) {
    struct AxisG2Reg  *reg;
+   struct AxisG2Data *hwData;
 
    reg = (struct AxisG2Reg *)dev->reg;
+   hwData = (struct AxisG2Data *)dev->hwData;
 
    // Enable
    iowrite32(0x1,&(reg->enableVer));
@@ -415,6 +420,12 @@ void AxisG2_Enable(struct DmaDevice *dev) {
 
    // Enable interrupt
    iowrite32(0x1,&(reg->intEnable));
+
+   // Start workqueue
+   DECLARE_WORK(hwData->task, AxisG2_Task, dev);
+   hwData->wqEnable = 1;
+   queue_delayed_work(hwData->wq,&(hwData->task),100);
+
 }
 
 // Clear card in top level Remove
@@ -424,6 +435,11 @@ void AxisG2_Clear(struct DmaDevice *dev) {
 
    reg = (struct AxisG2Reg *)dev->reg;
    hwData = (struct AxisG2Data *)dev->hwData;
+
+   // Stop work queue
+   hwData->wqEnable = 0;
+   flush_workqueue(hwData->wq);
+   destroy_workqueue(hwData->wq);
 
    // Disable interrupt
    iowrite32(0x0,&(reg->intEnable));
@@ -578,5 +594,21 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
          seq_printf(s,"             BG %i Count : %u\n",x,ioread32(&(reg->bgCount[x])));
       }
    }
+}
+
+
+// Work queue task
+void AxisG2_Task ( void *ptr ) {
+   struct DmaDevice *dev;
+   struct AxisG2Reg *reg;
+   struct AxisG2Data * hwData;
+
+   dev = (struct DmaDevice *)ptr;
+   reg = (struct AxisG2Reg *)dev->reg;
+   hwData = (struct AxisG2Data *)dev->hwData;
+
+   iowrite32(0x1,&(reg->forceInt));
+
+   if ( hwData->wqEnable ) queue_delayed_work(hwData->wq,&(hwData->task),100);
 }
 
