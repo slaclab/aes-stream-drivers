@@ -81,6 +81,8 @@ struct AxisG2Return {
 };
 
 struct AxisG2Data {
+   struct DmaDevice *dev;
+
    uint32_t    desc128En;
 
    uint32_t  * readAddr;
@@ -105,8 +107,8 @@ struct AxisG2Data {
    uint32_t    bgEnable;
    uint32_t    wqEnable;
 
-   struct work_struct task;
    struct workqueue_struct *wq;
+   struct delayed_work dlyWork;
 };
 
 // Map return
@@ -146,7 +148,7 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev);
 extern struct hardware_functions AxisG2_functions;
 
 // Work queue task
-static void AxisG2_Task ( void *ptr );
+void AxisG2_WqTask ( struct work_struct *work );
 
 #endif
 

@@ -300,6 +300,7 @@ void AxisG2_Init(struct DmaDevice *dev) {
    // Init hw data
    hwData = (struct AxisG2Data *)kmalloc(sizeof(struct AxisG2Data),GFP_KERNEL);
    dev->hwData = hwData;
+   hwData->dev = dev;
 
    // 64-bit or 128-bit mode
    hwData->desc128En = ((ioread32(&(reg->enableVer)) & 0x10000) != 0);
@@ -397,9 +398,6 @@ void AxisG2_Init(struct DmaDevice *dev) {
       }
    }
 
-   // Create periodic work queue
-   hwData->wq = create_workqueue("AXIS_GEN2_WQ");
-
    dev_info(dev->device,"Init: Found Version 2 Device. Desc128En=%i\n",hwData->desc128En);
 }
 
@@ -422,9 +420,9 @@ void AxisG2_Enable(struct DmaDevice *dev) {
    iowrite32(0x1,&(reg->intEnable));
 
    // Start workqueue
-   DECLARE_WORK(hwData->task, AxisG2_Task, dev);
    hwData->wqEnable = 1;
-   queue_delayed_work(hwData->wq,&(hwData->task),1);
+   INIT_DELAYED_WORK(&(hwData->dlyWork), AxisG2_WqTask);
+   queue_delayed_work(hwData->wq,&(hwData->dlyWork),1);
 
 }
 
@@ -598,17 +596,18 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
 
 
 // Work queue task
-void AxisG2_Task ( void *ptr ) {
-   struct DmaDevice *dev;
+void AxisG2_WqTask ( struct work_struct *work ) {
    struct AxisG2Reg *reg;
    struct AxisG2Data * hwData;
+   struct delayed_work * dlyWork;
 
-   dev = (struct DmaDevice *)ptr;
-   reg = (struct AxisG2Reg *)dev->reg;
-   hwData = (struct AxisG2Data *)dev->hwData;
+   dlyWork = container_of(work,    struct delayed_work, work);
+   hwData  = container_of(dlyWork, struct AxisG2Data,   dlyWork);
+
+   reg = (struct AxisG2Reg *)hwData->dev->reg;
 
    iowrite32(0x1,&(reg->forceInt));
 
-   if ( hwData->wqEnable ) queue_delayed_work(hwData->wq,&(hwData->task),1);
+   if ( hwData->wqEnable ) queue_delayed_work(hwData->wq,&(hwData->dlyWork),1);
 }
 
