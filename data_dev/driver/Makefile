@@ -19,6 +19,9 @@
 NAME := datadev
 HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 KVER := $(shell uname -r)
+ARCH := $(shell uname -m)
+CROSS_COMPILE :=
+KERNELDIR := /lib/modules/$(KVER)/build
 SRCS := $(wildcard src/*.c)
 OBJS := $(patsubst %.c,%.o,$(SRCS))
 
@@ -37,8 +40,8 @@ obj-m        := $(NAME).o
 
 all:
 	@echo $(GITV)
-	make -C /lib/modules/$(KVER)/build M=$(HOME) modules
+	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(HOME) modules
 
 clean:
-	make -C /lib/modules/$(KVER)/build M=$(HOME) clean
+	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(HOME) clean
 	rm -f $(OBJS)
