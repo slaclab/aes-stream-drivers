@@ -49,6 +49,7 @@
 #define DMA_Read_Register    0x100B
 #define DMA_Get_RxBuff_Count 0x100C
 #define DMA_Get_TxBuff_Count 0x100D
+#define DMA_Get_TxBuffinSWQ_Count 0x100F
 
 // Mask size
 #define DMA_MASK_SIZE 512

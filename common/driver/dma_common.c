@@ -569,6 +569,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
    uint32_t   x;
    uint32_t   cnt;
    uint32_t   bCnt;
+   uint32_t   qCnt;
    uint32_t * indexes;
 
    desc = (struct DmaDesc *)filp->private_data;
@@ -590,6 +591,16 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
       // Get tx buffer count
       case DMA_Get_TxBuff_Count:
          return(dev->txBuffers.count);
+         break;
+
+      // Get tx buffer in SW Queue count
+      case DMA_Get_TxBuffinSWQ_Count:
+         qCnt    = 0;
+         for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++) {
+            buff = dmaGetBufferList(&(dev->txBuffers),x);
+            if ( (!buff->inHw) &&  buff->inQ   ) qCnt++;
+         }
+         return(qCnt);
          break;
 
       // Get buffer size, same size for rx and tx
