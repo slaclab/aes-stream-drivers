@@ -25,6 +25,7 @@
 
 // Commands
 #define AXIS_Read_Ack 0x2001
+#define AXIS_Write_ReqMissed 0x2002
 
 // Everything below is hidden during kernel module compile
 #ifndef DMA_IN_KERNEL
@@ -58,6 +59,11 @@ static inline uint32_t axisGetCont(uint32_t flags) {
 // Read ACK
 static inline void axisReadAck (int32_t fd) {
    ioctl(fd,AXIS_Read_Ack,0);
+}
+
+// Write Req Missed
+static inline void axisReadAck (int32_t fd) {
+   ioctl(fd,AXIS_Write_ReqMissed,0);
 }
 
 #endif

@@ -534,6 +534,11 @@ int32_t AxisG2_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
          return(0);
          break;
 
+      // Write Req Missed
+      case AXIS_Write_ReqMissed:
+         return(ioread32(&(reg->wrReqMissed)));
+         break;
+
       default:
          dev_warn(dev->device,"Command: Invalid command=%i\n",cmd);
          return(-1);
