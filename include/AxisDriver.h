@@ -62,7 +62,7 @@ static inline void axisReadAck (int32_t fd) {
 }
 
 // Write Req Missed
-static inline void axisReadAck (int32_t fd) {
+static inline void axisWriteReqMissed (int32_t fd) {
    ioctl(fd,AXIS_Write_ReqMissed,0);
 }
 
