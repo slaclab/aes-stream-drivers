@@ -300,6 +300,7 @@ void AxisG2_Init(struct DmaDevice *dev) {
    // Init hw data
    hwData = (struct AxisG2Data *)kmalloc(sizeof(struct AxisG2Data),GFP_KERNEL);
    dev->hwData = hwData;
+   hwData->dev = dev;
 
    // 64-bit or 128-bit mode
    hwData->desc128En = ((ioread32(&(reg->enableVer)) & 0x10000) != 0);
@@ -404,8 +405,10 @@ void AxisG2_Init(struct DmaDevice *dev) {
 // Enable the card
 void AxisG2_Enable(struct DmaDevice *dev) {
    struct AxisG2Reg  *reg;
+   struct AxisG2Data *hwData;
 
    reg = (struct AxisG2Reg *)dev->reg;
+   hwData = (struct AxisG2Data *)dev->hwData;
 
    // Enable
    iowrite32(0x1,&(reg->enableVer));
@@ -415,6 +418,15 @@ void AxisG2_Enable(struct DmaDevice *dev) {
 
    // Enable interrupt
    iowrite32(0x1,&(reg->intEnable));
+
+   // Start workqueue
+   if ( hwData->desc128En ) {
+      hwData->wqEnable = 1;
+      hwData->wq = create_workqueue("AXIS_G2_WORKQ");
+      INIT_DELAYED_WORK(&(hwData->dlyWork), AxisG2_WqTask);
+      queue_delayed_work(hwData->wq,&(hwData->dlyWork),10);
+   }
+   else hwData->wqEnable = 0;
 }
 
 // Clear card in top level Remove
@@ -424,6 +436,13 @@ void AxisG2_Clear(struct DmaDevice *dev) {
 
    reg = (struct AxisG2Reg *)dev->reg;
    hwData = (struct AxisG2Data *)dev->hwData;
+
+   // Stop work queue
+   if ( hwData->wqEnable ) {
+      hwData->wqEnable = 0;
+      flush_workqueue(hwData->wq);
+      destroy_workqueue(hwData->wq);
+   }
 
    // Disable interrupt
    iowrite32(0x0,&(reg->intEnable));
@@ -578,5 +597,22 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
          seq_printf(s,"             BG %i Count : %u\n",x,ioread32(&(reg->bgCount[x])));
       }
    }
+}
+
+
+// Work queue task
+void AxisG2_WqTask ( struct work_struct *work ) {
+   struct AxisG2Reg *reg;
+   struct AxisG2Data * hwData;
+   struct delayed_work * dlyWork;
+
+   dlyWork = container_of(work,    struct delayed_work, work);
+   hwData  = container_of(dlyWork, struct AxisG2Data,   dlyWork);
+
+   reg = (struct AxisG2Reg *)hwData->dev->reg;
+
+   iowrite32(0x1,&(reg->forceInt));
+
+   if ( hwData->wqEnable ) queue_delayed_work(hwData->wq,&(hwData->dlyWork),10);
 }
 
