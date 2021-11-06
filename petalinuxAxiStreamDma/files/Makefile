@@ -1,4 +1,4 @@
-NAME  := axistreamdma
+NAME  := axi_stream_dma
 HOME  := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 GITV  := petalinux
 

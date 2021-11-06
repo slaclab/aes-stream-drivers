@@ -8,7 +8,7 @@ inherit module
 INHIBIT_PACKAGE_STRIP = "1"
 
 SRC_URI = "file://Makefile \
-           file://axistreamdma.h \
+           file://rce_top.h \
            file://axistreamdma.c \
 	   file://dma_common.h \
 	   file://dma_common.c \
