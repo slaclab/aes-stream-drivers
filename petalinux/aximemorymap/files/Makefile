@@ -14,12 +14,12 @@ $(NAME)-objs := aximemorymap.o
 obj-m        := $(NAME).o
 
 all:
-        $(MAKE) -C $(KERNEL_SRC) M=$(HOME)
+	$(MAKE) -C $(KERNEL_SRC) M=$(HOME)
 
 modules_install:
-        $(MAKE) -C $(KERNEL_SRC) M=$(HOME) modules_install
+	$(MAKE) -C $(KERNEL_SRC) M=$(HOME) modules_install
 
 clean:
-        rm -f *.o *~ core .depend .*.cmd *.ko *.mod.c
-        rm -f Module.markers Module.symvers modules.order
-        rm -rf .tmp_versions Modules.symvers
+	rm -f *.o *~ core .depend .*.cmd *.ko *.mod.c
+	rm -f Module.markers Module.symvers modules.order
+	rm -rf .tmp_versions Modules.symvers

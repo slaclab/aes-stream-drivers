@@ -18,6 +18,23 @@ echo IMAGE_INSTALL_append = \" axistreamdma\" >> build/conf/local.conf
 
 # Build the module
 petalinux-build -c axistreamdma
+
+# Add module to project-spec/meta-user/recipes-bsp/device-tree/files/system-user.dtsi
+# Note: example below assume module's base address assigned to 0xb0000000 in Xilinx IP core
+/ {
+	axi_stream_dma_0@b0000000 {
+		compatible = "axi_stream_dma";
+		reg = <0x0 0xb0000000 0x0 0x10000>;
+		interrupts = <0x0 0x6c 0x4>;
+		interrupt-parent = <0x4>;
+		slac,acp = <0x0>;
+	};
+};
+
+# Rebuild the device-tree
+petalinux-build -c device-tree -x cleansstate
+petalinux-build -c device-tree
+
 ```
 
 <!--- ########################################################################################### -->

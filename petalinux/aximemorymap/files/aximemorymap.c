@@ -28,8 +28,8 @@
 // Module Name
 #define MOD_NAME "axi_memory_map"
 
-unsigned int cfgMinAddr = 0x80000000; // Edit this to match your AXI port address configurations
-unsigned int cfgMaxAddr = 0xBFFFFFFF; // Edit this to match your AXI port address configurations
+unsigned int cfgMinAddr = 0xB0000000; // Edit this to match your AXI port address configurations
+unsigned int cfgMaxAddr = 0xB000FFFF; // Edit this to match your AXI port address configurations
 
 MODULE_AUTHOR("Ryan Herbst");
 MODULE_DESCRIPTION("AXI Memory Map Interface");
@@ -109,7 +109,7 @@ int Map_Init(void) {
    dev.maps->next = NULL;
 
    // Map space
-   dev.maps->base = ioremap_nocache(dev.maps->addr, MAP_SIZE);
+   dev.maps->base = ioremap_cache(dev.maps->addr, MAP_SIZE);
    if (! dev.maps->base ) {
       printk(KERN_ERR MOD_NAME " Init: Could not map memory addr %p with size 0x%x.\n",(void *)dev.maps->addr,MAP_SIZE);
       kfree(dev.maps);
@@ -197,7 +197,7 @@ uint8_t * Map_Find(uint32_t addr) {
          new->addr = (addr / MAP_SIZE) * MAP_SIZE;
 
          // Map space
-         new->base = ioremap_nocache(new->addr, MAP_SIZE);
+         new->base = ioremap_cache(new->addr, MAP_SIZE);
          if (! new->base ) {
             printk(KERN_ERR MOD_NAME " Map_Find: Could not map memory addr %p (%p) with size 0x%x.\n",(void *)new->addr,(void*)addr,MAP_SIZE);
             kfree(new);
