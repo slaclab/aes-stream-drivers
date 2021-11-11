@@ -16,6 +16,9 @@ cp -rfL /path/to/my/aes-stream-drivers/petalinux/axistreamdma project-spec/meta-
 echo KERNEL_MODULE_AUTOLOAD = \"axi_stream_dma\" >> project-spec/meta-user/conf/petalinuxbsp.conf
 echo IMAGE_INSTALL_append = \" axistreamdma\" >> build/conf/local.conf
 
+# Build kernel first before the module
+petalinux-build -c kernel
+
 # Build the module
 petalinux-build -c axistreamdma
 
@@ -54,6 +57,10 @@ cp -rfL /path/to/my/aes-stream-drivers/petalinux/aximemorymap project-spec/meta-
 # Add module to petalinux configurations
 echo KERNEL_MODULE_AUTOLOAD = \"axi_memory_map\" >> project-spec/meta-user/conf/petalinuxbsp.conf
 echo IMAGE_INSTALL_append = \" aximemorymap\" >> build/conf/local.conf
+
+
+# Build kernel first before the module
+petalinux-build -c kernel
 
 # Build the module
 petalinux-build -c aximemorymap
