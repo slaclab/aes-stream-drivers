@@ -1,6 +1,4 @@
 /**
- *-----------------------------------------------------------------------------
- * Top level module types and functions.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory
@@ -28,8 +26,8 @@
 // Module Name
 #define MOD_NAME "axi_memory_map"
 
-unsigned int cfgMinAddr = 0xB0000000; // Edit this to match your AXI port address configurations
-unsigned int cfgMaxAddr = 0xB000FFFF; // Edit this to match your AXI port address configurations
+unsigned long cfgMinAddr = 0x400000000; // Edit this to match your AXI port address configurations
+unsigned long cfgMaxAddr = 0x4FFFFFFFF; // Edit this to match your AXI port address configurations
 
 MODULE_AUTHOR("Ryan Herbst");
 MODULE_DESCRIPTION("AXI Memory Map Interface");
@@ -111,11 +109,11 @@ int Map_Init(void) {
    // Map space
    dev.maps->base = ioremap_cache(dev.maps->addr, MAP_SIZE);
    if (! dev.maps->base ) {
-      printk(KERN_ERR MOD_NAME " Init: Could not map memory addr %p with size 0x%x.\n",(void *)dev.maps->addr,MAP_SIZE);
+      printk(KERN_ERR MOD_NAME " Init: Could not map memory addr 0x%llx with size 0x%x.\n",(uint64_t)dev.maps->addr,MAP_SIZE);
       kfree(dev.maps);
       return (-1);
    }
-   printk(KERN_INFO MOD_NAME " Init: Mapped addr %p with size 0x%x to %p.\n",(void *)dev.maps->addr,MAP_SIZE,(void *)dev.maps->base);
+   printk(KERN_INFO MOD_NAME " Init: Mapped addr 0x%llx with size 0x%x to 0x%llx.\n",(uint64_t)dev.maps->addr,MAP_SIZE,(uint64_t)dev.maps->base);
 
    // Hold memory region
 //   if ( request_mem_region(dev.maps->addr, MAP_SIZE, dev.devName) == NULL ) {
@@ -166,7 +164,7 @@ int Map_Release(struct inode *inode, struct file *filp) {
 }
 
 // Find or allocate map space
-uint8_t * Map_Find(uint32_t addr) {
+uint8_t * Map_Find(uint64_t addr) {
 
    struct MemMap *cur;
    struct MemMap *new;
@@ -174,7 +172,7 @@ uint8_t * Map_Find(uint32_t addr) {
    cur = dev.maps;
 
    if ( (addr < cfgMinAddr) || (addr > cfgMaxAddr) ) {
-      printk(KERN_ERR MOD_NAME " Map_Find: Invalid address %p. Allowed range %p - %p\n",(void *)addr,(void *)cfgMinAddr,(void*)cfgMaxAddr);
+      printk(KERN_ERR MOD_NAME " Map_Find: Invalid address 0x%llx. Allowed range 0x%llx - 0x%llx\n",(uint64_t)addr,(uint64_t)cfgMinAddr,(void*)cfgMaxAddr);
       return (NULL);
    }
 
@@ -199,11 +197,11 @@ uint8_t * Map_Find(uint32_t addr) {
          // Map space
          new->base = ioremap_cache(new->addr, MAP_SIZE);
          if (! new->base ) {
-            printk(KERN_ERR MOD_NAME " Map_Find: Could not map memory addr %p (%p) with size 0x%x.\n",(void *)new->addr,(void*)addr,MAP_SIZE);
+            printk(KERN_ERR MOD_NAME " Map_Find: Could not map memory addr 0x%llx (0x%llx) with size 0x%x.\n",(uint64_t)new->addr,(uint64_t)addr,MAP_SIZE);
             kfree(new);
             return (NULL);
          }
-         printk(KERN_INFO MOD_NAME " Map_Find: Mapped addr %p with size 0x%x to %p.\n",(void *)new->addr,MAP_SIZE,(void *)new->base);
+         printk(KERN_INFO MOD_NAME " Map_Find: Mapped addr 0x%llx with size 0x%x to 0x%llx.\n",(uint64_t)new->addr,MAP_SIZE,(uint64_t)new->base);
 
          // Hold memory region
 //         if ( request_mem_region(new->addr, MAP_SIZE, dev.devName) == NULL ) {
@@ -287,9 +285,9 @@ ssize_t Map_Write(struct file *filp, const char* buffer, size_t count, loff_t* f
    return -1;
 }
 
-module_param(cfgMinAddr,uint,0);
+module_param(cfgMinAddr,ulong,0);
 MODULE_PARM_DESC(cfgMinAddr, "Min Map Addr");
 
-module_param(cfgMaxAddr,uint,0);
+module_param(cfgMaxAddr,ulong,0);
 MODULE_PARM_DESC(cfgMaxAddr, "Max Map Addr");
 

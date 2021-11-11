@@ -1,7 +1,4 @@
 /**
- *-----------------------------------------------------------------------------
- * Description:
- * Top level module types and functions.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory
@@ -29,7 +26,7 @@
 
 // Memory map
 struct MemMap {
-   uint32_t    addr;
+   uint64_t    addr;
    uint8_t *   base;
    void *      next;
 };
@@ -61,7 +58,7 @@ ssize_t Map_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos);
 
 ssize_t Map_Write(struct file *filp, const char* buffer, size_t count, loff_t* f_pos);
 
-uint8_t * Map_Find(uint32_t addr);
+uint8_t * Map_Find(uint64_t addr);
 
 ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg);
 
