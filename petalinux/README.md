@@ -58,7 +58,6 @@ cp -rfL /path/to/my/aes-stream-drivers/petalinux/aximemorymap project-spec/meta-
 echo KERNEL_MODULE_AUTOLOAD = \"axi_memory_map\" >> project-spec/meta-user/conf/petalinuxbsp.conf
 echo IMAGE_INSTALL_append = \" aximemorymap\" >> build/conf/local.conf
 
-
 # Build kernel first before the module
 petalinux-build -c kernel
 
@@ -66,6 +65,17 @@ petalinux-build -c kernel
 petalinux-build -c aximemorymap
 
 # Note: axi_memory_map does NOT require an entire for the device-tree
+```
+
+<!--- ########################################################################################### -->
+
+# Note for building multiple custom modules
+
+If you are going to autoload and install module modules, then the echo commands from the instructions above should be combined like this:
+
+```bash
+echo KERNEL_MODULE_AUTOLOAD = \"axi_stream_dma axi_memory_map\" >> project-spec/meta-user/conf/petalinuxbsp.conf
+echo IMAGE_INSTALL_append = \" axistreamdma aximemorymap\" >> build/conf/local.conf
 ```
 
 <!--- ########################################################################################### -->
