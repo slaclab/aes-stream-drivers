@@ -59,4 +59,6 @@ echo IMAGE_INSTALL_append = \" aximemorymap\" >> build/conf/local.conf
 petalinux-build -c aximemorymap
 ```
 
+# Note: axi_memory_map does NOT require an entire for the device-tree
+
 <!--- ########################################################################################### -->
