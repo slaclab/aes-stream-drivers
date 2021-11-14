@@ -85,7 +85,7 @@ struct DmaReadData {
 
 // Register data
 struct DmaRegisterData {
-   uint32_t   address;
+   uint64_t   address;
    uint32_t   data;
 };
 
@@ -396,7 +396,7 @@ static inline ssize_t dmaCheckVersion(int32_t fd) {
 }
 
 // Write Register
-static inline ssize_t dmaWriteRegister(int32_t fd, uint32_t address, uint32_t data) {
+static inline ssize_t dmaWriteRegister(int32_t fd, uint64_t address, uint32_t data) {
    struct DmaRegisterData reg;
 
    reg.address = address;
@@ -405,7 +405,7 @@ static inline ssize_t dmaWriteRegister(int32_t fd, uint32_t address, uint32_t da
 }
 
 // Read Register
-static inline ssize_t dmaReadRegister(int32_t fd, uint32_t address, uint32_t *data) {
+static inline ssize_t dmaReadRegister(int32_t fd, uint64_t address, uint32_t *data) {
    struct DmaRegisterData reg;
    ssize_t res;
 
