@@ -10,12 +10,12 @@
  * Description:
  * This program will open up a AXIS DMA port and attempt to read data.
  * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to 
- * the license terms in the LICENSE.txt file found in the top-level directory 
- * of this distribution and at: 
- *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
- * No part of the aes_stream_drivers package, including this file, may be 
- * copied, modified, propagated, or distributed except according to the terms 
+ * This file is part of the aes_stream_drivers package. It is subject to
+ * the license terms in the LICENSE.txt file found in the top-level directory
+ * of this distribution and at:
+ *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ * No part of the aes_stream_drivers package, including this file, may be
+ * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
@@ -44,7 +44,7 @@ struct PrgArgs {
 };
 
 #define	DEF_DEV_PATH	"/dev/datadev_0"
-#define DEF_COUNT		10000000 
+#define DEF_COUNT		10000000
 static struct PrgArgs DefArgs = { DEF_DEV_PATH, DEF_COUNT };
 
 static char   args_doc[] = "";

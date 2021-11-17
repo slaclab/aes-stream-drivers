@@ -10,12 +10,12 @@
  * Description:
  * Program to send data on a PGP lane/VC. Data is prbs
  * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to 
- * the license terms in the LICENSE.txt file found in the top-level directory 
- * of this distribution and at: 
-    * https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
- * No part of the aes_stream_drivers package, including this file, may be 
- * copied, modified, propagated, or distributed except according to the terms 
+ * This file is part of the aes_stream_drivers package. It is subject to
+ * the license terms in the LICENSE.txt file found in the top-level directory
+ * of this distribution and at:
+    * https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ * No part of the aes_stream_drivers package, including this file, may be
+ * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
@@ -67,14 +67,14 @@ error_t parseArgs ( int key,  char *arg, struct argp_state *state ) {
       case 's': args->size = strtol(arg,NULL,10); break;
       case 'c': args->count = strtol(arg,NULL,10); break;
       case 'i': args->idxEn = 1; break;
-      case ARGP_KEY_ARG: 
+      case ARGP_KEY_ARG:
           switch (state->arg_num) {
              case 0: args->lane = strtol(arg,NULL,10); break;
              case 1: args->vc   = strtol(arg,NULL,10); break;
              default: argp_usage(state); break;
           }
           break;
-      case ARGP_KEY_END: 
+      case ARGP_KEY_END:
           if ( state->arg_num < 2) argp_usage(state);
           break;
       default: return ARGP_ERR_UNKNOWN; break;
