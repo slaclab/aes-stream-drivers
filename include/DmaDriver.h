@@ -27,7 +27,7 @@
 #endif
 
 // API Version
-#define DMA_VERSION  0x05
+#define DMA_VERSION  0x06
 
 // Error values
 #define DMA_ERR_FIFO 0x01
