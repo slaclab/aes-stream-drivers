@@ -7,12 +7,12 @@
  * Created    : 2016-08-08
  * Last update: 2016-08-08
  * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to 
- * the license terms in the LICENSE.txt file found in the top-level directory 
- * of this distribution and at: 
- *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
- * No part of the aes_stream_drivers package, including this file, may be 
- * copied, modified, propagated, or distributed except according to the terms 
+ * This file is part of the aes_stream_drivers package. It is subject to
+ * the license terms in the LICENSE.txt file found in the top-level directory
+ * of this distribution and at:
+ *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ * No part of the aes_stream_drivers package, including this file, may be
+ * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
@@ -24,7 +24,7 @@
 #include <linux/interrupt.h>
 
 struct RceHpReg {
-   uint32_t spare[100];      // skip  0x0 - 0x3FF 
+   uint32_t spare[100];      // skip  0x0 - 0x3FF
    uint32_t enable;          // 0x00400
    uint32_t bufferClear;     // 0x00404
    uint32_t bufferSize;      // 0x00408

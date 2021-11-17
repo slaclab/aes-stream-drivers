@@ -11,12 +11,12 @@
  * Utility to rate test the DMA engine. This utility will create a set number of
  * write and read threads to emulate a number of read and write applications.
  * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to 
- * the license terms in the LICENSE.txt file found in the top-level directory 
- * of this distribution and at: 
- *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
- * No part of the aes_stream_drivers package, including this file, may be 
- * copied, modified, propagated, or distributed except according to the terms 
+ * This file is part of the aes_stream_drivers package. It is subject to
+ * the license terms in the LICENSE.txt file found in the top-level directory
+ * of this distribution and at:
+ *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ * No part of the aes_stream_drivers package, including this file, may be
+ * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
@@ -248,7 +248,7 @@ void *runRead ( void *t ) {
          return(NULL);
       }
    }
-   
+
    dmaInitMaskBytes(mask);
    dmaAddMaskBytes(mask,rxData->dest);
    usleep(100*rxData->dest);
@@ -284,7 +284,7 @@ void *runRead ( void *t ) {
          rxLuser = axisGetLuser(rxFlags);
 
          if ( ret != 0 ) {
-            
+
             //  data
             if ( (rxData->prbEn) && (! prbs.processData(data,ret)) ) {
                rxData->prbErr++;
@@ -390,8 +390,8 @@ int main (int argc, char **argv) {
       dCount++;
       tok = strtok(NULL,",");
    }
-   time(&c_tme);    
-   time(&l_tme);    
+   time(&c_tme);
+   time(&l_tme);
 
    usleep(15000);
    runEn = true;

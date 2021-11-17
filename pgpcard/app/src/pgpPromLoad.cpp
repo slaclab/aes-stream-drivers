@@ -10,12 +10,12 @@
  * Description:
  * Utility to program the PGP card with new firmware.
  * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to 
- * the license terms in the LICENSE.txt file found in the top-level directory 
- * of this distribution and at: 
-    * https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
- * No part of the aes_stream_drivers package, including this file, may be 
- * copied, modified, propagated, or distributed except according to the terms 
+ * This file is part of the aes_stream_drivers package. It is subject to
+ * the license terms in the LICENSE.txt file found in the top-level directory
+ * of this distribution and at:
+    * https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ * No part of the aes_stream_drivers package, including this file, may be
+ * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
@@ -62,13 +62,13 @@ error_t parseArgs ( int key,  char *arg, struct argp_state *state ) {
 
    switch(key) {
       case 'p': args->path = arg; break;
-      case ARGP_KEY_ARG: 
+      case ARGP_KEY_ARG:
           switch (state->arg_num) {
              case 0: args->file = arg; break;
              default: argp_usage(state); break;
           }
           break;
-      case ARGP_KEY_END: 
+      case ARGP_KEY_END:
           if ( state->arg_num < 1) argp_usage(state);
           break;
       default: return ARGP_ERR_UNKNOWN; break;
@@ -96,11 +96,11 @@ int main (int argc, char **argv) {
    // Get card info
    pgpGetInfo(fd,&info);
    gen3 = false;
-   
+
    // Determine version, use only lower 4 bits to get the base version
    switch (info.type & 0xF) {
       case PGP_GEN3: gen3 = true; break;
-      case PGP_GEN2: 
+      case PGP_GEN2:
          if ( info.promPrgEn ) {
             ::close(fd);
             return(-1);
@@ -114,39 +114,39 @@ int main (int argc, char **argv) {
 
    // Create the PciCardG3Prom object
    prom = new PciCardProm(fd,args.file,gen3);
-   
+
    // Check if the .mcs file exists
    if(!prom->fileExist()){
       cout << "Error opening: " << args.file << endl;
       delete prom;
       close(fd);
-      return(1);   
-   }   
-   
+      return(1);
+   }
+
    // Erase the PROM
    prom->eraseBootProm();
-  
+
    // Write the .mcs file to the PROM
    if(!prom->writeBootProm()) {
       cout << "Error in prom->bufferedWriteBootProm() function" << endl;
       delete prom;
       close(fd);
-      return(1);     
-   }   
+      return(1);
+   }
 
    // Compare the .mcs file with the PROM
    if(!prom->verifyBootProm()) {
       cout << "Error in prom->verifyBootProm() function" << endl;
       delete prom;
       close(fd);
-      return(1);     
+      return(1);
    }
-      
+
    // Display Reminder
    prom->rebootReminder();
-   
+
 	// Close all the devices
    delete prom;
-   close(fd);   
+   close(fd);
    return(0);
 }
