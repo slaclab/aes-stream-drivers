@@ -31,6 +31,7 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/slab.h>
+#include <linux/version.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25)
   /* 'ioremap_nocache' was deprecated in kernels >= 5.6, so instead we use 'ioremap' which
