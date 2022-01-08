@@ -22,6 +22,15 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/slab.h>
+#include <linux/version.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25)
+  /* 'ioremap_nocache' was deprecated in kernels >= 5.6, so instead we use 'ioremap' which
+  is no-cache by default since kernels 2.6.25. */
+#    define IOREMAP_NO_CACHE(address, size) ioremap(address, size)
+#else /* KERNEL_VERSION < 2.6.25 */
+#    define IOREMAP_NO_CACHE(address, size) ioremap_nocache(address, size)
+#endif
 
 // Module Name
 #define MOD_NAME "axi_memory_map"
@@ -107,7 +116,7 @@ int Map_Init(void) {
    dev.maps->next = NULL;
 
    // Map space
-   dev.maps->base = ioremap_cache(dev.maps->addr, MAP_SIZE);
+   dev.maps->base = IOREMAP_NO_CACHE(dev.maps->addr, MAP_SIZE);
    if (! dev.maps->base ) {
       printk(KERN_ERR MOD_NAME " Init: Could not map memory addr 0x%llx with size 0x%x.\n",(uint64_t)dev.maps->addr,MAP_SIZE);
       kfree(dev.maps);
@@ -195,7 +204,7 @@ uint8_t * Map_Find(uint64_t addr) {
          new->addr = (addr / MAP_SIZE) * MAP_SIZE;
 
          // Map space
-         new->base = ioremap_cache(new->addr, MAP_SIZE);
+         new->base = IOREMAP_NO_CACHE(new->addr, MAP_SIZE);
          if (! new->base ) {
             printk(KERN_ERR MOD_NAME " Map_Find: Could not map memory addr 0x%llx (0x%llx) with size 0x%x.\n",(uint64_t)new->addr,(uint64_t)addr,MAP_SIZE);
             kfree(new);
