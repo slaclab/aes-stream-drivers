@@ -135,9 +135,6 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev = &gDmaDevices[id->driver_data];
    dev->index = id->driver_data;
 
-   // Increment count
-   gDmaDevCount++;
-
    // Create a device name
    sprintf(dev->devName,"%s_%i",MOD_NAME,dev->index);
 
@@ -150,7 +147,8 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->baseSize = pci_resource_len (pcidev, 0);
 
    // Remap the I/O register block so that it can be safely accessed.
-   if ( Dma_MapReg(dev) < 0 ) return(-1);
+   if ( Dma_MapReg(dev) < 0 ) 
+      goto cleanup_pci_enable_device;
 
    // Set configuration
    dev->cfgTxCount    = cfgTxCount;
@@ -198,7 +196,8 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    }
 
    // Call common dma init function
-   if ( Dma_Init(dev) < 0 ) return(-1);
+   if ( Dma_Init(dev) < 0 ) 
+      goto cleanup_pci_enable_device;
 
    // Get hardware data structure
    hwData = (struct AxisG2Data *)dev->hwData;
@@ -208,7 +207,20 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev_info(dev->device,"Init: User space mapped to 0x%llx with size 0x%x.\n",(uint64_t)dev->rwBase,dev->rwSize);
    dev_info(dev->device,"Init: Top Register = 0x%x\n",ioread32(dev->reg));
 
+   // Increment count only after probe is setup successfully
+   gDmaDevCount++;
+
    return(0);
+
+   /* Cleanup the mess */
+cleanup_dma_init:
+   Dma_Clean(dev);
+
+cleanup_pci_enable_device:
+   pci_disable_device(pcidev);
+
+cleanup_force_exit:
+   return -1;
 }
 
 // Cleanup device
