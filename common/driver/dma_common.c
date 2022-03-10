@@ -165,7 +165,6 @@ int Dma_Init(struct DmaDevice *dev) {
          goto cleanup_cdev_add;
       }
       gCl->devnode = (void *)Dma_DevNode;
-      dev_info(dev->device,"Init: Created device class\n");
    }
 
    // Attempt to create the device
@@ -283,11 +282,9 @@ cleanup_class_create:
 
 cleanup_cdev_add:
    cdev_del(&(dev->charDev));
-   dev_err(dev->device,"cleanup: cdev_del.\n");
 
 cleanup_alloc_chrdev_region:
-      unregister_chrdev_region(dev->devNum, 1);
-      dev_err(dev->device,"cleanup: unregister_chrdev_region.\n");
+   unregister_chrdev_region(dev->devNum, 1);
 
    return -1;   
 }
