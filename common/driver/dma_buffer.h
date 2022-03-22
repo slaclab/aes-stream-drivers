@@ -115,7 +115,10 @@ struct DmaQueue {
 size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
                          uint32_t count, uint32_t baseIdx, enum dma_data_direction direction);
 
-// Free a list of buffer
+// Free a list of buffers
+void dmaFreeBuffersList(struct DmaBufferList *list);
+
+// Free a list of buffers including heads
 void dmaFreeBuffers ( struct DmaBufferList *list );
 
 // Binary search

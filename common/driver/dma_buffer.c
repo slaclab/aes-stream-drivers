@@ -59,7 +59,7 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
    for (x=0; x < list->subCount; x++) {
       if ((list->indexed[x] = (struct DmaBuffer **) kmalloc((sizeof(struct DmaBuffer *) * BUFFERS_PER_LIST), GFP_KERNEL)) == NULL) {
          dev_err(dev->device,"dmaAllocBuffers: Failed to allocate sub list. Idx=%u.\n",x);
-         goto cleanup_lists;
+         goto cleanup_list_heads;
       }
    }
 
@@ -134,36 +134,10 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
 
    /* Cleanup */
 cleanup_buffers:
-
-   for (x=0; x < list->count; x++) {
-      sl  = x / BUFFERS_PER_LIST;
-      sli = x % BUFFERS_PER_LIST;
-
-      if ( list->indexed[sl][sli]->buffAddr != NULL ) {
-
-         // Coherent buffer
-         if ( list->dev->cfgMode & BUFF_COHERENT ) {
-            dma_free_coherent(list->dev->device, list->dev->cfgSize,list->indexed[sl][sli]->buffAddr,list->indexed[sl][sli]->buffHandle);
-         }
-
-         // Streaming type
-         if ( list->dev->cfgMode & BUFF_STREAM ) {
-            dma_unmap_single(list->dev->device,list->indexed[sl][sli]->buffHandle,list->dev->cfgSize,list->direction);
-         }
-
-         // Streaming buffer type or ARM ACP
-         if ( (list->dev->cfgMode & BUFF_STREAM) || (list->dev->cfgMode & BUFF_ARM_ACP) ) {
-            kfree(list->indexed[sl][sli]->buffAddr);
-         }
-         
-      }
-      kfree(list->indexed[sl][sli]);
-   }
-   list->count = 0;
-
+   dmaFreeBuffersList(list);
    if ( list->sorted  != NULL ) kfree(list->sorted);
 
-cleanup_lists:
+cleanup_list_heads:
    for (x=0; x < list->subCount; x++) 
       if ( list->indexed[x] != NULL ) 
          kfree(list->indexed[x]);
@@ -174,13 +148,12 @@ cleanup_forced_exit:
    return 0;
 }
 
-
 // Free a list of buffers
-void dmaFreeBuffers ( struct DmaBufferList *list ) {
-   uint32_t x;
+void dmaFreeBuffersList(struct DmaBufferList *list) {
    uint32_t sl;
    uint32_t sli;
-
+   uint32_t x;
+   
    for (x=0; x < list->count; x++) {
       sl  = x / BUFFERS_PER_LIST;
       sli = x % BUFFERS_PER_LIST;
@@ -204,6 +177,14 @@ void dmaFreeBuffers ( struct DmaBufferList *list ) {
       }
       kfree(list->indexed[sl][sli]);
    }
+   list->count = 0;
+}
+
+// Free a list of buffers including heads
+void dmaFreeBuffers ( struct DmaBufferList *list ) {
+   uint32_t x;
+   dmaFreeBuffersList(list);
+
    for (x=0; x < list->subCount; x++) kfree(list->indexed[x]);
    if ( list->indexed != NULL ) kfree(list->indexed);
    if ( list->sorted  != NULL ) kfree(list->sorted);
