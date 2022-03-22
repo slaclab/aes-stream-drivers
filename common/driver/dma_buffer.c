@@ -169,6 +169,7 @@ cleanup_lists:
          kfree(list->indexed[x]);
    if ( list->indexed != NULL ) kfree(list->indexed);
 
+// Return 0 as no buffers were allocated
 cleanup_forced_exit:
    return 0;
 }
@@ -446,17 +447,17 @@ size_t dmaQueueInit ( struct DmaQueue *queue, uint32_t count ) {
    queue->write    = 0;
 
    queue->queue = (struct DmaBuffer ***)kmalloc(queue->subCount * sizeof(struct DmaBuffer **),GFP_KERNEL);
-   //if (queue->queue != NULL) {
-   //   goto cleanup_force_exit;
-   //}
+   if (queue->queue == NULL) {
+      goto cleanup_force_exit;
+   }
 
    for(x=0; x < queue->subCount; x++) {
       queue->queue[x] = (struct DmaBuffer **)kmalloc(BUFFERS_PER_LIST * sizeof(struct DmaBuffer *),GFP_KERNEL);
-   //   if (queue->queue[x] == NULL) {
-   //      goto cleanup_sub_queue;
-   //   }
+      if (queue->queue[x] == NULL) {
+         goto cleanup_sub_queue;
+      }
    }
-
+   
    spin_lock_init(&(queue->lock));
    init_waitqueue_head(&(queue->wait));
    return(count);

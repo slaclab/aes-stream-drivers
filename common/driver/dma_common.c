@@ -250,13 +250,13 @@ int Dma_Init(struct DmaDevice *dev) {
 
    /* Clean mess on failure */
 
-cleanup_request_irq:
+// Free requested IRQ
    if ( dev->irq != 0 ) free_irq(dev->irq, dev);
 
 cleanup_card_clear:
    dev->hwFunc->clear(dev);
 
-cleanup_rx_buffers:
+// Clean RX buffers
    dmaFreeBuffers(&(dev->rxBuffers));
 
 cleanup_dma_queue:
