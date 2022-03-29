@@ -31,6 +31,7 @@
 
 // Define interface routines
 struct file_operations DmaFunctions = {
+   owner:          THIS_MODULE,
    read:           Dma_Read,
    write:          Dma_Write,
    open:           Dma_Open,
