@@ -135,33 +135,17 @@ inline void AxisG2_WriteTx ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint
    iowrite32(rdData[0],&(reg->readFifoA));
 }
 
-
-// Interrupt handler
-irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
-   uint32_t handleCount;
-
+uint32_t AxisG2_Process (struct DmaDevice * dev, struct AxisG2Reg reg, struct AxisG2Data *hwData ) {
    struct DmaDesc     * desc;
    struct DmaBuffer   * buff;
-   struct DmaBuffer  ** buffList;
-   struct DmaDevice   * dev;
-   struct AxisG2Reg   * reg;
-   struct AxisG2Data  * hwData;
    struct AxisG2Return ret;
 
    uint32_t x;
    uint32_t bCnt;
    uint32_t rCnt;
+   uint32_t handleCount;
 
-   dev    = (struct DmaDevice *)dev_id;
-   reg    = (struct AxisG2Reg *)dev->reg;
-   hwData = (struct AxisG2Data *)dev->hwData;
-
-   // Disable interrupt
-   iowrite32(0x0,&(reg->intEnable));
    handleCount = 0;
-
-   if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Called.\n");
-
    ////////////////// Transmit Buffers /////////////////////////
 
    // Check read (transmit) returns
@@ -169,7 +153,8 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
       ++handleCount;
       --(hwData->hwRdBuffCnt);
 
-      if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Got TX Descriptor: Idx=%i, Pos=%i\n",ret.index,hwData->readIndex);
+      if ( dev->debug > 0 ) dev_info(dev->device,"Process: Got TX Descriptor: Idx=%i, Pos=%i\n",ret.index,hwData->readIndex);
+
       // Attempt to find buffer in tx pool and return. otherwise return rx entry to hw.
       // Must adjust counters here and check for buffer need
       if ((buff = dmaRetBufferIdxIrq (dev,ret.index)) != NULL) {
@@ -207,7 +192,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
       ++handleCount;
       --(hwData->hwWrBuffCnt);
 
-      if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Got RX Descriptor: Idx=%i, Pos=%i\n",ret.index,hwData->writeIndex);
+      if ( dev->debug > 0 ) dev_info(dev->device,"Process: Got RX Descriptor: Idx=%i, Pos=%i\n",ret.index,hwData->writeIndex);
 
       if ( (buff = dmaGetBufferList(&(dev->rxBuffers),ret.index)) != NULL ) {
          buff->count++;
@@ -224,7 +209,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
          hwData->contCount += ret.cont;
 
          if ( dev->debug > 0 ) {
-            dev_info(dev->device,"Irq: Rx size=%i, Dest=0x%x, fuser=0x%x, luser=0x%x, cont=%i, Error=0x%x\n",
+            dev_info(dev->device,"Process: Rx size=%i, Dest=0x%x, fuser=0x%x, luser=0x%x, cont=%i, Error=0x%x\n",
                ret.size, ret.dest, ret.fuser, ret.luser, ret.cont, buff->error);
          }
 
@@ -234,7 +219,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
 
          // Return entry to FPGA if desc is not open
          if ( desc == NULL ) {
-            if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Port not open return to free list.\n");
+            if ( dev->debug > 0 ) dev_info(dev->device,"Process: Port not open return to free list.\n");
 
             if (hwData->hwWrBuffCnt < (hwData->addrCount-1)) {
                AxisG2_WriteFree(buff,reg,hwData->desc128En);
@@ -250,7 +235,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
          // lane/vc is open,  Add to RX Queue
          else dmaRxBufferIrq(desc,buff);
       }
-      else dev_warn(dev->device,"Irq: Failed to locate RX buffer index %i.\n", ret.index);
+      else dev_warn(dev->device,"Process: Failed to locate RX buffer index %i.\n", ret.index);
 
       // Update index
       hwData->writeIndex = ((hwData->writeIndex+1) % hwData->addrCount);
@@ -261,20 +246,41 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    // Unlock
    spin_unlock(&dev->maskLock);
 
-   // Get (write / receive) return buffer list
-   if ( hwData->desc128En && ((buffList = (struct DmaBuffer **)kmalloc(1000 * sizeof(struct DmaBuffer *),GFP_ATOMIC)) != NULL)) {
+   // Get (write / receive) return buffer list, get rid of this malloc!
+   if ( hwData->desc128En ) {
       do {
          rCnt = ((hwData->addrCount-1) - hwData->hwWrBuffCnt);
-         if (rCnt > 1000 ) rCnt = 1000;
-         bCnt = dmaQueuePopListIrq(&(hwData->wrQueue),buffList,rCnt);
+         if (rCnt > BUFF_LIST_SIZE ) rCnt = BUFF_LIST_SIZE;
+         bCnt = dmaQueuePopListIrq(&(hwData->wrQueue),hwData->buffList,rCnt);
          for (x=0; x < bCnt; x++) {
-            AxisG2_WriteFree(buffList[x],reg,hwData->desc128En);
+            AxisG2_WriteFree(hwData->buffList[x],reg,hwData->desc128En);
             ++hwData->hwWrBuffCnt;
          }
       } while(bCnt > 0);
-
-      kfree(buffList);
    }
+
+   return handleCount;
+}
+
+// Interrupt handler, or service task
+irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
+   uint32_t handleCount;
+
+   struct DmaDevice   * dev;
+   struct AxisG2Reg   * reg;
+   struct AxisG2Data  * hwData;
+
+   dev    = (struct DmaDevice *)dev_id;
+   reg    = (struct AxisG2Reg *)dev->reg;
+   hwData = (struct AxisG2Data *)dev->hwData;
+
+   // Disable interrupt
+   iowrite32(0x0,&(reg->intEnable));
+
+   if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Called.\n");
+
+   // Process data
+   handleCount = AxisG2_Process (dev, reg, hwData);
 
    // Enable interrupt and update ack count
    iowrite32(0x30000 + handleCount,&(reg->intAckAndEnable));
@@ -313,6 +319,7 @@ void AxisG2_Init(struct DmaDevice *dev) {
    if ( hwData->desc128En ) {
       dmaQueueInit(&hwData->wrQueue,dev->rxBuffers.count);
       dmaQueueInit(&hwData->rdQueue,dev->txBuffers.count + dev->rxBuffers.count);
+      hwData->buffList = (struct DmaBuffer **)kmalloc(BUFF_LIST_SIZE * sizeof(struct DmaBuffer *),GFP_ATOMIC);
    }
 
    // Set read and write ring buffers
@@ -463,6 +470,8 @@ void AxisG2_Clear(struct DmaDevice *dev) {
       dma_free_coherent(dev->device, hwData->addrCount*8, hwData->writeAddr, hwData->writeHandle);
       dma_free_coherent(dev->device, hwData->addrCount*8, hwData->readAddr, hwData->readHandle);
    }
+
+   if ( hwData->desc128En ) kfree(hwData->buffList);
 
    kfree(hwData);
 }
