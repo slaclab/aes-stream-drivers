@@ -246,7 +246,7 @@ uint32_t AxisG2_Process (struct DmaDevice * dev, struct AxisG2Reg reg, struct Ax
    // Unlock
    spin_unlock(&dev->maskLock);
 
-   // Get (write / receive) return buffer list, get rid of this malloc!
+   // Get (write / receive) return buffer list
    if ( hwData->desc128En ) {
       do {
          rCnt = ((hwData->addrCount-1) - hwData->hwWrBuffCnt);
