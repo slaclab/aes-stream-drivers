@@ -24,7 +24,7 @@ HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 COMP ?= arm-xilinx-linux-gnueabi-
 ARCH ?= arm
 KDIR ?= /afs/slac/g/cci/volumes/vol1/xilinx/linux-xlnx
-KVER := $(shell make -C $(KDIR) -s kernelversion).arm
+KVER := $(shell make -C $(KDIR) ARCH=$(ARCH) -s kernelversion).$(ARCH)
 SRCS := $(wildcard src/*.c)
 OBJS := $(patsubst %.c,%.o,$(SRCS))
 GCC  := $(COMP)gcc

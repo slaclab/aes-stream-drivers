@@ -47,6 +47,10 @@ int cfgBgThold5 = 0;
 int cfgBgThold6 = 0;
 int cfgBgThold7 = 0;
 
+// Probe failure global flag used in driver init
+// funtion to unregister driver
+static int probeReturn = 0;
+
 struct DmaDevice gDmaDevices[MAX_DMA_DEVICES];
 // PCI device IDs
 static struct pci_device_id DataDev_Ids[] = {
@@ -72,6 +76,7 @@ static struct pci_driver DataDevDriver = {
 
 // Init Kernel Module
 int32_t DataDev_Init(void) {
+   int ret;
 
    /* Allocate and clear memory for all devices. */
    memset(gDmaDevices, 0, sizeof(struct DmaDevice)*MAX_DMA_DEVICES);
@@ -83,7 +88,15 @@ int32_t DataDev_Init(void) {
    gDmaDevCount = 0;
 
    // Register driver
-   return(pci_register_driver(&DataDevDriver));
+   ret = pci_register_driver(&DataDevDriver);
+   if (probeReturn != 0)
+   {
+      pr_err("%s: Probe failure detected in init. Unregistering driver.\n", MOD_NAME);
+      pci_unregister_driver(&DataDevDriver);
+      return probeReturn;
+   }
+
+   return ret ;
 }
 
 
@@ -135,9 +148,6 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev = &gDmaDevices[id->driver_data];
    dev->index = id->driver_data;
 
-   // Increment count
-   gDmaDevCount++;
-
    // Create a device name
    sprintf(dev->devName,"%s_%i",MOD_NAME,dev->index);
 
@@ -150,7 +160,8 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->baseSize = pci_resource_len (pcidev, 0);
 
    // Remap the I/O register block so that it can be safely accessed.
-   if ( Dma_MapReg(dev) < 0 ) return(-1);
+   if ( Dma_MapReg(dev) < 0 ) 
+      goto cleanup_pci_enable_device;
 
    // Set configuration
    dev->cfgTxCount    = cfgTxCount;
@@ -198,7 +209,8 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    }
 
    // Call common dma init function
-   if ( Dma_Init(dev) < 0 ) return(-1);
+   if ( Dma_Init(dev) < 0 ) 
+      goto cleanup_pci_enable_device;
 
    // Get hardware data structure
    hwData = (struct AxisG2Data *)dev->hwData;
@@ -208,7 +220,18 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev_info(dev->device,"Init: User space mapped to 0x%llx with size 0x%x.\n",(uint64_t)dev->rwBase,dev->rwSize);
    dev_info(dev->device,"Init: Top Register = 0x%x\n",ioread32(dev->reg));
 
+   // Increment count only after probe is setup successfully
+   gDmaDevCount++;
+   probeReturn = 0;
    return(0);
+
+   /* Cleanup the mess */
+cleanup_pci_enable_device:
+   pci_disable_device(pcidev);
+
+// Exit at end of cleanup
+   probeReturn = -ENOMEM;
+   return probeReturn;
 }
 
 // Cleanup device
