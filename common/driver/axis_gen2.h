@@ -154,13 +154,13 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev);
 // Set functions for gen2 card
 extern struct hardware_functions AxisG2_functions;
 
-// Work queue task
+// Work queue task to force periodic IRQ
 void AxisG2_WqTask_IrqForce ( struct work_struct *work );
 
-// Work queue task
+// Work queue task to run a poll loop
 void AxisG2_WqTask_Poll ( struct work_struct *work );
 
-// Work queue task
+// Work queue task to handle IRQ processing
 void AxisG2_WqTask_Service ( struct work_struct *work );
 
 #endif

@@ -430,6 +430,8 @@ void AxisG2_Enable(struct DmaDevice *dev) {
       if ( ! dev->cfgIrqDis ) {
          INIT_DELAYED_WORK(&(hwData->dlyWork), AxisG2_WqTask_IrqForce);
          queue_delayed_work(hwData->wq,&(hwData->dlyWork),10);
+
+         // Init processing work, called from IRQ
          INIT_WORK(&(hwData->irqWork), AxisG2_WqTask_Service);
       }
 
@@ -620,7 +622,7 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
 }
 
 
-// Work queue task
+// Work queue task to force periodic IRQ
 void AxisG2_WqTask_IrqForce ( struct work_struct *work ) {
    struct AxisG2Reg *reg;
    struct AxisG2Data * hwData;
@@ -637,7 +639,7 @@ void AxisG2_WqTask_IrqForce ( struct work_struct *work ) {
 }
 
 
-// Work queue task
+// Work queue task to run a poll loop
 void AxisG2_WqTask_Poll ( struct work_struct *work ) {
    struct AxisG2Reg *reg;
    struct DmaDevice *dev;
@@ -655,7 +657,7 @@ void AxisG2_WqTask_Poll ( struct work_struct *work ) {
 }
 
 
-// Work queue task
+// Work queue task to handle IRQ processing
 void AxisG2_WqTask_Service ( struct work_struct *work ) {
    uint32_t handleCount;
 
