@@ -110,6 +110,7 @@ struct AxisG2Data {
 
    struct workqueue_struct *wq;
    struct delayed_work dlyWork;
+   struct work_struct  irqWork;
 
    struct DmaBuffer  ** buffList;
 };
@@ -124,7 +125,7 @@ inline void AxisG2_WriteFree ( struct DmaBuffer *buff, struct AxisG2Reg *reg, ui
 inline void AxisG2_WriteTx ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En );
 
 // Process receive and transmit data
-uint32_t AxisG2_Process (struct DmaDevice * dev, struct AxisG2Reg reg, struct AxisG2Data *hwData );
+uint32_t AxisG2_Process (struct DmaDevice * dev, struct AxisG2Reg *reg, struct AxisG2Data *hwData );
 
 // Interrupt handler
 irqreturn_t AxisG2_Irq(int irq, void *dev_id);
@@ -154,7 +155,13 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev);
 extern struct hardware_functions AxisG2_functions;
 
 // Work queue task
-void AxisG2_WqTask ( struct work_struct *work );
+void AxisG2_WqTask_IrqForce ( struct work_struct *work );
+
+// Work queue task
+void AxisG2_WqTask_Poll ( struct work_struct *work );
+
+// Work queue task
+void AxisG2_WqTask_Service ( struct work_struct *work );
 
 #endif
 

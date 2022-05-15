@@ -135,7 +135,7 @@ inline void AxisG2_WriteTx ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint
    iowrite32(rdData[0],&(reg->readFifoA));
 }
 
-uint32_t AxisG2_Process (struct DmaDevice * dev, struct AxisG2Reg reg, struct AxisG2Data *hwData ) {
+uint32_t AxisG2_Process (struct DmaDevice * dev, struct AxisG2Reg *reg, struct AxisG2Data *hwData ) {
    struct DmaDesc     * desc;
    struct DmaBuffer   * buff;
    struct AxisG2Return ret;
@@ -264,8 +264,6 @@ uint32_t AxisG2_Process (struct DmaDevice * dev, struct AxisG2Reg reg, struct Ax
 
 // Interrupt handler, or service task
 irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
-   uint32_t handleCount;
-
    struct DmaDevice   * dev;
    struct AxisG2Reg   * reg;
    struct AxisG2Data  * hwData;
@@ -279,13 +277,8 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
 
    if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Called.\n");
 
-   // Process data
-   handleCount = AxisG2_Process (dev, reg, hwData);
-
-   // Enable interrupt and update ack count
-   iowrite32(0x30000 + handleCount,&(reg->intAckAndEnable));
-   if ( dev->debug > 0 ) dev_info(dev->device,"Irq: Done. Handled = %i\n",handleCount);
-   if ( handleCount == 0 ) hwData->missedIrq++;
+   // Handle data in work task
+   queue_work(hwData->wq,&(hwData->irqWork));
    return(IRQ_HANDLED);
 }
 
@@ -424,14 +417,27 @@ void AxisG2_Enable(struct DmaDevice *dev) {
    iowrite32(0x1,&(reg->online));
 
    // Enable interrupt
-   iowrite32(0x1,&(reg->intEnable));
+   if ( ! dev->cfgIrqDis ) {
+      iowrite32(0x1,&(reg->intEnable));
+   }
 
    // Start workqueue
    if ( hwData->desc128En ) {
       hwData->wqEnable = 1;
       hwData->wq = create_workqueue("AXIS_G2_WORKQ");
-      INIT_DELAYED_WORK(&(hwData->dlyWork), AxisG2_WqTask);
-      queue_delayed_work(hwData->wq,&(hwData->dlyWork),10);
+
+      // Background task to ensure regular interval of interrupts
+      if ( ! dev->cfgIrqDis ) {
+         INIT_DELAYED_WORK(&(hwData->dlyWork), AxisG2_WqTask_IrqForce);
+         queue_delayed_work(hwData->wq,&(hwData->dlyWork),10);
+         INIT_WORK(&(hwData->irqWork), AxisG2_WqTask_Service);
+      }
+
+      // Polling mode without interrupts
+      else {
+         INIT_WORK(&(hwData->irqWork), AxisG2_WqTask_Poll);
+         queue_work(hwData->wq,&(hwData->irqWork));
+      }
    }
    else hwData->wqEnable = 0;
 }
@@ -615,7 +621,7 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
 
 
 // Work queue task
-void AxisG2_WqTask ( struct work_struct *work ) {
+void AxisG2_WqTask_IrqForce ( struct work_struct *work ) {
    struct AxisG2Reg *reg;
    struct AxisG2Data * hwData;
    struct delayed_work * dlyWork;
@@ -628,5 +634,46 @@ void AxisG2_WqTask ( struct work_struct *work ) {
    iowrite32(0x1,&(reg->forceInt));
 
    if ( hwData->wqEnable ) queue_delayed_work(hwData->wq,&(hwData->dlyWork),10);
+}
+
+
+// Work queue task
+void AxisG2_WqTask_Poll ( struct work_struct *work ) {
+   struct AxisG2Reg *reg;
+   struct DmaDevice *dev;
+   struct AxisG2Data *hwData;
+
+   hwData = container_of(work, struct AxisG2Data, irqWork);
+
+   reg = (struct AxisG2Reg *)hwData->dev->reg;
+   dev = (struct DmaDevice *)hwData->dev;
+
+   // Process data
+   AxisG2_Process (dev, reg, hwData);
+
+   if ( hwData->wqEnable ) queue_work(hwData->wq,work);
+}
+
+
+// Work queue task
+void AxisG2_WqTask_Service ( struct work_struct *work ) {
+   uint32_t handleCount;
+
+   struct AxisG2Reg *reg;
+   struct DmaDevice *dev;
+   struct AxisG2Data *hwData;
+
+   hwData = container_of(work, struct AxisG2Data, irqWork);
+
+   reg = (struct AxisG2Reg *)hwData->dev->reg;
+   dev = (struct DmaDevice *)hwData->dev;
+
+   // Process data
+   handleCount = AxisG2_Process (dev, reg, hwData);
+
+   // Enable interrupt and update ack count
+   iowrite32(0x30000 + handleCount,&(reg->intAckAndEnable));
+   if ( dev->debug > 0 ) dev_info(dev->device,"Service: Done. Handled = %i\n",handleCount);
+   if ( handleCount == 0 ) hwData->missedIrq++;
 }
 
