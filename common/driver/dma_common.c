@@ -88,6 +88,16 @@ char *Dma_DevNode(struct device *dev, umode_t *mode){
    return(NULL);
 }
 
+void Dma_UnmapReg ( struct DmaDevice *dev ) {
+
+   // Release memory region
+   release_mem_region(dev->baseAddr, dev->baseSize);
+
+   // Unmap
+   iounmap(dev->base);
+
+}
+
 // Map address space in buffer
 int Dma_MapReg ( struct DmaDevice *dev ) {
    if ( dev->base == NULL ) {
@@ -109,10 +119,15 @@ int Dma_MapReg ( struct DmaDevice *dev ) {
       // Hold memory region
       if ( request_mem_region(dev->baseAddr, dev->baseSize, dev->devName) == NULL ) {
          dev_err(dev->device,"Init: Memory in use.\n");
-         return -1;
+         goto cleanup_ioremap;
       }
    }
    return(0);
+
+   /* Cleanup */
+cleanup_ioremap:
+   iounmap(dev->base);
+   return -1;
 }
 
 // Create and init device, called from top level probe function
@@ -132,22 +147,6 @@ int Dma_Init(struct DmaDevice *dev) {
       return(-1);
    }
 
-   // Create class struct if it does not already exist
-   if (gCl == NULL) {
-      dev_info(dev->device,"Init: Creating device class\n");
-      if ((gCl = class_create(THIS_MODULE, dev->devName)) == NULL) {
-         dev_err(dev->device,"Init: Failed to create device class\n");
-         return(-1);
-      }
-      gCl->devnode = (void *)Dma_DevNode;
-   }
-
-   // Attempt to create the device
-   if (device_create(gCl, NULL, dev->devNum, NULL, dev->devName) == NULL) {
-      dev_err(dev->device,"Init: Failed to create device file\n");
-      return -1;
-   }
-
    // Init the device
    cdev_init(&(dev->charDev), &DmaFunctions);
    dev->major = MAJOR(dev->devNum);
@@ -155,14 +154,37 @@ int Dma_Init(struct DmaDevice *dev) {
    // Add the charactor device
    if (cdev_add(&(dev->charDev), dev->devNum, 1) == -1) {
       dev_err(dev->device,"Init: Failed to add device file.\n");
-      return -1;
+      goto cleanup_alloc_chrdev_region;
    }
 
+   // Create class struct if it does not already exist
+   if (gCl == NULL) {
+      dev_info(dev->device,"Init: Creating device class\n");
+      if ((gCl = class_create(THIS_MODULE, dev->devName)) == NULL) {
+         dev_err(dev->device,"Init: Failed to create device class\n");
+         goto cleanup_cdev_add;
+      }
+      gCl->devnode = (void *)Dma_DevNode;
+   }
+
+   // Attempt to create the device
+   if (device_create(gCl, NULL, dev->devNum, NULL, dev->devName) == NULL) {
+      dev_err(dev->device,"Init: Failed to create device file\n");
+      goto cleanup_class_create;
+   }
+
+
    // Setup /proc
-   proc_create_data(dev->devName, 0, NULL, &DmaProcOps, dev);
+   if ( NULL == proc_create_data(dev->devName, 0, NULL, &DmaProcOps, dev)) {
+      dev_err(dev->device,"Init: Failed to create proc entry.\n");
+      goto cleanup_device_create;
+   }
 
    // Remap the I/O register block so that it can be safely accessed.
-   if ( Dma_MapReg(dev) < 0 ) return(-1);
+   if ( Dma_MapReg(dev) < 0 ){
+      dev_err(dev->device,"Init: Failed to map register block.\n");
+      goto cleanup_proc_create_data;
+   }
 
    // Init descriptors
    for (x=0; x < DMA_MAX_DEST; x++) dev->desc[x] = NULL;
@@ -181,10 +203,15 @@ int Dma_Init(struct DmaDevice *dev) {
    dev_info(dev->device,"Init: Created  %i out of %i TX Buffers. %llu Bytes.\n", res,dev->cfgTxCount,tot);
 
    // Bad buffer allocation
-   if ( dev->cfgTxCount > 0 && res == 0 ) return(-1);
+   if ( dev->cfgTxCount > 0 && res == 0 ) 
+      goto cleanup_dma_mapreg;
 
    // Init transmit queue
-   dmaQueueInit(&(dev->tq),dev->txBuffers.count);
+   res = dmaQueueInit(&(dev->tq),dev->txBuffers.count);
+   if (res == 0 && dev->txBuffers.count > 0) {
+      dev_err(dev->device,"dmaQueueInit: Failed to initialize DMA queues.\n");
+      goto cleanup_tx_buffers;
+   }
 
    // Populate transmit queue
    for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++)
@@ -199,7 +226,8 @@ int Dma_Init(struct DmaDevice *dev) {
    dev_info(dev->device,"Init: Created  %i out of %i RX Buffers. %llu Bytes.\n", res,dev->cfgRxCount,tot);
 
    // Bad buffer allocation
-   if ( dev->cfgRxCount > 0 && res == 0 ) return(-1);
+   if ( dev->cfgRxCount > 0 && res == 0 ) 
+      goto cleanup_dma_queue;
 
    // Call card specific init
    dev->hwFunc->init(dev);
@@ -212,13 +240,53 @@ int Dma_Init(struct DmaDevice *dev) {
       // Result of request IRQ from OS.
       if (res < 0) {
          dev_err(dev->device,"Init: Unable to allocate IRQ.");
-         return -1;
+         goto cleanup_card_clear;
       }
    }
 
    // Enable card
    dev->hwFunc->enable(dev);
    return 0;
+
+   /* Clean mess on failure */
+
+// Free requested IRQ
+   if ( dev->irq != 0 ) free_irq(dev->irq, dev);
+
+cleanup_card_clear:
+   dev->hwFunc->clear(dev);
+
+// Clean RX buffers
+   dmaFreeBuffers(&(dev->rxBuffers));
+
+cleanup_dma_queue:
+   dmaQueueFree(&(dev->tq));
+
+cleanup_tx_buffers:
+   dmaFreeBuffers(&(dev->txBuffers));
+
+cleanup_dma_mapreg:
+   Dma_UnmapReg(dev);
+
+cleanup_proc_create_data:
+   remove_proc_entry(dev->devName,NULL);
+
+cleanup_device_create:
+   if ( gCl != NULL ) device_destroy(gCl, dev->devNum);   
+      
+cleanup_class_create:
+   if (gDmaDevCount == 0 && gCl != NULL) {
+      class_destroy(gCl);
+      gCl = NULL;
+   }         
+
+cleanup_cdev_add:
+   cdev_del(&(dev->charDev));
+
+cleanup_alloc_chrdev_region:
+   unregister_chrdev_region(dev->devNum, 1);
+
+   return -1;   
 }
 
 
@@ -242,11 +310,7 @@ void  Dma_Clean(struct DmaDevice *dev) {
    // Clear descriptors if they exist
    for (x=0; x < DMA_MAX_DEST; x++) dev->desc[x] = NULL;
 
-   // Release memory region
-   release_mem_region(dev->baseAddr, dev->baseSize);
-
-   // Unmap
-   iounmap(dev->base);
+   Dma_UnmapReg ( dev ) ;
 
    // Cleanup proc
    remove_proc_entry(dev->devName,NULL);

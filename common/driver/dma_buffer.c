@@ -51,15 +51,15 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
 
    // Allocate first level pointers
    if ((list->indexed = (struct DmaBuffer ***) kmalloc(sizeof(struct DmaBuffer**) * list->subCount, GFP_KERNEL)) == NULL ) {
-      dev_warn(dev->device,"dmaAllocBuffers: Failed to allocate indexed list pointer. Count=%u.\n",list->subCount);
-      return(0);
+      dev_err(dev->device,"dmaAllocBuffers: Failed to allocate indexed list pointer. Count=%u.\n",list->subCount);
+      goto cleanup_forced_exit;
    }
 
    // Allocate sub lists
    for (x=0; x < list->subCount; x++) {
       if ((list->indexed[x] = (struct DmaBuffer **) kmalloc((sizeof(struct DmaBuffer *) * BUFFERS_PER_LIST), GFP_KERNEL)) == NULL) {
-         dev_warn(dev->device,"dmaAllocBuffers: Failed to allocate sub list. Idx=%u.\n",x);
-         return (0);
+         dev_err(dev->device,"dmaAllocBuffers: Failed to allocate sub list. Idx=%u.\n",x);
+         goto cleanup_list_heads;
       }
    }
 
@@ -73,10 +73,9 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
    for (x=0; x < count; x++) {
       sl  = x / BUFFERS_PER_LIST;
       sli = x % BUFFERS_PER_LIST;
-
       if ( (buff = (struct DmaBuffer *) kmalloc(sizeof(struct DmaBuffer), GFP_KERNEL)) == NULL) {
-         dev_warn(dev->device,"dmaAllocBuffers: Failed to create buffer structure index %ui.\n",x);
-         break;
+         dev_err(dev->device,"dmaAllocBuffers: Failed to create buffer structure index %ui. Unloading.\n",x);
+         goto cleanup_buffers;
       }
 
       // Init record
@@ -115,9 +114,8 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
 
       // Alloc or mapping failed
       if ( buff->buffAddr == NULL || buff->buffHandle == 0) {
-         if ( buff->buffAddr != NULL ) kfree(buff->buffAddr);
-         kfree(buff);
-         break; 
+         dev_err(dev->device,"dmaAllocBuffers: Failed to create stream buffer and dma mapping.\n");
+         goto cleanup_buffers;
       }
 
       // Set index
@@ -133,15 +131,29 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
    if ( list->sorted != NULL ) sort(list->sorted,list->count,sizeof(struct DmaBuffer *),dmaSortComp,NULL);
 
    return(list->count);
+
+   /* Cleanup */
+cleanup_buffers:
+   dmaFreeBuffersList(list);
+   if ( list->sorted  != NULL ) kfree(list->sorted);
+
+cleanup_list_heads:
+   for (x=0; x < list->subCount; x++) 
+      if ( list->indexed[x] != NULL ) 
+         kfree(list->indexed[x]);
+   if ( list->indexed != NULL ) kfree(list->indexed);
+
+// Return 0 as no buffers were allocated
+cleanup_forced_exit:
+   return 0;
 }
 
-
 // Free a list of buffers
-void dmaFreeBuffers ( struct DmaBufferList *list ) {
-   uint32_t x;
+void dmaFreeBuffersList(struct DmaBufferList *list) {
    uint32_t sl;
    uint32_t sli;
-
+   uint32_t x;
+   
    for (x=0; x < list->count; x++) {
       sl  = x / BUFFERS_PER_LIST;
       sli = x % BUFFERS_PER_LIST;
@@ -165,6 +177,14 @@ void dmaFreeBuffers ( struct DmaBufferList *list ) {
       }
       kfree(list->indexed[sl][sli]);
    }
+   list->count = 0;
+}
+
+// Free a list of buffers including heads
+void dmaFreeBuffers ( struct DmaBufferList *list ) {
+   uint32_t x;
+   dmaFreeBuffersList(list);
+
    for (x=0; x < list->subCount; x++) kfree(list->indexed[x]);
    if ( list->indexed != NULL ) kfree(list->indexed);
    if ( list->sorted  != NULL ) kfree(list->sorted);
@@ -408,13 +428,30 @@ size_t dmaQueueInit ( struct DmaQueue *queue, uint32_t count ) {
    queue->write    = 0;
 
    queue->queue = (struct DmaBuffer ***)kmalloc(queue->subCount * sizeof(struct DmaBuffer **),GFP_KERNEL);
+   if (queue->queue == NULL) {
+      goto cleanup_force_exit;
+   }
 
-   for(x=0; x < queue->subCount; x++) 
+   for(x=0; x < queue->subCount; x++) {
       queue->queue[x] = (struct DmaBuffer **)kmalloc(BUFFERS_PER_LIST * sizeof(struct DmaBuffer *),GFP_KERNEL);
-
+      if (queue->queue[x] == NULL) {
+         goto cleanup_sub_queue;
+      }
+   }
+   
    spin_lock_init(&(queue->lock));
    init_waitqueue_head(&(queue->wait));
    return(count);
+
+   /* cleanup */
+cleanup_sub_queue:
+   for (x=0; x < queue->subCount; x++) 
+      if (queue->queue[x] != NULL)
+         kfree(queue->queue[x]);
+
+cleanup_force_exit:
+   return 0;
+
 }
 
 // Free queue
@@ -422,7 +459,9 @@ void dmaQueueFree ( struct DmaQueue *queue ) {
    uint32_t x;
 
    queue->count = 0;
-   for (x=0; x < queue->subCount; x++) kfree(queue->queue[x]);
+   for (x=0; x < queue->subCount; x++) 
+      if (queue->queue[x] != NULL)
+         kfree(queue->queue[x]);
 
    queue->subCount = 0;
    kfree(queue->queue);

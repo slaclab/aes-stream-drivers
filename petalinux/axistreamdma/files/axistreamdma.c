@@ -128,9 +128,6 @@ int Rce_Probe(struct platform_device *pdev) {
    memset(dev,0,sizeof(struct DmaDevice));
    dev->index = tmpIdx;
 
-   // Increment count
-   gDmaDevCount++;
-
    // Create a device name
    strcpy(dev->devName,tmpName);
 
@@ -200,8 +197,21 @@ int Rce_Probe(struct platform_device *pdev) {
        dev_info(dev->device,"Probe: Set COHERENT DMA =%i\n",dev->cfgMode);
    }
 #endif
+
    // Call common dma init function
-   return(Dma_Init(dev));
+   if ( Dma_Init(dev) < 0 ) 
+      goto cleanup_force_exit;
+
+   // Increment count only after DMA is initialized successfully
+   gDmaDevCount++;
+
+   return 0;
+
+   /* Cleanup after probe failure */
+cleanup_force_exit:
+   return -1;
+
+   
 }
 
 
