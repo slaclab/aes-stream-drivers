@@ -169,7 +169,6 @@ uint32_t AxisG2_Process (struct DmaDevice * dev, struct AxisG2Reg *reg, struct A
          }
       }
       hwData->readIndex = ((hwData->readIndex+1) % hwData->addrCount);
-      if ( handleCount > 1000 ) break;
    }
 
    // Process transmit software queue
@@ -239,8 +238,6 @@ uint32_t AxisG2_Process (struct DmaDevice * dev, struct AxisG2Reg *reg, struct A
 
       // Update index
       hwData->writeIndex = ((hwData->writeIndex+1) % hwData->addrCount);
-
-      if ( handleCount > 2000 ) break;
    }
 
    // Unlock
