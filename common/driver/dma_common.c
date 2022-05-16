@@ -31,6 +31,7 @@
 
 // Define interface routines
 struct file_operations DmaFunctions = {
+   owner:          THIS_MODULE,
    read:           Dma_Read,
    write:          Dma_Write,
    open:           Dma_Open,
@@ -225,6 +226,28 @@ int Dma_Init(struct DmaDevice *dev) {
 void  Dma_Clean(struct DmaDevice *dev) {
    uint32_t x;
 
+   // Call card specific CLear
+   dev->hwFunc->clear(dev);
+
+   // Release IRQ
+   if ( dev->irq != 0 ) free_irq(dev->irq, dev);
+
+   // Free buffers
+   dmaFreeBuffers (&(dev->rxBuffers));
+   dmaFreeBuffers (&(dev->txBuffers));
+
+   // CLear tx queue
+   dmaQueueFree(&(dev->tq));
+
+   // Clear descriptors if they exist
+   for (x=0; x < DMA_MAX_DEST; x++) dev->desc[x] = NULL;
+
+   // Release memory region
+   release_mem_region(dev->baseAddr, dev->baseSize);
+
+   // Unmap
+   iounmap(dev->base);
+
    // Cleanup proc
    remove_proc_entry(dev->devName,NULL);
    cdev_del(&(dev->charDev));
@@ -234,28 +257,6 @@ void  Dma_Clean(struct DmaDevice *dev) {
    else dev_warn(dev->device,"Clean: gCl is already NULL.\n");
 
    unregister_chrdev_region(dev->devNum, 1);
-
-   // Call card specific CLear
-   dev->hwFunc->clear(dev);
-
-   // CLear tx queue
-   dmaQueueFree(&(dev->tq));
-
-   // Free buffers
-   dmaFreeBuffers (&(dev->txBuffers));
-   dmaFreeBuffers (&(dev->rxBuffers));
-
-   // Clear descriptors if they exist
-   for (x=0; x < DMA_MAX_DEST; x++) dev->desc[x] = NULL;
-
-   // Release memory region
-   release_mem_region(dev->baseAddr, dev->baseSize);
-
-   // Release IRQ
-   if ( dev->irq != 0 ) free_irq(dev->irq, dev);
-
-   // Unmap
-   iounmap(dev->base);
 
    if (gDmaDevCount == 0 && gCl != NULL) {
       dev_info(dev->device,"Clean: Destroying device class\n");

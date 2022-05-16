@@ -413,11 +413,6 @@ void AxisG2_Enable(struct DmaDevice *dev) {
    // Online
    iowrite32(0x1,&(reg->online));
 
-   // Enable interrupt
-   if ( ! dev->cfgIrqDis ) {
-      iowrite32(0x1,&(reg->intEnable));
-   }
-
    // Start workqueue
    if ( hwData->desc128En ) {
       hwData->wqEnable = 1;
@@ -439,6 +434,20 @@ void AxisG2_Enable(struct DmaDevice *dev) {
       }
    }
    else hwData->wqEnable = 0;
+
+   // Enable interrupt
+   if ( ! dev->cfgIrqDis ) {
+      iowrite32(0x1,&(reg->intEnable));
+   }
+
+   // Enable
+   iowrite32(0x1,&(reg->enableVer));
+
+   // Online
+   iowrite32(0x1,&(reg->online));
+
+   // Enable interrupt
+   iowrite32(0x1,&(reg->intEnable));
 }
 
 // Clear card in top level Remove
@@ -465,6 +474,14 @@ void AxisG2_Clear(struct DmaDevice *dev) {
 
    // Clear FIFOs
    iowrite32(0x1,&(reg->fifoReset));
+
+   // Stop work queue
+   if ( hwData->wqEnable ) {
+      hwData->wqEnable = 0;
+      cancel_delayed_work_sync(&(hwData->dlyWork));
+      flush_workqueue(hwData->wq);
+      destroy_workqueue(hwData->wq);
+   }
 
    // Free buffers
    if(dev->cfgMode & AXIS2_RING_ACP) {
