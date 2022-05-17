@@ -1,12 +1,5 @@
 /**
  *-----------------------------------------------------------------------------
- * Title      : DMA read utility
- * ----------------------------------------------------------------------------
- * File       : dmaRate.cpp
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-08
- * Last update: 2016-08-08
- * ----------------------------------------------------------------------------
  * Description:
  * This program will open up a AXIS DMA port and attempt to read data.
  * ----------------------------------------------------------------------------
@@ -119,7 +112,10 @@ int main (int argc, char **argv) {
    }
 #endif
 
-   dmaSetMaskBytes(s,mask);
+   if (dmaSetMaskBytes(s,mask) != 0 ) {
+      printf("Failed to get receive dma!\n");
+      return(0);
+   }
 
    while(1) {
 
@@ -148,8 +144,8 @@ int main (int argc, char **argv) {
          if ( ret > 0 ) dmaRetIndexes(s,ret,dmaIndex);  // 721 usec
          gettimeofday(&(pTime[3]),NULL);
 
-	 if ( total == 0 ) if ( ret > max ) max = ret;
-	 total += ret; // 0 usec
+	      if ( total == 0 ) if ( ret > max ) max = ret;
+	      total += ret; // 0 usec
       }
 
       gettimeofday(&eTime,NULL);
