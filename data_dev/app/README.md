@@ -1,4 +1,4 @@
-# How to run the application to rate test
+# How to run the example application rate test
 
 Go to the `app` directory and build the source code
 ```bash
