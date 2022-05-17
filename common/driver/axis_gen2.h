@@ -26,6 +26,7 @@
 #include <linux/workqueue.h>
 
 #define AXIS2_RING_ACP 0x10
+#define BUFF_LIST_SIZE 1000
 
 struct AxisG2Reg {
    uint32_t enableVer;       // 0x0000
@@ -109,6 +110,9 @@ struct AxisG2Data {
 
    struct workqueue_struct *wq;
    struct delayed_work dlyWork;
+   struct work_struct  irqWork;
+
+   struct DmaBuffer  ** buffList;
 };
 
 // Map return
@@ -119,6 +123,9 @@ inline void AxisG2_WriteFree ( struct DmaBuffer *buff, struct AxisG2Reg *reg, ui
 
 // Add buffer to tx list
 inline void AxisG2_WriteTx ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En );
+
+// Process receive and transmit data
+uint32_t AxisG2_Process (struct DmaDevice * dev, struct AxisG2Reg *reg, struct AxisG2Data *hwData );
 
 // Interrupt handler
 irqreturn_t AxisG2_Irq(int irq, void *dev_id);
@@ -147,8 +154,14 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev);
 // Set functions for gen2 card
 extern struct hardware_functions AxisG2_functions;
 
-// Work queue task
-void AxisG2_WqTask ( struct work_struct *work );
+// Work queue task to force periodic IRQ
+void AxisG2_WqTask_IrqForce ( struct work_struct *work );
+
+// Work queue task to run a poll loop
+void AxisG2_WqTask_Poll ( struct work_struct *work );
+
+// Work queue task to handle IRQ processing
+void AxisG2_WqTask_Service ( struct work_struct *work );
 
 #endif
 

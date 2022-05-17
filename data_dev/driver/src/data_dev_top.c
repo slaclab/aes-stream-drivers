@@ -38,6 +38,7 @@ int cfgSize     = 0x20000; // 128kB
 int cfgMode     = BUFF_COHERENT;
 int cfgCont     = 1;
 int cfgIrqHold  = 10000;
+int cfgIrqDis   = 0;
 int cfgBgThold0 = 0;
 int cfgBgThold1 = 0;
 int cfgBgThold2 = 0;
@@ -170,6 +171,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->cfgMode       = cfgMode;
    dev->cfgCont       = cfgCont;
    dev->cfgIrqHold    = cfgIrqHold;
+   dev->cfgIrqDis     = cfgIrqDis;
    dev->cfgBgThold[0] = cfgBgThold0;
    dev->cfgBgThold[1] = cfgBgThold1;
    dev->cfgBgThold[2] = cfgBgThold2;
@@ -322,6 +324,9 @@ MODULE_PARM_DESC(cfgCont, "RX continue enable");
 
 module_param(cfgIrqHold,int,0);
 MODULE_PARM_DESC(cfgIrqHold, "IRQ Holdoff");
+
+module_param(cfgIrqDis,int,0);
+MODULE_PARM_DESC(cfgIrqDis, "IRQ Disable");
 
 module_param(cfgBgThold0,int,0);
 MODULE_PARM_DESC(cfgBgThold0, "Buff Group Threshold 0");
