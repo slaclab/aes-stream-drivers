@@ -1,14 +1,7 @@
 /**
  *-----------------------------------------------------------------------------
- * Title      : PGP write utility
- * ----------------------------------------------------------------------------
- * File       : pgpWrite.cpp
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-08
- * Last update: 2016-08-08
- * ----------------------------------------------------------------------------
  * Description:
- * Program to send data on a PGP lane/VC. Data is prbs
+ * This program will open up a AXIS DMA port and attempt to write data.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory
@@ -27,7 +20,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <argp.h>
-#include <PgpDriver.h>
+#include <DmaDriver.h>
 #include <PrbsData.h>
 using namespace std;
 
@@ -49,7 +42,7 @@ static char   args_doc[] = "dest";
 static char   doc[]      = "   Dest is passed as an integer.";
 
 static struct argp_option options[] = {
-   { "path",    'p', "PATH",   OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/pgpcard_0.",0},
+   { "path",    'p', "PATH",   OPTION_ARG_OPTIONAL, "Path of datadev device to use. Default=/dev/datadev_0.",0},
    { "prbsdis", 'd', 0,        OPTION_ARG_OPTIONAL, "Disable PRBS generation.",0},
    { "size",    's', "SIZE",   OPTION_ARG_OPTIONAL, "Size of data to generate. Default=1000",0},
    { "count",   'c', "COUNT",  OPTION_ARG_OPTIONAL, "Number of frames to generate. Default=1",0},
@@ -87,16 +80,15 @@ int main (int argc, char **argv) {
    int32_t       ret;
    uint32_t      count;
    fd_set        fds;
-   void *        txData;
+   void *        txData=NULL;
    PrbsData      prbs(32,4,1,2,6,31);
-   void **       dmaBuffers;
+   void **       dmaBuffers=NULL;
    uint32_t      dmaSize;
    uint32_t      dmaCount;
-   int32_t       dmaIndex;
+   int32_t       dmaIndex=-1;
    bool          prbValid;
 
    struct timeval timeout;
-   struct PgpInfo info;
    struct PrgArgs args;
 
    memcpy(&args,&DefArgs,sizeof(struct PrgArgs));
@@ -106,7 +98,6 @@ int main (int argc, char **argv) {
       printf("Error opening %s\n",args.path);
       return(1);
    }
-   pgpGetInfo(s,&info);
 
    if ( args.idxEn ) {
       if ( (dmaBuffers = dmaMapDma(s,&dmaCount,&dmaSize)) == NULL ) {

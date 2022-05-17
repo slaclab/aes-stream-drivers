@@ -1,9 +1,4 @@
 /**
- *-----------------------------------------------------------------------------
- * Title      : Debug utility
- * ----------------------------------------------------------------------------
- * File       : setDebug.cpp
- * Created    : 2017-03-24
  * ----------------------------------------------------------------------------
  * Description:
  * This program set the driver debug level.
@@ -26,7 +21,7 @@
 #include <string.h>
 #include <argp.h>
 #include <stdlib.h>
-#include <PgpDriver.h>
+#include <DmaDriver.h>
 using namespace std;
 
 const  char * argp_program_version = "setDebug 1.0";
@@ -43,7 +38,7 @@ static char   args_doc[] = "debugLevel";
 static char   doc[]      = "\n   Debug level is either 0 or 1.";
 
 static struct argp_option options[] = {
-   { "path", 'p', "PATH", OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/datadev_0.",0},
+   { "path", 'p', "PATH", OPTION_ARG_OPTIONAL, "Path of datadev device to use. Default=/dev/datadev_0.",0},
    {0}
 };
 
