@@ -458,12 +458,13 @@ void AxisG2_Clear(struct DmaDevice *dev) {
    reg = (struct AxisG2Reg *)dev->reg;
    hwData = (struct AxisG2Data *)dev->hwData;
 
-   // Disable interrupt
+   // Disable interrupt, stop work queue
    iowrite32(0x0,&(reg->intEnable));
 
    // Stop work queue
    if ( hwData->wqEnable ) {
       hwData->wqEnable = 0;
+      if ( ! dev->cfgIrqDis ) cancel_delayed_work_sync(&(hwData->dlyWork));
       flush_workqueue(hwData->wq);
       destroy_workqueue(hwData->wq);
    }
@@ -474,14 +475,6 @@ void AxisG2_Clear(struct DmaDevice *dev) {
 
    // Clear FIFOs
    iowrite32(0x1,&(reg->fifoReset));
-
-   // Stop work queue
-   if ( hwData->wqEnable ) {
-      hwData->wqEnable = 0;
-      cancel_delayed_work_sync(&(hwData->dlyWork));
-      flush_workqueue(hwData->wq);
-      destroy_workqueue(hwData->wq);
-   }
 
    // Free buffers
    if(dev->cfgMode & AXIS2_RING_ACP) {
