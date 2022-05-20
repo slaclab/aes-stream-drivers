@@ -97,7 +97,7 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    int32_t axiWidth;
 
    if ( cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM ) {
-      pr_warning("%s: Probe: Invalid buffer mode = %i.\n",MOD_NAME,cfgMode);
+      pr_warn("%s: Probe: Invalid buffer mode = %i.\n",MOD_NAME,cfgMode);
       return(-1);
    }
 
@@ -119,7 +119,7 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    // Overflow
    if (id->driver_data < 0) {
-      pr_warning("%s: Probe: Too Many Devices.\n",MOD_NAME);
+      pr_warn("%s: Probe: Too Many Devices.\n",MOD_NAME);
       return (-1);
    }
    dev = &gDmaDevices[id->driver_data];
