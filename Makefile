@@ -25,6 +25,7 @@ LOC_VERS := $(notdir $(LOC_VERS))
 RCE_DIRS := /afs/slac/g/cci/volumes/vol1/xilinx/linux-xlnx-v2015.2.03
 RCE_DIRS += /afs/slac/g/cci/volumes/vol1/xilinx/linux-xlnx-v2016.4
 RCE_DIRS += /afs/slac/g/cci/volumes/vol1/xilinx/backup/linux-xlnx-v2016.1.01
+ver = $(shell uname -r)
 
 all: 
 	@echo "Options: app driver rce"
@@ -41,18 +42,29 @@ app:
 
 driver:
 	@mkdir -p $(MAKE_HOME)/install;
-	@ $(foreach ver,$(LOC_VERS), \
-		mkdir -p $(MAKE_HOME)/install/$(ver); \
-		make -C $(MAKE_HOME)/exo_tem/driver KVER=$(ver) clean; \
-		make -C $(MAKE_HOME)/exo_tem/driver KVER=$(ver); \
-		scp $(MAKE_HOME)/exo_tem/driver/*.ko $(MAKE_HOME)/install/$(ver); \
-		make -C $(MAKE_HOME)/pgpcard/driver KVER=$(ver) clean; \
-		make -C $(MAKE_HOME)/pgpcard/driver KVER=$(ver); \
-		scp $(MAKE_HOME)/pgpcard/driver/*.ko $(MAKE_HOME)/install/$(ver); \
-		make -C $(MAKE_HOME)/data_dev/driver KVER=$(ver) clean; \
-		make -C $(MAKE_HOME)/data_dev/driver KVER=$(ver); \
-		scp $(MAKE_HOME)/data_dev/driver/*.ko $(MAKE_HOME)/install/$(ver); \
-	)
+	@mkdir -p $(MAKE_HOME)/install/$(ver);
+	@make -C $(MAKE_HOME)/exo_tem/driver KVER=$(ver) clean;
+	@make -C $(MAKE_HOME)/exo_tem/driver KVER=$(ver);
+	@scp $(MAKE_HOME)/exo_tem/driver/*.ko $(MAKE_HOME)/install/$(ver);
+	@make -C $(MAKE_HOME)/pgpcard/driver KVER=$(ver) clean;
+	@make -C $(MAKE_HOME)/pgpcard/driver KVER=$(ver);
+	@scp $(MAKE_HOME)/pgpcard/driver/*.ko $(MAKE_HOME)/install/$(ver);
+	@make -C $(MAKE_HOME)/data_dev/driver KVER=$(ver) clean;
+	@make -C $(MAKE_HOME)/data_dev/driver KVER=$(ver);
+	@scp $(MAKE_HOME)/data_dev/driver/*.ko $(MAKE_HOME)/install/$(ver);
+	
+#	@ $(foreach ver,$(LOC_VERS), \
+# 		mkdir -p $(MAKE_HOME)/install/$(ver); \
+#		make -C $(MAKE_HOME)/exo_tem/driver KVER=$(ver) clean; \
+#		make -C $(MAKE_HOME)/exo_tem/driver KVER=$(ver); \
+#		scp $(MAKE_HOME)/exo_tem/driver/*.ko $(MAKE_HOME)/install/$(ver); \
+#		make -C $(MAKE_HOME)/pgpcard/driver KVER=$(ver) clean; \
+#		make -C $(MAKE_HOME)/pgpcard/driver KVER=$(ver); \
+#		scp $(MAKE_HOME)/pgpcard/driver/*.ko $(MAKE_HOME)/install/$(ver); \
+#		make -C $(MAKE_HOME)/data_dev/driver KVER=$(ver) clean; \
+#		make -C $(MAKE_HOME)/data_dev/driver KVER=$(ver); \
+#		scp $(MAKE_HOME)/data_dev/driver/*.ko $(MAKE_HOME)/install/$(ver); \
+#	)
 
 rce:
 	@mkdir -p $(MAKE_HOME)/install;

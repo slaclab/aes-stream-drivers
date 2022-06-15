@@ -27,11 +27,11 @@ KERNELDIR := /lib/modules/$(KVER)/build
 SRCS := $(wildcard src/*.c)
 OBJS := $(patsubst %.c,%.o,$(SRCS))
 
-ifndef GITV
-	GITT := $(shell cd $(HOME); git describe --tags)
-	GITD := $(shell cd $(HOME); git status --short -uno | wc -l)
-	GITV := $(if $(filter $(GITD),0),$(GITT),$(GITT)-dirty)
-endif
+#ifndef GITV
+#	GITT := $(shell cd $(HOME); git describe --tags)
+#	GITD := $(shell cd $(HOME); git status --short -uno | wc -l)
+#	GITV := $(if $(filter $(GITD),0),$(GITT),$(GITT)-dirty)
+#endif
 
 ccflags-y := -I$(HOME)/../../include
 ccflags-y += -I$(HOME)/src

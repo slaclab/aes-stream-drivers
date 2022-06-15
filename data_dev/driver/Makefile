@@ -25,11 +25,11 @@ KERNELDIR := /lib/modules/$(KVER)/build
 SRCS := $(wildcard src/*.c)
 OBJS := $(patsubst %.c,%.o,$(SRCS))
 
-ifndef GITV
-	GITT := $(shell cd $(HOME); git describe --tags)
-	GITD := $(shell cd $(HOME); git status --short -uno | wc -l)
-	GITV := $(if $(filter $(GITD),0),$(GITT),$(GITT)-dirty)
-endif
+#ifndef GITV
+#	GITT := $(shell cd $(HOME); git describe --tags)
+#	GITD := $(shell cd $(HOME); git status --short -uno | wc -l)
+#	GITV := $(if $(filter $(GITD),0),$(GITT),$(GITT)-dirty)
+#endif
 
 ccflags-y += -I$(HOME)/src
 ccflags-y += -DDMA_IN_KERNEL=1 -DGITV=\"$(GITV)\"
@@ -39,7 +39,7 @@ $(NAME)-objs += src/axi_version.o src/axis_gen2.o src/data_dev_top.o
 obj-m        := $(NAME).o
 
 all:
-	@echo $(GITV)
+#	@echo $(GITV)
 	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(HOME) modules
 
 clean:
