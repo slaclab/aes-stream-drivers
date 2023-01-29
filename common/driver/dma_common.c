@@ -1024,17 +1024,18 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    dev->hwFunc->seqShow(s,dev);
 
    seq_printf(s,"\n");
-   seq_printf(s,"-------------- General --------------------\n");
-   seq_printf(s,"          Dma Version : 0x%x\n",DMA_VERSION);
-   seq_printf(s,"          Git Version : " GITV "\n\n");
-   seq_printf(s,"-------------- Read Buffers ---------------\n");
+   seq_printf(s,"-------- DMA Kernel Driver General --------\n");
+   seq_printf(s," DMA Driver's Git Version : " GITV "\n");
+   seq_printf(s," DMA Driver's API Version : 0x%x\n",DMA_VERSION);
+   seq_printf(s,"\n");
+   seq_printf(s,"---- Read Buffers (Firmware->Software) ----\n");
    seq_printf(s,"         Buffer Count : %u\n",dev->rxBuffers.count);
    seq_printf(s,"          Buffer Size : %u\n",dev->cfgSize);
    seq_printf(s,"          Buffer Mode : %u\n",dev->cfgMode);
 
    userCnt = 0;
    hwCnt   = 0;
-   hwQCnt   = 0;
+   hwQCnt  = 0;
    qCnt    = 0;
    miss    = 0;
    max     = 0;
@@ -1072,7 +1073,7 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    seq_printf(s,"       Tot Buffer Use : %u\n",sum);
 
    seq_printf(s,"\n");
-   seq_printf(s,"-------------- Write Buffers ---------------\n");
+   seq_printf(s,"---- Write Buffers (Software->Firmware) ---\n");
    seq_printf(s,"         Buffer Count : %u\n",dev->txBuffers.count);
    seq_printf(s,"          Buffer Size : %u\n",dev->cfgSize);
    seq_printf(s,"          Buffer Mode : %u\n",dev->cfgMode);
