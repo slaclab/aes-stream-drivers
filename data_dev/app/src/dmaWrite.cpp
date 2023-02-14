@@ -14,6 +14,8 @@
 **/
 
 #include <sys/types.h>
+#include <sys/time.h>
+#include <time.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <fcntl.h>
@@ -87,6 +89,9 @@ int main (int argc, char **argv) {
    uint32_t      dmaCount;
    int32_t       dmaIndex=-1;
    bool          prbValid;
+   struct timeval startTime;
+   struct timeval endTime;
+   struct timeval diffTime;
 
    struct timeval timeout;
    struct PrgArgs args;
@@ -114,6 +119,7 @@ int main (int argc, char **argv) {
 
    prbValid = false;
    count    = 0;
+   gettimeofday(&startTime, NULL);
    do {
 
       // Setup fds for select call
@@ -150,13 +156,22 @@ int main (int argc, char **argv) {
          if ( ret > 0 ) {
             prbValid = false;
             count++;
-            printf("Write ret=%i, Dest=%i, count=%i\n",ret,args.dest,count);
+            //printf("Write ret=%i, Dest=%i, count=%i\n",ret,args.dest,count);
          }
       }
    } while ( count < args.count );
+   gettimeofday(&endTime, NULL);
 
    if ( args.idxEn ) dmaUnMapDma(s,dmaBuffers);
    else free(txData);
+
+   timersub(&endTime, &startTime, &diffTime); 
+
+   float duration = (float)diffTime.tv_sec + (float)diffTime.tv_usec / 1000000.0;
+   float rate = count / duration;
+   float period = 1.0 / rate;
+
+   printf("Write %i events in %f seconds, rate = %f, period = %f\n",args.count, duration, rate, period);
 
    close(s);
    return(0);
