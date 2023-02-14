@@ -203,7 +203,7 @@ int Dma_Init(struct DmaDevice *dev) {
    dev_info(dev->device,"Init: Created  %i out of %i TX Buffers. %llu Bytes.\n", res,dev->cfgTxCount,tot);
 
    // Bad buffer allocation
-   if ( dev->cfgTxCount > 0 && res == 0 ) 
+   if ( dev->cfgTxCount > 0 && res == 0 )
       goto cleanup_dma_mapreg;
 
    // Init transmit queue
@@ -226,7 +226,7 @@ int Dma_Init(struct DmaDevice *dev) {
    dev_info(dev->device,"Init: Created  %i out of %i RX Buffers. %llu Bytes.\n", res,dev->cfgRxCount,tot);
 
    // Bad buffer allocation
-   if ( dev->cfgRxCount > 0 && res == 0 ) 
+   if ( dev->cfgRxCount > 0 && res == 0 )
       goto cleanup_dma_queue;
 
    // Call card specific init
@@ -272,13 +272,13 @@ cleanup_proc_create_data:
    remove_proc_entry(dev->devName,NULL);
 
 cleanup_device_create:
-   if ( gCl != NULL ) device_destroy(gCl, dev->devNum);   
-      
+   if ( gCl != NULL ) device_destroy(gCl, dev->devNum);
+
 cleanup_class_create:
    if (gDmaDevCount == 0 && gCl != NULL) {
       class_destroy(gCl);
       gCl = NULL;
-   }         
+   }
 
 cleanup_cdev_add:
    cdev_del(&(dev->charDev));
@@ -286,7 +286,7 @@ cleanup_cdev_add:
 cleanup_alloc_chrdev_region:
    unregister_chrdev_region(dev->devNum, 1);
 
-   return -1;   
+   return -1;
 }
 
 
@@ -969,7 +969,9 @@ int Dma_ProcOpen(struct inode *inode, struct file *file) {
    struct seq_file *sf;
    struct DmaDevice *dev;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,18,0)
+   dev = (struct DmaDevice *)pde_data(inode);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
    dev = (struct DmaDevice *)PDE_DATA(inode);
 #else
    dev = (struct DmaDevice *)PDE(inode)->data;
