@@ -416,10 +416,10 @@ void AxisG2_Enable(struct DmaDevice *dev) {
    // Start workqueue
    if ( hwData->desc128En ) {
       hwData->wqEnable = 1;
-      hwData->wq = create_singlethread_workqueue("AXIS_G2_WORKQ");
 
       // Background task to ensure regular interval of interrupts
       if ( ! dev->cfgIrqDis ) {
+      	 hwData->wq = create_singlethread_workqueue("AXIS_G2_WORKQ");
          INIT_DELAYED_WORK(&(hwData->dlyWork), AxisG2_WqTask_IrqForce);
          queue_delayed_work(hwData->wq,&(hwData->dlyWork),10);
 
@@ -429,8 +429,9 @@ void AxisG2_Enable(struct DmaDevice *dev) {
 
       // Polling mode without interrupts
       else {
+         hwData->wq = alloc_workqueue("%s", WQ_MEM_RECLAIM | WQ_SYSFS, 1, "AXIS_G2_WORKQ");
          INIT_WORK(&(hwData->irqWork), AxisG2_WqTask_Poll);
-         queue_work(hwData->wq,&(hwData->irqWork));
+         queue_work_on(dev->cfgIrqDis,hwData->wq,&(hwData->irqWork));
       }
    }
    else hwData->wqEnable = 0;
@@ -601,7 +602,7 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    hwData = (struct AxisG2Data *)dev->hwData;
 
    seq_printf(s,"\n");
-   seq_printf(s,"-------------- General HW -----------------\n");
+   seq_printf(s,"---------- DMA Firmware General ----------\n");
    seq_printf(s,"          Int Req Count : %u\n",(ioread32(&(reg->intReqCount))));
    seq_printf(s,"        Hw Dma Wr Index : %u\n",(ioread32(&(reg->hwWrIndex))));
    seq_printf(s,"        Sw Dma Wr Index : %u\n",hwData->writeIndex);
@@ -663,7 +664,7 @@ void AxisG2_WqTask_Poll ( struct work_struct *work ) {
 
    if ( dev->debug > 0 && handleCount > 0 ) dev_info(dev->device,"Poll: Done. Handled = %i\n",handleCount);
 
-   if ( hwData->wqEnable ) queue_work(hwData->wq,&(hwData->irqWork));
+   if ( hwData->wqEnable ) queue_work_on(dev->cfgIrqDis,hwData->wq,&(hwData->irqWork));
 }
 
 
