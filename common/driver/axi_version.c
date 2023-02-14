@@ -64,8 +64,9 @@ void AxiVersion_Read(struct DmaDevice *dev, void * base, struct AxiVersion *aVer
 // AXI Version Show
 void AxiVersion_Show(struct seq_file *s, struct DmaDevice *dev, struct AxiVersion *aVer) {
    int32_t x;
+   bool gitDirty = true;
 
-   seq_printf(s,"-------------- Axi Version ----------------\n");
+   seq_printf(s,"---------- Firmware Axi Version -----------\n");
    seq_printf(s,"     Firmware Version : 0x%x\n",aVer->firmwareVersion);
    seq_printf(s,"           ScratchPad : 0x%x\n",aVer->scratchPad);
    seq_printf(s,"        Up Time Count : %u\n",aVer->upTimeCount);
@@ -78,10 +79,17 @@ void AxiVersion_Show(struct seq_file *s, struct DmaDevice *dev, struct AxiVersio
    // for (x=0; x < 64; x++)
    // seq_printf(s,"          User Values : 0x%x\n",aVer->userValues[x]);
 
-   seq_printf(s,"            Device ID : 0x%x\n",aVer->deviceId);
+   // seq_printf(s,"            Device ID : 0x%x\n",aVer->deviceId);
 
    seq_printf(s,"             Git Hash : ");
-   for (x=0; x < 20; x++) seq_printf(s,"%.02x",aVer->gitHash[19-x]);
+   for (x=0; x < 20; x++) {
+      if ( aVer->gitHash[19-x] != 0 ) gitDirty = false;
+   }
+   if ( gitDirty ) {
+      seq_printf(s,"dirty (uncommitted code)");
+   } else {
+      for (x=0; x < 20; x++) seq_printf(s,"%.02x",aVer->gitHash[19-x]);
+   }
    seq_printf(s,"\n");
 
    seq_printf(s,"            DNA Value : 0x");

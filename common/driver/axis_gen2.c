@@ -601,7 +601,7 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    hwData = (struct AxisG2Data *)dev->hwData;
 
    seq_printf(s,"\n");
-   seq_printf(s,"-------------- General HW -----------------\n");
+   seq_printf(s,"---------- DMA Firmware General ----------\n");
    seq_printf(s,"          Int Req Count : %u\n",(ioread32(&(reg->intReqCount))));
    seq_printf(s,"        Hw Dma Wr Index : %u\n",(ioread32(&(reg->hwWrIndex))));
    seq_printf(s,"        Sw Dma Wr Index : %u\n",hwData->writeIndex);
