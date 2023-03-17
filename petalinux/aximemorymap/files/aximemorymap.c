@@ -115,7 +115,7 @@ int Map_Init(void) {
       printk(KERN_ERR MOD_NAME " Init: Could not allocate map memory\n");
       return (-1);
    }
-   dev.maps->addr = psMinAddr; // Init to the lowest memory address (which is psMinAddr)
+   dev.maps->addr = plMinAddr;
    dev.maps->next = NULL;
 
    // Map space
