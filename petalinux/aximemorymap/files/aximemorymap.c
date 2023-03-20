@@ -35,8 +35,11 @@
 // Module Name
 #define MOD_NAME "axi_memory_map"
 
-unsigned long cfgMinAddr = 0x400000000; // Edit this to match your AXI port address configurations
-unsigned long cfgMaxAddr = 0x4FFFFFFFF; // Edit this to match your AXI port address configurations
+unsigned long psMinAddr = 0xFF000000; // PS peripherals (SPI, I2C, etc)
+unsigned long psMaxAddr = 0xFFFFFFFF; // PS peripherals (SPI, I2C, etc)
+
+unsigned long plMinAddr = 0x400000000; // Edit this to match your PL AXI port address configurations
+unsigned long plMaxAddr = 0x4FFFFFFFF; // Edit this to match your PL AXI port address configurations
 
 MODULE_AUTHOR("Ryan Herbst");
 MODULE_DESCRIPTION("AXI Memory Map Interface");
@@ -112,7 +115,7 @@ int Map_Init(void) {
       printk(KERN_ERR MOD_NAME " Init: Could not allocate map memory\n");
       return (-1);
    }
-   dev.maps->addr = cfgMinAddr;
+   dev.maps->addr = plMinAddr;
    dev.maps->next = NULL;
 
    // Map space
@@ -180,8 +183,8 @@ uint8_t * Map_Find(uint64_t addr) {
 
    cur = dev.maps;
 
-   if ( (addr < cfgMinAddr) || (addr > cfgMaxAddr) ) {
-      printk(KERN_ERR MOD_NAME " Map_Find: Invalid address 0x%llx. Allowed range 0x%llx - 0x%llx\n",(uint64_t)addr,(uint64_t)cfgMinAddr,(void*)cfgMaxAddr);
+   if ( ( (addr<psMinAddr) || (addr>psMaxAddr) ) && ( (addr<plMinAddr) || (addr>plMaxAddr) ) ) {
+      printk(KERN_ERR MOD_NAME " Map_Find: Invalid address 0x%llx\n\tPS Allowed range 0x%llx - 0x%llx\n\tPL Allowed range 0x%llx - 0x%llx \n",(uint64_t)addr,(uint64_t)psMinAddr,(uint64_t)psMaxAddr,(uint64_t)plMinAddr,(uint64_t)plMaxAddr);
       return (NULL);
    }
 
@@ -294,9 +297,14 @@ ssize_t Map_Write(struct file *filp, const char* buffer, size_t count, loff_t* f
    return -1;
 }
 
-module_param(cfgMinAddr,ulong,0);
-MODULE_PARM_DESC(cfgMinAddr, "Min Map Addr");
+module_param(psMinAddr,ulong,0);
+MODULE_PARM_DESC(psMinAddr, "PS Min Map Addr");
 
-module_param(cfgMaxAddr,ulong,0);
-MODULE_PARM_DESC(cfgMaxAddr, "Max Map Addr");
+module_param(psMaxAddr,ulong,0);
+MODULE_PARM_DESC(psMaxAddr, "PS Max Map Addr");
 
+module_param(plMinAddr,ulong,0);
+MODULE_PARM_DESC(plMinAddr, "PL Min Map Addr");
+
+module_param(plMaxAddr,ulong,0);
+MODULE_PARM_DESC(plMaxAddr, "PL Max Map Addr");
