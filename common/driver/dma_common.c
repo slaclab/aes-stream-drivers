@@ -1068,11 +1068,11 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    seq_printf(s,"        Buffers In Hw : %u\n",hwCnt);
    seq_printf(s,"  Buffers In Pre-Hw Q : %u\n",hwQCnt);
    seq_printf(s,"  Buffers In Rx Queue : %u\n",qCnt);
-   seq_printf(s,"      Missing Buffers : %u\n",miss);
-   seq_printf(s,"       Min Buffer Use : %u\n",min);
-   seq_printf(s,"       Max Buffer Use : %u\n",max);
-   seq_printf(s,"       Avg Buffer Use : %u\n",avg);
-   seq_printf(s,"       Tot Buffer Use : %u\n",sum);
+// seq_printf(s,"      Missing Buffers : %u\n",miss);
+// seq_printf(s,"       Min Buffer Use : %u\n",min);
+// seq_printf(s,"       Max Buffer Use : %u\n",max);
+// seq_printf(s,"       Avg Buffer Use : %u\n",avg);
+// seq_printf(s,"       Tot Buffer Use : %u\n",sum);
 
    seq_printf(s,"\n");
    seq_printf(s,"---- Write Buffers (Software->Firmware) ---\n");
@@ -1113,11 +1113,11 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    seq_printf(s,"        Buffers In Hw : %u\n",hwCnt);
    seq_printf(s,"  Buffers In Pre-Hw Q : %u\n",hwQCnt);
    seq_printf(s,"  Buffers In Sw Queue : %u\n",qCnt);
-   seq_printf(s,"      Missing Buffers : %u\n",miss);
-   seq_printf(s,"       Min Buffer Use : %u\n",min);
-   seq_printf(s,"       Max Buffer Use : %u\n",max);
-   seq_printf(s,"       Avg Buffer Use : %u\n",avg);
-   seq_printf(s,"       Tot Buffer Use : %u\n",sum);
+// seq_printf(s,"      Missing Buffers : %u\n",miss);
+// seq_printf(s,"       Min Buffer Use : %u\n",min);
+// seq_printf(s,"       Max Buffer Use : %u\n",max);
+// seq_printf(s,"       Avg Buffer Use : %u\n",avg);
+// seq_printf(s,"       Tot Buffer Use : %u\n",sum);
    seq_printf(s,"\n");
 
    return 0;
