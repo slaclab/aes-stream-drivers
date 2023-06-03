@@ -604,12 +604,12 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    seq_printf(s,"\n");
    seq_printf(s,"---------- DMA Firmware General ----------\n");
    seq_printf(s,"          Int Req Count : %u\n",(ioread32(&(reg->intReqCount))));
-   seq_printf(s,"        Hw Dma Wr Index : %u\n",(ioread32(&(reg->hwWrIndex))));
-   seq_printf(s,"        Sw Dma Wr Index : %u\n",hwData->writeIndex);
-   seq_printf(s,"        Hw Dma Rd Index : %u\n",(ioread32(&(reg->hwRdIndex))));
-   seq_printf(s,"        Sw Dma Rd Index : %u\n",hwData->readIndex);
-   seq_printf(s,"     Missed Wr Requests : %u\n",(ioread32(&(reg->wrReqMissed))));
-   seq_printf(s,"       Missed IRQ Count : %u\n",hwData->missedIrq);
+// seq_printf(s,"        Hw Dma Wr Index : %u\n",(ioread32(&(reg->hwWrIndex))));
+// seq_printf(s,"        Sw Dma Wr Index : %u\n",hwData->writeIndex);
+// seq_printf(s,"        Hw Dma Rd Index : %u\n",(ioread32(&(reg->hwRdIndex))));
+// seq_printf(s,"        Sw Dma Rd Index : %u\n",hwData->readIndex);
+// seq_printf(s,"     Missed Wr Requests : %u\n",(ioread32(&(reg->wrReqMissed))));
+// seq_printf(s,"       Missed IRQ Count : %u\n",hwData->missedIrq);
    seq_printf(s,"         Continue Count : %u\n",hwData->contCount);
    seq_printf(s,"          Address Count : %i\n",hwData->addrCount);
    seq_printf(s,"    Hw Write Buff Count : %i\n",hwData->hwWrBuffCnt);
