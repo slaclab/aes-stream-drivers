@@ -160,10 +160,18 @@ int Dma_Init(struct DmaDevice *dev) {
    // Create class struct if it does not already exist
    if (gCl == NULL) {
       dev_info(dev->device,"Init: Creating device class\n");
-      if ((gCl = class_create(THIS_MODULE, dev->devName)) == NULL) {
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
+      gCl = class_create(THIS_MODULE, dev->devName);
+#else
+      gCl = class_create(dev->devName);
+#endif
+
+      if (gCl == NULL) {
          dev_err(dev->device,"Init: Failed to create device class\n");
          goto cleanup_cdev_add;
       }
+
       gCl->devnode = (void *)Dma_DevNode;
    }
 
