@@ -1,6 +1,7 @@
 *.ko
 *.ko.unsigned
 *.o
+*.o.d
 *.cmd
 *.mod.c
 *.mod
