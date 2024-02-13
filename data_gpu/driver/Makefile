@@ -40,7 +40,7 @@ SRCS := $(wildcard src/*.c)
 OBJS := $(patsubst %.c,%.o,$(SRCS))
 
 # NVIDIA extra symbols for module linking.
-KBUILD_EXTRA_SYMBOLS := $(NVIDIA_DRIVERS)/Module.symvers
+#KBUILD_EXTRA_SYMBOLS := $(NVIDIA_DRIVERS)/Module.symvers
 
 # Git versioning: Use tags with optional '-dirty' suffix for uncommitted changes.
 ifndef GITV
@@ -70,3 +70,9 @@ all:
 clean:
 	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(HOME) clean
 	rm -f $(OBJS)
+
+#modules: Module.symvers
+
+#Module.symvers: $(NVIDIA_KO) nvidia-ko-to-module-symvers
+#	./nvidia-ko-to-module-symvers "$<" "$@"
+
