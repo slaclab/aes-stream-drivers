@@ -993,7 +993,9 @@ void * Dma_SeqStart(struct seq_file *s, loff_t *pos) {
 
 // Sequence next, always return NULL
 void * Dma_SeqNext(struct seq_file *s, void *v, loff_t *pos) {
-   return NULL;
+   loff_t *position = pos;
+   (*position)++;
+   return NULL; // or return pointer to next item
 }
 
 

@@ -51,7 +51,7 @@ void AxiVersion_Read(struct DmaDevice *dev, void * base, struct AxiVersion *aVer
 
    aVer->deviceId = ioread32(&(reg->deviceId));
 
-   for (x=0; x < 64; x++) 
+   for (x=0; x < 40; x++)
       ((uint32_t *)aVer->gitHash)[x] = ioread32(&(reg->gitHash[x]));
 
    for (x=0; x < 4; x++) 
