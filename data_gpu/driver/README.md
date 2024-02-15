@@ -6,23 +6,10 @@ https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html
 
 See section 5.
 
-The nvidia instructions are a bit off. These are the current steps taken at the time of this readme update:
+A script in this directory 'comp_and_load_drivers.sh' is provided to compile and load the nvidia drivers as well as the driver in this directory. Edit this file and update the NVIDIA_PATH value at the top to the install directory for the nvidia drivers.
 
 ```bash
 $ apt-get install nvidia-kernel-source-535-open
 $ apt-get install cuda-drivers-fabricmanager-535
-$ cd /usr/src/nvidia-535.154.05
-$ make CC=gcc-12
-$ insmod nvidia.ko
-```
-
-You can then build the data_gpu image.
-
-Update the makefile and edit the following line to point to the correct path to the nvida drivers:
-
-NVIDIA_DRIVERS := /usr/src/nvidia-535.154.05/nvidia
-
-```bash
-$ make
-$ insmod data_gpu.ko
+$ ./comp_and_load_drivers.sh
 ```
