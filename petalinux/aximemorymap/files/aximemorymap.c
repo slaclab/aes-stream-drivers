@@ -89,6 +89,7 @@ int Map_Init(void) {
       printk(KERN_INFO MOD_NAME " Init: Creating device class\n");
       if ((gCl = class_create(THIS_MODULE, dev.devName)) == NULL) {
          printk(KERN_ERR MOD_NAME " Init: Failed to create device class\n");
+         unregister_chrdev_region(dev.devNum, 1); // Unregister device numbers on failure
          return(-1);
       }
       gCl->devnode = (void *)Map_DevNode;
@@ -97,6 +98,8 @@ int Map_Init(void) {
    // Attempt to create the device
    if (device_create(gCl, NULL, dev.devNum, NULL, dev.devName) == NULL) {
       printk(KERN_ERR MOD_NAME " Init: Failed to create device file\n");
+      class_destroy(gCl); // Destroy device class on failure
+      unregister_chrdev_region(dev.devNum, 1); // Unregister device numbers on failure
       return -1;
    }
 
@@ -107,12 +110,19 @@ int Map_Init(void) {
    // Add the charactor device
    if (cdev_add(&(dev.charDev), dev.devNum, 1) == -1) {
       printk(KERN_ERR MOD_NAME " Init: Failed to add device file.\n");
+      device_destroy(gCl, dev.devNum); // Destroy device on failure
+      class_destroy(gCl); // Destroy device class on failure
+      unregister_chrdev_region(dev.devNum, 1); // Unregister device numbers on failure
       return -1;
    }
 
    // Map initial space
    if ( (dev.maps = (struct MemMap *)kmalloc(sizeof(struct MemMap),GFP_KERNEL)) == NULL ) {
       printk(KERN_ERR MOD_NAME " Init: Could not allocate map memory\n");
+      cdev_del(&(dev.charDev)); // Remove character device on failure
+      device_destroy(gCl, dev.devNum); // Destroy device on failure
+      class_destroy(gCl); // Destroy device class on failure
+      unregister_chrdev_region(dev.devNum, 1); // Unregister device numbers on failure
       return (-1);
    }
    dev.maps->addr = plMinAddr;
@@ -123,17 +133,13 @@ int Map_Init(void) {
    if (! dev.maps->base ) {
       printk(KERN_ERR MOD_NAME " Init: Could not map memory addr 0x%llx with size 0x%x.\n",(uint64_t)dev.maps->addr,MAP_SIZE);
       kfree(dev.maps);
+      cdev_del(&(dev.charDev)); // Remove character device on failure
+      device_destroy(gCl, dev.devNum); // Destroy device on failure
+      class_destroy(gCl); // Destroy device class on failure
+      unregister_chrdev_region(dev.devNum, 1); // Unregister device numbers on failure
       return (-1);
    }
    printk(KERN_INFO MOD_NAME " Init: Mapped addr 0x%llx with size 0x%x to 0x%llx.\n",(uint64_t)dev.maps->addr,MAP_SIZE,(uint64_t)dev.maps->base);
-
-   // Hold memory region
-//   if ( request_mem_region(dev.maps->addr, MAP_SIZE, dev.devName) == NULL ) {
-//      printk(KERN_ERR MOD_NAME " Map_Find: Memory in use.\n");
-//      iounmap(dev.maps->base);
-//      kfree(dev.maps);
-//      return (-1);
-//   }
 
    return(0);
 }
