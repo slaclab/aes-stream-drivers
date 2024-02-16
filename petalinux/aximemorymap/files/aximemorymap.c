@@ -146,30 +146,29 @@ int Map_Init(void) {
 
 // Cleanup device
 void Map_Exit(void) {
-   struct MemMap *tmp;
+   struct MemMap *tmp, *next;
 
    // Unregister Device Driver
-   if ( gCl != NULL ) device_destroy(gCl, dev.devNum);
-   else printk(KERN_ERR MOD_NAME " Clean: gCl is already NULL.\n");
-
    unregister_chrdev_region(dev.devNum, 1);
 
-   // Unmap
-   while ( dev.maps != NULL ) {
-      tmp = dev.maps;
-      dev.maps = dev.maps->next;
-
-      //release_mem_region(tmp->addr, MAP_SIZE);
+   // Unmap and release allocated memory
+   tmp = dev.maps;
+   while (tmp != NULL) {
+      next = tmp->next;
       iounmap(tmp->base);
       kfree(tmp);
+      tmp = next;
    }
 
+   // Destroy the device class
    if (gCl != NULL) {
-      printk(KERN_INFO MOD_NAME " Clean: Destroying device class\n");
       class_destroy(gCl);
       gCl = NULL;
    }
+
+   printk(KERN_INFO MOD_NAME " Clean: Module unloaded successfully.\n");
 }
+
 
 // Open Returns 0 on success, error code on failure
 int Map_Open(struct inode *inode, struct file *filp) {
