@@ -80,15 +80,15 @@ int Map_Init(void) {
    // Allocate device numbers for character device. 1 minor numer starting at 0
    res = alloc_chrdev_region(&(dev.devNum), 0, 1, dev.devName);
    if (res < 0) {
-      printk(KERN_ERR MOD_NAME " Init: Cannot register char device\n");
+      pr_err("%s: Init: Cannot register char device\n",MOD_NAME);
       return(-1);
    }
 
    // Create class struct if it does not already exist
    if (gCl == NULL) {
-      printk(KERN_INFO MOD_NAME " Init: Creating device class\n");
+      pr_info("%s: Init: Creating device class\n",MOD_NAME);
       if ((gCl = class_create(THIS_MODULE, dev.devName)) == NULL) {
-         printk(KERN_ERR MOD_NAME " Init: Failed to create device class\n");
+         pr_err("%s: Init: Failed to create device class\n",MOD_NAME);
          unregister_chrdev_region(dev.devNum, 1); // Unregister device numbers on failure
          return(-1);
       }
@@ -97,7 +97,7 @@ int Map_Init(void) {
 
    // Attempt to create the device
    if (device_create(gCl, NULL, dev.devNum, NULL, dev.devName) == NULL) {
-      printk(KERN_ERR MOD_NAME " Init: Failed to create device file\n");
+      pr_err("%s: Init: Failed to create device file\n",MOD_NAME);
       class_destroy(gCl); // Destroy device class on failure
       unregister_chrdev_region(dev.devNum, 1); // Unregister device numbers on failure
       return -1;
@@ -109,7 +109,7 @@ int Map_Init(void) {
 
    // Add the charactor device
    if (cdev_add(&(dev.charDev), dev.devNum, 1) == -1) {
-      printk(KERN_ERR MOD_NAME " Init: Failed to add device file.\n");
+      pr_err("%s: Init: Failed to add device file.\n",MOD_NAME);
       device_destroy(gCl, dev.devNum); // Destroy device on failure
       class_destroy(gCl); // Destroy device class on failure
       unregister_chrdev_region(dev.devNum, 1); // Unregister device numbers on failure
@@ -118,7 +118,7 @@ int Map_Init(void) {
 
    // Map initial space
    if ( (dev.maps = (struct MemMap *)kmalloc(sizeof(struct MemMap),GFP_KERNEL)) == NULL ) {
-      printk(KERN_ERR MOD_NAME " Init: Could not allocate map memory\n");
+      pr_err("%s: Init: Could not allocate map memory\n",MOD_NAME);
       cdev_del(&(dev.charDev)); // Remove character device on failure
       device_destroy(gCl, dev.devNum); // Destroy device on failure
       class_destroy(gCl); // Destroy device class on failure
@@ -131,7 +131,7 @@ int Map_Init(void) {
    // Map space
    dev.maps->base = IOREMAP_NO_CACHE(dev.maps->addr, MAP_SIZE);
    if (! dev.maps->base ) {
-      printk(KERN_ERR MOD_NAME " Init: Could not map memory addr 0x%llx with size 0x%x.\n",(uint64_t)dev.maps->addr,MAP_SIZE);
+      pr_err("%s: Init: Could not map memory addr 0x%llx with size 0x%x.\n",MOD_NAME,(uint64_t)dev.maps->addr,MAP_SIZE);
       kfree(dev.maps);
       cdev_del(&(dev.charDev)); // Remove character device on failure
       device_destroy(gCl, dev.devNum); // Destroy device on failure
@@ -139,7 +139,7 @@ int Map_Init(void) {
       unregister_chrdev_region(dev.devNum, 1); // Unregister device numbers on failure
       return (-1);
    }
-   printk(KERN_INFO MOD_NAME " Init: Mapped addr 0x%llx with size 0x%x to 0x%llx.\n",(uint64_t)dev.maps->addr,MAP_SIZE,(uint64_t)dev.maps->base);
+   pr_info("%s: Init: Mapped addr 0x%llx with size 0x%x to 0x%llx.\n",MOD_NAME,(uint64_t)dev.maps->addr,MAP_SIZE,(uint64_t)dev.maps->base);
 
    return(0);
 }
@@ -166,7 +166,7 @@ void Map_Exit(void) {
       gCl = NULL;
    }
 
-   printk(KERN_INFO MOD_NAME " Clean: Module unloaded successfully.\n");
+   pr_info("%s: Clean: Module unloaded successfully.\n",MOD_NAME);
 }
 
 
@@ -189,7 +189,7 @@ uint8_t * Map_Find(uint64_t addr) {
    cur = dev.maps;
 
    if ( ( (addr<psMinAddr) || (addr>psMaxAddr) ) && ( (addr<plMinAddr) || (addr>plMaxAddr) ) ) {
-      printk(KERN_ERR MOD_NAME " Map_Find: Invalid address 0x%llx\n\tPS Allowed range 0x%llx - 0x%llx\n\tPL Allowed range 0x%llx - 0x%llx \n",(uint64_t)addr,(uint64_t)psMinAddr,(uint64_t)psMaxAddr,(uint64_t)plMinAddr,(uint64_t)plMaxAddr);
+      pr_err("%s: Map_Find: Invalid address 0x%llx\n\tPS Allowed range 0x%llx - 0x%llx\n\tPL Allowed range 0x%llx - 0x%llx \n",MOD_NAME,(uint64_t)addr,(uint64_t)psMinAddr,(uint64_t)psMaxAddr,(uint64_t)plMinAddr,(uint64_t)plMaxAddr);
       return (NULL);
    }
 
@@ -204,7 +204,7 @@ uint8_t * Map_Find(uint64_t addr) {
 
          // Create new map
          if ( (new = (struct MemMap *)kmalloc(sizeof(struct MemMap),GFP_KERNEL)) == NULL ) {
-            printk(KERN_ERR MOD_NAME " Map_Find: Could not allocate map memory\n");
+            pr_err("%s: Map_Find: Could not allocate map memory\n",MOD_NAME);
             return NULL;
          }
 
@@ -214,19 +214,11 @@ uint8_t * Map_Find(uint64_t addr) {
          // Map space
          new->base = IOREMAP_NO_CACHE(new->addr, MAP_SIZE);
          if (! new->base ) {
-            printk(KERN_ERR MOD_NAME " Map_Find: Could not map memory addr 0x%llx (0x%llx) with size 0x%x.\n",(uint64_t)new->addr,(uint64_t)addr,MAP_SIZE);
+            pr_err("%s: Map_Find: Could not map memory addr 0x%llx (0x%llx) with size 0x%x.\n",MOD_NAME,(uint64_t)new->addr,(uint64_t)addr,MAP_SIZE);
             kfree(new);
             return (NULL);
          }
-         printk(KERN_INFO MOD_NAME " Map_Find: Mapped addr 0x%llx with size 0x%x to 0x%llx.\n",(uint64_t)new->addr,MAP_SIZE,(uint64_t)new->base);
-
-         // Hold memory region
-//         if ( request_mem_region(new->addr, MAP_SIZE, dev.devName) == NULL ) {
-//            printk(KERN_ERR MOD_NAME " Map_Find: Memory in use.\n");
-//            iounmap(cur->base);
-//            kfree(new);
-//            return (NULL);
-//         }
+         pr_info("%s: Map_Find: Mapped addr 0x%llx with size 0x%x to 0x%llx.\n",MOD_NAME,(uint64_t)new->addr,MAP_SIZE,(uint64_t)new->base);
 
          // Insert into list
          new->next = cur->next;
@@ -257,7 +249,7 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
       case DMA_Write_Register:
 
          if ((ret = copy_from_user(&rData,(void *)arg,sizeof(struct DmaRegisterData)))) {
-            printk(KERN_WARNING MOD_NAME " Dma_Write_Register: copy_from_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
+            pr_warn("%s: Dma_Write_Register: copy_from_user failed. ret=%i, user=%p kern=%p\n",MOD_NAME, ret, (void *)arg, &rData);
             return(-1);
          }
 
@@ -271,7 +263,7 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
       case DMA_Read_Register:
 
          if ((ret=copy_from_user(&rData,(void *)arg,sizeof(struct DmaRegisterData)))) {
-            printk(KERN_WARNING MOD_NAME " Dma_Read_Register: copy_from_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
+            pr_warn("%s: Dma_Read_Register: copy_from_user failed. ret=%i, user=%p kern=%p\n",MOD_NAME, ret, (void *)arg, &rData);
             return(-1);
          }
 
@@ -280,7 +272,7 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
          // Return the data structure
          if ((ret=copy_to_user((void *)arg,&rData,sizeof(struct DmaRegisterData)))) {
-            printk(KERN_WARNING MOD_NAME " Dma_Read_Register: copy_to_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
+            pr_warn("%s: Dma_Read_Register: copy_to_user failed. ret=%i, user=%p kern=%p\n",MOD_NAME, ret, (void *)arg, &rData);
             return(-1);
          }
          return(0);
