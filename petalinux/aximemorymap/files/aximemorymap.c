@@ -51,7 +51,7 @@ module_exit(Map_Exit);
 struct MapDevice dev;
 
 // Global variable for the device class
-struct class * gCl;
+struct class * gCl = NULL;
 
 // Define interface routines
 struct file_operations MapFunctions = {
@@ -85,15 +85,13 @@ int Map_Init(void) {
    }
 
    // Create class struct if it does not already exist
-   if (gCl == NULL) {
-      pr_info("%s: Init: Creating device class\n",MOD_NAME);
-      if ((gCl = class_create(THIS_MODULE, dev.devName)) == NULL) {
-         pr_err("%s: Init: Failed to create device class\n",MOD_NAME);
-         unregister_chrdev_region(dev.devNum, 1); // Unregister device numbers on failure
-         return(-1);
-      }
-      gCl->devnode = (void *)Map_DevNode;
+   pr_info("%s: Init: Creating device class\n",MOD_NAME);
+   if ((gCl = class_create(THIS_MODULE, dev.devName)) == NULL) {
+      pr_err("%s: Init: Failed to create device class\n",MOD_NAME);
+      unregister_chrdev_region(dev.devNum, 1); // Unregister device numbers on failure
+      return(-1);
    }
+   gCl->devnode = (void *)Map_DevNode;
 
    // Attempt to create the device
    if (device_create(gCl, NULL, dev.devNum, NULL, dev.devName) == NULL) {
