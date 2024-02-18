@@ -63,13 +63,33 @@ struct file_operations MapFunctions = {
    compat_ioctl:   (void *)Map_Ioctl,
 };
 
-// Devnode callback to set permissions of created devices
-char *Map_DevNode(struct device *dev, umode_t *mode){
-   if ( mode != NULL ) *mode = 0666;
-   return(NULL);
+/**
+ * Map_DevNode - Devnode callback to dynamically set device file permissions
+ * @dev: The device structure
+ * @mode: Pointer to the mode (permission bits) to be set for the device file
+ *
+ * This callback function is invoked when the device class is created and allows
+ * setting of the device file permissions dynamically. By default, it sets the
+ * device permissions to be globally readable and writable (0666). This behavior
+ * can be customized based on security requirements or user preferences.
+ *
+ * Note: The permissions set by this callback can be overridden by udev rules on
+ * systems where udev is responsible for device node creation and management.
+ */
+char *Map_DevNode(struct device *dev, umode_t *mode) {
+   if (mode != NULL) *mode = 0666; // Set default permissions to read and write for user, group, and others
+   return NULL; // Return NULL as no specific device node name alteration is required
 }
 
-// Create and init device
+/**
+ * Map_Init - Initialize the AXI memory map device
+ *
+ * This function sets up the AXI memory map device by registering a character device,
+ * creating a device class, and allocating initial memory for the device's memory map.
+ * It is designed to be called at module load time.
+ *
+ * Return: 0 on success, negative error code on failure.
+ */
 int Map_Init(void) {
    int32_t res;
 
@@ -142,7 +162,17 @@ int Map_Init(void) {
    return(0);
 }
 
-// Cleanup device
+/**
+ * Map_Exit - Cleanup function for AXI memory map device
+ *
+ * This function is responsible for cleaning up resources allocated during the
+ * operation of the device. It performs the following operations:
+ * - Unregisters the device driver, releasing the device number.
+ * - Iterates through the linked list of memory maps, unmaps each memory region
+ *   from the device's address space, and frees the associated memory.
+ * - Destroys the device class if it has been created.
+ * - Logs the successful cleanup of the module.
+ */
 void Map_Exit(void) {
    struct MemMap *tmp, *next;
 
@@ -164,17 +194,44 @@ void Map_Exit(void) {
       gCl = NULL;
    }
 
-   pr_info("%s: Clean: Module unloaded successfully.\n",MOD_NAME);
+   pr_info("%s: Clean: Module unloaded successfully.\n", MOD_NAME);
 }
 
-
-// Open Returns 0 on success, error code on failure
+/**
+ * Map_Open - Open operation for AXI memory map device
+ * @inode: inode structure representing the device file
+ * @filp: file pointer to the opened device file
+ *
+ * This function is called when the AXI memory map device file is opened.
+ * Currently, it doesn't perform any specific initialization or resource allocation,
+ * as the device does not require any special setup upon opening. However, this
+ * function can be expanded in the future to include such operations if needed.
+ *
+ * Return: Always returns 0, indicating success.
+ */
 int Map_Open(struct inode *inode, struct file *filp) {
+   // Placeholder for any future open operation code
    return 0;
 }
 
-// Close
+/**
+ * Map_Release - Release the device
+ * @inode: pointer to the inode structure
+ * @filp: pointer to the file structure
+ *
+ * This function is called when the last reference to an open file is closed.
+ * It's a placeholder for releasing any resources allocated during the open operation.
+ * Currently, this driver does not allocate resources per open, so there's no
+ * specific release logic needed. However, this function is required to comply with
+ * the file_operations structure.
+ *
+ * Return: 0 on success. Currently, always returns 0 as there's no failure scenario
+ *         implemented.
+ */
 int Map_Release(struct inode *inode, struct file *filp) {
+   // Placeholder for any cleanup operations. Currently, no specific action required.
+
+   // Always return 0 indicating success.
    return 0;
 }
 
@@ -229,67 +286,118 @@ uint8_t * Map_Find(uint64_t addr) {
    return(NULL);
 }
 
-// Perform commands
+/**
+ * Map_Ioctl - Handle IOCTL commands for the AXI memory map device
+ * @filp: File pointer to the device file
+ * @cmd: IOCTL command code
+ * @arg: Argument to the IOCTL command
+ *
+ * This function supports various IOCTL commands for interacting with
+ * the AXI memory map device, such as reading and writing to DMA registers.
+ * Each command is handled based on its case, with appropriate actions
+ * including copying data to/from user space and performing device operations.
+ *
+ * Return: On success, returns 0 or positive value. On error, returns a negative value.
+ */
 ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
    struct DmaRegisterData rData;
    uint8_t *base;
    ssize_t ret;
 
-   // Determine command
+   // Determine which IOCTL command is being executed
    switch (cmd) {
-
-      // Get API Version
       case DMA_Get_Version:
+         // Return the current version of the DMA API
          return(DMA_VERSION);
          break;
 
-      // Register write
       case DMA_Write_Register:
-
-         if ((ret = copy_from_user(&rData,(void *)arg,sizeof(struct DmaRegisterData)))) {
-            pr_warn("%s: Dma_Write_Register: copy_from_user failed. ret=%i, user=%p kern=%p\n",MOD_NAME, ret, (void *)arg, &rData);
+         // Copy register data from user space
+         if ((ret = copy_from_user(&rData, (void *)arg, sizeof(struct DmaRegisterData)))) {
+            pr_warn("%s: Dma_Write_Register: copy_from_user failed. ret=%i, user=%p kern=%p\n",
+                    MOD_NAME, ret, (void *)arg, &rData);
             return(-1);
          }
 
-         if ( (base = Map_Find(rData.address)) == NULL ) return(-1);
+         // Find the memory base address for the register
+         if ((base = Map_Find(rData.address)) == NULL) return(-1);
 
+         // Write data to the register
          writel(rData.data, base);
          return(0);
          break;
 
-      // Register read
       case DMA_Read_Register:
-
-         if ((ret=copy_from_user(&rData,(void *)arg,sizeof(struct DmaRegisterData)))) {
-            pr_warn("%s: Dma_Read_Register: copy_from_user failed. ret=%i, user=%p kern=%p\n",MOD_NAME, ret, (void *)arg, &rData);
+         // Copy register data structure from user space
+         if ((ret = copy_from_user(&rData, (void *)arg, sizeof(struct DmaRegisterData)))) {
+            pr_warn("%s: Dma_Read_Register: copy_from_user failed. ret=%i, user=%p kern=%p\n",
+                    MOD_NAME, ret, (void *)arg, &rData);
             return(-1);
          }
 
-         if ( (base = Map_Find(rData.address)) == NULL ) return(-1);
+         // Find the memory base address for the register
+         if ((base = Map_Find(rData.address)) == NULL) return(-1);
+
+         // Read data from the register
          rData.data = readl(base);
 
-         // Return the data structure
-         if ((ret=copy_to_user((void *)arg,&rData,sizeof(struct DmaRegisterData)))) {
-            pr_warn("%s: Dma_Read_Register: copy_to_user failed. ret=%i, user=%p kern=%p\n",MOD_NAME, ret, (void *)arg, &rData);
+         // Copy the updated register data back to user space
+         if ((ret = copy_to_user((void *)arg, &rData, sizeof(struct DmaRegisterData)))) {
+            pr_warn("%s: Dma_Read_Register: copy_to_user failed. ret=%i, user=%p kern=%p\n",
+                    MOD_NAME, ret, (void *)arg, &rData);
             return(-1);
          }
          return(0);
          break;
 
       default:
-         break;
+         // Unsupported IOCTL command
+         return(-1);
    }
-   return(-1);
 }
 
-// Read not supported
+/**
+ * Map_Read - Read operation for AXI memory map device
+ * @filp: file pointer to the opened device file
+ * @buffer: user space buffer to read the data into
+ * @count: number of bytes to read
+ * @f_pos: offset in the file
+ *
+ * This function is called when a read operation is performed on the AXI memory map device file.
+ * In the current implementation, reading directly from the device is not supported. This could be
+ * due to the nature of the device or specific security or operational considerations.
+ *
+ * The function returns an error code to indicate that the operation is not permitted. Future
+ * implementations could modify this behavior to support read operations, depending on the
+ * requirements and capabilities of the hardware.
+ *
+ * Return: Returns -1 to indicate that the read operation is not supported.
+ */
 ssize_t Map_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
-   return -1;
+   return -1;  // DMA read operation is not supported
 }
 
-// Dma_Write
+/**
+ * Map_Write - Write operation for AXI memory map device
+ * @filp: File pointer to the opened device file
+ * @buffer: User space buffer containing the data to write
+ * @count: Number of bytes to write
+ * @f_pos: Offset into the device
+ *
+ * This function is called when a user space application attempts to write
+ * data to the AXI memory map device. It translates the user space buffer
+ * address to a kernel space address, finds the appropriate memory mapped
+ * region, and writes the provided data into this memory region.
+ *
+ * Currently, this function is not implemented and simply returns -1. To
+ * support write operations, one would need to validate input parameters,
+ * copy data from user space to kernel space, and perform the necessary
+ * memory writes to the mapped device.
+ *
+ * Return: On success, the number of bytes written. On error, a negative value.
+ */
 ssize_t Map_Write(struct file *filp, const char* buffer, size_t count, loff_t* f_pos) {
-   return -1;
+   return -1; // DMA write operation is not supported
 }
 
 module_param(psMinAddr,ulong,0);
