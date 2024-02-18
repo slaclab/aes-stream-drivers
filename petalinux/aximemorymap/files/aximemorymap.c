@@ -326,10 +326,10 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          break;
 
       case DMA_Write_Register:
-         // Copy register data from user space
-         if ((ret = copy_from_user(&rData, (void *)arg, sizeof(struct DmaRegisterData)))) {
-            pr_warn("%s: Dma_Write_Register: copy_from_user failed. ret=%i, user=%p kern=%p\n",
-                    MOD_NAME, ret, (void *)arg, &rData);
+         // Get register data from user space
+         if (get_user(rData.address, &((struct DmaRegisterData __user *)arg)->address) ||
+             get_user(rData.data, &((struct DmaRegisterData __user *)arg)->data)) {
+            pr_warn("%s: Dma_Write_Register: get_user failed.\n", MOD_NAME);
             return(-1);
          }
 
@@ -342,10 +342,9 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          break;
 
       case DMA_Read_Register:
-         // Copy register data structure from user space
-         if ((ret = copy_from_user(&rData, (void *)arg, sizeof(struct DmaRegisterData)))) {
-            pr_warn("%s: Dma_Read_Register: copy_from_user failed. ret=%i, user=%p kern=%p\n",
-                    MOD_NAME, ret, (void *)arg, &rData);
+         // Get register address from user space
+         if (get_user(rData.address, &((struct DmaRegisterData __user *)arg)->address)) {
+            pr_warn("%s: Dma_Read_Register: get_user failed.\n", MOD_NAME);
             return(-1);
          }
 
@@ -355,10 +354,9 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          // Read data from the register
          rData.data = readl(base);
 
-         // Copy the updated register data back to user space
-         if ((ret = copy_to_user((void *)arg, &rData, sizeof(struct DmaRegisterData)))) {
-            pr_warn("%s: Dma_Read_Register: copy_to_user failed. ret=%i, user=%p kern=%p\n",
-                    MOD_NAME, ret, (void *)arg, &rData);
+         // Put the updated register data back to user space
+         if (put_user(rData.data, &((struct DmaRegisterData __user *)arg)->data)) {
+            pr_warn("%s: Dma_Read_Register: put_user failed.\n", MOD_NAME);
             return(-1);
          }
          return(0);
