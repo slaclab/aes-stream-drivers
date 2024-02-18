@@ -138,7 +138,7 @@ int Map_Init(void) {
    }
 
    // Allocate initial memory map
-   dev.maps = (struct MemMap *)kmalloc(sizeof(struct MemMap), GFP_KERNEL);
+   dev.maps = (struct MemMap *)kzalloc(sizeof(struct MemMap), GFP_KERNEL);
    if (dev.maps == NULL) {
       pr_err("%s: Init: Could not allocate map memory\n", MOD_NAME);
       cdev_del(&dev.charDev); // Clean up on failure
@@ -274,7 +274,7 @@ uint8_t *Map_Find(uint64_t addr) {
       // If address is beyond current map, and no next map or next map is further, insert new
       if ((cur->next == NULL) || (addr < ((struct MemMap *)cur->next)->addr)) {
          // Allocate and initialize new map structure
-         if ((new = (struct MemMap *)kmalloc(sizeof(struct MemMap), GFP_KERNEL)) == NULL) {
+         if ((new = (struct MemMap *)kzalloc(sizeof(struct MemMap), GFP_KERNEL)) == NULL) {
             pr_err("%s: Map_Find: Could not allocate map memory\n", MOD_NAME);
             return NULL;
          }
