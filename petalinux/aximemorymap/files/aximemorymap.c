@@ -316,57 +316,51 @@ uint8_t *Map_Find(uint64_t addr) {
 ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
    struct DmaRegisterData rData;
    uint8_t *base;
-   ssize_t ret;
+   ssize_t ret = -1; // Default return value for error
 
    // Determine which IOCTL command is being executed
    switch (cmd) {
       case DMA_Get_Version:
          // Return the current version of the DMA API
-         return(DMA_VERSION);
+         ret = DMA_VERSION;
          break;
 
       case DMA_Write_Register:
          // Get register data from user space
-         if (get_user(rData.address, &((struct DmaRegisterData __user *)arg)->address) ||
-             get_user(rData.data, &((struct DmaRegisterData __user *)arg)->data)) {
-            pr_warn("%s: Dma_Write_Register: get_user failed.\n", MOD_NAME);
-            return(-1);
+         if (!get_user(rData.address, &((struct DmaRegisterData __user *)arg)->address) &&
+             !get_user(rData.data, &((struct DmaRegisterData __user *)arg)->data)) {
+            // Find the memory base address for the register
+            if ((base = Map_Find(rData.address)) != NULL) {
+               // Write data to the register
+               writel(rData.data, base);
+               ret = 0; // Success
+            }
          }
-
-         // Find the memory base address for the register
-         if ((base = Map_Find(rData.address)) == NULL) return(-1);
-
-         // Write data to the register
-         writel(rData.data, base);
-         return(0);
          break;
 
       case DMA_Read_Register:
          // Get register address from user space
-         if (get_user(rData.address, &((struct DmaRegisterData __user *)arg)->address)) {
-            pr_warn("%s: Dma_Read_Register: get_user failed.\n", MOD_NAME);
-            return(-1);
+         if (!get_user(rData.address, &((struct DmaRegisterData __user *)arg)->address)) {
+            // Find the memory base address for the register
+            if ((base = Map_Find(rData.address)) != NULL) {
+               // Read data from the register
+               rData.data = readl(base);
+               // Put the updated register data back to user space
+               if (!put_user(rData.data, &((struct DmaRegisterData __user *)arg)->data)) {
+                  ret = 0; // Success
+               }
+            }
          }
-
-         // Find the memory base address for the register
-         if ((base = Map_Find(rData.address)) == NULL) return(-1);
-
-         // Read data from the register
-         rData.data = readl(base);
-
-         // Put the updated register data back to user space
-         if (put_user(rData.data, &((struct DmaRegisterData __user *)arg)->data)) {
-            pr_warn("%s: Dma_Read_Register: put_user failed.\n", MOD_NAME);
-            return(-1);
-         }
-         return(0);
          break;
 
       default:
          // Unsupported IOCTL command
-         return(-1);
+         ret = -1; // Error
    }
+
+   return ret; // Return the result
 }
+
 
 /**
  * Map_Read - Read operation for AXI memory map device
