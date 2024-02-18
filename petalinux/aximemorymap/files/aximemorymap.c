@@ -93,73 +93,77 @@ char *Map_DevNode(struct device *dev, umode_t *mode) {
 int Map_Init(void) {
    int32_t res;
 
-   memset(&dev,0,sizeof(struct MapDevice));
+   // Zero out the device structure
+   memset(&dev, 0, sizeof(struct MapDevice));
 
-   strcpy(dev.devName,MOD_NAME);
+   // Set the device name
+   strcpy(dev.devName, MOD_NAME);
 
-   // Allocate device numbers for character device. 1 minor numer starting at 0
-   res = alloc_chrdev_region(&(dev.devNum), 0, 1, dev.devName);
+   // Allocate device numbers dynamically
+   res = alloc_chrdev_region(&dev.devNum, 0, 1, dev.devName);
    if (res < 0) {
-      pr_err("%s: Init: Cannot register char device\n",MOD_NAME);
-      return(-1);
-   }
-
-   // Create class struct if it does not already exist
-   pr_info("%s: Init: Creating device class\n",MOD_NAME);
-   if ((gCl = class_create(THIS_MODULE, dev.devName)) == NULL) {
-      pr_err("%s: Init: Failed to create device class\n",MOD_NAME);
-      unregister_chrdev_region(dev.devNum, 1); // Unregister device numbers on failure
-      return(-1);
-   }
-   gCl->devnode = (void *)Map_DevNode;
-
-   // Attempt to create the device
-   if (device_create(gCl, NULL, dev.devNum, NULL, dev.devName) == NULL) {
-      pr_err("%s: Init: Failed to create device file\n",MOD_NAME);
-      class_destroy(gCl); // Destroy device class on failure
-      unregister_chrdev_region(dev.devNum, 1); // Unregister device numbers on failure
+      pr_err("%s: Init: Cannot register char device\n", MOD_NAME);
       return -1;
    }
 
-   // Init the device
-   cdev_init(&(dev.charDev), &MapFunctions);
+   // Create a device class
+   pr_info("%s: Init: Creating device class\n", MOD_NAME);
+   gCl = class_create(THIS_MODULE, dev.devName);
+   if (gCl == NULL) {
+      pr_err("%s: Init: Failed to create device class\n", MOD_NAME);
+      unregister_chrdev_region(dev.devNum, 1); // Clean up allocated resources
+      return -1;
+   }
+   gCl->devnode = Map_DevNode;
+
+   // Create a device file
+   if (device_create(gCl, NULL, dev.devNum, NULL, dev.devName) == NULL) {
+      pr_err("%s: Init: Failed to create device file\n", MOD_NAME);
+      class_destroy(gCl); // Clean up on failure
+      unregister_chrdev_region(dev.devNum, 1);
+      return -1;
+   }
+
+   // Initialize the character device
+   cdev_init(&dev.charDev, &MapFunctions);
    dev.major = MAJOR(dev.devNum);
 
-   // Add the charactor device
-   if (cdev_add(&(dev.charDev), dev.devNum, 1) == -1) {
-      pr_err("%s: Init: Failed to add device file.\n",MOD_NAME);
-      device_destroy(gCl, dev.devNum); // Destroy device on failure
-      class_destroy(gCl); // Destroy device class on failure
-      unregister_chrdev_region(dev.devNum, 1); // Unregister device numbers on failure
+   // Add the character device
+   if (cdev_add(&dev.charDev, dev.devNum, 1) == -1) {
+      pr_err("%s: Init: Failed to add device file.\n", MOD_NAME);
+      device_destroy(gCl, dev.devNum); // Clean up on failure
+      class_destroy(gCl);
+      unregister_chrdev_region(dev.devNum, 1);
       return -1;
    }
 
-   // Map initial space
-   if ( (dev.maps = (struct MemMap *)kmalloc(sizeof(struct MemMap),GFP_KERNEL)) == NULL ) {
-      pr_err("%s: Init: Could not allocate map memory\n",MOD_NAME);
-      cdev_del(&(dev.charDev)); // Remove character device on failure
-      device_destroy(gCl, dev.devNum); // Destroy device on failure
-      class_destroy(gCl); // Destroy device class on failure
-      unregister_chrdev_region(dev.devNum, 1); // Unregister device numbers on failure
-      return (-1);
+   // Allocate initial memory map
+   dev.maps = (struct MemMap *)kmalloc(sizeof(struct MemMap), GFP_KERNEL);
+   if (dev.maps == NULL) {
+      pr_err("%s: Init: Could not allocate map memory\n", MOD_NAME);
+      cdev_del(&dev.charDev); // Clean up on failure
+      device_destroy(gCl, dev.devNum);
+      class_destroy(gCl);
+      unregister_chrdev_region(dev.devNum, 1);
+      return -1;
    }
    dev.maps->addr = plMinAddr;
    dev.maps->next = NULL;
 
-   // Map space
+   // Map initial memory space
    dev.maps->base = IOREMAP_NO_CACHE(dev.maps->addr, MAP_SIZE);
-   if (! dev.maps->base ) {
-      pr_err("%s: Init: Could not map memory addr 0x%llx with size 0x%x.\n",MOD_NAME,(uint64_t)dev.maps->addr,MAP_SIZE);
-      kfree(dev.maps);
-      cdev_del(&(dev.charDev)); // Remove character device on failure
-      device_destroy(gCl, dev.devNum); // Destroy device on failure
-      class_destroy(gCl); // Destroy device class on failure
-      unregister_chrdev_region(dev.devNum, 1); // Unregister device numbers on failure
-      return (-1);
+   if (!dev.maps->base) {
+      pr_err("%s: Init: Could not map memory addr 0x%llx with size 0x%x.\n", MOD_NAME, (uint64_t)dev.maps->addr, MAP_SIZE);
+      kfree(dev.maps); // Clean up on failure
+      cdev_del(&dev.charDev);
+      device_destroy(gCl, dev.devNum);
+      class_destroy(gCl);
+      unregister_chrdev_region(dev.devNum, 1);
+      return -1;
    }
-   pr_info("%s: Init: Mapped addr 0x%llx with size 0x%x to 0x%llx.\n",MOD_NAME,(uint64_t)dev.maps->addr,MAP_SIZE,(uint64_t)dev.maps->base);
+   pr_info("%s: Init: Mapped addr 0x%llx with size 0x%x to 0x%llx.\n", MOD_NAME, (uint64_t)dev.maps->addr, MAP_SIZE, (uint64_t)dev.maps->base);
 
-   return(0);
+   return 0;
 }
 
 /**
@@ -235,55 +239,65 @@ int Map_Release(struct inode *inode, struct file *filp) {
    return 0;
 }
 
-// Find or allocate map space
-uint8_t * Map_Find(uint64_t addr) {
-
+/**
+ * Map_Find - Locate or allocate memory map space for a given address
+ * @addr: The address for which to find or allocate map space
+ *
+ * This function searches the existing memory maps for the address. If the address
+ * is within the allowed ranges and not already mapped, it allocates a new memory map.
+ * It ensures the address falls within predefined ranges before attempting to map,
+ * returning NULL for addresses outside these ranges or on allocation failure.
+ *
+ * Return: Pointer to the mapped address space on success, NULL on failure.
+ */
+uint8_t *Map_Find(uint64_t addr) {
    struct MemMap *cur;
    struct MemMap *new;
 
    cur = dev.maps;
 
-   if ( ( (addr<psMinAddr) || (addr>psMaxAddr) ) && ( (addr<plMinAddr) || (addr>plMaxAddr) ) ) {
-      pr_err("%s: Map_Find: Invalid address 0x%llx\n\tPS Allowed range 0x%llx - 0x%llx\n\tPL Allowed range 0x%llx - 0x%llx \n",MOD_NAME,(uint64_t)addr,(uint64_t)psMinAddr,(uint64_t)psMaxAddr,(uint64_t)plMinAddr,(uint64_t)plMaxAddr);
+   // Validate address range
+   if (((addr < psMinAddr) || (addr > psMaxAddr)) &&
+       ((addr < plMinAddr) || (addr > plMaxAddr))) {
+      pr_err("%s: Map_Find: Invalid address 0x%llx\n\tPS Allowed range 0x%llx - 0x%llx\n\tPL Allowed range 0x%llx - 0x%llx\n",
+             MOD_NAME, (uint64_t)addr, (uint64_t)psMinAddr, (uint64_t)psMaxAddr,
+             (uint64_t)plMinAddr, (uint64_t)plMaxAddr);
       return (NULL);
    }
 
+   // Search for existing map or allocate new
    while (cur != NULL) {
+      // If current map contains address, return offset within map
+      if ((addr >= cur->addr) && (addr < (cur->addr + MAP_SIZE)))
+         return ((uint8_t *)(cur->base + (addr - cur->addr)));
 
-      // Current pointer matches
-      if ( (addr >= cur->addr) && (addr < (cur->addr + MAP_SIZE)) )
-         return((uint8_t*)(cur->base + (addr-cur->addr)));
-
-      // Next address is too high, insert new structure
-      if ( (cur->next == NULL) || (addr < ((struct MemMap *)cur->next)->addr) ) {
-
-         // Create new map
-         if ( (new = (struct MemMap *)kmalloc(sizeof(struct MemMap),GFP_KERNEL)) == NULL ) {
-            pr_err("%s: Map_Find: Could not allocate map memory\n",MOD_NAME);
+      // If address is beyond current map, and no next map or next map is further, insert new
+      if ((cur->next == NULL) || (addr < ((struct MemMap *)cur->next)->addr)) {
+         // Allocate and initialize new map structure
+         if ((new = (struct MemMap *)kmalloc(sizeof(struct MemMap), GFP_KERNEL)) == NULL) {
+            pr_err("%s: Map_Find: Could not allocate map memory\n", MOD_NAME);
             return NULL;
          }
 
-         // Compute new base
-         new->addr = (addr / MAP_SIZE) * MAP_SIZE;
-
-         // Map space
-         new->base = IOREMAP_NO_CACHE(new->addr, MAP_SIZE);
-         if (! new->base ) {
-            pr_err("%s: Map_Find: Could not map memory addr 0x%llx (0x%llx) with size 0x%x.\n",MOD_NAME,(uint64_t)new->addr,(uint64_t)addr,MAP_SIZE);
+         new->addr = (addr / MAP_SIZE) * MAP_SIZE; // Align to MAP_SIZE
+         new->base = IOREMAP_NO_CACHE(new->addr, MAP_SIZE); // Map physical address
+         if (!new->base) {
+            pr_err("%s: Map_Find: Could not map memory addr 0x%llx (0x%llx) with size 0x%x.\n",
+                   MOD_NAME, (uint64_t)new->addr, (uint64_t)addr, MAP_SIZE);
             kfree(new);
             return (NULL);
          }
-         pr_info("%s: Map_Find: Mapped addr 0x%llx with size 0x%x to 0x%llx.\n",MOD_NAME,(uint64_t)new->addr,MAP_SIZE,(uint64_t)new->base);
+         pr_info("%s: Map_Find: Mapped addr 0x%llx with size 0x%x to 0x%llx.\n",
+                 MOD_NAME, (uint64_t)new->addr, MAP_SIZE, (uint64_t)new->base);
 
-         // Insert into list
+         // Insert new map into list
          new->next = cur->next;
          cur->next = new;
       }
       cur = cur->next;
-
    }
 
-   return(NULL);
+   return (NULL);
 }
 
 /**
