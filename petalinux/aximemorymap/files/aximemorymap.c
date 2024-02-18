@@ -253,7 +253,7 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
          if ( (base = Map_Find(rData.address)) == NULL ) return(-1);
 
-         iowrite32(rData.data,base);
+         writel(rData.data, base);
          return(0);
          break;
 
@@ -266,7 +266,7 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          }
 
          if ( (base = Map_Find(rData.address)) == NULL ) return(-1);
-         rData.data = ioread32(base);
+         rData.data = readl(base);
 
          // Return the data structure
          if ((ret=copy_to_user((void *)arg,&rData,sizeof(struct DmaRegisterData)))) {
