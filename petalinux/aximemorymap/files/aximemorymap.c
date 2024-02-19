@@ -76,39 +76,52 @@ char *Map_DevNode(struct device *dev, umode_t *mode) {
 /**
  * Map_Init - Initialize the AXI memory map device
  *
- * This function sets up the AXI memory map device by registering a character device,
- * creating a device class, and allocating initial memory for the device's memory map.
- * It is designed to be called at module load time.
+ * This function sets up the AXI memory map device. It involves several steps:
+ * 1. Zeroing out the device structure to ensure a clean start.
+ * 2. Setting the device name from the predefined module name.
+ * 3. Dynamically allocating a device number for the device.
+ * 4. Creating a device class that will be used to create device files.
+ * 5. Creating a device file for the device class.
+ * 6. Initializing the character device with the device's file operations.
+ * 7. Adding the character device to the system, making it active.
+ * 8. Allocating an initial memory map for the device to use.
+ * 9. Mapping the initial memory space for the device's operations.
+ *
+ * Each step checks for errors, and if an error occurs, the function will
+ * clean up any allocated resources and return an error code.
  *
  * Return: 0 on success, negative error code on failure.
  */
 int Map_Init(void) {
    int32_t res;
 
-   // Zero out the device structure
+   // Step 1: Zero out the device structure
    memset(&dev, 0, sizeof(struct MapDevice));
 
-   // Set the device name
-   strcpy(dev.devName, MOD_NAME);
+   // Step 2: Set the device name
+   if (strscpy(dev.devName, MOD_NAME, sizeof(dev.devName)) < 0) {
+      pr_err("%s: Init: Source string too long for destination\n", MOD_NAME);
+      return -1;
+   }
 
-   // Allocate device numbers dynamically
+   // Step 3: Allocate device numbers dynamically
    res = alloc_chrdev_region(&dev.devNum, 0, 1, dev.devName);
    if (res < 0) {
       pr_err("%s: Init: Cannot register char device\n", MOD_NAME);
       return -1;
    }
 
-   // Create a device class
+   // Step 4: Create a device class
    pr_info("%s: Init: Creating device class\n", MOD_NAME);
    gCl = class_create(THIS_MODULE, dev.devName);
-   if (gCl == NULL) {
+   if (IS_ERR(gCl)) {
       pr_err("%s: Init: Failed to create device class\n", MOD_NAME);
       unregister_chrdev_region(dev.devNum, 1); // Clean up allocated resources
-      return -1;
+      return PTR_ERR(gCl);
    }
    gCl->devnode = Map_DevNode;
 
-   // Create a device file
+   // Step 5: Create a device file
    if (device_create(gCl, NULL, dev.devNum, NULL, dev.devName) == NULL) {
       pr_err("%s: Init: Failed to create device file\n", MOD_NAME);
       class_destroy(gCl); // Clean up on failure
@@ -116,11 +129,11 @@ int Map_Init(void) {
       return -1;
    }
 
-   // Initialize the character device
+   // Step 6: Initialize the character device
    cdev_init(&dev.charDev, &MapFunctions);
    dev.major = MAJOR(dev.devNum);
 
-   // Add the character device
+   // Step 7: Add the character device
    if (cdev_add(&dev.charDev, dev.devNum, 1) == -1) {
       pr_err("%s: Init: Failed to add device file.\n", MOD_NAME);
       device_destroy(gCl, dev.devNum); // Clean up on failure
@@ -129,7 +142,7 @@ int Map_Init(void) {
       return -1;
    }
 
-   // Allocate initial memory map
+   // Step 8: Allocate initial memory map
    dev.maps = (struct MemMap *)kzalloc(sizeof(struct MemMap), GFP_KERNEL);
    if (dev.maps == NULL) {
       pr_err("%s: Init: Could not allocate map memory\n", MOD_NAME);
@@ -142,7 +155,7 @@ int Map_Init(void) {
    dev.maps->addr = plMinAddr;
    dev.maps->next = NULL;
 
-   // Map initial memory space
+   // Step 9: Map initial memory space
    dev.maps->base = ioremap_wc(dev.maps->addr, MAP_SIZE);
    if (!dev.maps->base) {
       pr_err("%s: Init: Could not map memory addr 0x%llx with size 0x%x.\n", MOD_NAME, (uint64_t)dev.maps->addr, MAP_SIZE);
