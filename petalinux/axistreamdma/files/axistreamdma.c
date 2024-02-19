@@ -132,7 +132,7 @@ int Rce_Probe(struct platform_device *pdev) {
    // Matching device not found
    if ( tmpIdx < 0 ) {
       pr_warn("%s: Probe: Matching device not found: %s.\n", MOD_NAME,tmpName);
-      return(-1);
+      return -1;
    }
    dev = &gDmaDevices[tmpIdx];
 
@@ -143,7 +143,10 @@ int Rce_Probe(struct platform_device *pdev) {
    dev->index = tmpIdx;
 
    // Create a device name
-   strcpy(dev->devName,tmpName);
+   if (strscpy(dev->devName, tmpName, sizeof(dev->devName)) < 0) {
+      pr_err("%s: Probe: Source string too long for destination: %s.\n", MOD_NAME,tmpName);
+      return -1;
+   }
 
    // Get Base Address of registers from pci structure.
    dev->baseAddr = pdev->resource[0].start;
