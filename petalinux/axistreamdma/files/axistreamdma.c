@@ -57,23 +57,63 @@ MODULE_AUTHOR("Ryan Herbst");
 MODULE_DESCRIPTION("AXI Stream DMA driver. V3");
 MODULE_LICENSE("GPL");
 
-// Optional: Implement your hardware-specific suspend and resume logic
+/**
+ * Rce_runtime_suspend - Suspend routine for runtime power management.
+ *
+ * This function is intended to be invoked by the runtime power management
+ * framework when the device is being suspended. It should encapsulate any
+ * hardware-specific logic required to safely bring the device into a low-power
+ * state. Currently, this function does not implement device-specific actions
+ * and simply returns success.
+ *
+ * @dev: Device structure representing the DMA device.
+ * @return: Always returns 0, indicating success.
+ */
 static int Rce_runtime_suspend(struct device *dev)
 {
-   // Suspend actions specific to your device
+   // Currently, there are no device-specific suspend actions required.
+   // Placeholder for implementing suspend logic specific to the device.
    return 0;
 }
 
+/**
+ * Rce_runtime_resume - Resume routine for runtime power management.
+ *
+ * This function is designed to be called by the runtime power management
+ * framework when the device is transitioning back to its active state from
+ * suspension. It should encompass any hardware-specific logic needed to
+ * reinitialize the device and restore its operational state. Currently, this
+ * function does not perform any device-specific actions and merely returns
+ * success, serving as a placeholder for future implementation.
+ *
+ * @dev: Device structure representing the DMA device.
+ * @return: Always returns 0, indicating success.
+ */
 static int Rce_runtime_resume(struct device *dev)
 {
-   // Resume actions specific to your device
+   // Currently, no device-specific resume actions are required.
+   // Placeholder for future implementation of resume logic specific to the device.
    return 0;
 }
 
+/**
+ * Rce_Dma_pm_ops - Power management operations structure.
+ *
+ * This structure defines the runtime power management callbacks for the DMA
+ * device. It specifies the functions to be called during suspend and resume
+ * phases of the runtime power management. The NULL argument for the idle
+ * function indicates that no specific action is required during the idle phase.
+ *
+ * The use of SET_RUNTIME_PM_OPS macro simplifies the assignment of the
+ * suspend, resume, and idle callbacks within the device's power management
+ * operations structure.
+ */
 static const struct dev_pm_ops Rce_Dma_pm_ops = {
-    SET_RUNTIME_PM_OPS(Rce_runtime_suspend,
-                       Rce_runtime_resume, NULL)
+   .runtime_suspend = Rce_runtime_suspend,
+   .runtime_resume  = Rce_runtime_resume,
+   .runtime_idle    = NULL
 };
+
 
 static struct of_device_id Rce_DmaMatch[] = {
    { .compatible = MOD_NAME, },
@@ -227,12 +267,13 @@ int Rce_Probe(struct platform_device *pdev) {
 /**
  * Rce_Remove - Clean up resources upon removal of the DMA device.
  *
- * This function is called when the DMA device is removed from the system.
- * It performs cleanup operations such as decrementing the global device
- * count and calling the common DMA cleanup function. It also logs the
- * removal operation for debugging purposes.
+ * This function is invoked when a DMA device is detached from the system.
+ * It performs necessary cleanup operations such as disabling the device's
+ * power management, decrementing the global device count, and invoking
+ * the common DMA cleanup function. Additionally, it logs the removal
+ * process for debugging and auditing purposes.
  *
- * @pdev: The platform device structure representing the DMA device.
+ * @pdev: Platform device structure representing the DMA device.
  * @return: Returns 0 on successful cleanup, -1 if no matching device is found.
  */
 int Rce_Remove(struct platform_device *pdev)
@@ -242,15 +283,15 @@ int Rce_Remove(struct platform_device *pdev)
    int32_t tmpIdx;
    struct DmaDevice *dev = NULL;
 
-   pr_info("%s: Remove: Remove called.\n", MOD_NAME);
+   pr_info("%s: Remove: Removal process initiated.\n", MOD_NAME);
 
-    // Clean up before removing the device
-    pm_runtime_disable(&pdev->dev);
+   // Disable runtime power management before removing the device
+   pm_runtime_disable(&pdev->dev);
 
-   // Extract device name suffix
+   // Extract the device name suffix for identification
    tmpName = pdev->name + 9;
 
-   // Search for matching device entry
+   // Search for the matching device entry in the global device list
    tmpIdx = -1;
    for (x = 0; x < MAX_DMA_DEVICES; x++) {
       if (strcmp(tmpName, RceDevNames[x]) == 0) {
@@ -259,20 +300,20 @@ int Rce_Remove(struct platform_device *pdev)
       }
    }
 
-   // If no matching device is found, log and exit
+   // Exit if no matching device is found
    if (tmpIdx < 0) {
-      pr_info("%s: Remove: Matching device not found.\n", MOD_NAME);
+      pr_info("%s: Remove: No matching device found.\n", MOD_NAME);
       return -1;
    }
 
-   // Get device structure and decrement global device count
+   // Retrieve the device structure and update the global device count
    dev = &gDmaDevices[tmpIdx];
    gDmaDevCount--;
 
-   // Perform common DMA cleanup operations
+   // Invoke common cleanup operations for the DMA device
    Dma_Clean(dev);
 
-   pr_info("%s: Remove: Driver is unloaded.\n", MOD_NAME);
+   pr_info("%s: Remove: Device removal completed.\n", MOD_NAME);
    return 0;
 }
 
