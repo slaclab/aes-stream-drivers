@@ -57,25 +57,22 @@ MODULE_AUTHOR("Ryan Herbst");
 MODULE_DESCRIPTION("AXI Stream DMA driver. V3");
 MODULE_LICENSE("GPL");
 
-/**
- * Rce_DmaNop - No-operation function for DMA device power management.
- *
- * This function is intended to be used as a placeholder for power management
- * operations where no action is needed. It simply returns 0, indicating success,
- * and is used for both runtime_suspend and runtime_resume operations in the
- * device's power management operations structure.
- *
- * @dev: The device structure.
- * @return: Always returns 0, indicating success.
- */
-static int Rce_DmaNop(struct device *dev)
+// Optional: Implement your hardware-specific suspend and resume logic
+static int Rce_runtime_suspend(struct device *dev)
 {
+   // Suspend actions specific to your device
    return 0;
 }
 
-static const struct dev_pm_ops Rce_DmaOps = {
-   .runtime_suspend = Rce_DmaNop,
-   .runtime_resume = Rce_DmaNop,
+static int Rce_runtime_resume(struct device *dev)
+{
+   // Resume actions specific to your device
+   return 0;
+}
+
+static const struct dev_pm_ops Rce_Dma_pm_ops = {
+    SET_RUNTIME_PM_OPS(Rce_runtime_suspend,
+                       Rce_runtime_resume, NULL)
 };
 
 static struct of_device_id Rce_DmaMatch[] = {
@@ -90,7 +87,7 @@ static struct platform_driver Rce_DmaPdrv = {
    .driver = {
       .name = MOD_NAME,
       .owner = THIS_MODULE,
-      .pm = &Rce_DmaOps,
+      .pm = &Rce_Dma_pm_ops,
       .of_match_table = of_match_ptr(Rce_DmaMatch),
    },
 };
@@ -216,18 +213,15 @@ int Rce_Probe(struct platform_device *pdev) {
 
    // Call common dma init function
    if ( Dma_Init(dev) < 0 ) 
-      goto cleanup_force_exit;
+      return -1;
 
    // Increment count only after DMA is initialized successfully
    gDmaDevCount++;
 
+   // Enable runtime PM for this device
+   pm_runtime_enable(&pdev->dev);
+
    return 0;
-
-   /* Cleanup after probe failure */
-cleanup_force_exit:
-   return -1;
-
-   
 }
 
 /**
@@ -249,6 +243,9 @@ int Rce_Remove(struct platform_device *pdev)
    struct DmaDevice *dev = NULL;
 
    pr_info("%s: Remove: Remove called.\n", MOD_NAME);
+
+    // Clean up before removing the device
+    pm_runtime_disable(&pdev->dev);
 
    // Extract device name suffix
    tmpName = pdev->name + 9;
