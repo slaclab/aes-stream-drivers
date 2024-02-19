@@ -135,132 +135,128 @@ static struct platform_driver Rce_DmaPdrv = {
 module_platform_driver(Rce_DmaPdrv);
 
 /**
- * Rce_Probe - Probe function for DMA device initialization.
+ * Rce_Probe - Initializes the DMA device upon detection.
  *
- * This function is called by the Linux kernel when a platform device
- * matching the driver's device ID table is found. It performs device
- * initialization, including resource allocation, device registration,
- * and DMA configuration. It identifies the correct device instance
- * based on the device name, initializes the device structure, maps
- * device memory regions, and configures DMA settings.
+ * This function gets called by the Linux kernel upon finding a platform device
+ * that matches the driver's device ID table. It handles the device's initialization
+ * by allocating necessary resources, registering the device, and setting up DMA
+ * configurations. It locates the appropriate device instance based on its name,
+ * initializes the device structure, maps device memory regions, and sets up DMA
+ * parameters accordingly.
  *
- * @pdev: Platform device structure representing the DMA device.
- * @return: 0 on success, negative error code on failure.
+ * @pdev: The platform device structure representing the DMA device.
+ * @return: 0 on success, or a negative error code on failure.
  */
 int Rce_Probe(struct platform_device *pdev) {
    struct DmaDevice *dev;
+   int32_t x;
+   const char *tmpName;
+   int32_t tmpIdx;
 
-   int32_t      x;
-   const char * tmpName;
-   int32_t      tmpIdx;
-
-   // Extract name
+   // Extract device name from platform device structure
    tmpName = pdev->name + 9;
 
-   // Find matching entry
+   // Search for a matching device name in the predefined device names list
    tmpIdx = -1;
-   for ( x=0; x < MAX_DMA_DEVICES; x++ ) {
-      if (strcmp(tmpName,RceDevNames[x]) == 0) {
+   for (x = 0; x < MAX_DMA_DEVICES; x++) {
+      if (strcmp(tmpName, RceDevNames[x]) == 0) {
          tmpIdx = x;
          break;
       }
    }
 
-   // Matching device not found
-   if ( tmpIdx < 0 ) {
-      pr_warn("%s: Probe: Matching device not found: %s.\n", MOD_NAME,tmpName);
+   // Log warning and exit if no matching device is found
+   if (tmpIdx < 0) {
+      pr_warn("%s: Probe: Matching device not found: %s.\n", MOD_NAME, tmpName);
       return -1;
    }
-   dev = &gDmaDevices[tmpIdx];
 
+   // Select the device structure for the found device
+   dev = &gDmaDevices[tmpIdx];
    pr_info("%s: Probe: Using index %i for %s.\n", MOD_NAME, tmpIdx, tmpName);
 
-   // Init structure
-   memset(dev,0,sizeof(struct DmaDevice));
+   // Initialize the device structure to zeros
+   memset(dev, 0, sizeof(struct DmaDevice));
    dev->index = tmpIdx;
 
-   // Create a device name
+   // Copy the device name to the device structure
    if (strscpy(dev->devName, tmpName, sizeof(dev->devName)) < 0) {
-      pr_err("%s: Probe: Source string too long for destination: %s.\n", MOD_NAME,tmpName);
+      pr_err("%s: Probe: Source string too long for destination: %s.\n", MOD_NAME, tmpName);
       return -1;
    }
 
-   // Get Base Address of registers from pci structure.
+   // Retrieve the base address and size of the device's memory from the platform device
    dev->baseAddr = pdev->resource[0].start;
    dev->baseSize = pdev->resource[0].end - pdev->resource[0].start + 1;
 
-   // Get IRQ from pci_dev structure.
-   dev->irq = irq_of_parse_and_map(pdev->dev.of_node, 0);;
+   // Obtain the device's IRQ number from the platform device
+   dev->irq = irq_of_parse_and_map(pdev->dev.of_node, 0);
 
-   // Set device fields
+   // Set additional device fields
    dev->device = &(pdev->dev);
 
-   // Map memory now in order to probe
-   if ( Dma_MapReg(dev) < 0 ) return(-1);
+   // Map device memory to enable probing
+   if (Dma_MapReg(dev) < 0) return -1;
 
-   // Determine which index to use
+   // Configure device settings based on the selected index
    switch (tmpIdx) {
       case 0:
          dev->cfgTxCount = cfgTxCount0;
          dev->cfgRxCount = cfgRxCount0;
-         dev->cfgSize    = cfgSize0;
-         dev->cfgMode    = cfgMode0;
+         dev->cfgSize = cfgSize0;
+         dev->cfgMode = cfgMode0;
          break;
       case 1:
          dev->cfgTxCount = cfgTxCount1;
          dev->cfgRxCount = cfgRxCount1;
-         dev->cfgSize    = cfgSize1;
-         dev->cfgMode    = cfgMode1;
+         dev->cfgSize = cfgSize1;
+         dev->cfgMode = cfgMode1;
          break;
       case 2:
          dev->cfgTxCount = cfgTxCount2;
          dev->cfgRxCount = cfgRxCount2;
-         dev->cfgSize    = cfgSize2;
-         dev->cfgMode    = cfgMode2;
+         dev->cfgSize = cfgSize2;
+         dev->cfgMode = cfgMode2;
          break;
       default:
-         return(-1);
-         break;
+         return -1; // Invalid index
    }
 
-   // Instance independent
+   // Instance-independent configuration
    dev->cfgCont = 1;
 
-   // Set hardware functions
-   // Version 2
-   if ( ((readl(dev->reg) >> 24) & 0xFF) >= 2 ) {
+   // Determine hardware functions based on the device version
+   if (((readl(dev->reg) >> 24) & 0xFF) >= 2) {
       dev->hwFunc = &(AxisG2_functions);
-   }
-
-   // Version 1
-   else {
-      writel(0x1,((uint8_t *)dev->reg)+0x8);
-      if ( readl(((uint8_t *)dev->reg)+0x8) != 0x1 ) {
-         pr_info("%s: Probe: Empty register space. Exiting.\n", dev->device);
-         return(-1);
+   } else {
+      writel(0x1, ((uint8_t *)dev->reg) + 0x8);
+      if (readl(((uint8_t *)dev->reg) + 0x8) != 0x1) {
+         pr_info("%s: Probe: Empty register space. Exiting.\n", MOD_NAME);
+         return -1;
       }
       dev->hwFunc = &(AxisG1_functions);
    }
 
-   // Coherent
-   /* not available on arm64 */
-#if ! defined( __aarch64__)
-   if( (dev->cfgMode & BUFF_ARM_ACP) || (dev->cfgMode & AXIS2_RING_ACP) ) {
-       set_dma_ops(&pdev->dev,&arm_coherent_dma_ops);
-       pr_info("%s: Probe: Set COHERENT DMA =%i\n",dev->device,dev->cfgMode);
+   // Check for coherent DMA mode and set if not on arm64
+#if !defined(__aarch64__)
+   if ((dev->cfgMode & BUFF_ARM_ACP) || (dev->cfgMode & AXIS2_RING_ACP)) {
+      // Set DMA operations to coherent if supported
+      set_dma_ops(&pdev->dev, &arm_coherent_dma_ops);
+      pr_info("%s: Probe: Set COHERENT DMA =%i\n", dev->device, dev->cfgMode);
    }
 #endif
 
-   // Call common dma init function
-   if ( Dma_Init(dev) < 0 ) 
-      return -1;
+   // Initialize DMA and check for success
+   if (Dma_Init(dev) < 0)
+      return -1; // Return error if DMA initialization fails
 
-   // Increment count only after DMA is initialized successfully
+   // Successful DMA initialization increments device count
    gDmaDevCount++;
 
-   // Enable runtime PM for this device
+   // Enable runtime power management for the device
    pm_runtime_enable(&pdev->dev);
 
+   // Return success
    return 0;
 }
 
