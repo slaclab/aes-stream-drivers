@@ -199,7 +199,6 @@ int Rce_Probe(struct platform_device *pdev) {
    else {
       writel(0x1,((uint8_t *)dev->reg)+0x8);
       if ( readl(((uint8_t *)dev->reg)+0x8) != 0x1 ) {
-         release_mem_region(dev->baseAddr, dev->baseSize);
          pr_info("%s: Probe: Empty register space. Exiting.\n", dev->device);
          return(-1);
       }
