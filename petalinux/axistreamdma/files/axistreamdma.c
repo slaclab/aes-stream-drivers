@@ -1,14 +1,4 @@
 /**
- *-----------------------------------------------------------------------------
- * Title      : Top level module
- * ----------------------------------------------------------------------------
- * File       : rce_top.c
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-08
- * Last update: 2016-08-08
- * ----------------------------------------------------------------------------
- * Description:
- * Top level module types and functions.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory
@@ -67,7 +57,19 @@ MODULE_AUTHOR("Ryan Herbst");
 MODULE_DESCRIPTION("AXI Stream DMA driver. V3");
 MODULE_LICENSE("GPL");
 
-static int Rce_DmaNop(struct device *dev) {
+/**
+ * Rce_DmaNop - No-operation function for DMA device power management.
+ *
+ * This function is intended to be used as a placeholder for power management
+ * operations where no action is needed. It simply returns 0, indicating success,
+ * and is used for both runtime_suspend and runtime_resume operations in the
+ * device's power management operations structure.
+ *
+ * @dev: The device structure.
+ * @return: Always returns 0, indicating success.
+ */
+static int Rce_DmaNop(struct device *dev)
+{
    return 0;
 }
 
@@ -95,7 +97,19 @@ static struct platform_driver Rce_DmaPdrv = {
 
 module_platform_driver(Rce_DmaPdrv);
 
-// Create and init device
+/**
+ * Rce_Probe - Probe function for DMA device initialization.
+ *
+ * This function is called by the Linux kernel when a platform device
+ * matching the driver's device ID table is found. It performs device
+ * initialization, including resource allocation, device registration,
+ * and DMA configuration. It identifies the correct device instance
+ * based on the device name, initializes the device structure, maps
+ * device memory regions, and configures DMA settings.
+ *
+ * @pdev: Platform device structure representing the DMA device.
+ * @return: 0 on success, negative error code on failure.
+ */
 int Rce_Probe(struct platform_device *pdev) {
    struct DmaDevice *dev;
 
@@ -214,42 +228,53 @@ cleanup_force_exit:
    
 }
 
-
-// Cleanup device
-int Rce_Remove(struct platform_device *pdev) {
-   int32_t      x;
-   const char * tmpName;
-   int32_t      tmpIdx;
-
+/**
+ * Rce_Remove - Clean up resources upon removal of the DMA device.
+ *
+ * This function is called when the DMA device is removed from the system.
+ * It performs cleanup operations such as decrementing the global device
+ * count and calling the common DMA cleanup function. It also logs the
+ * removal operation for debugging purposes.
+ *
+ * @pdev: The platform device structure representing the DMA device.
+ * @return: Returns 0 on successful cleanup, -1 if no matching device is found.
+ */
+int Rce_Remove(struct platform_device *pdev)
+{
+   int32_t x;
+   const char *tmpName;
+   int32_t tmpIdx;
    struct DmaDevice *dev = NULL;
 
    pr_info("%s: Remove: Remove called.\n", MOD_NAME);
 
+   // Extract device name suffix
    tmpName = pdev->name + 9;
 
-   // Find matching entry
+   // Search for matching device entry
    tmpIdx = -1;
-   for ( x=0; x < MAX_DMA_DEVICES; x++ ) {
-      if (strcmp(tmpName,RceDevNames[x]) == 0) {
+   for (x = 0; x < MAX_DMA_DEVICES; x++) {
+      if (strcmp(tmpName, RceDevNames[x]) == 0) {
          tmpIdx = x;
          break;
       }
    }
 
-   // Matching device not found
-   if ( tmpIdx < 0 ) {
+   // If no matching device is found, log and exit
+   if (tmpIdx < 0) {
       pr_info("%s: Remove: Matching device not found.\n", MOD_NAME);
-      return(-1);
+      return -1;
    }
-   dev = &gDmaDevices[tmpIdx];
 
-   // Decrement count
+   // Get device structure and decrement global device count
+   dev = &gDmaDevices[tmpIdx];
    gDmaDevCount--;
 
-   // Call common dma init function
+   // Perform common DMA cleanup operations
    Dma_Clean(dev);
+
    pr_info("%s: Remove: Driver is unloaded.\n", MOD_NAME);
-   return(0);
+   return 0;
 }
 
 // Parameters
@@ -288,4 +313,3 @@ MODULE_PARM_DESC(cfgMode1, "RX buffer mode");
 
 module_param(cfgMode2,int,0);
 MODULE_PARM_DESC(cfgMode2, "RX buffer mode");
-
