@@ -339,7 +339,11 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
                // Write data to the register
                writel(rData.data, base);
                ret = 0; // Success
+            } else {
+               pr_warn("%s: Dma_Write_Register: Map_Find failed.\n", MOD_NAME);
             }
+         } else {
+            pr_warn("%s: Dma_Write_Register: get_user failed.\n", MOD_NAME);
          }
          break;
 
@@ -353,19 +357,24 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
                // Put the updated register data back to user space
                if (!put_user(rData.data, &((struct DmaRegisterData __user *)arg)->data)) {
                   ret = 0; // Success
+               } else {
+                  pr_warn("%s: Dma_Read_Register: put_user failed.\n", MOD_NAME);
                }
+            } else {
+               pr_warn("%s: Dma_Read_Register: Map_Find failed.\n", MOD_NAME);
             }
+         } else {
+            pr_warn("%s: Dma_Read_Register: get_user failed.\n", MOD_NAME);
          }
          break;
 
       default:
          // Unsupported IOCTL command
-         ret = -1; // Error
+         pr_warn("%s: Map_Ioctl: Unsupported IOCTL command.\n", MOD_NAME);
    }
 
    return ret; // Return the result
 }
-
 
 /**
  * Map_Read - Read operation for AXI memory map device
