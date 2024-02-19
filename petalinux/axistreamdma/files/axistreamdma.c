@@ -200,7 +200,7 @@ int Rce_Probe(struct platform_device *pdev) {
       writel(0x1,((uint8_t *)dev->reg)+0x8);
       if ( readl(((uint8_t *)dev->reg)+0x8) != 0x1 ) {
          release_mem_region(dev->baseAddr, dev->baseSize);
-         dev_info(dev->device,"Probe: Empty register space. Exiting\n");
+         pr_info("%s: Probe: Empty register space. Exiting.\n", dev->device);
          return(-1);
       }
       dev->hwFunc = &(AxisG1_functions);
@@ -211,7 +211,7 @@ int Rce_Probe(struct platform_device *pdev) {
 #if ! defined( __aarch64__)
    if( (dev->cfgMode & BUFF_ARM_ACP) || (dev->cfgMode & AXIS2_RING_ACP) ) {
        set_dma_ops(&pdev->dev,&arm_coherent_dma_ops);
-       dev_info(dev->device,"Probe: Set COHERENT DMA =%i\n",dev->cfgMode);
+       pr_info("%s: Probe: Set COHERENT DMA =%i\n",dev->device,dev->cfgMode);
    }
 #endif
 
