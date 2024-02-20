@@ -9,7 +9,7 @@ See section 5.
 A script in this directory 'comp_and_load_drivers.sh' is provided to compile and load the nvidia drivers as well as the driver in this directory. Edit this file and update the NVIDIA_PATH value at the top to the install directory for the nvidia drivers.
 
 ```bash
-$ apt-get install nvidia-kernel-source-535-open
-$ apt-get install cuda-drivers-fabricmanager-535
-$ ./comp_and_load_drivers.sh
+$ sudo apt-get install nvidia-kernel-source-535-open
+$ sudo apt-get install cuda-drivers-fabricmanager-535
+$ sudo ./comp_and_load_drivers.sh
 ```
