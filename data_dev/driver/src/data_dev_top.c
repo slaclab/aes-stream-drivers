@@ -45,6 +45,7 @@ int cfgBgThold4 = 0;
 int cfgBgThold5 = 0;
 int cfgBgThold6 = 0;
 int cfgBgThold7 = 0;
+int cfgDevName  = 0;
 
 // Probe failure global flag used in driver init
 // function to unregister driver
@@ -185,8 +186,16 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev = &gDmaDevices[id->driver_data];
    dev->index = id->driver_data;
 
-   // Compose a unique device name
-   ret = snprintf(dev->devName, sizeof(dev->devName), "%s_%i", MOD_NAME, dev->index);
+   // Attempt to compose a unique device name based on configuration
+   if (cfgDevName != 0) {
+      // Utilize the PCI device bus number for unique device naming
+      // Helpful when multiple PCIe cards are installed in the same server
+      ret = snprintf(dev->devName, sizeof(dev->devName), "%s_%02x", MOD_NAME, pcidev->bus->number);
+   } else {
+      // Default to sequential naming based on the device's index
+      // Ensures uniqueness in a single card scenario
+      ret = snprintf(dev->devName, sizeof(dev->devName), "%s_%i", MOD_NAME, dev->index);
+   }
    if (ret < 0 || ret >= sizeof(dev->devName)) {
       pr_err("%s: Probe: Error in snprintf() while formatting device name\n", MOD_NAME);
       return -EINVAL; // Return directly with an error code
@@ -454,3 +463,6 @@ MODULE_PARM_DESC(cfgBgThold6, "Buff Group Threshold 6");
 
 module_param(cfgBgThold7,int,0);
 MODULE_PARM_DESC(cfgBgThold7, "Buff Group Threshold 7");
+
+module_param(cfgDevName,int,0);
+MODULE_PARM_DESC(cfgDevName, "Device Name Formating Setting");
