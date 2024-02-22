@@ -151,8 +151,8 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    struct hardware_functions *hfunc;
 
    int32_t x;
-   int32_t dummy;
    int32_t axiWidth;
+   int ret;
 
    struct AxisG2Data *hwData;
 
@@ -189,7 +189,11 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    sprintf(dev->devName,"%s_%i",MOD_NAME,dev->index);
 
    // Enable the device
-   dummy = pci_enable_device(pcidev);
+   ret = pci_enable_device(pcidev);
+   if (ret) {
+      pr_warn("%s: Probe: pci_enable_device() = %i.\n",MOD_NAME,ret);
+       return ret; // Return with error code
+   }
    pci_set_master(pcidev);
 
    // Get Base Address of registers from pci structure.
