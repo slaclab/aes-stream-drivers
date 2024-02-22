@@ -94,8 +94,7 @@ static struct pci_driver DataDevDriver = {
  *
  * Return: 0 on success, negative error code on failure.
  */
-int32_t DataDev_Init(void)
-{
+int32_t DataDev_Init(void) {
    int ret;
 
    /* Clear memory for all DMA devices */
@@ -111,7 +110,7 @@ int32_t DataDev_Init(void)
    ret = pci_register_driver(&DataDevDriver);
    if (probeReturn != 0)
    {
-      pr_err("%s: Probe failure detected in init. Unregistering driver.\n", MOD_NAME);
+      pr_err("%s: Init: failure detected in init. Unregistering driver.\n", MOD_NAME);
       pci_unregister_driver(&DataDevDriver);
       return probeReturn;
    }
@@ -286,8 +285,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
  * DMA device count, calls the common DMA clean function to free allocated resources,
  * and disables the PCI device.
  */
-void DataDev_Remove(struct pci_dev *pcidev)
-{
+void DataDev_Remove(struct pci_dev *pcidev) {
    uint32_t x;
    struct DmaDevice *dev = NULL;
 
@@ -334,8 +332,7 @@ void DataDev_Remove(struct pci_dev *pcidev)
  * Return: the result of the command execution. Returns -1 if the command
  * is not recognized.
  */
-int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg)
-{
+int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    switch (cmd) {
       case AVER_Get:
          // AXI Version Read
@@ -361,8 +358,7 @@ int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg)
  * presenting a standardized view of device details for debugging or
  * system monitoring.
  */
-void DataDev_SeqShow(struct seq_file *s, struct DmaDevice *dev)
-{
+void DataDev_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    struct AxiVersion aVer;
 
    // Read AXI version from device
