@@ -108,8 +108,7 @@ int32_t DataDev_Init(void) {
 
    /* Register PCI driver */
    ret = pci_register_driver(&DataDevDriver);
-   if (probeReturn != 0)
-   {
+   if (probeReturn != 0) {
       pr_err("%s: Init: failure detected in init. Unregistering driver.\n", MOD_NAME);
       pci_unregister_driver(&DataDevDriver);
       return probeReturn;
@@ -156,7 +155,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    struct AxisG2Data *hwData;
 
    if ( cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM ) {
-      pr_warn("%s: Probe: Invalid buffer mode = %i.\n",MOD_NAME,cfgMode);
+      pr_err("%s: Probe: Invalid buffer mode = %i.\n", MOD_NAME, cfgMode);
       return -EINVAL; // Return directly with an error code
    }
 
@@ -178,7 +177,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    // Overflow
    if (id->driver_data < 0) {
-      pr_warn("%s: Probe: Too Many Devices.\n",MOD_NAME);
+      pr_err("%s: Probe: Too Many Devices.\n", MOD_NAME);
       return -ENOMEM; // Return directly with an error code
    }
    dev = &gDmaDevices[id->driver_data];
@@ -190,8 +189,8 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    // Enable the device
    ret = pci_enable_device(pcidev);
    if (ret) {
-      pr_warn("%s: Probe: pci_enable_device() = %i.\n",MOD_NAME,ret);
-       return ret; // Return with error code
+      pr_err("%s: Probe: pci_enable_device() = %i.\n", MOD_NAME, ret);
+      return ret; // Return with error code
    }
    pci_set_master(pcidev);
 
