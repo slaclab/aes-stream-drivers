@@ -184,7 +184,11 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->index = id->driver_data;
 
    // Create a device name
-   sprintf(dev->devName,"%s_%i",MOD_NAME,dev->index);
+   ret = snprintf(dev->devName, sizeof(dev->devName), "%s_%i", MOD_NAME, dev->index);
+   if (ret < 0 || ret >= sizeof(dev->devName)) {
+      pr_err("%s: Probe: Error in snprintf() while formatting device name\n", MOD_NAME);
+      return -EINVAL; // Return directly with an error code
+   }
 
    // Enable the device
    ret = pci_enable_device(pcidev);
