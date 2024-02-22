@@ -1,14 +1,4 @@
 /**
- *-----------------------------------------------------------------------------
- * Title      : Top level module
- * ----------------------------------------------------------------------------
- * File       : rce_top.c
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-08
- * Last update: 2016-08-08
- * ----------------------------------------------------------------------------
- * Description:
- * Top level module types and functions.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory
@@ -67,14 +57,63 @@ MODULE_AUTHOR("Ryan Herbst");
 MODULE_DESCRIPTION("AXI Stream DMA driver. V3");
 MODULE_LICENSE("GPL");
 
-static int Rce_DmaNop(struct device *dev) {
+/**
+ * Rce_runtime_suspend - Suspend routine for runtime power management.
+ *
+ * This function is intended to be invoked by the runtime power management
+ * framework when the device is being suspended. It should encapsulate any
+ * hardware-specific logic required to safely bring the device into a low-power
+ * state. Currently, this function does not implement device-specific actions
+ * and simply returns success.
+ *
+ * @dev: Device structure representing the DMA device.
+ * @return: Always returns 0, indicating success.
+ */
+static int Rce_runtime_suspend(struct device *dev)
+{
+   // Currently, there are no device-specific suspend actions required.
+   // Placeholder for implementing suspend logic specific to the device.
    return 0;
 }
 
-static const struct dev_pm_ops Rce_DmaOps = {
-   .runtime_suspend = Rce_DmaNop,
-   .runtime_resume = Rce_DmaNop,
+/**
+ * Rce_runtime_resume - Resume routine for runtime power management.
+ *
+ * This function is designed to be called by the runtime power management
+ * framework when the device is transitioning back to its active state from
+ * suspension. It should encompass any hardware-specific logic needed to
+ * reinitialize the device and restore its operational state. Currently, this
+ * function does not perform any device-specific actions and merely returns
+ * success, serving as a placeholder for future implementation.
+ *
+ * @dev: Device structure representing the DMA device.
+ * @return: Always returns 0, indicating success.
+ */
+static int Rce_runtime_resume(struct device *dev)
+{
+   // Currently, no device-specific resume actions are required.
+   // Placeholder for future implementation of resume logic specific to the device.
+   return 0;
+}
+
+/**
+ * Rce_Dma_pm_ops - Power management operations structure.
+ *
+ * This structure defines the runtime power management callbacks for the DMA
+ * device. It specifies the functions to be called during suspend and resume
+ * phases of the runtime power management. The NULL argument for the idle
+ * function indicates that no specific action is required during the idle phase.
+ *
+ * The use of SET_RUNTIME_PM_OPS macro simplifies the assignment of the
+ * suspend, resume, and idle callbacks within the device's power management
+ * operations structure.
+ */
+static const struct dev_pm_ops Rce_Dma_pm_ops = {
+   .runtime_suspend = Rce_runtime_suspend,
+   .runtime_resume  = Rce_runtime_resume,
+   .runtime_idle    = NULL
 };
+
 
 static struct of_device_id Rce_DmaMatch[] = {
    { .compatible = MOD_NAME, },
@@ -88,168 +127,190 @@ static struct platform_driver Rce_DmaPdrv = {
    .driver = {
       .name = MOD_NAME,
       .owner = THIS_MODULE,
-      .pm = &Rce_DmaOps,
+      .pm = &Rce_Dma_pm_ops,
       .of_match_table = of_match_ptr(Rce_DmaMatch),
    },
 };
 
 module_platform_driver(Rce_DmaPdrv);
 
-// Create and init device
+/**
+ * Rce_Probe - Initializes the DMA device upon detection.
+ *
+ * This function gets called by the Linux kernel upon finding a platform device
+ * that matches the driver's device ID table. It handles the device's initialization
+ * by allocating necessary resources, registering the device, and setting up DMA
+ * configurations. It locates the appropriate device instance based on its name,
+ * initializes the device structure, maps device memory regions, and sets up DMA
+ * parameters accordingly.
+ *
+ * @pdev: The platform device structure representing the DMA device.
+ * @return: 0 on success, or a negative error code on failure.
+ */
 int Rce_Probe(struct platform_device *pdev) {
    struct DmaDevice *dev;
+   int32_t x;
+   const char *tmpName;
+   int32_t tmpIdx;
 
-   int32_t      x;
-   const char * tmpName;
-   int32_t      tmpIdx;
-
-   // Extract name
+   // Extract device name from platform device structure
    tmpName = pdev->name + 9;
 
-   // Find matching entry
+   // Search for a matching device name in the predefined device names list
    tmpIdx = -1;
-   for ( x=0; x < MAX_DMA_DEVICES; x++ ) {
-      if (strcmp(tmpName,RceDevNames[x]) == 0) {
+   for (x = 0; x < MAX_DMA_DEVICES; x++) {
+      if (strcmp(tmpName, RceDevNames[x]) == 0) {
          tmpIdx = x;
          break;
       }
    }
 
-   // Matching device not found
-   if ( tmpIdx < 0 ) {
-      pr_warn("%s: Probe: Matching device not found: %s.\n", MOD_NAME,tmpName);
-      return(-1);
+   // Log warning and exit if no matching device is found
+   if (tmpIdx < 0) {
+      pr_warn("%s: Probe: Matching device not found: %s.\n", MOD_NAME, tmpName);
+      return -1;
    }
-   dev = &gDmaDevices[tmpIdx];
 
+   // Select the device structure for the found device
+   dev = &gDmaDevices[tmpIdx];
    pr_info("%s: Probe: Using index %i for %s.\n", MOD_NAME, tmpIdx, tmpName);
 
-   // Init structure
-   memset(dev,0,sizeof(struct DmaDevice));
+   // Initialize the device structure to zeros
+   memset(dev, 0, sizeof(struct DmaDevice));
    dev->index = tmpIdx;
 
-   // Create a device name
-   strcpy(dev->devName,tmpName);
+   // Copy the device name to the device structure
+   if (strscpy(dev->devName, tmpName, sizeof(dev->devName)) < 0) {
+      pr_err("%s: Probe: Source string too long for destination: %s.\n", MOD_NAME, tmpName);
+      return -1;
+   }
 
-   // Get Base Address of registers from pci structure.
+   // Retrieve the base address and size of the device's memory from the platform device
    dev->baseAddr = pdev->resource[0].start;
    dev->baseSize = pdev->resource[0].end - pdev->resource[0].start + 1;
 
-   // Get IRQ from pci_dev structure.
-   dev->irq = irq_of_parse_and_map(pdev->dev.of_node, 0);;
+   // Obtain the device's IRQ number from the platform device
+   dev->irq = irq_of_parse_and_map(pdev->dev.of_node, 0);
 
-   // Set device fields
+   // Set additional device fields
    dev->device = &(pdev->dev);
 
-   // Map memory now in order to probe
-   if ( Dma_MapReg(dev) < 0 ) return(-1);
+   // Map device memory to enable probing
+   if (Dma_MapReg(dev) < 0) return -1;
 
-   // Determine which index to use
+   // Configure device settings based on the selected index
    switch (tmpIdx) {
       case 0:
          dev->cfgTxCount = cfgTxCount0;
          dev->cfgRxCount = cfgRxCount0;
-         dev->cfgSize    = cfgSize0;
-         dev->cfgMode    = cfgMode0;
+         dev->cfgSize = cfgSize0;
+         dev->cfgMode = cfgMode0;
          break;
       case 1:
          dev->cfgTxCount = cfgTxCount1;
          dev->cfgRxCount = cfgRxCount1;
-         dev->cfgSize    = cfgSize1;
-         dev->cfgMode    = cfgMode1;
+         dev->cfgSize = cfgSize1;
+         dev->cfgMode = cfgMode1;
          break;
       case 2:
          dev->cfgTxCount = cfgTxCount2;
          dev->cfgRxCount = cfgRxCount2;
-         dev->cfgSize    = cfgSize2;
-         dev->cfgMode    = cfgMode2;
+         dev->cfgSize = cfgSize2;
+         dev->cfgMode = cfgMode2;
          break;
       default:
-         return(-1);
-         break;
+         return -1; // Invalid index
    }
 
-   // Instance independent
+   // Instance-independent configuration
    dev->cfgCont = 1;
 
-   // Set hardware functions
-   // Version 2
-   if ( ((ioread32(dev->reg) >> 24) & 0xFF) >= 2 ) {
+   // Determine hardware functions based on the device version
+   if (((readl(dev->reg) >> 24) & 0xFF) >= 2) {
       dev->hwFunc = &(AxisG2_functions);
-   }
-
-   // Version 1
-   else {
-      iowrite32(0x1,((uint8_t *)dev->reg)+0x8);
-      if ( ioread32(((uint8_t *)dev->reg)+0x8) != 0x1 ) {
-         release_mem_region(dev->baseAddr, dev->baseSize);
-         dev_info(dev->device,"Probe: Empty register space. Exiting\n");
-         return(-1);
+   } else {
+      writel(0x1, ((uint8_t *)dev->reg) + 0x8);
+      if (readl(((uint8_t *)dev->reg) + 0x8) != 0x1) {
+         pr_info("%s: Probe: Empty register space. Exiting.\n", MOD_NAME);
+         return -1;
       }
       dev->hwFunc = &(AxisG1_functions);
    }
 
-   // Coherent
-   /* not available on arm64 */
-#if ! defined( __aarch64__)
-   if( (dev->cfgMode & BUFF_ARM_ACP) || (dev->cfgMode & AXIS2_RING_ACP) ) {
-       set_dma_ops(&pdev->dev,&arm_coherent_dma_ops);
-       dev_info(dev->device,"Probe: Set COHERENT DMA =%i\n",dev->cfgMode);
+   // Check for coherent DMA mode and set if not on arm64
+#if !defined(__aarch64__)
+   if ((dev->cfgMode & BUFF_ARM_ACP) || (dev->cfgMode & AXIS2_RING_ACP)) {
+      // Set DMA operations to coherent if supported
+      set_dma_ops(&pdev->dev, &arm_coherent_dma_ops);
+      pr_info("%s: Probe: Set COHERENT DMA =%i\n", dev->device, dev->cfgMode);
    }
 #endif
 
-   // Call common dma init function
-   if ( Dma_Init(dev) < 0 ) 
-      goto cleanup_force_exit;
+   // Initialize DMA and check for success
+   if (Dma_Init(dev) < 0)
+      return -1; // Return error if DMA initialization fails
 
-   // Increment count only after DMA is initialized successfully
+   // Successful DMA initialization increments device count
    gDmaDevCount++;
 
+   // Enable runtime power management for the device
+   pm_runtime_enable(&pdev->dev);
+
+   // Return success
    return 0;
-
-   /* Cleanup after probe failure */
-cleanup_force_exit:
-   return -1;
-
-   
 }
 
-
-// Cleanup device
-int Rce_Remove(struct platform_device *pdev) {
-   int32_t      x;
-   const char * tmpName;
-   int32_t      tmpIdx;
-
+/**
+ * Rce_Remove - Clean up resources upon removal of the DMA device.
+ *
+ * This function is invoked when a DMA device is detached from the system.
+ * It performs necessary cleanup operations such as disabling the device's
+ * power management, decrementing the global device count, and invoking
+ * the common DMA cleanup function. Additionally, it logs the removal
+ * process for debugging and auditing purposes.
+ *
+ * @pdev: Platform device structure representing the DMA device.
+ * @return: Returns 0 on successful cleanup, -1 if no matching device is found.
+ */
+int Rce_Remove(struct platform_device *pdev)
+{
+   int32_t x;
+   const char *tmpName;
+   int32_t tmpIdx;
    struct DmaDevice *dev = NULL;
 
-   pr_info("%s: Remove: Remove called.\n", MOD_NAME);
+   pr_info("%s: Remove: Removal process initiated.\n", MOD_NAME);
 
+   // Disable runtime power management before removing the device
+   pm_runtime_disable(&pdev->dev);
+
+   // Extract the device name suffix for identification
    tmpName = pdev->name + 9;
 
-   // Find matching entry
+   // Search for the matching device entry in the global device list
    tmpIdx = -1;
-   for ( x=0; x < MAX_DMA_DEVICES; x++ ) {
-      if (strcmp(tmpName,RceDevNames[x]) == 0) {
+   for (x = 0; x < MAX_DMA_DEVICES; x++) {
+      if (strcmp(tmpName, RceDevNames[x]) == 0) {
          tmpIdx = x;
          break;
       }
    }
 
-   // Matching device not found
-   if ( tmpIdx < 0 ) {
-      pr_info("%s: Remove: Matching device not found.\n", MOD_NAME);
-      return(-1);
+   // Exit if no matching device is found
+   if (tmpIdx < 0) {
+      pr_info("%s: Remove: No matching device found.\n", MOD_NAME);
+      return -1;
    }
-   dev = &gDmaDevices[tmpIdx];
 
-   // Decrement count
+   // Retrieve the device structure and update the global device count
+   dev = &gDmaDevices[tmpIdx];
    gDmaDevCount--;
 
-   // Call common dma init function
+   // Invoke common cleanup operations for the DMA device
    Dma_Clean(dev);
-   pr_info("%s: Remove: Driver is unloaded.\n", MOD_NAME);
-   return(0);
+
+   pr_info("%s: Remove: Device removal completed.\n", MOD_NAME);
+   return 0;
 }
 
 // Parameters
@@ -288,4 +349,3 @@ MODULE_PARM_DESC(cfgMode1, "RX buffer mode");
 
 module_param(cfgMode2,int,0);
 MODULE_PARM_DESC(cfgMode2, "RX buffer mode");
-
