@@ -154,20 +154,22 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    struct AxisG2Data *hwData;
 
+   // Validate buffer mode configuration
    if ( cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM ) {
       pr_err("%s: Probe: Invalid buffer mode = %i.\n", MOD_NAME, cfgMode);
       return -EINVAL; // Return directly with an error code
    }
 
-   // Set hardware functions
+   // Initialize hardware function pointers
    hfunc = &(DataDev_functions);
 
+   // Cast device ID for further operations
    id = (struct pci_device_id *) dev_id;
 
-   // We keep device instance number in id->driver_data
+   // Initialize driver data to indicate an empty slot
    id->driver_data = -1;
 
-   // Find empty structure
+   // Search for an available device slot
    for (x = 0; x < MAX_DMA_DEVICES; x++) {
       if (gDmaDevices[x].baseAddr == 0) {
          id->driver_data = x;
@@ -175,7 +177,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
       }
    }
 
-   // Overflow
+   // Check for device slots overflow
    if (id->driver_data < 0) {
       pr_err("%s: Probe: Too Many Devices.\n", MOD_NAME);
       return -ENOMEM; // Return directly with an error code
@@ -183,74 +185,73 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev = &gDmaDevices[id->driver_data];
    dev->index = id->driver_data;
 
-   // Create a device name
+   // Compose a unique device name
    ret = snprintf(dev->devName, sizeof(dev->devName), "%s_%i", MOD_NAME, dev->index);
    if (ret < 0 || ret >= sizeof(dev->devName)) {
       pr_err("%s: Probe: Error in snprintf() while formatting device name\n", MOD_NAME);
       return -EINVAL; // Return directly with an error code
    }
 
-   // Enable the device
+   // Activate the PCI device
    ret = pci_enable_device(pcidev);
    if (ret) {
       pr_err("%s: Probe: pci_enable_device() = %i.\n", MOD_NAME, ret);
       return ret; // Return with error code
    }
-   pci_set_master(pcidev);
+   pci_set_master(pcidev); // Set the device as bus master
 
-   // Get Base Address of registers from pci structure.
+   // Retrieve and store the base address and size of the device's register space
    dev->baseAddr = pci_resource_start (pcidev, 0);
    dev->baseSize = pci_resource_len (pcidev, 0);
 
-   // Remap the I/O register block so that it can be safely accessed.
+   // Map the device's register space for use in the driver
    if ( Dma_MapReg(dev) < 0 ) {
-      /* Cleanup the mess */
-      pci_disable_device(pcidev);
-      // Exit at end of cleanup
-      probeReturn = -ENOMEM;
+      pci_disable_device(pcidev); // Disable the device on failure
+      probeReturn = -ENOMEM; // Memory allocation error
       return probeReturn;
    }
 
-   // Set configuration
-   dev->cfgTxCount    = cfgTxCount;
-   dev->cfgRxCount    = cfgRxCount;
-   dev->cfgSize       = cfgSize;
-   dev->cfgMode       = cfgMode;
-   dev->cfgCont       = cfgCont;
-   dev->cfgIrqHold    = cfgIrqHold;
-   dev->cfgIrqDis     = cfgIrqDis;
-   dev->cfgBgThold[0] = cfgBgThold0;
-   dev->cfgBgThold[1] = cfgBgThold1;
-   dev->cfgBgThold[2] = cfgBgThold2;
-   dev->cfgBgThold[3] = cfgBgThold3;
-   dev->cfgBgThold[4] = cfgBgThold4;
-   dev->cfgBgThold[5] = cfgBgThold5;
-   dev->cfgBgThold[6] = cfgBgThold6;
-   dev->cfgBgThold[7] = cfgBgThold7;
+   // Initialize device configuration parameters
+   dev->cfgTxCount    = cfgTxCount;    // Transmit buffer count
+   dev->cfgRxCount    = cfgRxCount;    // Receive buffer count
+   dev->cfgSize       = cfgSize;       // Configuration size
+   dev->cfgMode       = cfgMode;       // Operation mode
+   dev->cfgCont       = cfgCont;       // Continuous operation flag
+   dev->cfgIrqHold    = cfgIrqHold;    // IRQ hold configuration
+   dev->cfgIrqDis     = cfgIrqDis;     // IRQ disable flag
+   dev->cfgBgThold[0] = cfgBgThold0;   // Background threshold 0
+   dev->cfgBgThold[1] = cfgBgThold1;   // Background threshold 1
+   dev->cfgBgThold[2] = cfgBgThold2;   // Background threshold 2
+   dev->cfgBgThold[3] = cfgBgThold3;   // Background threshold 3
+   dev->cfgBgThold[4] = cfgBgThold4;   // Background threshold 4
+   dev->cfgBgThold[5] = cfgBgThold5;   // Background threshold 5
+   dev->cfgBgThold[6] = cfgBgThold6;   // Background threshold 6
+   dev->cfgBgThold[7] = cfgBgThold7;   // Background threshold 7
 
-   // Get IRQ from pci_dev structure.
+   // Assign the IRQ number from the pci_dev structure
    dev->irq = pcidev->irq;
 
-   // Set device fields
-   dev->pcidev = pcidev;
-   dev->device = &(pcidev->dev);
-   dev->hwFunc = hfunc;
+   // Set basic device context
+   dev->pcidev = pcidev;               // PCI device structure
+   dev->device = &(pcidev->dev);       // Device structure
+   dev->hwFunc = hfunc;                // Hardware function pointer
 
-   dev->reg    = dev->base + AGEN2_OFF;
-   dev->rwBase = dev->base + PHY_OFF;
-   dev->rwSize = (2*USER_SIZE) - PHY_OFF;
+   // Initialize device memory regions
+   dev->reg    = dev->base + AGEN2_OFF;   // Register base address
+   dev->rwBase = dev->base + PHY_OFF;     // Read/Write base address
+   dev->rwSize = (2*USER_SIZE) - PHY_OFF; // Read/Write region size
 
-   // Set and clear reset
+   // Manage device reset cycle
    dev_info(dev->device,"Init: Setting user reset\n");
-   AxiVersion_SetUserReset(dev->base + AVER_OFF,true);
+   AxiVersion_SetUserReset(dev->base + AVER_OFF,true); // Set user reset
    dev_info(dev->device,"Init: Clearing user reset\n");
-   AxiVersion_SetUserReset(dev->base + AVER_OFF,false);
+   AxiVersion_SetUserReset(dev->base + AVER_OFF,false); // Clear user reset
 
-   // 128bit desc, = 64-bit address map
+   // Configure DMA based on AXI address width: 128bit desc, = 64-bit address map
    if ((readl(dev->reg) & 0x10000) != 0) {
-      // Get the AXI Address width (in units of bits)
-      axiWidth = (readl(dev->reg + 0x34) >> 8) & 0xFF;
+      axiWidth = (readl(dev->reg + 0x34) >> 8) & 0xFF; // Extract AXI address width
 
+      // Attempt to set DMA and coherent DMA masks based on AXI width
       if (!dma_set_mask(dev->device, DMA_BIT_MASK(axiWidth))) {
          dev_info(dev->device, "Init: Using %d-bit DMA mask.\n", axiWidth);
 
@@ -264,26 +265,25 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
       }
    }
 
-   // Call common dma init function
-   if ( Dma_Init(dev) < 0 ) {
-      /* Cleanup the mess */
-      pci_disable_device(pcidev);
-      // Exit at end of cleanup
-      probeReturn = -ENOMEM;
+   // Initialize common DMA functionalities
+   if (Dma_Init(dev) < 0) {
+      pci_disable_device(pcidev); // Disable PCI device on failure
+      probeReturn = -ENOMEM;      // Indicate memory allocation error
       return probeReturn;
    }
 
    // Get hardware data structure
    hwData = (struct AxisG2Data *)dev->hwData;
 
-   dev_info(dev->device,"Init: Reg  space mapped to 0x%llx.\n",(uint64_t)dev->reg);
+   // Log memory mapping information
+   dev_info(dev->device,"Init: Reg space mapped to 0x%llx.\n",(uint64_t)dev->reg);
    dev_info(dev->device,"Init: User space mapped to 0x%llx with size 0x%x.\n",(uint64_t)dev->rwBase,dev->rwSize);
    dev_info(dev->device,"Init: Top Register = 0x%x\n",readl(dev->reg));
 
-   // Increment count only after probe is setup successfully
-   gDmaDevCount++;
-   probeReturn = 0;
-   return(0);
+   // Finalize device probe successfully
+   gDmaDevCount++;                   // Increment global device count
+   probeReturn = 0;                  // Set successful return code
+   return probeReturn;               // Return success
 }
 
 /**
