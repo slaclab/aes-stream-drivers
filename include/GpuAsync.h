@@ -1,11 +1,14 @@
 /**
  *-----------------------------------------------------------------------------
- * Title      : GPU Async Header
- * ----------------------------------------------------------------------------
- * File       : GpuAsync.h
- * ----------------------------------------------------------------------------
+ * Company: SLAC National Accelerator Laboratory
+ *-----------------------------------------------------------------------------
  * Description:
- * Defintions and inline functions for using GPU Async features.
+ *    Provides definitions and inline functions for utilizing GPU asynchronous
+ *    features within the aes_stream_drivers package.
+ *
+ *    This code is specifically designed for managing NVIDIA GPU memory in a
+ *    Linux kernel module, offering functionality to add and remove memory
+ *    regions for GPU access.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory
@@ -16,40 +19,71 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
+
 #ifndef __GPU_ASYNC_H__
 #define __GPU_ASYNC_H__
+
 #include "DmaDriver.h"
 
-// Commands
-#define GPU_Add_Nvidia_Memory 0x8002
-#define GPU_Rem_Nvidia_Memory 0x8003
+/**
+ * GPU command codes
+ **/
+#define GPU_Add_Nvidia_Memory 0x8002   // Command to add NVIDIA GPU memory
+#define GPU_Rem_Nvidia_Memory 0x8003   // Command to remove NVIDIA GPU memory
 
-// NVidia Data
+/**
+ * struct GpuNvidiaData - Represents NVIDIA GPU memory data.
+ * @write: Write permission flag (non-zero for write access).
+ * @address: GPU memory address.
+ * @size: Size of the memory region in bytes.
+ *
+ * This structure is used for managing memory regions in NVIDIA GPUs,
+ * specifically for adding or removing access to these regions.
+ **/
 struct GpuNvidiaData {
-   uint32_t   write;
-   uint64_t   address;
-   uint32_t   size;
+   uint32_t write;    // Write permission flag
+   uint64_t address;  // GPU memory address
+   uint32_t size;     // Size of the memory region
 };
 
-// Everything below is hidden during kernel module compile
 #ifndef DMA_IN_KERNEL
 
-// Add NVIDIA Memory
+/**
+ * gpuAddNvidiaMemory - Adds a NVIDIA GPU memory region.
+ * @fd: File descriptor for the device.
+ * @write: Write access flag (1 for write access, 0 for read-only).
+ * @address: Memory address of the GPU region to add.
+ * @size: Size of the memory region to add.
+ *
+ * This function adds a specified memory region to the NVIDIA GPU, allowing
+ * for the region to be accessed as specified by the write flag.
+ *
+ * Return: On success, returns the result of the ioctl call. On failure,
+ * returns a negative error code.
+ **/
 static inline ssize_t gpuAddNvidiaMemory(int32_t fd, uint32_t write, uint64_t address, uint32_t size) {
    struct GpuNvidiaData dat;
 
-   dat.write    = write;
-   dat.address  = address;
-   dat.size     = size;
+   dat.write = write;
+   dat.address = address;
+   dat.size = size;
 
-   return(ioctl(fd,GPU_Add_Nvidia_Memory,&dat));
+   return(ioctl(fd, GPU_Add_Nvidia_Memory, &dat));
 }
 
-// Rem NVIDIA Memory
+/**
+ * gpuRemNvidiaMemory - Removes a NVIDIA GPU memory region.
+ * @fd: File descriptor for the device.
+ *
+ * This function removes a previously added memory region from the NVIDIA GPU,
+ * ceasing its accessibility.
+ *
+ * Return: On success, returns the result of the ioctl call. On failure,
+ * returns a negative error code.
+ **/
 static inline ssize_t gpuRemNvidiaMemory(int32_t fd) {
-   return(ioctl(fd,GPU_Rem_Nvidia_Memory,0));
+   return(ioctl(fd, GPU_Rem_Nvidia_Memory, 0));
 }
 
-#endif
-#endif
-
+#endif // !DMA_IN_KERNEL
+#endif // __GPU_ASYNC_H__
