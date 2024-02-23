@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NVIDIA_PATH=/usr/src/nvidia-535.154.05/
+NVIDIA_PATH=/usr/src/nvidia-545.29.06/
 RET_DIR=$PWD
 
 /usr/sbin/rmmod datagpu
