@@ -82,7 +82,7 @@ static inline ssize_t gpuAddNvidiaMemory(int32_t fd, uint32_t write, uint64_t ad
  * returns a negative error code.
  **/
 static inline ssize_t gpuRemNvidiaMemory(int32_t fd) {
-   return(ioctl(fd, GPU_Rem_Nvidia_Memory, NULL));
+   return(ioctl(fd, GPU_Rem_Nvidia_Memory, 0));
 }
 
 #endif // !DMA_IN_KERNEL
