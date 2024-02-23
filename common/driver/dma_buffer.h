@@ -1,14 +1,15 @@
 /**
- *-----------------------------------------------------------------------------
- * Title      : General purpose DMA buffers.
  * ----------------------------------------------------------------------------
- * File       : dma_buffer.h
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-08
- * Last update: 2016-08-08
+ * Company    : SLAC National Accelerator Laboratory
  * ----------------------------------------------------------------------------
  * Description:
- * General purpose DMA buffers for drivers.
+ *    This header file defines the interface and structures for managing DMA
+ *    buffers within the aes_stream_drivers package. It provides a comprehensive
+ *    API for allocating, deallocating, and manipulating DMA buffers that are
+ *    essential for high-throughput data transfers between the CPU and peripheral
+ *    devices in a system. The functionality encapsulated by this file is crucial
+ *    for achieving efficient direct memory access operations, reducing CPU load,
+ *    and enhancing overall data transfer performance within kernel-space drivers.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory
@@ -19,6 +20,7 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
+
 #ifndef __DMA_BUFFER_H__
 #define __DMA_BUFFER_H__
 
@@ -27,191 +29,139 @@
 #include <linux/types.h>
 #include <linux/dma-mapping.h>
 
-// Buffer modes
-// Primary modes are bits to enable app specific expansion
+/**
+ * Buffer Modes
+ *
+ * Defines primary buffer modes as bits to enable application-specific expansion.
+ */
 #define BUFF_COHERENT  0x1
 #define BUFF_STREAM    0x2
 #define BUFF_ARM_ACP   0x4
 
-// Number of buffers per list
+/**
+ * Number of buffers per list.
+ */
 #define BUFFERS_PER_LIST 100000
 
-// Forward declaration
+// Forward declarations
 struct DmaDevice;
 struct DmaDesc;
 struct DmaBufferList;
 
-// TX/RX Buffer
+/**
+ * struct DmaBuffer - TX/RX Buffer
+ * @index: Internal tracking index.
+ * @count: Usage count of the buffer.
+ * @userHas: Pointer to user descriptor.
+ * @inHw: Flag indicating if the buffer is in hardware.
+ * @inQ: Flag indicating if the buffer is queued.
+ * @owner: Ownership flag.
+ * @dest: Destination identifier.
+ * @flags: Buffer flags.
+ * @error: Error status.
+ * @size: Size of the buffer.
+ * @id: Buffer identifier.
+ * @buffList: Pointer to the buffer list containing this buffer.
+ * @buffAddr: Virtual address of the buffer.
+ * @buffHandle: DMA handle for the buffer.
+ *
+ * Represents a buffer for transmitting or receiving data, including metadata
+ * for management and tracking.
+ */
 struct DmaBuffer {
-
-   // Internal tracking
    uint32_t         index;
    uint32_t         count;
    struct DmaDesc * userHas;
    uint8_t          inHw;
    uint8_t          inQ;
    uint8_t          owner;
-
-   // Associated data
-   uint16_t    dest;
-   uint32_t    flags;
-   uint8_t     error;
-   uint32_t    size;
-   uint32_t    id;
-
-   // Pointers
+   uint16_t         dest;
+   uint32_t         flags;
+   uint8_t          error;
+   uint32_t         size;
+   uint32_t         id;
    struct DmaBufferList * buffList;
    void      * buffAddr;
    dma_addr_t  buffHandle;
-
 };
 
-// Buffer List
+/**
+ * struct DmaBufferList - Buffer List
+ * @baseIdx: Base index of the buffers in the list.
+ * @direction: DMA transfer direction.
+ * @dev: Associated DMA device.
+ * @indexed: Indexed list of buffers.
+ * @sorted: Sorted list of buffers for efficient search.
+ * @subCount: Number of sub-lists.
+ * @count: Total number of buffers in the list.
+ *
+ * Organizes multiple DmaBuffers for efficient access and management, supporting
+ * operations like allocation, deallocation, and sorting.
+ */
 struct DmaBufferList {
-
-   // Base index
    uint32_t baseIdx;
-
-   // Buffer direction
    enum dma_data_direction direction;
-
-   // Associated device
    struct DmaDevice * dev;
-
-   // Buffer list
    struct DmaBuffer *** indexed;
-
-   // Sorted buffer list
    struct DmaBuffer ** sorted;
-
-   // Number of lists
    uint32_t subCount;
-
-   // Number of buffers in list
    uint32_t count;
 };
 
-// DMA Queue
+/**
+ * struct DmaQueue - DMA Queue
+ * @count: Total count of buffers in the queue.
+ * @subCount: Number of sub-queues.
+ * @queue: Array of queue entries.
+ * @read: Read pointer index.
+ * @write: Write pointer index.
+ * @lock: Spinlock for concurrent access protection.
+ * @wait: Wait queue for blocking operations.
+ *
+ * Represents a queue for DMA buffers, facilitating ordered processing and
+ * synchronization between producers and consumers.
+ */
 struct DmaQueue {
    uint32_t count;
    uint32_t subCount;
-
-   // Entries
    struct DmaBuffer ***queue;
-
-   // Read and write pointers
    uint32_t read;
    uint32_t write;
-
-   // Access lock
    spinlock_t lock;
-
-   // Queue wait
    wait_queue_head_t wait;
 };
 
-// Create a list of buffer
-// Return number of buffers created
-size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
-                         uint32_t count, uint32_t baseIdx, enum dma_data_direction direction);
-
-// Free a list of buffers
+// Function prototypes
+size_t dmaAllocBuffers(struct DmaDevice *dev, struct DmaBufferList *list, uint32_t count, uint32_t baseIdx, enum dma_data_direction direction);
 void dmaFreeBuffersList(struct DmaBufferList *list);
+void dmaFreeBuffers(struct DmaBufferList *list);
+void *bsearch(const void *key, const void *base, size_t num, size_t size, int (*cmp)(const void *key, const void *elt));
+int32_t dmaSortComp(const void *p1, const void *p2);
+int32_t dmaSearchComp(const void *key, const void *element);
+struct DmaBuffer *dmaFindBufferList(struct DmaBufferList *list, dma_addr_t handle);
+struct DmaBuffer *dmaFindBuffer(struct DmaDevice *dev, dma_addr_t handle);
+struct DmaBuffer *dmaGetBufferList(struct DmaBufferList *list, uint32_t index);
+struct DmaBuffer *dmaGetBuffer(struct DmaDevice *dev, uint32_t index);
+struct DmaBuffer *dmaRetBufferIrq(struct DmaDevice *device, dma_addr_t handle);
+struct DmaBuffer *dmaRetBufferIdx(struct DmaDevice *device, uint32_t index);
+struct DmaBuffer *dmaRetBufferIdxIrq(struct DmaDevice *device, uint32_t index);
+void dmaRxBuffer(struct DmaDesc *desc, struct DmaBuffer *buff);
+void dmaRxBufferIrq(struct DmaDesc *desc, struct DmaBuffer *buff);
+void dmaSortBuffers(struct DmaBufferList *list);
+int32_t dmaBufferToHw(struct DmaBuffer *buff);
+void dmaBufferFromHw(struct DmaBuffer *buff);
+size_t dmaQueueInit(struct DmaQueue *queue, uint32_t count);
+void dmaQueueFree(struct DmaQueue *queue);
+uint32_t dmaQueueNotEmpty(struct DmaQueue *queue);
+uint32_t dmaQueuePush(struct DmaQueue *queue, struct DmaBuffer *entry);
+uint32_t dmaQueuePushIrq(struct DmaQueue *queue, struct DmaBuffer *entry);
+uint32_t dmaQueuePushList(struct DmaQueue *queue, struct DmaBuffer **buff, size_t cnt);
+uint32_t dmaQueuePushListIrq(struct DmaQueue *queue, struct DmaBuffer **buff, size_t cnt);
+struct DmaBuffer *dmaQueuePop(struct DmaQueue *queue);
+struct DmaBuffer *dmaQueuePopIrq(struct DmaQueue *queue);
+ssize_t dmaQueuePopList(struct DmaQueue *queue, struct DmaBuffer **buff, size_t cnt);
+ssize_t dmaQueuePopListIrq(struct DmaQueue *queue, struct DmaBuffer **buff, size_t cnt);
+void dmaQueuePoll(struct DmaQueue *queue, struct file *filp, poll_table *wait);
+void dmaQueueWait(struct DmaQueue *queue);
 
-// Free a list of buffers including heads
-void dmaFreeBuffers ( struct DmaBufferList *list );
-
-// Binary search
-void *bsearch(const void *key, const void *base, size_t num, size_t size,
-	      int (*cmp)(const void *key, const void *elt));
-
-// Buffer comparison for sort
-// Return comparison result, 1 if greater, -1 if less, 0 if equal
-int32_t dmaSortComp (const void *p1, const void *p2);
-
-// Buffer comparison for search
-// Return comparison result, 1 if greater, -1 if less, 0 if equal
-int32_t dmaSearchComp (const void *key, const void *element);
-
-// Find a buffer from specific list
-struct DmaBuffer * dmaFindBufferList ( struct DmaBufferList *list, dma_addr_t handle );
-
-// Find a buffer from either list
-struct DmaBuffer * dmaFindBuffer ( struct DmaDevice *dev, dma_addr_t handle );
-
-// Get a buffer using index, in passed list
-struct DmaBuffer * dmaGetBufferList ( struct DmaBufferList *list, uint32_t index );
-
-// Get a buffer using index, in either list
-struct DmaBuffer * dmaGetBuffer ( struct DmaDevice *dev, uint32_t index );
-
-// Conditionally return buffer to transmit buffer. If buffer is not found in
-// transmit list return a pointer to the buffer. Passed value is the dma handle.
-struct DmaBuffer * dmaRetBufferIrq ( struct DmaDevice *device, dma_addr_t handle );
-
-// Conditionally return buffer to transmit buffer. If buffer is not found in
-// transmit list return a pointer to the buffer. Passed value is the dma handle.
-struct DmaBuffer * dmaRetBufferIdx ( struct DmaDevice *device, uint32_t index );
-
-// Conditionally return buffer to transmit buffer. If buffer is not found in
-// transmit list return a pointer to the buffer. Passed value is the dma handle.
-struct DmaBuffer * dmaRetBufferIdxIrq ( struct DmaDevice *device, uint32_t index );
-
-// Push buffer to descriptor receive queue
-void dmaRxBuffer ( struct DmaDesc *desc, struct DmaBuffer *buff );
-
-// Push buffer to descriptor receive queue
-// Called inside IRQ routine
-void dmaRxBufferIrq ( struct DmaDesc *desc, struct DmaBuffer *buff );
-
-// Sort a buffer list
-void dmaSortBuffers ( struct DmaBufferList *list );
-
-// Buffer being passed to hardware
-int32_t dmaBufferToHw ( struct DmaBuffer *buff);
-
-// Buffer being returned from hardware
-void dmaBufferFromHw ( struct DmaBuffer *buff);
-
-// Init queue
-// Return number initialized
-size_t dmaQueueInit ( struct DmaQueue *queue, uint32_t count );
-
-// Free queue
-void dmaQueueFree ( struct DmaQueue *queue );
-
-// Dma queue is not empty
-// Return 0 if empty, 1 if not empty
-uint32_t dmaQueueNotEmpty ( struct DmaQueue *queue );
-
-// Push a queue entry
-// Return 1 if fail, 0 if success
-// Use IRQ method inside of IRQ handler
-uint32_t dmaQueuePush       ( struct DmaQueue *queue, struct DmaBuffer *entry );
-uint32_t dmaQueuePushIrq    ( struct DmaQueue *queue, struct DmaBuffer *entry );
-
-// Return a block of buffers from queue
-// Return 1 if fail, 0 if success
-// Use IRQ method inside of IRQ handler
-uint32_t dmaQueuePushList    ( struct DmaQueue *queue, struct DmaBuffer **buff, size_t cnt );
-uint32_t dmaQueuePushListIrq ( struct DmaQueue *queue, struct DmaBuffer **buff, size_t cnt );
-
-// Pop a queue entry
-// Return a queue entry, NULL if nothing available
-// Use IRQ method inside of IRQ handler
-struct DmaBuffer * dmaQueuePop       ( struct DmaQueue *queue );
-struct DmaBuffer * dmaQueuePopIrq    ( struct DmaQueue *queue );
-
-// Get a block of buffers from queue
-// Use IRQ method inside of IRQ handler
-ssize_t dmaQueuePopList    ( struct DmaQueue *queue, struct DmaBuffer **buff, size_t cnt );
-ssize_t dmaQueuePopListIrq ( struct DmaQueue *queue, struct DmaBuffer **buff, size_t cnt );
-
-// Poll queue
-void dmaQueuePoll ( struct DmaQueue *queue, struct file *filp, poll_table *wait );
-
-// Wait on queue
-void dmaQueueWait ( struct DmaQueue *queue );
-
-#endif
-
+#endif // __DMA_BUFFER_H__
