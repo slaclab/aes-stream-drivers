@@ -616,7 +616,7 @@ static inline void dmaAddMaskBytes(uint8_t *mask, uint32_t dest) {
    if (dest < 8 * (DMA_MASK_SIZE)) {
       byte = dest / 8;
       bit = dest % 8;
-      mask[byte] |= (1 << bit);
+      mask[byte] += (1 << bit);
    }
 }
 
