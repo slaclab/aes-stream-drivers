@@ -9,12 +9,12 @@
  *    routines to read the version register, interpret the version data, and report it back to the
  *    user or application, ensuring smooth integration and operation within a larger system.
  * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to 
- * the license terms in the LICENSE.txt file found in the top-level directory 
- * of this distribution and at: 
- *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
- * No part of the aes_stream_drivers package, including this file, may be 
- * copied, modified, propagated, or distributed except according to the terms 
+ * This file is part of the aes_stream_drivers package. It is subject to
+ * the license terms in the LICENSE.txt file found in the top-level directory
+ * of this distribution and at:
+ *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ * No part of the aes_stream_drivers package, including this file, may be
+ * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
@@ -75,10 +75,10 @@ void AxiVersion_Read(struct DmaDevice *dev, void * base, struct AxiVersion *aVer
    aVer->firmwareVersion = ioread32(&(reg->firmwareVersion));
    aVer->scratchPad      = ioread32(&(reg->scratchPad));
    aVer->upTimeCount     = ioread32(&(reg->upTimeCount));
-   
+
    // Read feature descriptor values
    for (x = 0; x < 2; x++) {
-      ((uint32_t *)aVer->fdValue)[x] = ioread32(&(reg->fdValue[x]));   
+      ((uint32_t *)aVer->fdValue)[x] = ioread32(&(reg->fdValue[x]));
    }
 
    // Read user-defined values
@@ -125,10 +125,10 @@ void AxiVersion_Show(struct seq_file *s, struct DmaDevice *dev, struct AxiVersio
    seq_printf(s,"     Firmware Version : 0x%x\n",aVer->firmwareVersion);
    seq_printf(s,"           ScratchPad : 0x%x\n",aVer->scratchPad);
    seq_printf(s,"        Up Time Count : %u\n",aVer->upTimeCount);
-   
+
    // seq_printf(s,"             Fd Value : 0x");
    // for (x=0; x < 8; x++) seq_printf(s,"%.02x",aVer->fdValue[8-x]);
-   // seq_printf(s,"\n");   
+   // seq_printf(s,"\n");
    // for (x=0; x < 64; x++)
    // seq_printf(s,"          User Values : 0x%x\n",aVer->userValues[x]);
    // seq_printf(s,"            Device ID : 0x%x\n",aVer->deviceId);

@@ -9,12 +9,12 @@
  *    without CPU intervention, optimizing performance for high-speed data
  *    processing and transfer tasks.
  * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to 
- * the license terms in the LICENSE.txt file found in the top-level directory 
- * of this distribution and at: 
- *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
- * No part of the aes_stream_drivers package, including this file, may be 
- * copied, modified, propagated, or distributed except according to the terms 
+ * This file is part of the aes_stream_drivers package. It is subject to
+ * the license terms in the LICENSE.txt file found in the top-level directory
+ * of this distribution and at:
+ *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ * No part of the aes_stream_drivers package, including this file, may be
+ * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
@@ -100,7 +100,7 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
 
       // Coherent buffer, map dma coherent buffers
       if ( list->dev->cfgMode & BUFF_COHERENT ) {
-         buff->buffAddr = 
+         buff->buffAddr =
             dma_alloc_coherent(list->dev->device, list->dev->cfgSize, &(buff->buffHandle), GFP_DMA32 | GFP_KERNEL);
       }
 
@@ -111,7 +111,7 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
          if (buff->buffAddr != NULL) {
             buff->buffHandle = dma_map_single(list->dev->device,buff->buffAddr,
                                              list->dev->cfgSize,direction);
-    
+
             // Map error
             if ( dma_mapping_error(list->dev->device,buff->buffHandle) ) {
                buff->buffHandle = 0;
@@ -152,8 +152,8 @@ cleanup_buffers:
    if ( list->sorted  != NULL ) kfree(list->sorted);
 
 cleanup_list_heads:
-   for (x=0; x < list->subCount; x++) 
-      if ( list->indexed[x] != NULL ) 
+   for (x=0; x < list->subCount; x++)
+      if ( list->indexed[x] != NULL )
          kfree(list->indexed[x]);
    if ( list->indexed != NULL ) kfree(list->indexed);
 
@@ -176,7 +176,7 @@ void dmaFreeBuffersList(struct DmaBufferList *list) {
    uint32_t sl;
    uint32_t sli;
    uint32_t x;
-   
+
    for (x = 0; x < list->count; x++) {
       sl  = x / BUFFERS_PER_LIST;
       sli = x % BUFFERS_PER_LIST;
@@ -574,8 +574,8 @@ void dmaSortBuffers(struct DmaBufferList *list) {
 int32_t dmaBufferToHw(struct DmaBuffer *buff) {
    // Check if buffer is in stream mode and sync
    if (buff->buffList->dev->cfgMode & BUFF_STREAM) {
-      dma_sync_single_for_device(buff->buffList->dev->device, 
-                                 buff->buffHandle, 
+      dma_sync_single_for_device(buff->buffList->dev->device,
+                                 buff->buffHandle,
                                  buff->buffList->dev->cfgSize,
                                  buff->buffList->direction);
    }
@@ -598,8 +598,8 @@ void dmaBufferFromHw(struct DmaBuffer *buff) {
 
    // Check if buffer is in stream mode and sync
    if (buff->buffList->dev->cfgMode & BUFF_STREAM) {
-      dma_sync_single_for_cpu(buff->buffList->dev->device, 
-                              buff->buffHandle, 
+      dma_sync_single_for_cpu(buff->buffList->dev->device,
+                              buff->buffHandle,
                               buff->buffList->dev->cfgSize,
                               buff->buffList->direction);
    }

@@ -5,12 +5,12 @@
  * File       : fpga_prom.c
  * Created    : 2017-03-16
  * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to 
- * the license terms in the LICENSE.txt file found in the top-level directory 
- * of this distribution and at: 
- *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
- * No part of the aes_stream_drivers package, including this file, may be 
- * copied, modified, propagated, or distributed except according to the terms 
+ * This file is part of the aes_stream_drivers package. It is subject to
+ * the license terms in the LICENSE.txt file found in the top-level directory
+ * of this distribution and at:
+ *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ * No part of the aes_stream_drivers package, including this file, may be
+ * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
@@ -19,7 +19,7 @@
 #include <FpgaProm.h>
 #include <dma_common.h>
 
-// Prom Read 
+// Prom Read
 int32_t FpgaProm_Write(struct DmaDevice *dev, void * base, uint64_t arg) {
    int32_t  ret;
    uint32_t tempVal;
@@ -32,13 +32,13 @@ int32_t FpgaProm_Write(struct DmaDevice *dev, void * base, uint64_t arg) {
       return(-1);
    }
 
-   if ( dev->debug > 0 ) 
+   if ( dev->debug > 0 )
       dev_info(dev->device,"PromWrite: Addr=0x%x, Cmd=0x%x, Data=0x%x.\n", prom.address, prom.cmd, prom.data);
 
    // Set the data bus
    tempVal = ( (prom.cmd << 16) | prom.data );
    iowrite32(tempVal,&(reg->promData));
-   
+
    asm("nop");
 
    // Set the address bus and initiate the transfer
@@ -48,7 +48,7 @@ int32_t FpgaProm_Write(struct DmaDevice *dev, void * base, uint64_t arg) {
    return(0);
 }
 
-// Prom write 
+// Prom write
 int32_t FpgaProm_Read(struct DmaDevice *dev, void * base, uint64_t arg) {
    int32_t  ret;
    uint32_t tempVal;
@@ -74,7 +74,7 @@ int32_t FpgaProm_Read(struct DmaDevice *dev, void * base, uint64_t arg) {
    // Read the data register
    prom.data = ioread32(&(reg->promRead));
 
-   if ( dev->debug > 0 ) 
+   if ( dev->debug > 0 )
       dev_info(dev->device,"PromRead: Addr=0x%x, Cmd=0x%x, Data=0x%x.\n", prom.address, prom.cmd, prom.data);
 
    // Return the data structure
