@@ -498,7 +498,7 @@ static inline void **dmaMapDma(int32_t fd, uint32_t *count, uint32_t *size) {
    if (count != NULL) *count = bCount;
    if (size != NULL) *size = bSize;
 
-   if ((ret = (void **)malloc(sizeof(void *) * bCount)) == NULL) return(NULL);
+   if ( (ret = (void **)malloc(sizeof(void *) * bCount)) == 0 ) return(NULL);
 
    // Attempt to map
    gCount = 0;
