@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
 
    // Calculate operation duration and performance metrics
    timersub(&endTime, &startTime, &diffTime);
-   float duration = diffTime.tv_sec + diffTime.tv_usec / 1000000.0;
+   float duration = (float)diffTime.tv_sec + (float)diffTime.tv_usec / 1000000.0;
    float rate = count / duration;
    float period = 1.0 / rate;
    float bw = ((float)dmaCount * (float)dmaSize) / duration;
