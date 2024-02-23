@@ -1,5 +1,7 @@
 /**
- * ----------------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
+ * Company    : SLAC National Accelerator Laboratory
+ *-----------------------------------------------------------------------------
  * Description:
  * This file is part of the aes_stream_drivers package, responsible for defining
  * top-level module types and functions for AES stream device drivers. It
@@ -15,6 +17,7 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
+
 #include <data_dev_top.h>
 #include <AxiVersion.h>
 #include <axi_version.h>
