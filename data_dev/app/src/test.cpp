@@ -80,7 +80,7 @@ int main(int argc, char **argv) {
    float duration = diffTime.tv_sec + diffTime.tv_usec / 1000000.0;
    float rate = count / duration;
    float period = 1.0 / rate;
-   float bw = (dmaCount * dmaSize) / duration;
+   float bw = ((float)dmaCount * (float)dmaSize) / duration;
 
    // Display performance metrics
    printf("Wrote %u events of size %u in %.3f seconds, rate = %.3f Hz, period = %.3f s, bandwidth = %.3e B/s\n",
