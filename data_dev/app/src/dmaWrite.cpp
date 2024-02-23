@@ -1,16 +1,18 @@
 /**
  *-----------------------------------------------------------------------------
+ * Company    : SLAC National Accelerator Laboratory
+ *-----------------------------------------------------------------------------
  * Description:
- * This program will open up a AXIS DMA port and attempt to write data.
- * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to
- * the license terms in the LICENSE.txt file found in the top-level directory
- * of this distribution and at:
-    * https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ *    Opens an AXIS DMA port to write data using the aes_stream_drivers package.
+ *-----------------------------------------------------------------------------
+ * This file is part of the aes_stream_drivers package. It is subject to the
+ * license terms in the LICENSE.txt file found in the top-level directory of
+ * this distribution and at:
+ *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
  * No part of the aes_stream_drivers package, including this file, may be
  * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
- * ----------------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
 **/
 
 #include <sys/types.h>
@@ -26,154 +28,165 @@
 #include <PrbsData.h>
 using namespace std;
 
-const  char * argp_program_version = "dmaWrite 1.0";
-const  char * argp_program_bug_address = "rherbst@slac.stanford.edu";
+const char *argp_program_version = "dmaWrite 1.0";
+const char *argp_program_bug_address = "rherbst@slac.stanford.edu";
 
+// Program arguments structure
 struct PrgArgs {
-   const char * path;
-   uint32_t     dest;
-   uint32_t     size;
-   uint32_t     count;
-   uint32_t     prbsDis;
-   uint32_t     idxEn;
+   const char *path;
+   uint32_t    dest;
+   uint32_t    size;
+   uint32_t    count;
+   uint32_t    prbsDis;
+   uint32_t    idxEn;
 };
 
+// Default program arguments
 static struct PrgArgs DefArgs = { "/dev/datadev_0", 0, 1000, 1, 0, 0 };
 
-static char   args_doc[] = "dest";
-static char   doc[]      = "   Dest is passed as an integer.";
+// Documentation for arguments
+static char args_doc[] = "dest";
+static char doc[] = "Dest is passed as an integer.";
 
+// Options structure
 static struct argp_option options[] = {
-   { "path",    'p', "PATH",   OPTION_ARG_OPTIONAL, "Path of datadev device to use. Default=/dev/datadev_0.",0},
-   { "prbsdis", 'd', 0,        OPTION_ARG_OPTIONAL, "Disable PRBS generation.",0},
-   { "size",    's', "SIZE",   OPTION_ARG_OPTIONAL, "Size of data to generate. Default=1000",0},
-   { "count",   'c', "COUNT",  OPTION_ARG_OPTIONAL, "Number of frames to generate. Default=1",0},
-   { "indexen", 'i', 0,        OPTION_ARG_OPTIONAL, "Use index based transmit buffers.",0},
-   {0}
+   { "path",    'p', "PATH",   OPTION_ARG_OPTIONAL, "Path of datadev device to use. Default=/dev/datadev_0.", 0 },
+   { "prbsdis", 'd', 0,        OPTION_ARG_OPTIONAL, "Disable PRBS generation.", 0 },
+   { "size",    's', "SIZE",   OPTION_ARG_OPTIONAL, "Size of data to generate. Default=1000", 0 },
+   { "count",   'c', "COUNT",  OPTION_ARG_OPTIONAL, "Number of frames to generate. Default=1", 0 },
+   { "indexen", 'i', 0,        OPTION_ARG_OPTIONAL, "Use index based transmit buffers.", 0 },
+   { 0 }
 };
 
-error_t parseArgs ( int key,  char *arg, struct argp_state *state ) {
+// Argument parsing function
+error_t parseArgs(int key, char *arg, struct argp_state *state) {
    struct PrgArgs *args = (struct PrgArgs *)state->input;
 
-   switch(key) {
+   switch (key) {
       case 'p': args->path = arg; break;
       case 'd': args->prbsDis = 1; break;
-      case 's': args->size = strtol(arg,NULL,10); break;
-      case 'c': args->count = strtol(arg,NULL,10); break;
+      case 's': args->size = strtol(arg, NULL, 10); break;
+      case 'c': args->count = strtol(arg, NULL, 10); break;
       case 'i': args->idxEn = 1; break;
       case ARGP_KEY_ARG:
-          switch (state->arg_num) {
-             case 0: args->dest = strtol(arg,NULL,10); break;
-             default: argp_usage(state); break;
-          }
-          break;
+         if (state->arg_num == 0) {
+            args->dest = strtol(arg, NULL, 10);
+         } else {
+            argp_usage(state);
+         }
+         break;
       case ARGP_KEY_END:
-          if ( state->arg_num < 1) argp_usage(state);
-          break;
-      default: return ARGP_ERR_UNKNOWN; break;
+         if (state->arg_num < 1) argp_usage(state);
+         break;
+      default:
+         return ARGP_ERR_UNKNOWN;
    }
-   return(0);
+   return 0;
 }
 
-static struct argp argp = {options,parseArgs,args_doc,doc};
+// Definition of the argp structure to parse command line arguments
+static struct argp argp = { options, parseArgs, args_doc, doc };
 
-int main (int argc, char **argv) {
-   int32_t       s;
-   int32_t       ret;
-   uint32_t      count;
-   fd_set        fds;
-   void *        txData=NULL;
-   PrbsData      prbs(32,4,1,2,6,31);
-   void **       dmaBuffers=NULL;
-   uint32_t      dmaSize;
-   uint32_t      dmaCount;
-   int32_t       dmaIndex=-1;
-   bool          prbValid;
-   struct timeval startTime;
-   struct timeval endTime;
-   struct timeval diffTime;
-
-   struct timeval timeout;
+int main(int argc, char **argv) {
+   int32_t s;
+   int32_t ret;
+   uint32_t count;
+   fd_set fds;
+   void *txData = NULL;
+   PrbsData prbs(32, 4, 1, 2, 6, 31); // Example PRBS (Pseudo-Random Binary Sequence) generator initialization
+   void **dmaBuffers = NULL;
+   uint32_t dmaSize;
+   uint32_t dmaCount;
+   int32_t dmaIndex = -1;
+   bool prbValid;
+   struct timeval startTime, endTime, diffTime, timeout;
    struct PrgArgs args;
 
-   memcpy(&args,&DefArgs,sizeof(struct PrgArgs));
-   argp_parse(&argp,argc,argv,0,0,&args);
+   // Initialize program arguments with default values
+   memcpy(&args, &DefArgs, sizeof(struct PrgArgs));
 
-   if ( (s = open(args.path, O_RDWR)) <= 0 ) {
-      printf("Error opening %s\n",args.path);
-      return(1);
+   // Parse command line arguments
+   argp_parse(&argp, argc, argv, 0, 0, &args);
+
+   // Open device or file
+   if ((s = open(args.path, O_RDWR)) <= 0) {
+      printf("Error opening %s\n", args.path);
+      return 1;
    }
 
-   if ( args.idxEn ) {
-      if ( (dmaBuffers = dmaMapDma(s,&dmaCount,&dmaSize)) == NULL ) {
+   // DMA or regular buffer setup based on idxEn flag
+   if (args.idxEn) {
+      if ((dmaBuffers = dmaMapDma(s, &dmaCount, &dmaSize)) == NULL) {
          printf("Failed to map dma buffers!\n");
-         return(0);
+         return 0;
       }
-   }
-   else {
-      if ((txData = malloc(args.size)) == NULL ) {
-         printf("Failed to allocate rxData!\n");
-         return(0);
+   } else {
+      if ((txData = malloc(args.size)) == NULL) {
+         printf("Failed to allocate txData!\n");
+         return 0;
       }
    }
 
    prbValid = false;
-   count    = 0;
+   count = 0;
    gettimeofday(&startTime, NULL);
+
    do {
-
-      // Setup fds for select call
+      // Setup file descriptor set for select call
       FD_ZERO(&fds);
-      FD_SET(s,&fds);
+      FD_SET(s, &fds);
 
-      // Setup select timeout for 1 second
-      timeout.tv_sec=2;
-      timeout.tv_usec=0;
+      // Setup select timeout for 2 seconds
+      timeout.tv_sec = 2;
+      timeout.tv_usec = 0;
 
-      // Wait for Socket data ready
-      ret = select(s+1,NULL,&fds,NULL,&timeout);
-      if ( ret <= 0 ) {
-         printf("Write timeout\n");
-      }
-      else {
-
-         if ( args.idxEn ) {
+      // Wait for socket or file descriptor to be ready for writing
+      ret = select(s + 1, NULL, &fds, NULL, &timeout);
+      if (ret <= 0) {
+         printf("Write timeout or error\n");
+      } else {
+         // If using DMA, get next buffer index
+         if (args.idxEn) {
             dmaIndex = dmaGetIndex(s);
-            if ( dmaIndex < 0 ) continue;
+            if (dmaIndex < 0) continue;
             txData = dmaBuffers[dmaIndex];
          }
 
-         // Gen data
-         if ( args.prbsDis == 0 && ! prbValid ) {
-            prbs.genData(txData,args.size);
+         // Generate and write data if PRBS is enabled and data is not yet valid
+         if (args.prbsDis == 0 && !prbValid) {
+            prbs.genData(txData, args.size);
             prbValid = true;
          }
 
-         // DMA Write
-         if ( args.idxEn ) ret = dmaWriteIndex(s,dmaIndex,args.size,0,args.dest);
-         else ret = dmaWrite(s,txData,args.size,0,args.dest);
+         // Perform the write operation, using DMA if enabled
+         if (args.idxEn) {
+            ret = dmaWriteIndex(s, dmaIndex, args.size, 0, args.dest);
+         } else {
+            ret = dmaWrite(s, txData, args.size, 0, args.dest);
+         }
 
-         if ( ret > 0 ) {
+         // On successful write, reset prbValid flag and increment count
+         if (ret > 0) {
             prbValid = false;
             count++;
-            //printf("Write ret=%i, Dest=%i, count=%i\n",ret,args.dest,count);
          }
       }
-   } while ( count < args.count );
+   } while (count < args.count);
+
    gettimeofday(&endTime, NULL);
 
-   if ( args.idxEn ) dmaUnMapDma(s,dmaBuffers);
+   // Clean up allocated resources
+   if (args.idxEn) dmaUnMapDma(s, dmaBuffers);
    else free(txData);
 
-   timersub(&endTime, &startTime, &diffTime); 
-
+   // Calculate and print write operation statistics
+   timersub(&endTime, &startTime, &diffTime);
    float duration = (float)diffTime.tv_sec + (float)diffTime.tv_usec / 1000000.0;
    float rate = count / duration;
    float period = 1.0 / rate;
 
-   printf("Write %i events in %f seconds, rate = %f, period = %f\n",args.count, duration, rate, period);
+   printf("Write %i events in %f seconds, rate = %f Hz, period = %f seconds\n", count, duration, rate, period);
 
    close(s);
-   return(0);
+   return 0;
 }
-
