@@ -1,14 +1,13 @@
 /**
- *-----------------------------------------------------------------------------
- * Title      : Common access functions, not card specific
  * ----------------------------------------------------------------------------
- * File       : dma_common.h
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-08
- * Last update: 2016-08-08
+ * Company    : SLAC National Accelerator Laboratory
  * ----------------------------------------------------------------------------
  * Description:
- * Common access functions, not card specific
+ *    This header file defines the interface and structures for Direct
+ *    Memory Access (DMA) operations within the kernel space. It provides
+ *    a set of utility functions and structures to facilitate DMA transfers
+ *    between the CPU and peripheral devices, aiming to abstract and simplify
+ *    the DMA API usage for different hardware configurations.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory
@@ -19,6 +18,7 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
+
 #ifndef __DMA_COMMON_H__
 #define __DMA_COMMON_H__
 
@@ -30,14 +30,54 @@
 #include <DmaDriver.h>
 #include <dma_buffer.h>
 
-// Maximum number of channels
+// Maximum number of destination channels
 #define DMA_MAX_DEST (8*DMA_MASK_SIZE)
 
 // Forward declarations
 struct hardware_functions;
 struct DmaDesc;
 
-// Device structure
+/**
+ * struct DmaDevice - Represents a DMA-capable device.
+ * @baseAddr: Base physical address of the device's memory-mapped I/O region.
+ * @baseSize: Size of the memory-mapped I/O region.
+ * @base: Base virtual address pointer to the device's memory region.
+ * @reg: Virtual address pointer to the device's register set.
+ * @rwBase: Direct read/write virtual address within the device memory.
+ * @rwSize: Size of the direct read/write region.
+ * @cfgSize: Size of the device configuration space.
+ * @cfgTxCount: Transmit buffer count configuration.
+ * @cfgRxCount: Receive buffer count configuration.
+ * @cfgMode: Operating mode configuration.
+ * @cfgCont: Continuous mode setting.
+ * @cfgIrqHold: IRQ hold-off configuration.
+ * @cfgBgThold: Background threshold configuration (array of 8 values).
+ * @cfgIrqDis: IRQ disable flag.
+ * @index: Device index.
+ * @major: Major number assigned to the device.
+ * @devNum: Device number.
+ * @devName: Device name.
+ * @charDev: Character device structure.
+ * @device: Generic device structure.
+ * @pcidev: Associated PCI device structure.
+ * @hwFunc: Pointer to hardware-specific functions.
+ * @destMask: Destination mask for DMA operations.
+ * @hwData: Hardware-specific data.
+ * @utilData: Utility data for driver use.
+ * @debug: Debug flag.
+ * @irq: IRQ number.
+ * @writeHwLock: Spinlock for hardware write operations.
+ * @commandLock: Spinlock for command operations.
+ * @maskLock: Spinlock for destination mask operations.
+ * @desc: Array of pointers to descriptor structures for DMA channels.
+ * @txBuffers: List of transmit buffers.
+ * @rxBuffers: List of receive buffers.
+ * @tq: Transmit queue structure.
+ *
+ * This structure defines a DMA device, including its configuration,
+ * memory regions, buffer management, and associated locks.
+ */
+
 struct DmaDevice {
 
    // PCI address regions
@@ -101,7 +141,16 @@ struct DmaDevice {
    struct DmaQueue tq;
 };
 
-// File descriptor struct
+/**
+ * struct DmaDesc - DMA descriptor for a device.
+ * @destMask: Destination mask for DMA transfers.
+ * @q: Receive queue for the descriptor.
+ * @async_queue: Asynchronous notification queue.
+ * @dev: Back-pointer to the associated DmaDevice.
+ *
+ * This structure represents a DMA descriptor, which is used to manage
+ * DMA transfers for a specific destination or set of destinations.
+ */
 struct DmaDesc {
 
    // Mask of destinations
@@ -117,7 +166,21 @@ struct DmaDesc {
    struct DmaDevice * dev;
 };
 
-// Hardware Functions
+/**
+ * struct hardware_functions - Hardware-specific functions for a DMA device.
+ * @irq: IRQ handler function.
+ * @init: Initialization function.
+ * @enable: Enable operation function.
+ * @clear: Clear operation function.
+ * @retRxBuffer: Return received buffer function.
+ * @sendBuffer: Send buffer function.
+ * @command: Command execution function.
+ * @seqShow: Function to display device information in a sequential file.
+ *
+ * This structure defines a set of hardware-specific operations that are
+ * required to manage a DMA device. It includes functions for initialization,
+ * buffer management, command processing, and debugging.
+ */
 struct hardware_functions {
    irqreturn_t (*irq)(int irq, void *dev_id);
    void        (*init)(struct DmaDevice *dev);
@@ -141,76 +204,26 @@ extern struct class * gCl;
 // Function structure for below functions
 extern struct file_operations DmaFunctions;
 
-////////////////////////////////////////////
-// Functions below
-////////////////////////////////////////////
-
-// Devnode callback to set permissions of created devices
+// Function prototypes
 char *Dma_DevNode(struct device *dev, umode_t *mode);
-
-// Map dma registers
 int Dma_MapReg ( struct DmaDevice *dev );
-
-// Create and init device
 int Dma_Init(struct DmaDevice *dev);
-
-// Cleanup device
 void Dma_Clean(struct DmaDevice *dev);
-
-// Open Returns 0 on success, error code on failure
 int Dma_Open(struct inode *inode, struct file *filp);
-
-// Dma_Release
-// Called when the device is closed
-// Returns 0 on success, error code on failure
 int Dma_Release(struct inode *inode, struct file *filp);
-
-// Dma_Read
-// Called when the device is read from
-// Returns read count on success. Error code on failure.
 ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos);
-
-// Dma_Write
-// Called when the device is written to
-// Returns write count on success. Error code on failure.
 ssize_t Dma_Write(struct file *filp, const char* buffer, size_t count, loff_t* f_pos);
-
-// Perform commands
 ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg);
-
-// Poll/Select
 uint32_t Dma_Poll(struct file *filp, poll_table *wait );
-
-// Memory map
-// This needs to be redone
 int Dma_Mmap(struct file *filp, struct vm_area_struct *vma);
-
-// Flush queue
 int Dma_Fasync(int fd, struct file *filp, int mode);
-
-// Open proc file
 int Dma_ProcOpen(struct inode *inode, struct file *file);
-
-// Sequence start
 void * Dma_SeqStart(struct seq_file *s, loff_t *pos);
-
-// Sequence start
 void * Dma_SeqNext(struct seq_file *s, void *v, loff_t *pos);
-
-// Sequence end
 void Dma_SeqStop(struct seq_file *s, void *v);
-
-// Sequence show
 int Dma_SeqShow(struct seq_file *s, void *v);
-
-// Set Mask
 int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t * mask );
-
-// Write Register
 int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg);
-
-// Read Register
 int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg);
 
-#endif
-
+#endif // __DMA_COMMON_H__
