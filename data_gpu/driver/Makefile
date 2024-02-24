@@ -13,14 +13,19 @@
 # contained in the LICENSE.txt file.
 # ----------------------------------------------------------------------------
 
+NVIDIA_DRIVERS ?= ""
+
 NAME := datagpu
 HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 KVER := $(shell uname -r)
 ARCH := $(shell uname -m)
 CROSS_COMPILE :=
+KBUILD_MODPOST_WARN := 1
 KERNELDIR := /lib/modules/$(KVER)/build
 SRCS := $(wildcard src/*.c)
 OBJS := $(patsubst %.c,%.o,$(SRCS))
+
+KBUILD_EXTRA_SYMBOLS := $(NVIDIA_DRIVERS)/Module.symvers
 
 ifndef GITV
 	GITT := $(shell cd $(HOME); git describe --tags)
@@ -30,7 +35,7 @@ endif
 
 ccflags-y += -I$(HOME)/src
 ccflags-y += -DDMA_IN_KERNEL=1 -DGITV=\"$(GITV)\"
-ccflags-y += -I/usr/src/nvidia-418.56/nvidia/
+ccflags-y += -I$(NVIDIA_DRIVERS)/nvidia
 
 $(NAME)-objs := src/dma_buffer.o src/dma_common.o
 $(NAME)-objs += src/axi_version.o src/axis_gen2.o src/gpu_async.o src/data_gpu_top.o
@@ -43,3 +48,4 @@ all:
 clean:
 	make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(HOME) clean
 	rm -f $(OBJS)
+
