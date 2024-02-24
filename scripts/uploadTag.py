@@ -1,53 +1,53 @@
-
 import sys
 import os
 import argparse
+import github  # Importing PyGithub for GitHub API interaction
 
-import github  # PyGithub
+# Initialize the argument parser with a description
+parser = argparse.ArgumentParser(description='Download a release from GitHub')
 
-# Set the argument parser
-parser = argparse.ArgumentParser('Release Download')
-
-# Add arguments
+# Add arguments for the GitHub repository, tag of the release, and file to upload
 parser.add_argument(
     "--repo",
-    type     = str,
-    required = True,
-    help     = "Github Repo"
+    type=str,
+    required=True,
+    help="GitHub repository in the format 'username/repository'"
 )
 
 parser.add_argument(
     "--tag",
-    type     = str,
-    required = True,
-    help     = "Tag to release"
+    type=str,
+    required=True,
+    help="Tag of the release to download"
 )
 
 parser.add_argument(
     "--file",
-    type     = str,
-    required = True,
-    help     = "File to upload"
+    type=str,
+    required=True,
+    help="Path to the file to upload"
 )
 
-# Get the arguments
+# Parse the arguments from the command line
 args = parser.parse_args()
 
-print("\nLogging into github....\n")
+print("\nLogging into GitHub...\n")
 
+# Retrieve GitHub token from environment variables
 token = os.environ.get('GH_REPO_TOKEN')
 
+# Exit if the GitHub token is not found
 if token is None:
-    sys.exit("Failed to get github token from GH_REPO_TOKEN environment variable")
+    sys.exit("Failed to get GitHub token from GH_REPO_TOKEN environment variable")
 
+# Authenticate with GitHub using the provided token
 gh = github.Github(token)
-remRepo = gh.get_repo(args.repo)
 
+# Retrieve the specified repository
 try:
-
-    release = remRepo.get_release(args.tag)
+    repo = gh.get_repo(args.repo)
+    release = repo.get_release(args.tag)
     release.upload_asset(args.file)
-
+    print(f"Successfully uploaded {args.file} to release {args.tag} in repository {args.repo}.")
 except Exception as e:
-    sys.exit(f"Failed to find and upload tag {args.tag}: {e}")
-
+    sys.exit(f"Failed to find the release '{args.tag}' or upload the file '{args.file}': {e}")
