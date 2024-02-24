@@ -36,14 +36,27 @@
 #include <linux/slab.h>
 #include <linux/version.h>
 
-// Module Name
+/**
+ * MODULE_NAME - "axi_memory_map"
+ *
+ * @psMinAddr: Start address for PS peripherals (SPI, I2C, etc).
+ * @psMaxAddr: End address for PS peripherals.
+ * @plMinAddr: Start address for PL AXI port address configurations.
+ *             Edit this to match your PL AXI port address configurations.
+ * @plMaxAddr: End address for PL AXI port address configurations.
+ *             Edit this to match your PL AXI port address configurations.
+ *
+ * Description:
+ *    This module provides an interface for the AXI Memory Map Kernel Driver.
+ */
+
 #define MOD_NAME "axi_memory_map"
 
-unsigned long psMinAddr = 0xFF000000; // PS peripherals (SPI, I2C, etc)
-unsigned long psMaxAddr = 0xFFFFFFFF; // PS peripherals (SPI, I2C, etc)
+unsigned long psMinAddr = 0xFF000000;
+unsigned long psMaxAddr = 0xFFFFFFFF;
 
-unsigned long plMinAddr = 0x400000000; // Edit this to match your PL AXI port address configurations
-unsigned long plMaxAddr = 0x4FFFFFFFF; // Edit this to match your PL AXI port address configurations
+unsigned long plMinAddr = 0x400000000;
+unsigned long plMaxAddr = 0x4FFFFFFFF;
 
 MODULE_AUTHOR("Ryan Herbst");
 MODULE_DESCRIPTION("AXI Memory Map Interface");
@@ -51,20 +64,39 @@ MODULE_LICENSE("GPL");
 module_init(Map_Init);
 module_exit(Map_Exit);
 
-// Global device
+/**
+ * struct MapDevice - Global device structure.
+ * Description:
+ *    Holds device-specific information used across the driver.
+ */
 struct MapDevice dev;
 
-// Global variable for the device class
-struct class * gCl = NULL;
+/**
+ * gCl - Global variable for the device class.
+ * Description:
+ *    Pointer to the structure representing the device class.
+ */
+struct class *gCl = NULL;
 
-// Define interface routines
+/**
+ * struct file_operations MapFunctions - Define interface routines.
+ * @read: Function pointer to the device read routine.
+ * @write: Function pointer to the device write routine.
+ * @open: Function pointer to the device open routine.
+ * @release: Function pointer to the device release routine.
+ * @unlocked_ioctl: Function pointer to the device ioctl routine.
+ * @compat_ioctl: Function pointer to the device ioctl routine (compat layer).
+ *
+ * Description:
+ *    Maps file operations to the corresponding device driver functions.
+ */
 struct file_operations MapFunctions = {
-   read:           Map_Read,
-   write:          Map_Write,
-   open:           Map_Open,
-   release:        Map_Release,
-   unlocked_ioctl: (void *)Map_Ioctl,
-   compat_ioctl:   (void *)Map_Ioctl,
+   .read           = Map_Read,
+   .write          = Map_Write,
+   .open           = Map_Open,
+   .release        = Map_Release,
+   .unlocked_ioctl = (void *)Map_Ioctl,
+   .compat_ioctl   = (void *)Map_Ioctl,
 };
 
 /**
@@ -432,14 +464,29 @@ ssize_t Map_Write(struct file *filp, const char* buffer, size_t count, loff_t* f
    return -1; // DMA write operation is not supported
 }
 
-module_param(psMinAddr,ulong,0);
-MODULE_PARM_DESC(psMinAddr, "PS Min Map Addr");
+/**
+ * module_param - Macro to declare module parameters
+ * @psMinAddr: Parameter for minimum address mapping for PS (Processing System)
+ * @psMaxAddr: Parameter for maximum address mapping for PS (Processing System)
+ * @plMinAddr: Parameter for minimum address mapping for PL (Programmable Logic)
+ * @plMaxAddr: Parameter for maximum address mapping for PL (Programmable Logic)
+ * @ulong: Specifies that the parameter is of unsigned long type
+ * @0: The permissions for sysfs entry (0 means no permissions)
+ *
+ * Description:
+ *    These parameters allow the configuration of address mapping ranges
+ *    for both the Processing System (PS) and Programmable Logic (PL)
+ *    sections of an FPGA or similar hardware. The minimum and maximum
+ *    addresses define the allowable memory mapping range for operations.
+ */
+module_param(psMinAddr, ulong, 0);
+MODULE_PARM_DESC(psMinAddr, "Minimum address for PS memory mapping.");
 
-module_param(psMaxAddr,ulong,0);
-MODULE_PARM_DESC(psMaxAddr, "PS Max Map Addr");
+module_param(psMaxAddr, ulong, 0);
+MODULE_PARM_DESC(psMaxAddr, "Maximum address for PS memory mapping.");
 
-module_param(plMinAddr,ulong,0);
-MODULE_PARM_DESC(plMinAddr, "PL Min Map Addr");
+module_param(plMinAddr, ulong, 0);
+MODULE_PARM_DESC(plMinAddr, "Minimum address for PL memory mapping.");
 
-module_param(plMaxAddr,ulong,0);
-MODULE_PARM_DESC(plMaxAddr, "PL Max Map Addr");
+module_param(plMaxAddr, ulong, 0);
+MODULE_PARM_DESC(plMaxAddr, "Maximum address for PL memory mapping.");
