@@ -1,4 +1,15 @@
 /**
+ *-----------------------------------------------------------------------------
+ * Company    : SLAC National Accelerator Laboratory
+ *-----------------------------------------------------------------------------
+ * Description:
+ *    Implements the AXI Memory Map Kernel Driver's core functionalities.
+ *    This source file provides the logic for memory mapping,
+ *    access, and management within Linux kernel modules, supporting device-agnostic
+ *    operations. It includes the implementation of initialization, mapping, read/write
+ *    operations, and cleanup routines for managing direct memory access (DMA) efficiently
+ *    in a secure and scalable manner. Tailored for integration with the aes_stream_drivers
+ *    package, it enhances device communication capabilities.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory
@@ -9,6 +20,7 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
+
 #include <aximemorymap.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
