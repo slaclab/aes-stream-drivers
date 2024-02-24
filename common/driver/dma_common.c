@@ -1,14 +1,13 @@
 /**
- *-----------------------------------------------------------------------------
- * Title      : Common access functions, not card specific
  * ----------------------------------------------------------------------------
- * File       : dma_common.c
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-08
- * Last update: 2016-08-08
+ * Company    : SLAC National Accelerator Laboratory
  * ----------------------------------------------------------------------------
  * Description:
- * Common access functions, not card specific
+ *    This file implements the common functionalities required for Direct
+ *    Memory Access (DMA) operations within the kernel space. It provides
+ *    a set of utility functions and structures to facilitate DMA transfers
+ *    between the CPU and peripheral devices, aiming to abstract and simplify
+ *    the DMA API usage for different hardware configurations.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory
@@ -19,6 +18,7 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
+
 #include <DmaDriver.h>
 #include <dma_common.h>
 #include <dma_buffer.h>
@@ -29,34 +29,70 @@
 #include <linux/version.h>
 #include <linux/slab.h>
 
-// Define interface routines
+/**
+ * struct DmaFunctions - Define interface routines for DMA operations
+ * @owner:          Pointer to the module owner of this structure
+ * @read:           Pointer to the function that handles read operations
+ * @write:          Pointer to the function that handles write operations
+ * @open:           Pointer to the function that handles open operations
+ * @release:        Pointer to the function that handles release operations
+ * @poll:           Pointer to the function that handles poll operations
+ * @fasync:         Pointer to the function that handles fasync operations
+ * @unlocked_ioctl: Pointer to the function that handles ioctl operations without the BKL
+ * @compat_ioctl:   Pointer to the function that handles ioctl operations for compatibility
+ * @mmap:           Pointer to the function that handles memory mapping operations
+ *
+ * This structure defines the file operations for DMA (Direct Memory Access)
+ * interface routines. Each field represents a specific operation in the file
+ * operations interface, allowing the kernel to interact with DMA devices.
+ */
 struct file_operations DmaFunctions = {
-   owner:          THIS_MODULE,
-   read:           Dma_Read,
-   write:          Dma_Write,
-   open:           Dma_Open,
-   release:        Dma_Release,
-   poll:           Dma_Poll,
-   fasync:         Dma_Fasync,
-   unlocked_ioctl: (void *)Dma_Ioctl,
-   compat_ioctl:   (void *)Dma_Ioctl,
-   mmap:           Dma_Mmap
+   .owner          = THIS_MODULE,
+   .read           = Dma_Read,
+   .write          = Dma_Write,
+   .open           = Dma_Open,
+   .release        = Dma_Release,
+   .poll           = Dma_Poll,
+   .fasync         = Dma_Fasync,
+   .unlocked_ioctl = (void *)Dma_Ioctl,
+   .compat_ioctl   = (void *)Dma_Ioctl,
+   .mmap           = Dma_Mmap,
 };
-
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
 
-// Setup proc file operations
+/**
+ * struct DmaProcOps - proc file operations for DMA
+ *
+ * Setup proc file operations for Direct Memory Access (DMA) management
+ * via procfs. This structure is used for kernel versions 5.6.0 and above.
+ *
+ * @proc_open:    Pointer to the function to open the proc file.
+ * @proc_read:    Pointer to the function to read from the proc file.
+ * @proc_lseek:   Pointer to the function to seek within the proc file.
+ * @proc_release: Pointer to the function to release the proc file.
+ */
 static struct proc_ops DmaProcOps = {
    .proc_open    = Dma_ProcOpen,
    .proc_read    = seq_read,
-   .proc_lseek  = seq_lseek,
+   .proc_lseek   = seq_lseek,
    .proc_release = seq_release
 };
 
 #else
 
-// Setup proc file operations
+/**
+ * struct DmaProcOps - file operations for DMA
+ *
+ * Setup file operations for Direct Memory Access (DMA) management
+ * via procfs. This structure is used for kernel versions below 5.6.0.
+ *
+ * @owner:    Module owner.
+ * @open:     Pointer to the function to open the proc file.
+ * @read:     Pointer to the function to read from the proc file.
+ * @llseek:   Pointer to the function to seek within the proc file.
+ * @release:  Pointer to the function to release the proc file.
+ */
 static struct file_operations DmaProcOps = {
    .owner   = THIS_MODULE,
    .open    = Dma_ProcOpen,
@@ -67,41 +103,83 @@ static struct file_operations DmaProcOps = {
 
 #endif
 
-// Sequence operations
+/**
+ * struct DmaSeqOps - Sequence operations for DMA.
+ *
+ * This structure defines the sequence operations for DMA handling.
+ * It includes methods to start, stop, get the next element, and
+ * display information about the current element in the sequence.
+ *
+ * @start: Pointer to the function that initiates the sequence.
+ * @next: Pointer to the function that moves to the next element in the sequence.
+ * @stop: Pointer to the function that stops the sequence.
+ * @show: Pointer to the function that displays the current element.
+ */
 static struct seq_operations DmaSeqOps = {
-   .start = Dma_SeqStart,
-   .next  = Dma_SeqNext,
-   .stop  = Dma_SeqStop,
-   .show  = Dma_SeqShow
+   .start = Dma_SeqStart,   ///< Start the sequence
+   .next  = Dma_SeqNext,    ///< Move to the next element
+   .stop  = Dma_SeqStop,    ///< Stop the sequence
+   .show  = Dma_SeqShow     ///< Display the current element
 };
 
-// Number of active devices
+/**
+ * gDmaDevCount - Number of active DMA devices.
+ */
 uint32_t gDmaDevCount;
 
-// Global variable for the device class
-struct class * gCl;
+/**
+ * gCl - Global variable for the DMA device class.
+ */
+struct class *gCl;
 
-
-// Devnode callback to set permissions of created devices
-char *Dma_DevNode(struct device *dev, umode_t *mode){
-   if ( mode != NULL ) *mode = 0666;
-   return(NULL);
+/**
+ * Dma_DevNode - Devnode callback to set permissions of created devices.
+ * @dev: Pointer to the device structure.
+ * @mode: Pointer to the mode to be set.
+ *
+ * This function is used to set the device file permissions to be
+ * accessible by all users (0666).
+ *
+ * Returns NULL always.
+ */
+char *Dma_DevNode(struct device *dev, umode_t *mode) {
+   if (mode != NULL) {
+      *mode = 0666;
+   }
+   return NULL;
 }
 
-void Dma_UnmapReg ( struct DmaDevice *dev ) {
-
-   // Release memory region
+/**
+ * Dma_UnmapReg - Unmaps and releases memory region allocated to a DMA device.
+ * @dev: Pointer to the DmaDevice structure.
+ *
+ * This function unmaps the device I/O memory and releases the memory
+ * region allocated to the DMA device, ensuring that the device's
+ * resources are properly cleaned up.
+ */
+void Dma_UnmapReg(struct DmaDevice *dev) {
+   // Release the allocated memory region
    release_mem_region(dev->baseAddr, dev->baseSize);
 
-   // Unmap
+   // Unmap the device I/O memory
    iounmap(dev->base);
-
 }
 
-// Map address space in buffer
-int Dma_MapReg ( struct DmaDevice *dev ) {
-   if ( dev->base == NULL ) {
-      dev_info(dev->device,"Init: Mapping Register space 0x%llx with size 0x%x.\n",dev->baseAddr,dev->baseSize);
+/**
+ * Dma_MapReg - Maps the address space in the buffer for DMA operations
+ * @dev: pointer to the DmaDevice structure
+ *
+ * This function attempts to map the device's register space into memory,
+ * using ioremap or ioremap_nocache depending on the kernel version.
+ * It also requests the memory region to prevent other drivers from
+ * claiming the same space. If mapping or memory request fails, it
+ * logs an error and returns -1. On success, it returns 0.
+ *
+ * Return: 0 on success, -1 on failure.
+ */
+int Dma_MapReg(struct DmaDevice *dev) {
+   if (dev->base == NULL) {
+      dev_info(dev->device, "Init: Mapping Register space 0x%llx with size 0x%x.\n", dev->baseAddr, dev->baseSize);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25)
       dev->base = ioremap(dev->baseAddr, dev->baseSize);
@@ -109,28 +187,32 @@ int Dma_MapReg ( struct DmaDevice *dev ) {
       dev->base = ioremap_nocache(dev->baseAddr, dev->baseSize);
 #endif
 
-      if (! dev->base ) {
-         dev_err(dev->device,"Init: Could not remap memory.\n");
+      if (!dev->base) {
+         dev_err(dev->device, "Init: Could not remap memory.\n");
          return -1;
       }
       dev->reg = dev->base;
-      dev_info(dev->device,"Init: Mapped to 0x%llx.\n",(uint64_t)dev->base);
+      dev_info(dev->device, "Init: Mapped to 0x%llx.\n", (uint64_t)dev->base);
 
       // Hold memory region
-      if ( request_mem_region(dev->baseAddr, dev->baseSize, dev->devName) == NULL ) {
-         dev_err(dev->device,"Init: Memory in use.\n");
-         goto cleanup_ioremap;
+      if (request_mem_region(dev->baseAddr, dev->baseSize, dev->devName) == NULL) {
+         dev_err(dev->device, "Init: Memory in use.\n");
+         iounmap(dev->base);
+         return -1;
       }
    }
-   return(0);
-
-   /* Cleanup */
-cleanup_ioremap:
-   iounmap(dev->base);
-   return -1;
+   return 0;
 }
 
-// Create and init device, called from top level probe function
+/**
+ * Dma_Init - Initialize the DMA device
+ * @dev: pointer to the DmaDevice structure
+ *
+ * This function initializes a DMA device, setting up device numbers,
+ * character device, device class, proc entry, buffer allocations, and
+ * interrupt request. It is called from the top-level probe function.
+ * Returns 0 on success, or a negative error code on failure.
+ */
 int Dma_Init(struct DmaDevice *dev) {
 
    int32_t x;
@@ -147,11 +229,11 @@ int Dma_Init(struct DmaDevice *dev) {
       return(-1);
    }
 
-   // Init the device
+   // Initialize the device
    cdev_init(&(dev->charDev), &DmaFunctions);
    dev->major = MAJOR(dev->devNum);
 
-   // Add the charactor device
+   // Add the character device
    if (cdev_add(&(dev->charDev), dev->devNum, 1) == -1) {
       dev_err(dev->device,"Init: Failed to add device file.\n");
       goto cleanup_alloc_chrdev_region;
@@ -188,21 +270,21 @@ int Dma_Init(struct DmaDevice *dev) {
       goto cleanup_device_create;
    }
 
-   // Remap the I/O register block so that it can be safely accessed.
+   // Remap the I/O register block for safe access
    if ( Dma_MapReg(dev) < 0 ){
       dev_err(dev->device,"Init: Failed to map register block.\n");
       goto cleanup_proc_create_data;
    }
 
-   // Init descriptors
+   // Initialize descriptors
    for (x=0; x < DMA_MAX_DEST; x++) dev->desc[x] = NULL;
 
-   // Init locks
+   // Initialize locks
    spin_lock_init(&(dev->writeHwLock));
    spin_lock_init(&(dev->commandLock));
    spin_lock_init(&(dev->maskLock));
 
-   // Create tx buffers
+   // Create TX buffers
    dev_info(dev->device,"Init: Creating %i TX Buffers. Size=%i Bytes. Mode=%i.\n",
         dev->cfgTxCount,dev->cfgSize,dev->cfgMode);
    res = dmaAllocBuffers (dev, &(dev->txBuffers), dev->cfgTxCount, 0, DMA_TO_DEVICE );
@@ -210,11 +292,11 @@ int Dma_Init(struct DmaDevice *dev) {
 
    dev_info(dev->device,"Init: Created  %i out of %i TX Buffers. %llu Bytes.\n", res,dev->cfgTxCount,tot);
 
-   // Bad buffer allocation
+   // Handle bad buffer allocation for TX
    if ( dev->cfgTxCount > 0 && res == 0 )
       goto cleanup_dma_mapreg;
 
-   // Init transmit queue
+   // Initialize transmit queue
    res = dmaQueueInit(&(dev->tq),dev->txBuffers.count);
    if (res == 0 && dev->txBuffers.count > 0) {
       dev_err(dev->device,"dmaQueueInit: Failed to initialize DMA queues.\n");
@@ -225,7 +307,7 @@ int Dma_Init(struct DmaDevice *dev) {
    for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++)
       dmaQueuePush(&(dev->tq),dmaGetBufferList(&(dev->txBuffers),x));
 
-   // Create rx buffers, bidirectional because rx buffers can be passed to tx
+   // Create RX buffers, bidirectional because RX buffers can be passed to TX
    dev_info(dev->device,"Init: Creating %i RX Buffers. Size=%i Bytes. Mode=%i.\n",
         dev->cfgRxCount,dev->cfgSize,dev->cfgMode);
    res = dmaAllocBuffers (dev, &(dev->rxBuffers), dev->cfgRxCount, dev->txBuffers.count, DMA_BIDIRECTIONAL);
@@ -297,80 +379,122 @@ cleanup_alloc_chrdev_region:
    return -1;
 }
 
-
-// Cleanup device, Called from top level remove function
-void  Dma_Clean(struct DmaDevice *dev) {
+/**
+ * Dma_Clean - Cleanup device resources.
+ * @dev: Pointer to the device structure.
+ *
+ * This function is called from the top-level remove function. It performs
+ * the necessary cleanup for a DMA device. It calls the card-specific clear
+ * function, releases the IRQ if allocated, frees both RX and TX buffers,
+ * clears the transmission queue, and unmaps device registers. Additionally,
+ * it handles the removal of the device from the system and cleans up device
+ * driver registration and class destruction if this is the last device.
+ */
+void Dma_Clean(struct DmaDevice *dev) {
    uint32_t x;
 
-   // Call card specific CLear
+   // Call card-specific clear function.
    dev->hwFunc->clear(dev);
 
-   // Release IRQ
-   if ( dev->irq != 0 ) free_irq(dev->irq, dev);
-
-   // Free buffers
-   dmaFreeBuffers (&(dev->rxBuffers));
-   dmaFreeBuffers (&(dev->txBuffers));
-
-   // CLear tx queue
-   dmaQueueFree(&(dev->tq));
-
-   // Clear descriptors if they exist
-   for (x=0; x < DMA_MAX_DEST; x++) dev->desc[x] = NULL;
-
-   Dma_UnmapReg ( dev ) ;
-
-   // Cleanup proc
-   remove_proc_entry(dev->devName,NULL);
-   cdev_del(&(dev->charDev));
-
-   // Unregister Device Driver this is neccessary but it is causing a kernel crash on removal.
-   if ( gCl != NULL ) device_destroy(gCl, dev->devNum);
-   else dev_warn(dev->device,"Clean: gCl is already NULL.\n");
-
-   unregister_chrdev_region(dev->devNum, 1);
-
-   if (gDmaDevCount == 0 && gCl != NULL) {
-      dev_info(dev->device,"Clean: Destroying device class\n");
+   // Release IRQ if allocated.
+   if (dev->irq != 0) {
+      free_irq(dev->irq, dev);
    }
 
-   memset(dev,0,sizeof(struct DmaDevice));
+   // Free RX and TX buffers.
+   dmaFreeBuffers(&(dev->rxBuffers));
+   dmaFreeBuffers(&(dev->txBuffers));
 
+   // Clear the transmission queue.
+   dmaQueueFree(&(dev->tq));
+
+   // Clear descriptors if they exist.
+   for (x = 0; x < DMA_MAX_DEST; x++) {
+      dev->desc[x] = NULL;
+   }
+
+   // Unmap device registers.
+   Dma_UnmapReg(dev);
+
+   // Remove proc entry and delete character device.
+   remove_proc_entry(dev->devName, NULL);
+   cdev_del(&(dev->charDev));
+
+   // Unregister device driver. Necessary, but causes kernel crash on removal.
+   // Added safety check for 'gCl' to avoid potential null pointer dereference.
+   if (gCl != NULL) {
+      device_destroy(gCl, dev->devNum);
+   } else {
+      dev_warn(dev->device, "Clean: gCl is already NULL.\n");
+   }
+
+   // Unregister character device region.
+   unregister_chrdev_region(dev->devNum, 1);
+
+   // Check if this is the last device and clean up accordingly.
    if (gDmaDevCount == 0 && gCl != NULL) {
+      dev_info(dev->device, "Clean: Destroying device class\n");
       class_destroy(gCl);
       gCl = NULL;
    }
+
+   // Zero out the device structure as part of cleanup.
+   memset(dev, 0, sizeof(struct DmaDevice));
 }
 
-
-// Open Returns 0 on success, error code on failure
+/**
+ * Dma_Open - Open function for the DMA device
+ * @inode: pointer to the inode structure
+ * @filp: file pointer
+ *
+ * This function is called whenever the device file is opened in userspace.
+ * It allocates and initializes a DMA descriptor for the device, setting up
+ * the necessary structures for DMA operations. The initialized descriptor
+ * is stored in the file's private data for later use by other operations.
+ *
+ * Return: 0 on success, or an error code on failure.
+ */
 int Dma_Open(struct inode *inode, struct file *filp) {
-   struct DmaDevice * dev;
-   struct DmaDesc   * desc;
+   struct DmaDevice *dev;
+   struct DmaDesc *desc;
 
-   // Find device structure
+   // Find the device structure from the inode
    dev = container_of(inode->i_cdev, struct DmaDevice, charDev);
 
-   // Init descriptor
-   desc = (struct DmaDesc *)kmalloc(sizeof(struct DmaDesc),GFP_KERNEL);
-   memset(desc,0,sizeof(struct DmaDesc));
-   dmaQueueInit(&(desc->q),dev->cfgRxCount);
+   // Allocate and initialize the DMA descriptor
+   desc = (struct DmaDesc *)kmalloc(sizeof(struct DmaDesc), GFP_KERNEL);
+   if (!desc) {
+      dev_err(dev->device, "Open: kmalloc failed\n");
+      return -ENOMEM; // Return an error if allocation fails
+   }
+
+   memset(desc, 0, sizeof(struct DmaDesc));
+   dmaQueueInit(&(desc->q), dev->cfgRxCount);
    desc->async_queue = NULL;
    desc->dev = dev;
 
-   // Store for later
+   // Store the descriptor in the file's private data for later use
    filp->private_data = desc;
    return 0;
 }
 
-
-// Dma_Release
-// Called when the device is closed
-// Returns 0 on success, error code on failure
+/**
+ * Dma_Release - Release DMA resources
+ * @inode: Pointer to the inode structure
+ * @filp: File structure pointer
+ *
+ * This function is called when the device is closed. It releases DMA buffers
+ * and cleans up device-specific data structures. It ensures that all tx and rx
+ * buffers that are still owned by the descriptor are properly released and that
+ * the descriptor itself is freed. Additionally, it handles the detachment of the
+ * device from asynchronous notification structures if necessary.
+ *
+ * Return: Returns 0 on success, error code on failure.
+ */
 int Dma_Release(struct inode *inode, struct file *filp) {
-   struct DmaDesc   * desc;
-   struct DmaDevice * dev;
-   struct DmaBuffer * buff;
+   struct DmaDesc   *desc;
+   struct DmaDevice *dev;
+   struct DmaBuffer *buff;
 
    unsigned long iflags;
    uint32_t x;
@@ -378,260 +502,295 @@ int Dma_Release(struct inode *inode, struct file *filp) {
    uint32_t destByte;
    uint32_t destBit;
 
+   // Obtain device and descriptor from file's private data
    desc = (struct DmaDesc *)filp->private_data;
-   dev  = desc->dev;
+   dev = desc->dev;
 
-   // Make sure we can't receive data while adjusting mask flags
-   spin_lock_irqsave(&dev->maskLock,iflags);
+   // Prevent data reception during mask adjustment
+   spin_lock_irqsave(&dev->maskLock, iflags);
 
-   // Clear pointers
-   for (x=0; x < DMA_MAX_DEST; x++) {
+   // Clear device descriptor pointers based on destMask
+   for (x = 0; x < DMA_MAX_DEST; x++) {
       destByte = x / 8;
-      destBit  = 1 << (x % 8);
-      if ( (destBit & desc->destMask[destByte]) != 0 ) dev->desc[x] = NULL;
+      destBit = 1 << (x % 8);
+      if ((destBit & desc->destMask[destByte]) != 0) {
+         dev->desc[x] = NULL;
+      }
    }
 
-   spin_unlock_irqrestore(&dev->maskLock,iflags);
+   // Restore interrupts
+   spin_unlock_irqrestore(&dev->maskLock, iflags);
 
-   if (desc->async_queue) Dma_Fasync(-1,filp,0);
+   // Detach from asynchronous notification structures if necessary
+   if (desc->async_queue) {
+      Dma_Fasync(-1, filp, 0);
+   }
 
-   // Release buffers
+   // Release DMA buffers from the descriptor's queue
    cnt = 0;
-   while ( (buff = dmaQueuePop(&(desc->q))) != NULL ) {
-      dev->hwFunc->retRxBuffer(dev,&buff,1);
+   while ((buff = dmaQueuePop(&(desc->q))) != NULL) {
+      dev->hwFunc->retRxBuffer(dev, &buff, 1);
       cnt++;
    }
-   if ( cnt > 0 ) dev_info(dev->device,"Release: Removed %i buffers from closed device.\n", cnt);
+   if (cnt > 0) {
+      dev_info(dev->device, "Release: Removed %i buffers from closed device.\n", cnt);
+   }
 
-   // Find rx buffers still owned by descriptor
+   // Release rx buffers still owned by the descriptor
    cnt = 0;
-   for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
-      buff = dmaGetBufferList(&(dev->rxBuffers),x);
+   for (x = dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
+      buff = dmaGetBufferList(&(dev->rxBuffers), x);
 
-      if ( buff->userHas == desc ) {
+      if (buff->userHas == desc) {
          buff->userHas = NULL;
-         dev->hwFunc->retRxBuffer(dev,&buff,1);
+         dev->hwFunc->retRxBuffer(dev, &buff, 1);
          cnt++;
       }
    }
+   if (cnt > 0) {
+      dev_info(dev->device, "Release: Removed %i rx buffers held by user.\n", cnt);
+   }
 
-   if ( cnt > 0 ) dev_info(dev->device,"Release: Removed %i rx buffers held by user.\n", cnt);
-
-   // Find tx buffers still owned by descriptor
+   // Release tx buffers still owned by the descriptor
    cnt = 0;
-   for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++) {
-      buff = dmaGetBufferList(&(dev->txBuffers),x);
+   for (x = dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++) {
+      buff = dmaGetBufferList(&(dev->txBuffers), x);
 
-      if ( buff->userHas == desc ) {
+      if (buff->userHas == desc) {
          buff->userHas = NULL;
-         dmaQueuePush(&(dev->tq),buff);
+         dmaQueuePush(&(dev->tq), buff);
          cnt++;
       }
    }
+   if (cnt > 0) {
+      dev_info(dev->device, "Release: Removed %i tx buffers held by user.\n", cnt);
+   }
 
-   if ( cnt > 0 ) dev_info(dev->device,"Release: Removed %i tx buffers held by user.\n", cnt);
-
-   // CLear tx queue
+   // Clear the tx queue and free the descriptor
    dmaQueueFree(&(desc->q));
    kfree(desc);
    return 0;
 }
 
-
-// Dma_Read
-// Called when the device is read from
-// Returns read count on success. Error code on failure.
-ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
-   struct DmaBuffer ** buff;
-   struct DmaReadData * rd;
-   void *             dp;
-   ssize_t            ret;
-   size_t             rCnt;
-   ssize_t            bCnt;
-   ssize_t            x;
-   struct DmaDesc   * desc;
-   struct DmaDevice * dev;
+/**
+ * Dma_Read - Read data from a DMA buffer
+ * @filp: The file pointer associated with the device
+ * @buffer: User space buffer to read the data into
+ * @count: The size of the data to read
+ * @f_pos: The offset within the file
+ *
+ * This function is called when the device is read from. It reads data from a DMA buffer
+ * into a user space buffer. It verifies the size of the passed structure, allocates
+ * necessary buffers, copies data from kernel space to user space, and handles errors.
+ *
+ * Return: The number of read structures on success or an error code on failure.
+ */
+ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos)
+{
+   struct DmaBuffer **buff;
+   struct DmaReadData *rd;
+   void *dp;
+   ssize_t ret;
+   size_t rCnt;
+   ssize_t bCnt;
+   ssize_t x;
+   struct DmaDesc *desc;
+   struct DmaDevice *dev;
 
    desc = (struct DmaDesc *)filp->private_data;
-   dev  = desc->dev;
+   dev = desc->dev;
 
-   // Verify that size of passed structure
-   if ( (count % sizeof(struct DmaReadData)) != 0 ) {
-      dev_warn(dev->device,"Read: Called with incorrect size. Got=%li, Exp=%li\n",
-            count,sizeof(struct DmaReadData));
-      return(-1);
-   }
-   rCnt = count / sizeof(struct DmaReadData);
-   rd = (struct DmaReadData *)kmalloc(rCnt * sizeof(struct DmaReadData),GFP_KERNEL);
-   buff = (struct DmaBuffer **)kmalloc(rCnt * sizeof(struct DmaBuffer *),GFP_KERNEL);
-
-   // Copy read structure
-   if ( (ret=copy_from_user(rd,buffer,rCnt * sizeof(struct DmaReadData)))) {
-      dev_warn(dev->device,"Read: failed to copy struct from user space ret=%li, user=%p kern=%p\n",
-          ret, (void *)buffer, (void *)rd);
+   // Verify the size of the passed structure
+   if ((count % sizeof(struct DmaReadData)) != 0) {
+      dev_warn(dev->device, "Read: Called with incorrect size. Got=%li, Exp=%li\n",
+               count, sizeof(struct DmaReadData));
       return -1;
    }
 
-   // Get buffers
-   bCnt = dmaQueuePopList(&(desc->q),buff,rCnt);
+   rCnt = count / sizeof(struct DmaReadData);
+   rd = (struct DmaReadData *)kmalloc(rCnt * sizeof(struct DmaReadData), GFP_KERNEL);
+   buff = (struct DmaBuffer **)kmalloc(rCnt * sizeof(struct DmaBuffer *), GFP_KERNEL);
 
-   for (x = 0; x < bCnt; x++ ) {
+   // Copy the read structure from user space
+   if ((ret = copy_from_user(rd, buffer, rCnt * sizeof(struct DmaReadData)))) {
+      dev_warn(dev->device, "Read: failed to copy struct from user space ret=%li, user=%p kern=%p\n",
+               ret, (void *)buffer, (void *)rd);
+      return -1;
+   }
 
+   // Get buffers from the DMA queue
+   bCnt = dmaQueuePopList(&(desc->q), buff, rCnt);
+
+   for (x = 0; x < bCnt; x++) {
       // Report frame error
-      if ( buff[x]->error )
-         dev_warn(dev->device,"Read: error encountered 0x%x.\n", buff[x]->error);
+      if (buff[x]->error)
+         dev_warn(dev->device, "Read: error encountered 0x%x.\n", buff[x]->error);
 
-      // Copy associated data
-      rd[x].dest   = buff[x]->dest;
-      rd[x].flags  = buff[x]->flags;
-      rd[x].index  = buff[x]->index;
-      rd[x].error  = buff[x]->error;
-      rd[x].ret    = buff[x]->size;
+      // Copy associated data to the read structure
+      rd[x].dest = buff[x]->dest;
+      rd[x].flags = buff[x]->flags;
+      rd[x].index = buff[x]->index;
+      rd[x].error = buff[x]->error;
+      rd[x].ret = buff[x]->size;
 
-      // Convert pointer
-      if ( sizeof(void *) == 4 || rd[x].is32 ) dp = (void *)(rd[x].data & 0xFFFFFFFF);
-      else dp = (void *)rd[x].data;
+      // Convert pointer based on architecture
+      if (sizeof(void *) == 4 || rd[x].is32)
+         dp = (void *)(rd[x].data & 0xFFFFFFFF);
+      else
+         dp = (void *)rd[x].data;
 
-      // if pointer is zero, index is used
-      if ( dp == 0 ) buff[x]->userHas = desc;
-
-      // Copy data if pointer is provided
+      // Use index if pointer is zero
+      if (dp == 0) buff[x]->userHas = desc;
       else {
-
-         // User buffer is short
-         if ( rd[x].size < buff[x]->size ) {
-            dev_warn(dev->device,"Read: user buffer is too small. Rx=%i, User=%i.\n",
-               buff[x]->size, (int32_t)rd[x].size);
+         // Warn if user buffer is too small
+         if (rd[x].size < buff[x]->size) {
+            dev_warn(dev->device, "Read: user buffer is too small. Rx=%i, User=%i.\n",
+                     buff[x]->size, (int32_t)rd[x].size);
             rd[x].error |= DMA_ERR_MAX;
             rd[x].ret = -1;
          }
-
-         // Copy to user
-         else if ( (ret=copy_to_user(dp, buff[x]->buffAddr, buff[x]->size) )) {
-            dev_warn(dev->device,"Read: failed to copy data to user space ret=%li, user=%p kern=%p size=%u.\n",
-                ret, dp, buff[x]->buffAddr, buff[x]->size);
+         // Copy data to user space
+         else if ((ret = copy_to_user(dp, buff[x]->buffAddr, buff[x]->size))) {
+            dev_warn(dev->device, "Read: failed to copy data to user space ret=%li, user=%p kern=%p size=%u.\n",
+                     ret, dp, buff[x]->buffAddr, buff[x]->size);
             rd[x].ret = -1;
          }
 
          // Return entry to RX queue
-         dev->hwFunc->retRxBuffer(dev,&(buff[x]),1);
+         dev->hwFunc->retRxBuffer(dev, &(buff[x]), 1);
       }
 
-      // Debug if enabled
-      if ( dev->debug > 0 ) {
-         dev_info(dev->device,"Read: Ret=%i, Dest=%i, Flags=0x%.8x, Error=%i.\n",
-            rd[x].ret, rd[x].dest, rd[x].flags, rd[x].error);
+      // Debug information
+      if (dev->debug > 0) {
+         dev_info(dev->device, "Read: Ret=%i, Dest=%i, Flags=0x%.8x, Error=%i.\n",
+                  rd[x].ret, rd[x].dest, rd[x].flags, rd[x].error);
       }
    }
    kfree(buff);
 
-   if ( (ret=copy_to_user(buffer,rd,rCnt * sizeof(struct DmaReadData)))) {
-      dev_warn(dev->device,"Read: failed to copy struct to user space ret=%li, user=%p kern=%p\n",
-          ret, (void *)buffer, (void *)&rd);
+   // Copy the read structure back to user space
+   if ((ret = copy_to_user(buffer, rd, rCnt * sizeof(struct DmaReadData)))) {
+      dev_warn(dev->device, "Read: failed to copy struct to user space ret=%li, user=%p kern=%p\n",
+               ret, (void *)buffer, (void *)&rd);
       x = -1;
    }
    kfree(rd);
-   return(bCnt);
+   return bCnt;
 }
 
-// Dma_Write
-// Called when the device is written to
-// Returns write count on success. Error code on failure.
-ssize_t Dma_Write(struct file *filp, const char* buffer, size_t count, loff_t* f_pos) {
-   ssize_t             ret;
-   ssize_t             res;
-   void *              dp;
+/**
+ * Dma_Write - Handle write operations for a DMA device
+ * @filp: pointer to the file structure
+ * @buffer: user space buffer to write data from
+ * @count: size of the data to write
+ * @f_pos: offset in the file (ignored in this context)
+ *
+ * This function is called when a write operation is performed on the DMA device.
+ * It performs various checks and operations to ensure the write is valid, including
+ * verifying the size of the data, copying the data from user space, and handling
+ * buffer management for DMA transactions.
+ *
+ * Return: Number of bytes written on success, negative error code on failure.
+ */
+ssize_t Dma_Write(struct file *filp, const char *buffer, size_t count, loff_t *f_pos)
+{
+   ssize_t ret;
+   ssize_t res;
+   void *dp;
    struct DmaWriteData wr;
-   struct DmaBuffer *  buff;
-   struct DmaDesc   *  desc;
-   struct DmaDevice *  dev;
-   uint32_t            destByte;
-   uint32_t            destBit;
+   struct DmaBuffer *buff;
+   struct DmaDesc *desc;
+   struct DmaDevice *dev;
+   uint32_t destByte;
+   uint32_t destBit;
 
    desc = (struct DmaDesc *)filp->private_data;
-   dev  = desc->dev;
+   dev = desc->dev;
 
-   // Verify that size of passed structure
-   if ( count != sizeof(struct DmaWriteData) ) {
-      dev_warn(dev->device,"Write: Called with incorrect size. Got=%li, Exp=%li.\n",
-            count,sizeof(struct DmaWriteData));
-      return(-1);
+   // Verify the size of the passed structure
+   if (count != sizeof(struct DmaWriteData)) {
+      dev_warn(dev->device, "Write: Called with incorrect size. Got=%li, Exp=%li.\n",
+               count, sizeof(struct DmaWriteData));
+      return -1;
    }
 
-   // Copy data structure
-   if ( (ret=copy_from_user(&wr,buffer,sizeof(struct DmaWriteData))) ) {
-      dev_warn(dev->device,"Write: failed to copy struct from user space ret=%li, user=%p kern=%p.\n",
-          ret, (void *)buffer, (void *)&wr);
-      return(-1);
+   // Copy data structure from user space
+   if ((ret = copy_from_user(&wr, buffer, sizeof(struct DmaWriteData)))) {
+      dev_warn(dev->device, "Write: failed to copy struct from user space ret=%li, user=%p kern=%p.\n",
+               ret, (void *)buffer, (void *)&wr);
+      return -1;
    }
 
-   // Bad size
-   if ( wr.size > dev->cfgSize ) {
-      dev_warn(dev->device,"Write: passed size is too large for TX buffer.\n");
-      return(-1);
+   // Validate passed size against configuration
+   if (wr.size > dev->cfgSize) {
+      dev_warn(dev->device, "Write: passed size is too large for TX buffer.\n");
+      return -1;
    }
 
-   // Bad destination
+   // Validate destination
    destByte = wr.dest / 8;
-   destBit  = 1 << (wr.dest % 8);
-   if ( (wr.dest > DMA_MAX_DEST) || ((destBit & dev->destMask[destByte]) == 0 ) ) {
-      dev_warn(dev->device,"Write: Invalid destination. Byte %i, Got=0x%x. Mask=0x%x.\n",
-            destByte,destBit,dev->destMask[destByte]);
-      return(-1);
+   destBit = 1 << (wr.dest % 8);
+   if ((wr.dest > DMA_MAX_DEST) || ((destBit & dev->destMask[destByte]) == 0)) {
+      dev_warn(dev->device, "Write: Invalid destination. Byte %i, Got=0x%x. Mask=0x%x.\n",
+               destByte, destBit, dev->destMask[destByte]);
+      return -1;
    }
 
-   // Convert pointer
-   if ( sizeof(void *) == 4 || wr.is32 ) dp = (void *)(wr.data & 0xFFFFFFFF);
+   // Convert pointer based on architecture or request
+   if (sizeof(void *) == 4 || wr.is32) dp = (void *)(wr.data & 0xFFFFFFFF);
    else dp = (void *)wr.data;
 
-   // if pointer is zero, index is used
-   if ( dp == 0 ) {
-
-      // First look in tx buffer list then look in rx list
-      // Rx list is alid if user is passing index of previously received buffer
-      //if ( ((buff=dmaGetBuffer(dev,wr.index)) == NULL ) || buff->userHas != desc ) {
-      if ( (buff=dmaGetBuffer(dev,wr.index)) == NULL ) {
-         dev_warn(dev->device,"Write: Invalid index posted: %i.\n", wr.index);
-         return(-1);
+   // Use index if pointer is null
+   if (dp == 0) {
+      if ((buff = dmaGetBuffer(dev, wr.index)) == NULL) {
+         dev_warn(dev->device, "Write: Invalid index posted: %i.\n", wr.index);
+         return -1;
       }
       buff->userHas = NULL;
-   }
+   } else {
+      // Retrieve a transmit buffer and copy data from user space
+      if ((buff = dmaQueuePop(&(dev->tq))) == NULL) return 0;
 
-   // Copy data if pointer is provided
-   else {
-
-      // Read transmit buffer queue, return 0 if error
-      if ((buff = dmaQueuePop(&(dev->tq))) == NULL ) return (0);
-
-      // Copy data from user space.
-      if ( (ret = copy_from_user(buff->buffAddr,dp,wr.size)) ) {
-         dev_warn(dev->device,"Write: failed to copy data from user space ret=%li, user=%p kern=%p size=%i.\n",
-             ret, dp, buff->buffAddr, wr.size);
-         dmaQueuePush(&(dev->tq),buff);
-         return(-1);
+      if ((ret = copy_from_user(buff->buffAddr, dp, wr.size))) {
+         dev_warn(dev->device, "Write: failed to copy data from user space ret=%li, user=%p kern=%p size=%i.\n",
+                  ret, dp, buff->buffAddr, wr.size);
+         dmaQueuePush(&(dev->tq), buff);
+         return -1;
       }
    }
 
-   // Copy remaining fields
+   // Update buffer fields
    buff->count++;
-   buff->dest   = wr.dest;
-   buff->flags  = wr.flags;
-   buff->size   = wr.size;
+   buff->dest = wr.dest;
+   buff->flags = wr.flags;
+   buff->size = wr.size;
 
-   // board specific call
-   res = dev->hwFunc->sendBuffer(dev,&buff,1);
+   // Board-specific buffer handling
+   res = dev->hwFunc->sendBuffer(dev, &buff, 1);
 
-   // Debug
-   if ( dev->debug > 0 ) {
-      dev_info(dev->device,"Write: Size=%i, Dest=%i, Flags=0x%.8x, res=%li\n",
-          buff->size, buff->dest, buff->flags, res);
+   // Log for debugging
+   if (dev->debug > 0) {
+      dev_info(dev->device, "Write: Size=%i, Dest=%i, Flags=0x%.8x, res=%li\n",
+               buff->size, buff->dest, buff->flags, res);
    }
-   if ( res < 0) return(res);
+   if (res < 0) return res;
    else return buff->size;
 }
 
-
-// Perform commands
+/**
+ * Dma_Ioctl - Perform commands on DMA device
+ * @filp: pointer to the file structure
+ * @cmd: command to execute
+ * @arg: argument for the command
+ *
+ * This function handles various IOCTL commands for managing DMA operations,
+ * including getting buffer counts, setting debug levels, reserving destinations,
+ * and reading or writing to registers. It operates directly on the DMA device
+ * represented by @filp.
+ *
+ * Return: Depends on the IOCTL command; usually the result of the command, 0 on success,
+ * or a negative error code on failure.
+ */
 ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
    uint8_t newMask[DMA_MASK_SIZE];
    struct DmaDesc   * desc;
@@ -839,32 +998,62 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
    return(0);
 }
 
-
-// Poll/Select
-uint32_t Dma_Poll(struct file *filp, poll_table *wait ) {
-   struct DmaDesc   * desc;
-   struct DmaDevice * dev;
+/**
+ * Dma_Poll - Polls DMA queues for readability and writability.
+ * @filp: pointer to the file structure
+ * @wait: poll table to wait on
+ *
+ * This function polls DMA queues associated with a DMA descriptor
+ * and its device to determine if they are readable or writable.
+ * It checks both the device's transmit queue and the descriptor's
+ * queue for any pending data.
+ *
+ * Return: A mask indicating the poll condition. The mask is set
+ * to indicate readability (POLLIN | POLLRDNORM) if the descriptor's
+ * queue is not empty, and writability (POLLOUT | POLLWRNORM) if the
+ * device's transmit queue is not empty.
+ */
+uint32_t Dma_Poll(struct file *filp, poll_table *wait) {
+   struct DmaDesc *desc;
+   struct DmaDevice *dev;
 
    __u32 mask = 0;
 
    desc = (struct DmaDesc *)filp->private_data;
-   dev  = desc->dev;
+   dev = desc->dev;
 
-   dmaQueuePoll(&(dev->tq),filp,wait);
-   dmaQueuePoll(&(desc->q),filp,wait);
+   // Polling the device's transmit queue
+   dmaQueuePoll(&(dev->tq), filp, wait);
+   // Polling the descriptor's queue
+   dmaQueuePoll(&(desc->q), filp, wait);
 
-   if ( dmaQueueNotEmpty(&(desc->q)) ) mask |= POLLIN  | POLLRDNORM; // Readable
-   if ( dmaQueueNotEmpty(&(dev->tq)) ) mask |= POLLOUT | POLLWRNORM; // Writable
+   // Check if the descriptor's queue is not empty (readable)
+   if (dmaQueueNotEmpty(&(desc->q)))
+      mask |= POLLIN | POLLRDNORM;
+   // Check if the device's transmit queue is not empty (writable)
+   if (dmaQueueNotEmpty(&(dev->tq)))
+      mask |= POLLOUT | POLLWRNORM;
 
-   return(mask);
+   return mask;
 }
 
-
-// Memory map. Map DMA buffers to user space to eliminate a copy if user chooses
-int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
-   struct DmaDesc   * desc;
-   struct DmaDevice * dev;
-   struct DmaBuffer * buff;
+/**
+ * Dma_Mmap - Map DMA buffers to user space
+ * @filp: file pointer
+ * @vma: VM area structure
+ *
+ * This function maps DMA buffers to user space to eliminate a copy if user
+ * chooses. It handles both coherent and streaming buffer types as well as
+ * ARM ACP, and performs necessary checks on index range, map size, and
+ * offset alignment.
+ *
+ * Return: 0 on success, negative error code on failure.
+ */
+int Dma_Mmap(struct file *filp, struct vm_area_struct *vma)
+{
+   struct DmaDesc   *desc;
+   struct DmaDevice *dev;
+   struct DmaBuffer *buff;
    phys_addr_t physical;
 
    off_t    offset;
@@ -872,97 +1061,111 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
    off_t    base;
    off_t    relMap;
    uint32_t idx;
-   uint32_t ret;
+   int      ret;
 
    desc = (struct DmaDesc *)filp->private_data;
-   dev  = desc->dev;
+   dev = desc->dev;
 
-   // Figure out offset and size
+   // Calculate offset and size from vma
    offset = vma->vm_pgoff << PAGE_SHIFT;
-   vsize  = vma->vm_end - vma->vm_start;
+   vsize = vma->vm_end - vma->vm_start;
 
-   // Compute index, rx and tx buffers are the same size
-   idx = (uint32_t)(offset / (off_t)dev->cfgSize);
+   // Determine buffer index based on offset
+   idx = (uint32_t)(offset / dev->cfgSize);
 
-   // Check if index is in the range of buffers
-   if ( idx < (dev->rxBuffers.count + dev->txBuffers.count) ) {
-
-      // After we use the offset to figure out the index, we must zero it out so
-      // the map call will map to the start of our space from dma_alloc_coherent()
+   if (idx < (dev->rxBuffers.count + dev->txBuffers.count)) {
+      // Reset offset for mapping
       vma->vm_pgoff = 0;
 
-      // Attempt to find buffer
-      if ( (buff = dmaGetBuffer(dev,idx)) == NULL ) {
-         dev_warn(dev->device,"map: Invalid index posted: %i.\n", idx);
-         return(-1);
+      // Retrieve buffer based on index
+      if ((buff = dmaGetBuffer(dev, idx)) == NULL) {
+         dev_warn(dev->device, "map: Invalid index posted: %i.\n", idx);
+         return -1;
       }
 
-      // Size must match the buffer size and offset must be size aligned
-      if ( (vsize < dev->cfgSize) || (offset % dev->cfgSize) != 0 ) {
-         dev_warn(dev->device,"map: Invalid map size (%li) and offset (%li). cfgSize=%i\n",
-               vsize,offset,dev->cfgSize);
-         return(-1);
+      // Validate size and alignment
+      if ((vsize < dev->cfgSize) || (offset % dev->cfgSize) != 0) {
+         dev_warn(dev->device, "map: Invalid map size (%li) and offset (%li). cfgSize=%i\n",
+                  vsize, offset, dev->cfgSize);
+         return -1;
       }
 
-      // Coherent buffer
-      if ( dev->cfgMode & BUFF_COHERENT ) {
-         ret = dma_mmap_coherent(dev->device,vma,buff->buffAddr,buff->buffHandle,dev->cfgSize);
+      // Map coherent buffer
+      if (dev->cfgMode & BUFF_COHERENT) {
+         ret = dma_mmap_coherent(dev->device, vma, buff->buffAddr, buff->buffHandle, dev->cfgSize);
       }
-
-      // Streaming buffer type or ARM ACP
-      else if ( (dev->cfgMode & BUFF_STREAM) || (dev->cfgMode & BUFF_ARM_ACP) ) {
+      // Map streaming buffer or ARM ACP
+      else if (dev->cfgMode & BUFF_STREAM || dev->cfgMode & BUFF_ARM_ACP) {
          ret = remap_pfn_range(vma, vma->vm_start,
                                virt_to_phys((void *)buff->buffAddr) >> PAGE_SHIFT,
-                               vsize,
-                               vma->vm_page_prot);
+                               vsize, vma->vm_page_prot);
+      } else {
+         ret = -1;
       }
-      else ret = -1;
 
-      if ( ret < 0 )
-         dev_warn(dev->device,"map: Failed to map. start 0x%.8lx, end 0x%.8lx, offset %li, size %li, index %i, Ret=%i.\n",
-               vma->vm_start,vma->vm_end,offset,vsize,idx,ret);
+      if (ret < 0) {
+         dev_warn(dev->device, "map: Failed to map. start 0x%.8lx, end 0x%.8lx, offset %li, size %li, index %i, Ret=%i.\n",
+                  vma->vm_start, vma->vm_end, offset, vsize, idx, ret);
+      }
 
-      return (ret);
-   }
-
-   // Map register space
-   else {
-
-      // Compute relative base
-      base = (off_t)dev->cfgSize * (dev->rxBuffers.count + dev->txBuffers.count);
+      return ret;
+   } else {
+      // Map register space
+      base = dev->cfgSize * (dev->rxBuffers.count + dev->txBuffers.count);
       relMap = offset - base;
       physical = dev->baseAddr + relMap;
 
-      // Don't allow mapping below allowed base address
-      if ( (dev->base + relMap) < dev->rwBase ) {
-         dev_warn(dev->device,"map: Bad map range. start 0x%.8lx, end 0x%.8lx, offset %li, size %li, relMap %li\n",
-               vma->vm_start,vma->vm_end,offset,vsize,relMap);
+      // Validate mapping range
+      if ((dev->base + relMap) < dev->rwBase) {
+         dev_warn(dev->device, "map: Bad map range. start 0x%.8lx, end 0x%.8lx, offset %li, size %li, relMap %li\n",
+                  vma->vm_start, vma->vm_end, offset, vsize, relMap);
          return -1;
       }
 
-      dev_warn(dev->device,"map: Mapping offset relMap (0x%lx), physical (0x%llx) with size (%li)\n",relMap,physical,vsize);
+      dev_warn(dev->device, "map: Mapping offset relMap (0x%lx), physical (0x%llx) with size (%li)\n",
+               relMap, physical, vsize);
 
       ret = io_remap_pfn_range(vma, vma->vm_start, physical >> PAGE_SHIFT, vsize, vma->vm_page_prot);
 
-      if ( ret < 0 ) {
-         dev_warn(dev->device,"map: Failed to map. start 0x%.8lx, end 0x%.8lx, offset %li, size %li, relMap %li\n",
-               vma->vm_start,vma->vm_end,offset,vsize,relMap);
+      if (ret < 0) {
+         dev_warn(dev->device, "map: Failed to map. start 0x%.8lx, end 0x%.8lx, offset %li, size %li, relMap %li\n",
+                  vma->vm_start, vma->vm_end, offset, vsize, relMap);
          return -1;
       }
+
       return 0;
    }
 }
 
-// Flush queue
+/**
+ * Dma_Fasync - Flush the DMA queue
+ * @fd: File descriptor for the DMA device
+ * @filp: File pointer to the DMA device file
+ * @mode: Fasync mode
+ *
+ * This function is used to flush the DMA queue. It utilizes the fasync_helper
+ * function to manage asynchronous notification.
+ *
+ * Return: Returns 0 on success, negative error code on failure.
+ */
 int Dma_Fasync(int fd, struct file *filp, int mode) {
-   struct DmaDesc   * desc;
+   struct DmaDesc *desc;
 
    desc = (struct DmaDesc *)filp->private_data;
    return fasync_helper(fd, filp, mode, &(desc->async_queue));
 }
 
-
-// Open proc file
+/**
+ * Dma_ProcOpen - Open the proc file for the DMA device
+ * @inode: Inode of the proc file
+ * @file: File pointer to the proc file
+ *
+ * Opens a proc file for the DMA device and sets up the seq_file to point
+ * to the device structure. This allows for device-specific information to
+ * be output in the proc file system.
+ *
+ * Return: 0 on success, -1 on failure.
+ */
 int Dma_ProcOpen(struct inode *inode, struct file *file) {
    struct seq_file *sf;
    struct DmaDevice *dev;
@@ -975,37 +1178,70 @@ int Dma_ProcOpen(struct inode *inode, struct file *file) {
    dev = (struct DmaDevice *)PDE(inode)->data;
 #endif
 
-   if ( seq_open(file, &DmaSeqOps) == 0 ) {
+   if (seq_open(file, &DmaSeqOps) == 0) {
       sf = file->private_data;
       sf->private = dev;
-      return(0);
+      return 0;
+   } else {
+      return -1;
    }
-   else return(-1);
 }
 
-
-// Sequence start, return 1 on first iteration
-void * Dma_SeqStart(struct seq_file *s, loff_t *pos) {
-   if ( *pos ==0 ) return ((void *)1);
+/**
+ * Dma_SeqStart - Start sequence for DMA proc read
+ * @s: The seq_file pointer
+ * @pos: The start position in the sequence
+ *
+ * Determines if the sequence iteration should start. If @pos is 0,
+ * iteration starts, otherwise it stops.
+ *
+ * Return: Non-NULL pointer on first iteration, NULL to stop.
+ */
+void *Dma_SeqStart(struct seq_file *s, loff_t *pos) {
+   if (*pos == 0) return (void *)1;
    else return NULL;
 }
 
-
-// Sequence next, always return NULL
-void * Dma_SeqNext(struct seq_file *s, void *v, loff_t *pos) {
-   loff_t *position = pos;
-   (*position)++;
-   return NULL; // or return pointer to next item
+/**
+ * Dma_SeqNext - Get the next entry in the sequence
+ * @s: The seq_file pointer
+ * @v: The current entry in the sequence
+ * @pos: The current position in the sequence
+ *
+ * Advances the sequence position. This implementation always returns NULL
+ * because there is only one entry to show.
+ *
+ * Return: Always returns NULL.
+ */
+void *Dma_SeqNext(struct seq_file *s, void *v, loff_t *pos) {
+   (*pos)++;
+   return NULL; // Always return NULL as there is no next item
 }
 
-
-// Sequence end
+/**
+ * Dma_SeqStop - End of sequence
+ * @s: The seq_file pointer
+ * @v: The current (last) entry in the sequence
+ *
+ * Cleanup function for ending the sequence. Currently, there's nothing
+ * to clean up, so this function does nothing.
+ */
 void Dma_SeqStop(struct seq_file *s, void *v) {
-   // Nothing to do
+   // No cleanup required
 }
 
-
-// Sequence show
+/**
+ * Dma_SeqShow - Display DMA buffer statistics.
+ * @s: pointer to seq_file.
+ * @v: void pointer, unused in this context.
+ *
+ * This function prints DMA buffer statistics for both read and write
+ * operations. It is designed to be called by the seq_file interface
+ * to display information about DMA buffers managed by the DMA driver,
+ * including usage statistics, buffer counts, and configurations.
+ *
+ * Return: Always returns 0 on success.
+ */
 int Dma_SeqShow(struct seq_file *s, void *v) {
    struct   DmaBuffer * buff;
    struct   DmaDevice * dev;
@@ -1123,93 +1359,143 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    return 0;
 }
 
-// Set Mask
-int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t * mask ) {
+/**
+ * Dma_SetMaskBytes - Set the DMA destination mask
+ * @dev: pointer to the DMA device structure
+ * @desc: pointer to the DMA descriptor
+ * @mask: pointer to the mask array
+ *
+ * This function sets the DMA destination mask for a specific device. It ensures
+ * that each destination can only be locked once and that no data is received while
+ * the mask flags are being adjusted. If any part of the mask is already set or if
+ * the function is called more than once without resetting, it will fail.
+ *
+ * Return: 0 on success, -1 if the mask is already set or if called more than once.
+ */
+int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t *mask) {
    unsigned long iflags;
    uint32_t idx;
    uint32_t destByte;
    uint32_t destBit;
 
-   // Can only be called once
-   static const uint8_t zero[DMA_MASK_SIZE] = { 0 };
-   if (memcmp(desc->destMask,zero,DMA_MASK_SIZE)) return(-1);
+   // Ensure the function is called only once
+   static const uint8_t zero[DMA_MASK_SIZE] = {0};
+   if (memcmp(desc->destMask, zero, DMA_MASK_SIZE)) return (-1);
 
-   // Make sure we can't receive data while adjusting mask flags
-   // Interrupts are disabled
-   spin_lock_irqsave(&dev->maskLock,iflags);
+   // Prevent data reception while adjusting the mask
+   spin_lock_irqsave(&dev->maskLock, iflags);
 
-   // First check if all lockable
-   for ( idx=0; idx < DMA_MAX_DEST; idx ++ ) {
+   // Check if all destinations can be locked
+   for (idx = 0; idx < DMA_MAX_DEST; idx++) {
       destByte = idx / 8;
-      destBit  = 1 << (idx % 8);
+      destBit = 1 << (idx % 8);
 
-      // We want to get this one
-      if ( (mask[destByte] & destBit) != 0 ) {
-         if ( dev->desc[idx] != NULL ) {
-            spin_unlock_irqrestore(&dev->maskLock,iflags);
-            if (dev->debug > 0) dev_info(dev->device,"Dma_SetMask: Dest %i already mapped\n",idx);
-            return(-1);
+      // Attempt to lock this destination
+      if ((mask[destByte] & destBit) != 0) {
+         if (dev->desc[idx] != NULL) {
+            spin_unlock_irqrestore(&dev->maskLock, iflags);
+            if (dev->debug > 0)
+               dev_info(dev->device, "Dma_SetMask: Dest %i already mapped\n", idx);
+            return (-1);
          }
       }
    }
 
-   // Next lock the ones we want
-   for ( idx=0; idx < DMA_MAX_DEST; idx ++ ) {
+   // Lock the requested destinations
+   for (idx = 0; idx < DMA_MAX_DEST; idx++) {
       destByte = idx / 8;
-      destBit  = 1 << (idx % 8);
+      destBit = 1 << (idx % 8);
 
-      // We want to get this one
-      if ( (mask[destByte] & destBit) != 0 ) {
+      if ((mask[destByte] & destBit) != 0) {
          dev->desc[idx] = desc;
-         if (dev->debug > 0) dev_info(dev->device,"Dma_SetMask: Register dest for %i.\n", idx);
+         if (dev->debug > 0)
+            dev_info(dev->device, "Dma_SetMask: Register dest for %i.\n", idx);
       }
    }
-   memcpy(desc->destMask,mask,DMA_MASK_SIZE);
 
-   spin_unlock_irqrestore(&dev->maskLock,iflags);
-   return(0);
+   // Update the descriptor's mask
+   memcpy(desc->destMask, mask, DMA_MASK_SIZE);
+
+   // Restore interrupts
+   spin_unlock_irqrestore(&dev->maskLock, iflags);
+
+   return (0);
 }
 
-// Write Register
-int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg) {
-   int32_t  ret;
-
+/**
+ * Dma_WriteRegister - Write to a register of the DMA device.
+ * @dev: Pointer to the DMA device structure.
+ * @arg: User space pointer to data for writing to the register.
+ *
+ * This function copies a register value from user space and writes it to
+ * the specified register within the DMA device. It checks for valid address
+ * ranges and reports errors if copy_from_user fails or if the address is out
+ * of range.
+ *
+ * Return: 0 on success, or -1 on failure.
+ */
+int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg)
+{
+   int32_t ret;
    struct DmaRegisterData rData;
 
-   if ((ret = copy_from_user(&rData,(void *)arg,sizeof(struct DmaRegisterData)))) {
-      dev_warn(dev->device,"Dma_WriteRegister: copy_from_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
-      return(-1);
+   // Attempt to copy register data from user space
+   ret = copy_from_user(&rData, (void *)arg, sizeof(struct DmaRegisterData));
+   if (ret) {
+      dev_warn(dev->device, "Dma_WriteRegister: copy_from_user failed. ret=%i, user=%p kern=%p\n",
+               ret, (void *)arg, &rData);
+      return -1;
    }
 
-   if ( ( (dev->base + rData.address) < dev->rwBase ) ||
-        ( (dev->base + rData.address + 4) > (dev->rwBase + dev->rwSize) ) ) return(-1);
+   // Validate register address range
+   if (((dev->base + rData.address) < dev->rwBase) ||
+       ((dev->base + rData.address + 4) > (dev->rwBase + dev->rwSize))) {
+      return -1;
+   }
 
-   iowrite32(rData.data,dev->base+rData.address);
+   // Write data to the register
+   iowrite32(rData.data, dev->base + rData.address);
 
-   return(0);
+   return 0;
 }
 
-// Read Register
-int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg) {
-   int32_t  ret;
-
+/**
+ * Dma_ReadRegister - Read a register from a DMA device.
+ * @dev: pointer to the DmaDevice structure.
+ * @arg: user space pointer to DmaRegisterData structure where the read data will be stored.
+ *
+ * This function reads a register from the DMA device specified by @dev,
+ * using the address specified in the @arg user space DmaRegisterData structure.
+ * The read value is then written back to the same structure in user space.
+ * If any step fails, the function returns an error.
+ *
+ * Return: 0 on success, -1 on failure.
+ */
+int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg)
+{
+   int32_t ret;
    struct DmaRegisterData rData;
 
-   if ((ret=copy_from_user(&rData,(void *)arg,sizeof(struct DmaRegisterData)))) {
-      dev_warn(dev->device,"Dma_ReadRegister: copy_from_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
-      return(-1);
+   // Attempt to copy DmaRegisterData structure from user space
+   if ((ret = copy_from_user(&rData, (void *)arg, sizeof(struct DmaRegisterData)))) {
+      dev_warn(dev->device, "Dma_ReadRegister: copy_from_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
+      return -1;
    }
 
-   if ( ( (dev->base + rData.address) < dev->rwBase ) ||
-        ( (dev->base + rData.address + 4) > (dev->rwBase + dev->rwSize) ) ) return(-1);
-
-   rData.data = ioread32(dev->base+rData.address);
-
-   // Return the data structure
-   if ((ret=copy_to_user((void *)arg,&rData,sizeof(struct DmaRegisterData)))) {
-      dev_warn(dev->device,"Dma_ReadRegister: copy_to_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
-      return(-1);
+   // Validate register address within the allowed range
+   if (((dev->base + rData.address) < dev->rwBase) ||
+       ((dev->base + rData.address + 4) > (dev->rwBase + dev->rwSize))) {
+      return -1;
    }
-   return(0);
+
+   // Read register value
+   rData.data = ioread32(dev->base + rData.address);
+
+   // Attempt to copy the updated DmaRegisterData structure back to user space
+   if ((ret = copy_to_user((void *)arg, &rData, sizeof(struct DmaRegisterData)))) {
+      dev_warn(dev->device, "Dma_ReadRegister: copy_to_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
+      return -1;
+   }
+
+   return 0;
 }
-
