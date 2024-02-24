@@ -1,4 +1,13 @@
 /**
+ *-----------------------------------------------------------------------------
+ * Company    : SLAC National Accelerator Laboratory
+ *-----------------------------------------------------------------------------
+ * Description:
+ *    This file implements a Linux kernel driver for managing DMA (Direct Memory Access)
+ *    operations via AXI (Advanced eXtensible Interface) Stream interfaces. It supports
+ *    the initialization, configuration, and runtime management of DMA transfers between
+ *    AXI Stream peripherals and system memory, optimizing data handling for high-speed
+ *    data acquisition and processing systems.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory
@@ -9,6 +18,7 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
+
 #include <rce_top.h>
 #include <dma_common.h>
 #include <dma_buffer.h>
@@ -26,36 +36,51 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 
-// Init Configuration values
+/* Transmission buffer count configurations */
 int cfgTxCount0 = 128;
 int cfgTxCount1 = 8;
 int cfgTxCount2 = 8;
+
+/* Reception buffer count configurations */
 int cfgRxCount0 = 128;
 int cfgRxCount1 = 8;
 int cfgRxCount2 = 8;
+
+/* Buffer size configurations (in bytes) */
 int cfgSize0    = 2097152;
 int cfgSize1    = 4096;
 int cfgSize2    = 4096;
+
+/* Operational mode configurations */
 int cfgMode0    = BUFF_COHERENT;
 int cfgMode1    = BUFF_COHERENT;
 int cfgMode2    = BUFF_ARM_ACP | AXIS2_RING_ACP;
 
+/**
+ * Global DMA device array
+ * An array of `DmaDevice` structures representing the DMA devices managed by this driver.
+ * The size of the array is determined by the `MAX_DMA_DEVICES` constant.
+ */
 struct DmaDevice gDmaDevices[MAX_DMA_DEVICES];
 
-// Tables of device names
-const char * RceDevNames[MAX_DMA_DEVICES] = {
+/**
+ * DMA Device Names
+ * An array of strings containing the names of the DMA devices. These names are used
+ * for identification and management of devices within the driver.
+ */
+const char *RceDevNames[MAX_DMA_DEVICES] = {
    "axi_stream_dma_0",
    "axi_stream_dma_1",
    "axi_stream_dma_2",
    "axi_stream_dma_3",
 };
 
-// Module Name
-#define MOD_NAME "axi_stream_dma"
+/* Module metadata */
+#define MOD_NAME "axi_stream_dma" ///< Module name
 
-MODULE_AUTHOR("Ryan Herbst");
-MODULE_DESCRIPTION("AXI Stream DMA driver. V3");
-MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Ryan Herbst"); ///< Module author
+MODULE_DESCRIPTION("AXI Stream DMA driver. V3"); ///< Module description
+MODULE_LICENSE("GPL"); ///< Module license
 
 /**
  * Rce_runtime_suspend - Suspend routine for runtime power management.
@@ -313,39 +338,45 @@ int Rce_Remove(struct platform_device *pdev)
    return 0;
 }
 
-// Parameters
-module_param(cfgTxCount0,int,0);
-MODULE_PARM_DESC(cfgTxCount0, "TX buffer count");
+/**
+ * module_param - Macro to declare kernel parameters
+ * @param: the name of the parameter
+ * @type: the C type of the parameter
+ * @perm: the permissions on the corresponding sysfs entry
+ *
+ * This section declares kernel module parameters and their descriptions.
+ * These parameters allow configuration of TX and RX buffer counts and sizes,
+ * as well as buffer modes, which can be adjusted at module load time.
+ */
 
-module_param(cfgTxCount1,int,0);
-MODULE_PARM_DESC(cfgTxCount1, "TX buffer count");
+// TX buffer count parameters for different channels
+module_param(cfgTxCount0, int, 0);
+MODULE_PARM_DESC(cfgTxCount0, "TX buffer count for channel 0.");
+module_param(cfgTxCount1, int, 0);
+MODULE_PARM_DESC(cfgTxCount1, "TX buffer count for channel 1.");
+module_param(cfgTxCount2, int, 0);
+MODULE_PARM_DESC(cfgTxCount2, "TX buffer count for channel 2.");
 
-module_param(cfgTxCount2,int,0);
-MODULE_PARM_DESC(cfgTxCount2, "TX buffer count");
+// RX buffer count parameters for different channels
+module_param(cfgRxCount0, int, 0);
+MODULE_PARM_DESC(cfgRxCount0, "RX buffer count for channel 0.");
+module_param(cfgRxCount1, int, 0);
+MODULE_PARM_DESC(cfgRxCount1, "RX buffer count for channel 1.");
+module_param(cfgRxCount2, int, 0);
+MODULE_PARM_DESC(cfgRxCount2, "RX buffer count for channel 2.");
 
-module_param(cfgRxCount0,int,0);
-MODULE_PARM_DESC(cfgRxCount0, "RX buffer count");
+// RX/TX buffer size parameters for different channels
+module_param(cfgSize0, int, 0);
+MODULE_PARM_DESC(cfgSize0, "RX/TX buffer size for channel 0.");
+module_param(cfgSize1, int, 0);
+MODULE_PARM_DESC(cfgSize1, "RX/TX buffer size for channel 1.");
+module_param(cfgSize2, int, 0);
+MODULE_PARM_DESC(cfgSize2, "RX/TX buffer size for channel 2.");
 
-module_param(cfgRxCount1,int,0);
-MODULE_PARM_DESC(cfgRxCount1, "RX buffer count");
-
-module_param(cfgRxCount2,int,0);
-MODULE_PARM_DESC(cfgRxCount2, "RX buffer count");
-
-module_param(cfgSize0,int,0);
-MODULE_PARM_DESC(cfgSize0, "RX/TX buffer size");
-
-module_param(cfgSize1,int,0);
-MODULE_PARM_DESC(cfgSize1, "RX/TX buffer size");
-
-module_param(cfgSize2,int,0);
-MODULE_PARM_DESC(cfgSize2, "RX/TX buffer size");
-
-module_param(cfgMode0,int,0);
-MODULE_PARM_DESC(cfgMode0, "RX buffer mode");
-
-module_param(cfgMode1,int,0);
-MODULE_PARM_DESC(cfgMode1, "RX buffer mode");
-
-module_param(cfgMode2,int,0);
-MODULE_PARM_DESC(cfgMode2, "RX buffer mode");
+// RX buffer mode parameters for different channels
+module_param(cfgMode0, int, 0);
+MODULE_PARM_DESC(cfgMode0, "RX buffer mode for channel 0.");
+module_param(cfgMode1, int, 0);
+MODULE_PARM_DESC(cfgMode1, "RX buffer mode for channel 1.");
+module_param(cfgMode2, int, 0);
+MODULE_PARM_DESC(cfgMode2, "RX buffer mode for channel 2.");

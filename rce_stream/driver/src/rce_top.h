@@ -1,14 +1,13 @@
 /**
  *-----------------------------------------------------------------------------
- * Title      : Top level module
- * ----------------------------------------------------------------------------
- * File       : rce_top.h
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-08
- * Last update: 2016-08-08
- * ----------------------------------------------------------------------------
+ * Company    : SLAC National Accelerator Laboratory
+ *-----------------------------------------------------------------------------
  * Description:
- * Top level module types and functions.
+ *    This header file provides essential definitions, configurations, and
+ *    interface declarations for the development of kernel-level drivers
+ *    and software components within the RCE (Reconfigurable Computing
+ *    Environment) project. It ensures consistency and standardization
+ *    across various modules and components.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory
@@ -19,20 +18,40 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
+
 #ifndef __RCE_TOP_H__
 #define __RCE_TOP_H__
-
-#define MAX_DMA_DEVICES 4
 
 #include <linux/types.h>
 #include <linux/device.h>
 #include <linux/platform_device.h>
 
-// Create and init device
+/**
+ * MAX_DMA_DEVICES - Maximum number of DMA devices supported.
+ */
+#define MAX_DMA_DEVICES 4
+
+/**
+ * Rce_Probe - Probe function for RCE platform devices.
+ * @pdev: Platform device structure.
+ *
+ * This function initializes the device driver for a given platform device.
+ * It is called by the Linux kernel when the device is detected.
+ *
+ * Return: 0 on success, error code on failure.
+ */
 int Rce_Probe(struct platform_device *pdev);
 
-// Cleanup device
+/**
+ * Rce_Remove - Remove function for RCE platform devices.
+ * @pdev: Platform device structure.
+ *
+ * This function performs the cleanup and removal of the device driver
+ * associated with a given platform device. It is called by the Linux
+ * kernel during the device removal process.
+ *
+ * Return: 0 on success, error code on failure.
+ */
 int Rce_Remove(struct platform_device *pdev);
 
-#endif
-
+#endif // __RCE_TOP_H__
