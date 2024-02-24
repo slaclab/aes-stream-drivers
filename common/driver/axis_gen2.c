@@ -409,7 +409,7 @@ void AxisG2_Init(struct DmaDevice *dev) {
    memset(dev->destMask,0xFF,DMA_MASK_SIZE);
 
    // Allocate and initialize hardware data structure
-   hwData = (struct AxisG2Data *)kmalloc(sizeof(struct AxisG2Data),GFP_KERNEL);
+   hwData = (struct AxisG2Data *)kzalloc(sizeof(struct AxisG2Data),GFP_KERNEL);
    dev->hwData = hwData;
    hwData->dev = dev;
 
@@ -424,7 +424,7 @@ void AxisG2_Init(struct DmaDevice *dev) {
    if ( hwData->desc128En ) {
       dmaQueueInit(&hwData->wrQueue,dev->rxBuffers.count);
       dmaQueueInit(&hwData->rdQueue,dev->txBuffers.count + dev->rxBuffers.count);
-      hwData->buffList = (struct DmaBuffer **)kmalloc(BUFF_LIST_SIZE * sizeof(struct DmaBuffer *),GFP_ATOMIC);
+      hwData->buffList = (struct DmaBuffer **)kzalloc(BUFF_LIST_SIZE * sizeof(struct DmaBuffer *),GFP_ATOMIC);
    }
 
    // Calculate and set the addressable space based on register settings
@@ -434,9 +434,9 @@ void AxisG2_Init(struct DmaDevice *dev) {
    // Allocate DMA buffers based on configuration mode
    if(dev->cfgMode & AXIS2_RING_ACP) {
       // Allocate read and write buffers in contiguous physical memory
-      hwData->readAddr   = kmalloc(size, GFP_DMA | GFP_KERNEL);
+      hwData->readAddr   = kzalloc(size, GFP_DMA | GFP_KERNEL);
       hwData->readHandle = virt_to_phys(hwData->readAddr);
-      hwData->writeAddr   = kmalloc(size, GFP_DMA | GFP_KERNEL);
+      hwData->writeAddr   = kzalloc(size, GFP_DMA | GFP_KERNEL);
       hwData->writeHandle = virt_to_phys(hwData->writeAddr);
    } else {
       // Allocate coherent DMA buffers for read and write operations
