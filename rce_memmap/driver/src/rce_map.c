@@ -61,12 +61,12 @@ struct class * gCl;
 
 // Define interface routines
 struct file_operations MapFunctions = {
-   read:           Map_Read,
-   write:          Map_Write,
-   open:           Map_Open,
-   release:        Map_Release,
-   unlocked_ioctl: (void *)Map_Ioctl,
-   compat_ioctl:   (void *)Map_Ioctl,
+   .read           = Map_Read,
+   .write          = Map_Write,
+   .open           = Map_Open,
+   .release        = Map_Release,
+   .unlocked_ioctl = (void *)Map_Ioctl,
+   .compat_ioctl   = (void *)Map_Ioctl,
 };
 
 // Devnode callback to set permissions of created devices
