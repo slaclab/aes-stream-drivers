@@ -440,8 +440,8 @@ void AxisG2_Init(struct DmaDevice *dev) {
       hwData->writeHandle = virt_to_phys(hwData->writeAddr);
    } else {
       // Allocate coherent DMA buffers for read and write operations
-      hwData->readAddr = dma_alloc_coherent(dev->device, size, &(hwData->readHandle), GFP_DMA32 | GFP_KERNEL);
-      hwData->writeAddr = dma_alloc_coherent(dev->device, size, &(hwData->writeHandle), GFP_DMA32 | GFP_KERNEL);
+      hwData->readAddr = dma_alloc_coherent(dev->device, size, &(hwData->readHandle), GFP_DMA | GFP_KERNEL);
+      hwData->writeAddr = dma_alloc_coherent(dev->device, size, &(hwData->writeHandle), GFP_DMA | GFP_KERNEL);
    }
 
    // Log buffer addresses
