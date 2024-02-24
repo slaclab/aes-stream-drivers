@@ -1,6 +1,6 @@
 # aes-stream-drivers
 
-Common repository for streaming kernel drivers (PGP, AxiStream, ExoTem)
+Common repository for streaming kernel drivers (datadev, gpuDirect, petalinux, etc)
 
 <!--- ########################################################################################### -->
 
@@ -24,17 +24,9 @@ Contains driver and application code for TID-AIR generic DAQ PCIe cards with Dir
 
 options datagpu cfgTxCount=1024 cfgRxCount=1024 cfgSize=131072 cfgMode=1 cfgCont=1
 
-#### exo_tem/
-
-Contains driver and application code for EXO TEM.
-
 #### include/
 
 Contains top level application include files for all drivers
-
-#### pgpcard/
-
-Contains driver and application code for the pgpcard
 
 #### rce_hp_buffers/
 
@@ -48,7 +40,7 @@ Contains driver and application code for the RCE AXI stream DMA
 
 # How to build the non-RCE drivers
 
-```
+```bash
 # Go to the base directory
 $ cd aes-stream-drivers
 
@@ -63,7 +55,7 @@ $ make app
 
 # How to build the RCE drivers
 
-```
+```bash
 # Go to the base directory
 $ cd aes-stream-drivers
 
