@@ -1,12 +1,10 @@
 /**
  *-----------------------------------------------------------------------------
- * Title      : Top level module
- * ----------------------------------------------------------------------------
- * File       : data_dev_top.h
- * Created    : 2017-03-17
- * ----------------------------------------------------------------------------
+ * Company    : SLAC National Accelerator Laboratory
+ *-----------------------------------------------------------------------------
  * Description:
- * Top level module types and functions.
+ *    Defines the top-level module types and functions for the Data Device driver.
+ *    This driver is part of the aes_stream_drivers package.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory
@@ -17,6 +15,7 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
+
 #ifndef __DATA_DEV_TOP_H__
 #define __DATA_DEV_TOP_H__
 
@@ -25,44 +24,32 @@
 #include <linux/pci.h>
 #include <dma_common.h>
 
+/** Maximum number of DMA devices supported. */
 #define MAX_DMA_DEVICES 4
 
-// PCI ID
+/** PCI vendor and device identifiers. */
 #define PCI_VENDOR_ID_SLAC 0x1a4a
 #define PCI_DEVICE_ID_DDEV 0x2030
 
-// Address map
-#define AGEN2_OFF   0x00000000
-#define AGEN2_SIZE  0x00010000
-#define PHY_OFF     0x00010000
-#define PHY_SIZE    0x00010000
-#define AVER_OFF    0x00020000
-#define AVER_SIZE   0x00010000
-#define PROM_OFF    0x00030000
-#define PROM_SIZE   0x00050000
-#define USER_OFF    0x00800000
-#define USER_SIZE   0x00800000
+/** Address map for device registers. */
+#define AGEN2_OFF   0x00000000 /**< DMAv2 Engine Offset */
+#define AGEN2_SIZE  0x00010000 /**< DMAv2 Engine Size */
+#define PHY_OFF     0x00010000 /**< PCIe PHY Offset */
+#define PHY_SIZE    0x00010000 /**< PCIe PHY Size */
+#define AVER_OFF    0x00020000 /**< AxiVersion Offset */
+#define AVER_SIZE   0x00010000 /**< AxiVersion Size */
+#define PROM_OFF    0x00030000 /**< PROM Offset */
+#define PROM_SIZE   0x00050000 /**< PROM Size */
+#define USER_OFF    0x00800000 /**< User Space Offset */
+#define USER_SIZE   0x00800000 /**< User Space Size */
 
-// Init Kernel Module
+// Function prototypes
 int32_t DataDev_Init(void);
-
-// Exit Kernel Module
 void DataDev_Exit(void);
-
-// Create and init device
 int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id);
-
-// Cleanup device
 void  DataDev_Remove(struct pci_dev *pcidev);
-
-// Execute command
 int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);
-
-// Add data to proc dump
 void DataDev_SeqShow(struct seq_file *s, struct DmaDevice *dev);
-
-// Set functions for gen2 card
 extern struct hardware_functions DataDev_functions;
 
-#endif
-
+#endif // __DATA_DEV_TOP_H__
