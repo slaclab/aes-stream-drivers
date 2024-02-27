@@ -33,14 +33,6 @@
 #include <linux/slab.h>
 #include <linux/version.h>
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25)
-  /* 'ioremap_nocache' was deprecated in kernels >= 5.6, so instead we use 'ioremap' which
-  is no-cache by default since kernels 2.6.25. */
-#    define IOREMAP_NO_CACHE(address, size) ioremap(address, size)
-#else /* KERNEL_VERSION < 2.6.25 */
-#    define IOREMAP_NO_CACHE(address, size) ioremap_nocache(address, size)
-#endif
-
 // Module Name
 #define MOD_NAME "rce_memmap"
 
@@ -125,7 +117,7 @@ int Map_Init(void) {
    dev.maps->next = NULL;
 
    // Map space
-   dev.maps->base = IOREMAP_NO_CACHE(dev.maps->addr, MAP_SIZE);
+   dev.maps->base = ioremap_wc(dev.maps->addr, MAP_SIZE);
    if (! dev.maps->base ) {
       printk(KERN_ERR MOD_NAME " Init: Could not map memory addr %p with size 0x%x.\n",(void *)dev.maps->addr,MAP_SIZE);
       kfree(dev.maps);
@@ -213,7 +205,7 @@ uint8_t * Map_Find(uint32_t addr) {
          new->addr = (addr / MAP_SIZE) * MAP_SIZE;
 
          // Map space
-         new->base = IOREMAP_NO_CACHE(new->addr, MAP_SIZE);
+         new->base = ioremap_wc(new->addr, MAP_SIZE);
          if (! new->base ) {
             printk(KERN_ERR MOD_NAME " Map_Find: Could not map memory addr %p (%p) with size 0x%x.\n",(void *)new->addr,(void*)addr,MAP_SIZE);
             kfree(new);
