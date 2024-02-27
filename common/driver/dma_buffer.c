@@ -114,7 +114,7 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
          }
       }
 
-      // ACP type with permament handle mapping, dma capable kernel memory
+      // ACP type with permanent handle mapping, dma capable kernel memory
       else if ( list->dev->cfgMode & BUFF_ARM_ACP ) {
          buff->buffAddr = kzalloc(list->dev->cfgSize, GFP_DMA | GFP_KERNEL);
          if (buff->buffAddr != NULL)
