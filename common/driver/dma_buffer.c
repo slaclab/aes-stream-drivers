@@ -106,16 +106,13 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
 
       // Streaming buffer type, standard kernel memory
       else if ( list->dev->cfgMode & BUFF_STREAM ) {
-         buff->buffAddr = kzalloc(list->dev->cfgSize, GFP_KERNEL);
+         dev_info(dev->device,"dmaAllocBuffers: BUFF_STREAM\n");
+         // Allocate consistent memory directly using dma_alloc_coherent
+         buff->buffAddr = dma_alloc_coherent(list->dev->device, list->dev->cfgSize, &buff->buffHandle, GFP_KERNEL);
 
-         if (buff->buffAddr != NULL) {
-            buff->buffHandle = dma_map_single(list->dev->device,buff->buffAddr,
-                                             list->dev->cfgSize,direction);
-
-            // Map error
-            if ( dma_mapping_error(list->dev->device,buff->buffHandle) ) {
-               buff->buffHandle = 0;
-            }
+         // Check for mapping error
+         if (buff->buffAddr == NULL) {
+            dev_err(dev->device,"dmaAllocBuffers: dma_alloc_coherent failed\n");
          }
       }
 
