@@ -13,6 +13,7 @@ cd $NVIDIA_PATH
 
 make CC=gcc-12
 
+modprobe ecc
 /usr/sbin/insmod nvidia.ko NVreg_OpenRmEnableUnsupportedGpus=1 NVreg_EnableStreamMemOPs=1
 /usr/sbin/insmod nvidia-modeset.ko
 /usr/sbin/insmod nvidia-uvm.ko
