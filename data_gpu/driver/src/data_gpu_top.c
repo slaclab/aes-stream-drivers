@@ -211,9 +211,9 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    AxiVersion_SetUserReset(dev->base + AVER_OFF,false);
 
    // 128bit desc, = 64-bit address map
-   if ( (ioread32(dev->reg) & 0x10000) != 0) {
+   if ( (readl(dev->reg) & 0x10000) != 0) {
       // Get the AXI Address width (in units of bits)
-      axiWidth = (ioread32(dev->reg+0x34) >> 8) & 0xFF;
+      axiWidth = (readl(dev->reg+0x34) >> 8) & 0xFF;
       if ( !dma_set_mask_and_coherent(dev->device, DMA_BIT_MASK(axiWidth)) ) {
          dev_info(dev->device,"Init: Using %d-bit DMA mask.\n",axiWidth);
       } else {
@@ -226,7 +226,7 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    dev_info(dev->device,"Init: Reg  space mapped to 0x%llx.\n",(uint64_t)dev->reg);
    dev_info(dev->device,"Init: User space mapped to 0x%llx with size 0x%x.\n",(uint64_t)dev->rwBase,dev->rwSize);
-   dev_info(dev->device,"Init: Top Register = 0x%x\n",ioread32(dev->reg));
+   dev_info(dev->device,"Init: Top Register = 0x%x\n",readl(dev->reg));
 
    return(0);
 }
