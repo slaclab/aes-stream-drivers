@@ -43,6 +43,7 @@ int cfgRxCount = 1024;  // Receive buffer count
 int cfgSize    = 0x20000; // Size of the buffer: 128kB
 int cfgMode    = BUFF_COHERENT; // Buffer mode: coherent
 int cfgCont    = 1;        // Continuous operation flag
+int cfgDevName = 0;
 
 /*
  * Global array of DMA devices.
@@ -133,23 +134,25 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    struct hardware_functions *hfunc;
 
    int32_t x;
-   int32_t dummy;
    int32_t axiWidth;
+   int ret;
 
+   // Validate buffer mode configuration
    if ( cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM ) {
-      pr_warn("%s: Probe: Invalid buffer mode = %i.\n",MOD_NAME,cfgMode);
-      return(-1);
+      pr_err("%s: Probe: Invalid buffer mode = %i.\n", MOD_NAME, cfgMode);
+      return -EINVAL; // Return directly with an error code
    }
 
-   // Set hardware functions
+   // Initialize hardware function pointers
    hfunc = &(DataGpu_functions);
 
+   // Cast device ID for further operations
    id = (struct pci_device_id *) dev_id;
 
-   // We keep device instance number in id->driver_data
+   // Initialize driver data to indicate an empty slot
    id->driver_data = -1;
 
-   // Find empty structure
+   // Search for an available device slot
    for (x = 0; x < MAX_DMA_DEVICES; x++) {
       if (gDmaDevices[x].baseAddr == 0) {
          id->driver_data = x;
@@ -157,78 +160,108 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
       }
    }
 
-   // Overflow
+   // Check for device slots overflow
    if (id->driver_data < 0) {
-      pr_warn("%s: Probe: Too Many Devices.\n",MOD_NAME);
-      return (-1);
+      pr_err("%s: Probe: Too Many Devices.\n", MOD_NAME);
+      return -ENOMEM; // Return directly with an error code
    }
    dev = &gDmaDevices[id->driver_data];
    dev->index = id->driver_data;
 
-   // Increment count
-   gDmaDevCount++;
+   // Attempt to compose a unique device name based on configuration
+   if (cfgDevName != 0) {
+      // Utilize the PCI device bus number for unique device naming
+      // Helpful when multiple PCIe cards are installed in the same server
+      ret = snprintf(dev->devName, sizeof(dev->devName), "%s_%02x", MOD_NAME, pcidev->bus->number);
+   } else {
+      // Default to sequential naming based on the device's index
+      // Ensures uniqueness in a single card scenario
+      ret = snprintf(dev->devName, sizeof(dev->devName), "%s_%i", MOD_NAME, dev->index);
+   }
+   if (ret < 0 || ret >= sizeof(dev->devName)) {
+      pr_err("%s: Probe: Error in snprintf() while formatting device name\n", MOD_NAME);
+      return -EINVAL; // Return directly with an error code
+   }
 
-   // Create a device name
-   sprintf(dev->devName,"%s_%i",MOD_NAME,dev->index);
+   // Activate the PCI device
+   ret = pci_enable_device(pcidev);
+   if (ret) {
+      pr_err("%s: Probe: pci_enable_device() = %i.\n", MOD_NAME, ret);
+      return ret; // Return with error code
+   }
+   pci_set_master(pcidev); // Set the device as bus master
 
-   // Enable the device
-   dummy = pci_enable_device(pcidev);
-   pci_set_master(pcidev);
-
-   // Get Base Address of registers from pci structure.
+   // Retrieve and store the base address and size of the device's register space
    dev->baseAddr = pci_resource_start (pcidev, 0);
    dev->baseSize = pci_resource_len (pcidev, 0);
 
-   // Remap the I/O register block so that it can be safely accessed.
-   if ( Dma_MapReg(dev) < 0 ) return(-1);
+   // Map the device's register space for use in the driver
+   if ( Dma_MapReg(dev) < 0 ) {
+      pci_disable_device(pcidev); // Disable the device on failure
+      return -ENOMEM; // Memory allocation error
+   }
 
-   // Set configuration
+   // Initialize device configuration parameters
    dev->cfgTxCount = cfgTxCount;
    dev->cfgRxCount = cfgRxCount;
    dev->cfgSize    = cfgSize;
    dev->cfgMode    = cfgMode;
    dev->cfgCont    = cfgCont;
 
-   // Get IRQ from pci_dev structure.
+   /// Assign the IRQ number from the pci_dev structure
    dev->irq = pcidev->irq;
 
-   // Set device fields
-   dev->pcidev = pcidev;
-   dev->device = &(pcidev->dev);
-   dev->hwFunc = hfunc;
+   // Set basic device context
+   dev->pcidev = pcidev;               // PCI device structure
+   dev->device = &(pcidev->dev);       // Device structure
+   dev->hwFunc = hfunc;                // Hardware function pointer
 
-   dev->reg    = dev->base + AGEN2_OFF;
-   dev->rwBase = dev->base + PHY_OFF;
-   dev->rwSize = (2*USER_SIZE) - PHY_OFF;
+   // Initialize device memory regions
+   dev->reg    = dev->base + AGEN2_OFF;   // Register base address
+   dev->rwBase = dev->base + PHY_OFF;     // Read/Write base address
+   dev->rwSize = (2*USER_SIZE) - PHY_OFF; // Read/Write region size
 
    // GPU Init
    Gpu_Init(dev, GPU_OFF);
 
-   // Set and clear reset
+   // Manage device reset cycle
    dev_info(dev->device,"Init: Setting user reset\n");
-   AxiVersion_SetUserReset(dev->base + AVER_OFF,true);
+   AxiVersion_SetUserReset(dev->base + AVER_OFF,true); // Set user reset
    dev_info(dev->device,"Init: Clearing user reset\n");
-   AxiVersion_SetUserReset(dev->base + AVER_OFF,false);
+   AxiVersion_SetUserReset(dev->base + AVER_OFF,false); // Clear user reset
 
-   // 128bit desc, = 64-bit address map
-   if ( (readl(dev->reg) & 0x10000) != 0) {
-      // Get the AXI Address width (in units of bits)
-      axiWidth = (readl(dev->reg+0x34) >> 8) & 0xFF;
-      if ( !dma_set_mask_and_coherent(dev->device, DMA_BIT_MASK(axiWidth)) ) {
-         dev_info(dev->device,"Init: Using %d-bit DMA mask.\n",axiWidth);
+   // Configure DMA based on AXI address width: 128bit desc, = 64-bit address map
+   if ((readl(dev->reg) & 0x10000) != 0) {
+      axiWidth = (readl(dev->reg + 0x34) >> 8) & 0xFF; // Extract AXI address width
+
+      // Attempt to set DMA and coherent DMA masks based on AXI width
+      if (!dma_set_mask(dev->device, DMA_BIT_MASK(axiWidth))) {
+         dev_info(dev->device, "Init: Using %d-bit DMA mask.\n", axiWidth);
+
+         if (!dma_set_coherent_mask(dev->device, DMA_BIT_MASK(axiWidth))) {
+            dev_info(dev->device, "Init: Using %d-bit coherent DMA mask.\n", axiWidth);
+         } else {
+            dev_warn(dev->device, "Init: Failed to set coherent DMA mask.\n");
+         }
       } else {
-         dev_warn(dev->device,"Init: Failed to set DMA mask.\n");
+         dev_warn(dev->device, "Init: Failed to set DMA mask.\n");
       }
    }
 
-   // Call common dma init function
-   if ( Dma_Init(dev) < 0 ) return(-1);
+   // Initialize common DMA functionalities
+   if (Dma_Init(dev) < 0) {
+      pci_disable_device(pcidev); // Disable PCI device on failure
+      return -ENOMEM;      // Indicate memory allocation error
+   }
 
+   // Log memory mapping information
    dev_info(dev->device,"Init: Reg  space mapped to 0x%llx.\n",(uint64_t)dev->reg);
    dev_info(dev->device,"Init: User space mapped to 0x%llx with size 0x%x.\n",(uint64_t)dev->rwBase,dev->rwSize);
    dev_info(dev->device,"Init: Top Register = 0x%x\n",readl(dev->reg));
 
-   return(0);
+   // Finalize device probe successfully
+   gDmaDevCount++; // Increment global device count
+   return(0);      // Success
 }
 
 /**
@@ -408,3 +441,8 @@ MODULE_PARM_DESC(cfgMode, "RX buffer mode: Mode of the receive buffers.");
  */
 module_param(cfgCont, int, 0);
 MODULE_PARM_DESC(cfgCont, "RX continue enable: Enable/disable continuous receive mode.");
+
+/* Used to determine the device name formatting
+ */
+module_param(cfgDevName,int,0);
+MODULE_PARM_DESC(cfgDevName, "Device Name Formating Setting");
