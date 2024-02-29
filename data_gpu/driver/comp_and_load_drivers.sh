@@ -14,13 +14,15 @@ get_latest_nvidia_version() {
 NVIDIA_PATH=$(get_latest_nvidia_version)
 echo "Using Nvidia path: $NVIDIA_PATH"
 
+# Return directory
 RET_DIR=$PWD
 
-/usr/sbin/rmmod datagpu
-/usr/sbin/rmmod nvidia-drm
-/usr/sbin/rmmod nvidia-uvm
-/usr/sbin/rmmod nvidia-modeset
-/usr/sbin/rmmod nvidia
+# Remove existing Nvidia modules (if any)
+/usr/sbin/rmmod datagpu 2>/dev/null
+/usr/sbin/rmmod nvidia-drm 2>/dev/null
+/usr/sbin/rmmod nvidia-uvm 2>/dev/null
+/usr/sbin/rmmod nvidia-modeset 2>/dev/null
+/usr/sbin/rmmod nvidia 2>/dev/null
 
 cd $NVIDIA_PATH
 
