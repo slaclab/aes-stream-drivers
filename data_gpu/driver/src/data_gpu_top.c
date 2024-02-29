@@ -34,7 +34,7 @@
 #include <GpuAsync.h>
 #include <gpu_async.h>
 
-/* 
+/*
  * Configuration values initialization.
  * These values are used to set up the DMA (Direct Memory Access) transfer settings.
  */
@@ -44,13 +44,13 @@ int cfgSize    = 0x20000; // Size of the buffer: 128kB
 int cfgMode    = BUFF_COHERENT; // Buffer mode: coherent
 int cfgCont    = 1;        // Continuous operation flag
 
-/* 
+/*
  * Global array of DMA devices.
  * This array holds the configuration and status of each DMA device handled by this driver.
  */
 struct DmaDevice gDmaDevices[MAX_DMA_DEVICES];
 
-/* 
+/*
  * PCI device identification array.
  * This array is used by the kernel to match this driver to the specific hardware based on PCI IDs.
  */
@@ -66,7 +66,7 @@ MODULE_DEVICE_TABLE(pci, DataGpu_Ids); // Associate the PCI ID table with this m
 module_init(DataGpu_Init); // Initialize the module with DataGpu_Init function
 module_exit(DataGpu_Exit); // Clean-up the module with DataGpu_Exit function
 
-/* 
+/*
  * PCI driver structure definition.
  * This structure contains callback functions and device IDs for the DataGpu driver.
  */
@@ -189,7 +189,7 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->cfgMode    = cfgMode;
    dev->cfgCont    = cfgCont;
 
-   // Get IRQ from pci_dev structure. 
+   // Get IRQ from pci_dev structure.
    dev->irq = pcidev->irq;
 
    // Set device fields
