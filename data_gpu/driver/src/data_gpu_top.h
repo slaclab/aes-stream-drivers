@@ -1,12 +1,10 @@
 /**
  *-----------------------------------------------------------------------------
- * Title      : Top level module
- * ----------------------------------------------------------------------------
- * File       : data_gpu_top.h
- * Created    : 2017-03-17
- * ----------------------------------------------------------------------------
+ * Company    : SLAC National Accelerator Laboratory
+ *-----------------------------------------------------------------------------
  * Description:
- * Top level module types and functions.
+ *    Defines the top-level module types and functions for the Data GPU Device driver.
+ *    This driver is part of the aes_stream_drivers package.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory
@@ -17,6 +15,7 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
+
 #ifndef __DATA_GPU_TOP_H__
 #define __DATA_GPU_TOP_H__
 
@@ -25,13 +24,14 @@
 #include <linux/pci.h>
 #include <dma_common.h>
 
+/* Maximum number of DMA devices */
 #define MAX_DMA_DEVICES 4
 
-// PCI ID
+/* PCI IDs */
 #define PCI_VENDOR_ID_SLAC 0x1a4a
 #define PCI_DEVICE_ID_DDEV 0x2030
 
-// Address map
+/* Memory mapping offsets and sizes */
 #define AGEN2_OFF   0x00000000
 #define AGEN2_SIZE  0x00010000
 #define PHY_OFF     0x00010000
@@ -42,29 +42,17 @@
 #define PROM_SIZE   0x00050000
 #define USER_OFF    0x00800000
 #define USER_SIZE   0x00800000
-
 #define GPU_OFF     0x00A00000
 
-// Init Kernel Module
+/* Function prototypes */
 int32_t DataGpu_Init(void);
-
-// Exit Kernel Module
 void DataGpu_Exit(void);
-
-// Create and init device
 int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id);
-
-// Cleanup device
-void  DataGpu_Remove(struct pci_dev *pcidev);
-
-// Execute command
+void DataGpu_Remove(struct pci_dev *pcidev);
 int32_t DataGpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);
-
-// Add data to proc dump
 void DataGpu_SeqShow(struct seq_file *s, struct DmaDevice *dev);
 
-// Set functions for gen2 card
+/* Hardware function operations */
 extern struct hardware_functions DataGpu_functions;
 
-#endif
-
+#endif /* __DATA_GPU_TOP_H__ */

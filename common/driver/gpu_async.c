@@ -223,7 +223,7 @@ int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg)
       virt_start = buffer->address & GPU_BOUND_MASK;
 
       nvidia_p2p_dma_unmap_pages(dev->pcidev, buffer->pageTable, buffer->dmaMapping);
-      nvidia_p2p_put_pages(0, 0, virt_start, buffer->pageTable);
+      nvidia_p2p_free_page_table(buffer->pageTable);
 
       dev_warn(dev->device, "Gpu_RemNvidia: unmapped write memory with address=0x%llx\n", buffer->address);
    }
@@ -234,7 +234,7 @@ int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg)
       virt_start = buffer->address & GPU_BOUND_MASK;
 
       nvidia_p2p_dma_unmap_pages(dev->pcidev, buffer->pageTable, buffer->dmaMapping);
-      nvidia_p2p_put_pages(0, 0, virt_start, buffer->pageTable);
+      nvidia_p2p_free_page_table(buffer->pageTable);
 
       dev_warn(dev->device, "Gpu_RemNvidia: unmapped read memory with address=0x%llx\n", buffer->address);
    }

@@ -32,7 +32,6 @@ CROSS_COMPILE :=
 # Enable warnings during module post-processing.
 KBUILD_MODPOST_WARN := 1
 
-# Kernel build directory.
 KERNELDIR := /lib/modules/$(KVER)/build
 
 # Source and object files.
@@ -70,3 +69,4 @@ all:
 clean:
 	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(HOME) clean
 	rm -f $(OBJS)
+

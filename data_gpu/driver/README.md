@@ -1,18 +1,23 @@
-# How to cross-compile the kernel driver
+# GPU Enabled Driver
 
-To cross-compile the kernel driver you need to define the `ARCH` and `CROSS_COMPILE` variables when calling `make`. Also, you need to point `KERNELDIR` to the location of the kernel sources.
+To build this driver you need to have the NVIDA Open GPU Kernel Modules installed. This driver will not compile gainst the CUDA toolkit drivers.
 
-For example, to cross-compile the driver for the SLAC buildroot `2019.08` version for the `x86_64` architecture, you should call `make` this way:
+https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html
 
-```bash
-$ make \
-ARCH=x86_64 \
-CROSS_COMPILE=/afs/slac/package/linuxRT/buildroot-2019.08/host/linux-x86_64/x86_64/usr/bin/x86_64-buildroot-linux-gnu- \
-KERNELDIR=/afs/slac/package/linuxRT/buildroot-2019.08/buildroot-2019.08-x86_64/output/build/linux-4.14.139
-```
+See section 5.
 
-On the other hand, if you do not want to cross-compile the driver, and build it for the host instead, you need to call `make` without defining any variable:
+A script in this directory 'comp_and_load_drivers.sh' is provided to compile and load the nvidia drivers as well as the driver in this directory. Edit this file and update the NVIDIA_PATH value at the top to the install directory for the nvidia drivers.
 
 ```bash
-$ make
+$ sudo apt-get install nvidia-kernel-source-545-open
+$ sudo apt-get install nvidia-cuda-toolkit
+$ sudo ./comp_and_load_drivers.sh
 ```
+
+If NVLink support is required, install cuda-drivers-fabricmanager-<driver version> as well. However, as of Febuary 2024, the latest version of fabricmanager is 535.
+When it becomes available on Ubuntu, install with:
+
+```
+$ sudo apt-get install cuda-drivers-fabricmanager-545
+```
+
