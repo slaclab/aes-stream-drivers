@@ -138,18 +138,18 @@ inline void AxisG2_WriteFree ( struct DmaBuffer *buff, struct AxisG2Reg *reg, ui
       wrData[1]  = (buff->buffHandle >>  8) & 0xFFFFFFFF;
 
       // Write the second part to the device's write FIFO B
-      iowrite32(wrData[1], &(reg->writeFifoB));
+      writel(wrData[1], &(reg->writeFifoB));
    }
    // If not using 128-bit descriptors, write the buffer handle directly
    // to the device's DMA address table based on the buffer index
    else {
       // For 64-bit descriptors
-      iowrite32(buff->buffHandle, &(reg->dmaAddr[buff->index]));
+      writel(buff->buffHandle, &(reg->dmaAddr[buff->index]));
    }
 
    // Write the first part (or the entire buffer index for 32-bit descriptors)
    // to the device's write FIFO A
-   iowrite32(wrData[0], &(reg->writeFifoA));
+   writel(wrData[0], &(reg->writeFifoA));
 }
 
 /**
@@ -189,8 +189,8 @@ inline void AxisG2_WriteTx(struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32
       rdData[3]  = (buff->buffHandle >>  8) & 0xFFFFFFFF; // Addr bits[39:8]
 
       // Write to FIFO registers for 128-bit descriptor
-      iowrite32(rdData[3], &(reg->readFifoD));
-      iowrite32(rdData[2], &(reg->readFifoC));
+      writel(rdData[3], &(reg->readFifoD));
+      writel(rdData[2], &(reg->readFifoC));
    } else {
       // For 64-bit descriptors
       rdData[0] |= (buff->index <<  4) & 0x0000FFF0; // Buffer ID
@@ -199,12 +199,12 @@ inline void AxisG2_WriteTx(struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32
       rdData[1] |= (buff->dest << 24) & 0xFF000000; // Destination ID
 
       // Write buffer handle to DMA address table
-      iowrite32(buff->buffHandle, &(reg->dmaAddr[buff->index]));
+      writel(buff->buffHandle, &(reg->dmaAddr[buff->index]));
    }
 
    // Write to FIFO registers
-   iowrite32(rdData[1], &(reg->readFifoB));
-   iowrite32(rdData[0], &(reg->readFifoA));
+   writel(rdData[1], &(reg->readFifoB));
+   writel(rdData[0], &(reg->readFifoA));
 }
 
 /**
@@ -315,7 +315,7 @@ uint32_t AxisG2_Process (struct DmaDevice * dev, struct AxisG2Reg *reg, struct A
 
             // Background operation handling
             if ( (hwData->bgEnable >> buff->id) & 0x1 ) {
-               iowrite32(0x1,&(reg->bgCount[buff->id]));
+               writel(0x1,&(reg->bgCount[buff->id]));
             }
          }
 
@@ -370,7 +370,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id)
    hwData = (struct AxisG2Data *)dev->hwData;
 
    // Disable interrupt
-   iowrite32(0x0, &(reg->intEnable));
+   writel(0x0, &(reg->intEnable));
 
    // Log interrupt occurrence if debugging is enabled
    if (dev->debug > 0) {
@@ -409,12 +409,12 @@ void AxisG2_Init(struct DmaDevice *dev) {
    memset(dev->destMask,0xFF,DMA_MASK_SIZE);
 
    // Allocate and initialize hardware data structure
-   hwData = (struct AxisG2Data *)kmalloc(sizeof(struct AxisG2Data),GFP_KERNEL);
+   hwData = (struct AxisG2Data *)kzalloc(sizeof(struct AxisG2Data),GFP_KERNEL);
    dev->hwData = hwData;
    hwData->dev = dev;
 
    // Determine operation mode (64-bit or 128-bit) based on hardware version
-   hwData->desc128En = ((ioread32(&(reg->enableVer)) & 0x10000) != 0);
+   hwData->desc128En = ((readl(&(reg->enableVer)) & 0x10000) != 0);
 
    // Initialize buffer counters
    hwData->hwWrBuffCnt = 0;
@@ -424,24 +424,24 @@ void AxisG2_Init(struct DmaDevice *dev) {
    if ( hwData->desc128En ) {
       dmaQueueInit(&hwData->wrQueue,dev->rxBuffers.count);
       dmaQueueInit(&hwData->rdQueue,dev->txBuffers.count + dev->rxBuffers.count);
-      hwData->buffList = (struct DmaBuffer **)kmalloc(BUFF_LIST_SIZE * sizeof(struct DmaBuffer *),GFP_ATOMIC);
+      hwData->buffList = (struct DmaBuffer **)kzalloc(BUFF_LIST_SIZE * sizeof(struct DmaBuffer *),GFP_ATOMIC);
    }
 
    // Calculate and set the addressable space based on register settings
-   hwData->addrCount = (1 << ioread32(&(reg->addrWidth)));
+   hwData->addrCount = (1 << readl(&(reg->addrWidth)));
    size = hwData->addrCount*(hwData->desc128En?16:8);
 
    // Allocate DMA buffers based on configuration mode
    if(dev->cfgMode & AXIS2_RING_ACP) {
       // Allocate read and write buffers in contiguous physical memory
-      hwData->readAddr   = kmalloc(size, GFP_DMA | GFP_KERNEL);
+      hwData->readAddr   = kzalloc(size, GFP_DMA | GFP_KERNEL);
       hwData->readHandle = virt_to_phys(hwData->readAddr);
-      hwData->writeAddr   = kmalloc(size, GFP_DMA | GFP_KERNEL);
+      hwData->writeAddr   = kzalloc(size, GFP_DMA | GFP_KERNEL);
       hwData->writeHandle = virt_to_phys(hwData->writeAddr);
    } else {
       // Allocate coherent DMA buffers for read and write operations
-      hwData->readAddr = dma_alloc_coherent(dev->device, size, &(hwData->readHandle), GFP_DMA32 | GFP_KERNEL);
-      hwData->writeAddr = dma_alloc_coherent(dev->device, size, &(hwData->writeHandle), GFP_DMA32 | GFP_KERNEL);
+      hwData->readAddr = dma_alloc_coherent(dev->device, size, &(hwData->readHandle), GFP_DMA | GFP_KERNEL);
+      hwData->writeAddr = dma_alloc_coherent(dev->device, size, &(hwData->writeHandle), GFP_DMA | GFP_KERNEL);
    }
 
    // Log buffer addresses
@@ -449,14 +449,14 @@ void AxisG2_Init(struct DmaDevice *dev) {
    dev_info(dev->device,"Init: Write ring at: sw 0x%llx -> hw 0x%llx.\n",(uint64_t)hwData->writeAddr,(uint64_t)hwData->writeHandle);
 
    // Initialize read ring buffer addresses and indices
-   iowrite32(hwData->readHandle&0xFFFFFFFF,&(reg->rdBaseAddrLow));
-   iowrite32((hwData->readHandle >> 32)&0xFFFFFFFF,&(reg->rdBaseAddrHigh));
+   writel(hwData->readHandle&0xFFFFFFFF,&(reg->rdBaseAddrLow));
+   writel((hwData->readHandle >> 32)&0xFFFFFFFF,&(reg->rdBaseAddrHigh));
    memset(hwData->readAddr,0,size);
    hwData->readIndex = 0;
 
    // Initialize write ring buffer addresses and indices
-   iowrite32(hwData->writeHandle&0xFFFFFFFF,&(reg->wrBaseAddrLow));
-   iowrite32((hwData->writeHandle>>32)&0xFFFFFFFF,&(reg->wrBaseAddrHigh));
+   writel(hwData->writeHandle&0xFFFFFFFF,&(reg->wrBaseAddrLow));
+   writel((hwData->writeHandle>>32)&0xFFFFFFFF,&(reg->wrBaseAddrHigh));
    memset(hwData->writeAddr,0,size);
    hwData->writeIndex = 0;
 
@@ -469,21 +469,21 @@ void AxisG2_Init(struct DmaDevice *dev) {
    x = 0;
    if (dev->cfgMode & BUFF_ARM_ACP) x |= 0xA600; // Buffer write and read cache policy
    if (dev->cfgMode & AXIS2_RING_ACP) x |= 0x00A6; // Descriptor write cache policy
-   iowrite32(x, &(reg->cacheConfig));
+   writel(x, &(reg->cacheConfig));
 
    // Set maximum transfer size
-   iowrite32(dev->cfgSize,&(reg->maxSize));
+   writel(dev->cfgSize,&(reg->maxSize));
 
    // Reset FIFOs to clear any residual data
-   iowrite32(0x1,&(reg->fifoReset));
-   iowrite32(0x0,&(reg->fifoReset));
+   writel(0x1,&(reg->fifoReset));
+   writel(0x0,&(reg->fifoReset));
 
    // Enable continuous mode and disable drop mode
-   iowrite32(0x1,&(reg->contEnable));
-   iowrite32(0x0,&(reg->dropEnable));
+   writel(0x1,&(reg->contEnable));
+   writel(0x0,&(reg->dropEnable));
 
    // Set IRQ holdoff time if supported by hardware version
-   if ( ((ioread32(&(reg->enableVer)) >> 24) & 0xFF) >= 3 ) iowrite32(dev->cfgIrqHold,&(reg->irqHoldOff));
+   if ( ((readl(&(reg->enableVer)) >> 24) & 0xFF) >= 3 ) writel(dev->cfgIrqHold,&(reg->irqHoldOff));
 
    // Push RX buffers to hardware and map
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
@@ -505,10 +505,10 @@ void AxisG2_Init(struct DmaDevice *dev) {
 
    // Initialize buffer group settings if supported by hardware version
    hwData->bgEnable = 0;
-   if ( ((ioread32(&(reg->enableVer)) >> 24) & 0xFF) >= 4 ) {
+   if ( ((readl(&(reg->enableVer)) >> 24) & 0xFF) >= 4 ) {
       for (x =0; x < 8; x++) {
          if ( dev->cfgBgThold[x] != 0 ) hwData->bgEnable |= (1 << x);
-         iowrite32(dev->cfgBgThold[x],&(reg->bgThold[x]));
+         writel(dev->cfgBgThold[x],&(reg->bgThold[x]));
       }
    }
 
@@ -533,8 +533,8 @@ void AxisG2_Enable(struct DmaDevice *dev) {
    hwData = (struct AxisG2Data *)dev->hwData;
 
    // Enable the device by setting the enable version and online registers
-   iowrite32(0x1, &(reg->enableVer));
-   iowrite32(0x1, &(reg->online));
+   writel(0x1, &(reg->enableVer));
+   writel(0x1, &(reg->online));
 
    // Check if descriptor 128-bit enable flag is set
    if (hwData->desc128En) {
@@ -561,15 +561,15 @@ void AxisG2_Enable(struct DmaDevice *dev) {
 
    // Enable interrupt handling if not disabled by configuration
    if (!dev->cfgIrqDis) {
-      iowrite32(0x1, &(reg->intEnable));
+      writel(0x1, &(reg->intEnable));
    }
 
    // Re-enable the device and online status to ensure settings take effect
-   iowrite32(0x1, &(reg->enableVer));
-   iowrite32(0x1, &(reg->online));
+   writel(0x1, &(reg->enableVer));
+   writel(0x1, &(reg->online));
 
    // Re-enable interrupt handling as a final step
-   iowrite32(0x1, &(reg->intEnable));
+   writel(0x1, &(reg->intEnable));
 }
 
 /**
@@ -590,7 +590,7 @@ void AxisG2_Clear(struct DmaDevice *dev) {
    hwData = (struct AxisG2Data *)dev->hwData;
 
    // Disable interrupts to prevent further device activity.
-   iowrite32(0x0, &(reg->intEnable));
+   writel(0x0, &(reg->intEnable));
 
    // Stop and destroy the work queue if enabled.
    if (hwData->wqEnable) {
@@ -605,11 +605,11 @@ void AxisG2_Clear(struct DmaDevice *dev) {
    }
 
    // Disable RX and TX to stop data transfers.
-   iowrite32(0x0, &(reg->enableVer));
-   iowrite32(0x0, &(reg->online));
+   writel(0x0, &(reg->enableVer));
+   writel(0x0, &(reg->online));
 
    // Clear FIFOs to reset the device's internal state.
-   iowrite32(0x1, &(reg->fifoReset));
+   writel(0x1, &(reg->fifoReset));
 
    // Free allocated buffers depending on the device configuration.
    if (dev->cfgMode & AXIS2_RING_ACP) {
@@ -674,13 +674,13 @@ void AxisG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t
       if (hwData->bgEnable != 0) {
          for (x = 0; x < count; x++) {
             if ((hwData->bgEnable >> buff[x]->id) & 0x1) {
-               iowrite32(0x1, &(reg->bgCount[buff[x]->id]));
+               writel(0x1, &(reg->bgCount[buff[x]->id]));
             }
          }
       }
 
       // Force an interrupt to process the returned buffers
-      iowrite32(0x1, &(reg->forceInt));
+      writel(0x1, &(reg->forceInt));
    }
 }
 
@@ -725,7 +725,7 @@ int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32
    // For 128-bit descriptors, push to software queue and force an interrupt
    if (hwData->desc128En) {
       dmaQueuePushList(&(hwData->rdQueue), buff, count);
-      iowrite32(0x1, &(reg->forceInt));
+      writel(0x1, &(reg->forceInt));
    }
 
    return count;
@@ -755,7 +755,7 @@ int32_t AxisG2_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg)
          // Lock the device command execution context
          spin_lock(&dev->commandLock);
          // Acknowledge the read request
-         iowrite32(0x1, &(reg->acknowledge));
+         writel(0x1, &(reg->acknowledge));
          // Unlock after command execution
          spin_unlock(&dev->commandLock);
          return 0;
@@ -763,7 +763,7 @@ int32_t AxisG2_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg)
 
       case AXIS_Write_ReqMissed:
          // Return the number of missed write requests
-         return ioread32(&(reg->wrReqMissed));
+         return readl(&(reg->wrReqMissed));
          break;
 
       default:
@@ -795,28 +795,28 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
 
    seq_printf(s,"\n");
    seq_printf(s,"---------- DMA Firmware General ----------\n");
-   seq_printf(s,"          Int Req Count : %u\n",(ioread32(&(reg->intReqCount))));
-// seq_printf(s,"        Hw Dma Wr Index : %u\n",(ioread32(&(reg->hwWrIndex))));
+   seq_printf(s,"          Int Req Count : %u\n",(readl(&(reg->intReqCount))));
+// seq_printf(s,"        Hw Dma Wr Index : %u\n",(readl(&(reg->hwWrIndex))));
 // seq_printf(s,"        Sw Dma Wr Index : %u\n",hwData->writeIndex);
-// seq_printf(s,"        Hw Dma Rd Index : %u\n",(ioread32(&(reg->hwRdIndex))));
+// seq_printf(s,"        Hw Dma Rd Index : %u\n",(readl(&(reg->hwRdIndex))));
 // seq_printf(s,"        Sw Dma Rd Index : %u\n",hwData->readIndex);
-// seq_printf(s,"     Missed Wr Requests : %u\n",(ioread32(&(reg->wrReqMissed))));
+// seq_printf(s,"     Missed Wr Requests : %u\n",(readl(&(reg->wrReqMissed))));
 // seq_printf(s,"       Missed IRQ Count : %u\n",hwData->missedIrq);
    seq_printf(s,"         Continue Count : %u\n",hwData->contCount);
    seq_printf(s,"          Address Count : %i\n",hwData->addrCount);
    seq_printf(s,"    Hw Write Buff Count : %i\n",hwData->hwWrBuffCnt);
    seq_printf(s,"     Hw Read Buff Count : %i\n",hwData->hwRdBuffCnt);
-   seq_printf(s,"           Cache Config : 0x%x\n",(ioread32(&(reg->cacheConfig))));
+   seq_printf(s,"           Cache Config : 0x%x\n",(readl(&(reg->cacheConfig))));
    seq_printf(s,"            Desc 128 En : %i\n",hwData->desc128En);
-   seq_printf(s,"            Enable Ver  : 0x%x\n",(ioread32(&(reg->enableVer))));
-   seq_printf(s,"      Driver Load Count : %u\n",((ioread32(&(reg->enableVer)))>>8)&0xFF);
-   seq_printf(s,"               IRQ Hold : %u\n",(ioread32(&(reg->irqHoldOff))));
+   seq_printf(s,"            Enable Ver  : 0x%x\n",(readl(&(reg->enableVer))));
+   seq_printf(s,"      Driver Load Count : %u\n",((readl(&(reg->enableVer)))>>8)&0xFF);
+   seq_printf(s,"               IRQ Hold : %u\n",(readl(&(reg->irqHoldOff))));
    seq_printf(s,"              BG Enable : 0x%x\n",hwData->bgEnable);
 
    for ( x=0; x < 8; x++ ) {
       if ( (hwData->bgEnable >> x) & 0x1 ) {
-         seq_printf(s,"         BG %i Threshold : %u\n",x,ioread32(&(reg->bgThold[x])));
-         seq_printf(s,"             BG %i Count : %u\n",x,ioread32(&(reg->bgCount[x])));
+         seq_printf(s,"         BG %i Threshold : %u\n",x,readl(&(reg->bgThold[x])));
+         seq_printf(s,"             BG %i Count : %u\n",x,readl(&(reg->bgCount[x])));
       }
    }
 }
@@ -845,7 +845,7 @@ void AxisG2_WqTask_IrqForce(struct work_struct *work) {
    reg = (struct AxisG2Reg *)hwData->dev->reg;
 
    // Force an interrupt
-   iowrite32(0x1, &(reg->forceInt));
+   writel(0x1, &(reg->forceInt));
 
    // If work queue is enabled, re-queue the work with a delay
    if (hwData->wqEnable)
@@ -930,5 +930,5 @@ void AxisG2_WqTask_Service(struct work_struct *work) {
    }
 
    // Acknowledge interrupt and enable next interrupt
-   iowrite32(0x30000 + handleCount, &(reg->intAckAndEnable));
+   writel(0x30000 + handleCount, &(reg->intAckAndEnable));
 }

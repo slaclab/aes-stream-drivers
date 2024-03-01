@@ -64,14 +64,14 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
    if ( count == 0 ) return(0);
 
    // Allocate first level pointers
-   if ((list->indexed = (struct DmaBuffer ***) kmalloc(sizeof(struct DmaBuffer**) * list->subCount, GFP_KERNEL)) == NULL ) {
+   if ((list->indexed = (struct DmaBuffer ***) kzalloc(sizeof(struct DmaBuffer**) * list->subCount, GFP_KERNEL)) == NULL ) {
       dev_err(dev->device,"dmaAllocBuffers: Failed to allocate indexed list pointer. Count=%u.\n",list->subCount);
       goto cleanup_forced_exit;
    }
 
    // Allocate sub lists
    for (x=0; x < list->subCount; x++) {
-      if ((list->indexed[x] = (struct DmaBuffer **) kmalloc((sizeof(struct DmaBuffer *) * BUFFERS_PER_LIST), GFP_KERNEL)) == NULL) {
+      if ((list->indexed[x] = (struct DmaBuffer **) kzalloc((sizeof(struct DmaBuffer *) * BUFFERS_PER_LIST), GFP_KERNEL)) == NULL) {
          dev_err(dev->device,"dmaAllocBuffers: Failed to allocate sub list. Idx=%u.\n",x);
          goto cleanup_list_heads;
       }
@@ -80,14 +80,14 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
    // Sorted lists are not always available. Disable for streaming mode or when we have too many buffers for
    // a single sorted list
    if ( (list->subCount == 1) && ((list->dev->cfgMode & BUFF_STREAM) == 0) ) {
-      list->sorted = (struct DmaBuffer **) kmalloc(sizeof(struct DmaBuffer**) * count, GFP_KERNEL);
+      list->sorted = (struct DmaBuffer **) kzalloc(sizeof(struct DmaBuffer**) * count, GFP_KERNEL);
    }
 
    // Allocate buffers
    for (x=0; x < count; x++) {
       sl  = x / BUFFERS_PER_LIST;
       sli = x % BUFFERS_PER_LIST;
-      if ( (buff = (struct DmaBuffer *) kmalloc(sizeof(struct DmaBuffer), GFP_KERNEL)) == NULL) {
+      if ( (buff = (struct DmaBuffer *) kzalloc(sizeof(struct DmaBuffer), GFP_KERNEL)) == NULL) {
          dev_err(dev->device,"dmaAllocBuffers: Failed to create buffer structure index %ui. Unloading.\n",x);
          goto cleanup_buffers;
       }
@@ -101,27 +101,22 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
       // Coherent buffer, map dma coherent buffers
       if ( list->dev->cfgMode & BUFF_COHERENT ) {
          buff->buffAddr =
-            dma_alloc_coherent(list->dev->device, list->dev->cfgSize, &(buff->buffHandle), GFP_DMA32 | GFP_KERNEL);
+            dma_alloc_coherent(list->dev->device, list->dev->cfgSize, &(buff->buffHandle), GFP_DMA | GFP_KERNEL);
       }
 
       // Streaming buffer type, standard kernel memory
       else if ( list->dev->cfgMode & BUFF_STREAM ) {
-         buff->buffAddr = kmalloc(list->dev->cfgSize, GFP_KERNEL);
+         buff->buffAddr = dma_alloc_coherent(list->dev->device, list->dev->cfgSize, &buff->buffHandle, GFP_KERNEL);
 
-         if (buff->buffAddr != NULL) {
-            buff->buffHandle = dma_map_single(list->dev->device,buff->buffAddr,
-                                             list->dev->cfgSize,direction);
-
-            // Map error
-            if ( dma_mapping_error(list->dev->device,buff->buffHandle) ) {
-               buff->buffHandle = 0;
-            }
+         // Check for mapping error
+         if (buff->buffAddr == NULL) {
+            dev_err(dev->device,"dmaAllocBuffers: dma_alloc_coherent failed\n");
          }
       }
 
-      // ACP type with permament handle mapping, dma capable kernel memory
+      // ACP type with permanent handle mapping, dma capable kernel memory
       else if ( list->dev->cfgMode & BUFF_ARM_ACP ) {
-         buff->buffAddr = kmalloc(list->dev->cfgSize, GFP_DMA | GFP_KERNEL);
+         buff->buffAddr = kzalloc(list->dev->cfgSize, GFP_DMA | GFP_KERNEL);
          if (buff->buffAddr != NULL)
             buff->buffHandle = virt_to_phys(buff->buffAddr);
       }
@@ -627,14 +622,14 @@ size_t dmaQueueInit(struct DmaQueue *queue, uint32_t count) {
    queue->write = 0;
 
    // Allocate memory for the queue pointers
-   queue->queue = (struct DmaBuffer ***)kmalloc(queue->subCount * sizeof(struct DmaBuffer **), GFP_KERNEL);
+   queue->queue = (struct DmaBuffer ***)kzalloc(queue->subCount * sizeof(struct DmaBuffer **), GFP_KERNEL);
    if (queue->queue == NULL) {
       goto cleanup_force_exit;
    }
 
    // Allocate memory for each sub-queue
    for (x = 0; x < queue->subCount; x++) {
-      queue->queue[x] = (struct DmaBuffer **)kmalloc(BUFFERS_PER_LIST * sizeof(struct DmaBuffer *), GFP_KERNEL);
+      queue->queue[x] = (struct DmaBuffer **)kzalloc(BUFFERS_PER_LIST * sizeof(struct DmaBuffer *), GFP_KERNEL);
       if (queue->queue[x] == NULL) {
          goto cleanup_sub_queue;
       }

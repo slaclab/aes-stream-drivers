@@ -39,7 +39,7 @@ void Gpu_Init(struct DmaDevice *dev, uint32_t offset)
    struct GpuData *gpuData;
 
    /* Allocate memory for GPU utility data */
-   gpuData = (struct GpuData *)kmalloc(sizeof(struct GpuData), GFP_KERNEL);
+   gpuData = (struct GpuData *)kzalloc(sizeof(struct GpuData), GFP_KERNEL);
    if (!gpuData)
       return; // Handle memory allocation failure if necessary
 
@@ -164,11 +164,11 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
 
          // Update buffer count and write DMA addresses to device
          if (buffer->write){
-            iowrite32(buffer->dmaMapping->dma_addresses[0], data->base+0x100+data->writeBuffers.count*16);
-            iowrite32(mapSize,data->base+0x108+data->writeBuffers.count*16);
+            writel(buffer->dmaMapping->dma_addresses[0], data->base+0x100+data->writeBuffers.count*16);
+            writel(mapSize,data->base+0x108+data->writeBuffers.count*16);
             data->writeBuffers.count++;
          } else {
-            iowrite32(buffer->dmaMapping->dma_addresses[0], data->base+0x200+data->readBuffers.count*16);
+            writel(buffer->dmaMapping->dma_addresses[0], data->base+0x200+data->readBuffers.count*16);
             data->readBuffers.count++;
          }
       }
@@ -189,7 +189,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
       x |= (data->readBuffers.count-1) << 16;
    }
 
-   iowrite32(x,data->base+0x008);
+   writel(x,data->base+0x008);
    return(0);
 }
 
@@ -242,7 +242,7 @@ int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg)
    // Reset the buffer counts and disable specific functionality by writing to a register
    data->writeBuffers.count = 0;
    data->readBuffers.count = 0;
-   iowrite32(0, data->base + 0x008);
+   writel(0, data->base + 0x008);
 
    return 0;
 }

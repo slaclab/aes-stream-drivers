@@ -72,36 +72,36 @@ void AxiVersion_Read(struct DmaDevice *dev, void * base, struct AxiVersion *aVer
    uint32_t x;
 
    // Read firmware version, scratch pad, and uptime count
-   aVer->firmwareVersion = ioread32(&(reg->firmwareVersion));
-   aVer->scratchPad      = ioread32(&(reg->scratchPad));
-   aVer->upTimeCount     = ioread32(&(reg->upTimeCount));
+   aVer->firmwareVersion = readl(&(reg->firmwareVersion));
+   aVer->scratchPad      = readl(&(reg->scratchPad));
+   aVer->upTimeCount     = readl(&(reg->upTimeCount));
 
    // Read feature descriptor values
    for (x = 0; x < 2; x++) {
-      ((uint32_t *)aVer->fdValue)[x] = ioread32(&(reg->fdValue[x]));
+      ((uint32_t *)aVer->fdValue)[x] = readl(&(reg->fdValue[x]));
    }
 
    // Read user-defined values
    for (x = 0; x < 64; x++) {
-      aVer->userValues[x] = ioread32(&(reg->userValues[x]));
+      aVer->userValues[x] = readl(&(reg->userValues[x]));
    }
 
    // Read device ID
-   aVer->deviceId = ioread32(&(reg->deviceId));
+   aVer->deviceId = readl(&(reg->deviceId));
 
    // Read git hash
    for (x = 0; x < 40; x++) {
-      ((uint32_t *)aVer->gitHash)[x] = ioread32(&(reg->gitHash[x]));
+      ((uint32_t *)aVer->gitHash)[x] = readl(&(reg->gitHash[x]));
    }
 
    // Read device DNA value
    for (x = 0; x < 4; x++) {
-      ((uint32_t *)aVer->dnaValue)[x] = ioread32(&(reg->dnaValue[x]));
+      ((uint32_t *)aVer->dnaValue)[x] = readl(&(reg->dnaValue[x]));
    }
 
    // Read build string
    for (x = 0; x < 64; x++) {
-      ((uint32_t *)aVer->buildString)[x] = ioread32(&(reg->buildString[x]));
+      ((uint32_t *)aVer->buildString)[x] = readl(&(reg->buildString[x]));
    }
 }
 
@@ -172,5 +172,5 @@ void AxiVersion_SetUserReset(void *base, bool state) {
       val = 0x0;  // Clear user reset
    }
 
-   iowrite32(val, &(reg->userReset));  // Write the value to the userReset register
+   writel(val, &(reg->userReset));  // Write the value to the userReset register
 }

@@ -462,9 +462,9 @@ int Dma_Open(struct inode *inode, struct file *filp) {
    dev = container_of(inode->i_cdev, struct DmaDevice, charDev);
 
    // Allocate and initialize the DMA descriptor
-   desc = (struct DmaDesc *)kmalloc(sizeof(struct DmaDesc), GFP_KERNEL);
+   desc = (struct DmaDesc *)kzalloc(sizeof(struct DmaDesc), GFP_KERNEL);
    if (!desc) {
-      dev_err(dev->device, "Open: kmalloc failed\n");
+      dev_err(dev->device, "Open: kzalloc failed\n");
       return -ENOMEM; // Return an error if allocation fails
    }
 
@@ -608,8 +608,8 @@ ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos)
    }
 
    rCnt = count / sizeof(struct DmaReadData);
-   rd = (struct DmaReadData *)kmalloc(rCnt * sizeof(struct DmaReadData), GFP_KERNEL);
-   buff = (struct DmaBuffer **)kmalloc(rCnt * sizeof(struct DmaBuffer *), GFP_KERNEL);
+   rd = (struct DmaReadData *)kzalloc(rCnt * sizeof(struct DmaReadData), GFP_KERNEL);
+   buff = (struct DmaBuffer **)kzalloc(rCnt * sizeof(struct DmaBuffer *), GFP_KERNEL);
 
    // Copy the read structure from user space
    if ((ret = copy_from_user(rd, buffer, rCnt * sizeof(struct DmaReadData)))) {
@@ -914,10 +914,10 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          cnt = (cmd >> 16) & 0xFFFF;
 
          if ( cnt == 0 ) return(0);
-         indexes = kmalloc(cnt * sizeof(uint32_t),GFP_KERNEL);
+         indexes = kzalloc(cnt * sizeof(uint32_t),GFP_KERNEL);
          if (copy_from_user(indexes,(void *)arg,(cnt * sizeof(uint32_t)))) return(-1);
 
-         buffList = (struct DmaBuffer **)kmalloc(cnt * sizeof(struct DmaBuffer *),GFP_KERNEL);
+         buffList = (struct DmaBuffer **)kzalloc(cnt * sizeof(struct DmaBuffer *),GFP_KERNEL);
          bCnt = 0;
 
          for (x=0; x < cnt; x++) {
@@ -1096,7 +1096,7 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma)
       }
       // Map streaming buffer or ARM ACP
       else if (dev->cfgMode & BUFF_STREAM || dev->cfgMode & BUFF_ARM_ACP) {
-         ret = remap_pfn_range(vma, vma->vm_start,
+         ret = io_remap_pfn_range(vma, vma->vm_start,
                                virt_to_phys((void *)buff->buffAddr) >> PAGE_SHIFT,
                                vsize, vma->vm_page_prot);
       } else {
@@ -1454,7 +1454,7 @@ int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg)
    }
 
    // Write data to the register
-   iowrite32(rData.data, dev->base + rData.address);
+   writel(rData.data, dev->base + rData.address);
 
    return 0;
 }
@@ -1489,7 +1489,7 @@ int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg)
    }
 
    // Read register value
-   rData.data = ioread32(dev->base + rData.address);
+   rData.data = readl(dev->base + rData.address);
 
    // Attempt to copy the updated DmaRegisterData structure back to user space
    if ((ret = copy_to_user((void *)arg, &rData, sizeof(struct DmaRegisterData)))) {
