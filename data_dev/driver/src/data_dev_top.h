@@ -25,7 +25,7 @@
 #include <dma_common.h>
 
 /** Maximum number of DMA devices supported. */
-#define MAX_DMA_DEVICES 4
+#define MAX_DMA_DEVICES 32
 
 /** PCI vendor and device identifiers. */
 #define PCI_VENDOR_ID_SLAC 0x1a4a
