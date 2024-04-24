@@ -10,12 +10,12 @@
  * Description:
  * Access functions for Gen1 AXIS DMA
  * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to 
- * the license terms in the LICENSE.txt file found in the top-level directory 
- * of this distribution and at: 
- *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
- * No part of the aes_stream_drivers package, including this file, may be 
- * copied, modified, propagated, or distributed except according to the terms 
+ * This file is part of the aes_stream_drivers package. It is subject to
+ * the license terms in the LICENSE.txt file found in the top-level directory
+ * of this distribution and at:
+ *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ * No part of the aes_stream_drivers package, including this file, may be
+ * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
@@ -69,8 +69,8 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
             // Read handle
             if (((handle = ioread32(&(reg->txFree))) & 0x80000000) != 0 ) {
                handle &= 0x7FFFFFFC;
-              
-               if ( dev->debug > 0 ) 
+
+               if ( dev->debug > 0 )
                   dev_info(dev->device,"Irq: Return TX Status Value 0x%.8x.\n",handle);
 
                // Attempt to find buffer in tx pool and return. otherwise return rx entry to hw.
@@ -88,7 +88,7 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
                handle &= 0x7FFFFFFC;
 
                // Read size
-               do { 
+               do {
                   size = ioread32(&(reg->rxPend));
                } while ((size & 0x80000000) == 0);
 
@@ -100,7 +100,7 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
                else size &= 0xFFFFFF;
 
                // Get status
-               do { 
+               do {
                   status = ioread32(&(reg->rxPend));
                } while ((status & 0x80000000) == 0);
 
@@ -129,14 +129,14 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
                      dev_info(dev->device,"Irq: DMA overflow error detected.\n");
                      buff->error |= DMA_ERR_LEN;
                   }
-               
+
                   if ( dev->debug > 0 ) {
                      dev_info(dev->device,"Irq: Rx size=%i, Dest=%i, Flags=0x%x, Error=0x%x.\n",
                         buff->size, buff->dest, buff->flags, buff->error);
                   }
 
                   // Lock mask records
-                  // This ensures close does not occur while irq routine is 
+                  // This ensures close does not occur while irq routine is
                   // pushing data to desc rx queue
                   spin_lock(&dev->maskLock);
 
@@ -181,12 +181,12 @@ void AxisG1_Init(struct DmaDevice *dev) {
    struct AxisG1Reg *reg;
    reg = (struct AxisG1Reg *)dev->reg;
 
-   // Set MAX RX                      
+   // Set MAX RX
    iowrite32(dev->cfgSize,&(reg->maxRxSize));
-                                      
-   // Clear FIFOs                     
-   iowrite32(0x1,&(reg->fifoClear)); 
-   iowrite32(0x0,&(reg->fifoClear)); 
+
+   // Clear FIFOs
+   iowrite32(0x1,&(reg->fifoClear));
+   iowrite32(0x0,&(reg->fifoClear));
 
    // Enable rx and tx
    iowrite32(0x1,&(reg->rxEnable));
@@ -195,7 +195,7 @@ void AxisG1_Init(struct DmaDevice *dev) {
    // Push RX buffers to hardware
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
       buff = dmaGetBufferList(&(dev->rxBuffers),x);
-      if ( dmaBufferToHw(buff) < 0 ) 
+      if ( dmaBufferToHw(buff) < 0 )
          dev_warn(dev->device,"Init: Failed to map dma buffer.\n");
       else iowrite32(buff->buffHandle,&(reg->rxFree));
    }
@@ -305,7 +305,7 @@ int32_t AxisG1_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
          break;
 
       default:
-         dev_warn(dev->device,"Command: Invalid command=%i\n",cmd); 
+         dev_warn(dev->device,"Command: Invalid command=%i\n",cmd);
          return(-1);
          break;
    }

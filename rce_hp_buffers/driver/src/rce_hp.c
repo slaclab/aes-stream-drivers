@@ -6,12 +6,12 @@
  * Author     : Ryan Herbst, rherbst@slac.stanford.edu
  * Created    : 2017-08-11
  * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to 
- * the license terms in the LICENSE.txt file found in the top-level directory 
- * of this distribution and at: 
- *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
- * No part of the aes_stream_drivers package, including this file, may be 
- * copied, modified, propagated, or distributed except according to the terms 
+ * This file is part of the aes_stream_drivers package. It is subject to
+ * the license terms in the LICENSE.txt file found in the top-level directory
+ * of this distribution and at:
+ *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ * No part of the aes_stream_drivers package, including this file, may be
+ * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
@@ -42,8 +42,8 @@ void RceHp_Init(struct DmaDevice *dev) {
    reg = (struct RceHpReg *)dev->reg;
 
    // Clear Buffers
-   iowrite32(0x1,&(reg->bufferClear)); 
-   iowrite32(0x0,&(reg->bufferClear)); 
+   iowrite32(0x1,&(reg->bufferClear));
+   iowrite32(0x0,&(reg->bufferClear));
 
    // Set buffer size
    iowrite32(dev->cfgSize,&(reg->bufferSize));
@@ -51,7 +51,7 @@ void RceHp_Init(struct DmaDevice *dev) {
    // Push buffers to hardware
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
       buff = dmaGetBufferList(&(dev->rxBuffers),x);
-      if ( dmaBufferToHw(buff) < 0 ) 
+      if ( dmaBufferToHw(buff) < 0 )
          dev_warn(dev->device,"Init: Failed to map dma buffer.\n");
       else iowrite32(buff->buffHandle,&(reg->bufferAlloc));
    }
