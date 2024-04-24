@@ -9,12 +9,12 @@
  * Description:
  * Top level module types and functions.
  * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to 
- * the license terms in the LICENSE.txt file found in the top-level directory 
- * of this distribution and at: 
- *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
- * No part of the aes_stream_drivers package, including this file, may be 
- * copied, modified, propagated, or distributed except according to the terms 
+ * This file is part of the aes_stream_drivers package. It is subject to
+ * the license terms in the LICENSE.txt file found in the top-level directory
+ * of this distribution and at:
+ *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ * No part of the aes_stream_drivers package, including this file, may be
+ * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
@@ -48,7 +48,7 @@ module_exit(Map_Exit);
 // Global device
 struct MapDevice dev;
 
-// Global variable for the device class 
+// Global variable for the device class
 struct class * gCl;
 
 // Define interface routines
@@ -106,7 +106,7 @@ int Map_Init(void) {
    if (cdev_add(&(dev.charDev), dev.devNum, 1) == -1) {
       printk(KERN_ERR MOD_NAME " Init: Failed to add device file.\n");
       return -1;
-   }                                  
+   }
 
    // Map initial space
    if ( (dev.maps = (struct MemMap *)kmalloc(sizeof(struct MemMap),GFP_KERNEL)) == NULL ) {
@@ -189,7 +189,7 @@ uint8_t * Map_Find(uint32_t addr) {
    while (cur != NULL) {
 
       // Current pointer matches
-      if ( (addr >= cur->addr) && (addr < (cur->addr + MAP_SIZE)) ) 
+      if ( (addr >= cur->addr) && (addr < (cur->addr + MAP_SIZE)) )
          return((uint8_t*)(cur->base + (addr-cur->addr)));
 
       // Next address is too high, insert new structure
