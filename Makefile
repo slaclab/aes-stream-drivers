@@ -27,8 +27,8 @@ LOC_VERS := $(patsubst %/,%,$(dir $(LOC_VERS)))
 LOC_VERS := $(notdir $(LOC_VERS))
 
 # Define RCE module directories
-RCE_DIRS := /afs/slac.stanford.edu/g/cci/volumes/vol1/xilinx/linux-xlnx-v2016.4
-RCE_DIRS += /afs/slac.stanford.edu/g/cci/volumes/vol1/xilinx/backup/linux-xlnx-v2016.1.01
+RCE_DIRS := /sdf/group/faders/tools/xilinx/rce_linux_kernel/linux-xlnx-v2016.4
+RCE_DIRS += /sdf/group/faders/tools/xilinx/rce_linux_kernel/backup/linux-xlnx-v2016.1.01
 
 # Default target: Display the available build options
 all:
