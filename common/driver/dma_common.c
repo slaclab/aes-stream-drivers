@@ -824,6 +824,56 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          return(dev->rxBuffers.count);
          break;
 
+      // Get rx buffer in User count
+      case DMA_Get_RxBuffinUser_Count:
+         userCnt    = 0;
+         for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
+            buff = dmaGetBufferList(&(dev->rxBuffers),x);
+            if (  buff->userHas   ) userCnt++;
+         }
+         return(userCnt);
+         break;
+
+      // Get rx buffer in HW count
+      case DMA_Get_RxBuffinHW_Count:
+         hwCnt    = 0;
+         for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
+            buff = dmaGetBufferList(&(dev->rxBuffers),x);
+            if ( buff->inHw &&  (!buff->inQ)   ) hwCnt++;
+         }
+         return(hwCnt);
+         break;
+
+      // Get rx buffer in Pre-HW Queue count
+      case DMA_Get_RxBuffinPreHWQ_Count:
+         hwQCnt    = 0;
+         for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
+            buff = dmaGetBufferList(&(dev->rxBuffers),x);
+            if ( buff->inHw &&  buff->inQ   ) hwQCnt++;
+         }
+         return(hwQCnt);
+         break;
+
+      // Get rx buffer in SW Queue count
+      case DMA_Get_RxBuffinSWQ_Count:
+         qCnt    = 0;
+         for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
+            buff = dmaGetBufferList(&(dev->rxBuffers),x);
+            if ( (!buff->inHw) &&  buff->inQ   ) qCnt++;
+         }
+         return(qCnt);
+         break;
+
+      // Get rx buffer missing count
+      case DMA_Get_RxBuffMiss_Count:
+         miss    = 0;
+         for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
+            buff = dmaGetBufferList(&(dev->rxBuffers),x);
+            if ( (buff->userHas==NULL) && (buff->inHw==0) &&  (buff->inQ==0)   ) miss++;
+         }
+         return(miss);
+         break;
+
       // Get tx buffer count
       case DMA_Get_TxBuff_Count:
          return(dev->txBuffers.count);
