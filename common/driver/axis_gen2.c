@@ -585,6 +585,7 @@ void AxisG2_Enable(struct DmaDevice *dev) {
 void AxisG2_Clear(struct DmaDevice *dev) {
    struct AxisG2Reg *reg;
    struct AxisG2Data *hwData;
+   size_t size;
 
    reg = (struct AxisG2Reg *)dev->reg;
    hwData = (struct AxisG2Data *)dev->hwData;
@@ -617,9 +618,12 @@ void AxisG2_Clear(struct DmaDevice *dev) {
       kfree(hwData->readAddr);
       kfree(hwData->writeAddr);
    } else {
+      // Compute real DMA size. This must match what was passed into dma_alloc_coherent
+      size = hwData->addrCount * (hwData->desc128En ? 16 : 8);
+
       // For non-ACP modes, use dma_free_coherent to ensure proper DMA memory management.
-      dma_free_coherent(dev->device, hwData->addrCount * 8, hwData->writeAddr, hwData->writeHandle);
-      dma_free_coherent(dev->device, hwData->addrCount * 8, hwData->readAddr, hwData->readHandle);
+      dma_free_coherent(dev->device, size, hwData->writeAddr, hwData->writeHandle);
+      dma_free_coherent(dev->device, size, hwData->readAddr, hwData->readHandle);
    }
 
    // Free the buffer list if descriptor 128-bit mode is enabled.
