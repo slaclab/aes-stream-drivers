@@ -111,7 +111,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
    // Copy data from user space
    if ((ret = copy_from_user(&dat, (void *)arg, sizeof(struct GpuNvidiaData)))) {
       dev_warn(dev->device, "Gpu_AddNvidia: copy_from_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &dat);
-      return (-1);
+      return -1;
    }
 
    if (!dat.size) return -EINVAL;
@@ -176,7 +176,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
       }
    } else {
        dev_warn(dev->device,"Gpu_AddNvidia: failed to pin memory with address=0x%llx. ret=%i\n", dat.address,ret);
-       return(-1);
+       return -1;
    }
 
    x = 0;
@@ -192,7 +192,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
    }
 
    writel(x,data->base+0x008);
-   return(0);
+   return 0;
 }
 
 /**
