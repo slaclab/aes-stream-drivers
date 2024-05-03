@@ -136,6 +136,7 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    int32_t x;
    int32_t axiWidth;
    int ret;
+   int probeReturn = 0;
 
    // Validate buffer mode configuration
    if ( cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM ) {
@@ -180,14 +181,16 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    }
    if (ret < 0 || ret >= sizeof(dev->devName)) {
       pr_err("%s: Probe: Error in snprintf() while formatting device name\n", MOD_NAME);
-      return -EINVAL; // Return directly with an error code
+      probeReturn = -EINVAL; // Return directly with an error code
+      goto err_pre_en;
    }
 
    // Activate the PCI device
    ret = pci_enable_device(pcidev);
    if (ret) {
       pr_err("%s: Probe: pci_enable_device() = %i.\n", MOD_NAME, ret);
-      return ret; // Return with error code
+      probeReturn = ret; // Return with error code
+      goto err_pre_en;
    }
    pci_set_master(pcidev); // Set the device as bus master
 
@@ -197,8 +200,8 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    // Map the device's register space for use in the driver
    if ( Dma_MapReg(dev) < 0 ) {
-      pci_disable_device(pcidev); // Disable the device on failure
-      return -ENOMEM; // Memory allocation error
+      probeReturn = -ENOMEM; // Memory allocation error
+      goto err_post_en;
    }
 
    // Initialize device configuration parameters
@@ -241,27 +244,37 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
          if (!dma_set_coherent_mask(dev->device, DMA_BIT_MASK(axiWidth))) {
             dev_info(dev->device, "Init: Using %d-bit coherent DMA mask.\n", axiWidth);
          } else {
-            dev_warn(dev->device, "Init: Failed to set coherent DMA mask.\n");
+            dev_err(dev->device, "Init: Failed to set coherent DMA mask.\n");
+            probeReturn = -EINVAL;
+            goto err_post_en;
          }
       } else {
-         dev_warn(dev->device, "Init: Failed to set DMA mask.\n");
+         dev_err(dev->device, "Init: Failed to set DMA mask.\n");
+         probeReturn = -EINVAL;
+         goto err_post_en;
       }
    }
 
    // Initialize common DMA functionalities
    if (Dma_Init(dev) < 0) {
-      pci_disable_device(pcidev); // Disable PCI device on failure
-      return -ENOMEM;      // Indicate memory allocation error
+      probeReturn = -ENOMEM;      // Indicate memory allocation error
+      goto err_post_en;
    }
 
    // Log memory mapping information
-   dev_info(dev->device,"Init: Reg  space mapped to 0x%llx.\n",(uint64_t)dev->reg);
-   dev_info(dev->device,"Init: User space mapped to 0x%llx with size 0x%x.\n",(uint64_t)dev->rwBase,dev->rwSize);
+   dev_info(dev->device,"Init: Reg  space mapped to 0x%p.\n",dev->reg);
+   dev_info(dev->device,"Init: User space mapped to 0x%p with size 0x%x.\n",dev->rwBase,dev->rwSize);
    dev_info(dev->device,"Init: Top Register = 0x%x\n",readl(dev->reg));
 
    // Finalize device probe successfully
    gDmaDevCount++; // Increment global device count
-   return(0);      // Success
+   return 0;      // Success
+
+err_post_en:
+   pci_disable_device(pcidev);      // Disable PCI device on failure
+err_pre_en:
+   memset(dev, 0, sizeof(*dev));    // Clear out the slot we took over in gDmaDevices
+   return probeReturn;
 }
 
 /**
