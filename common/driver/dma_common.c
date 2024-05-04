@@ -258,7 +258,7 @@ int Dma_Init(struct DmaDevice *dev) {
    }
 
    // Attempt to create the device
-   if (device_create(gCl, NULL, dev->devNum, NULL, dev->devName) == NULL) {
+   if (device_create(gCl, NULL, dev->devNum, NULL, "%s", dev->devName) == NULL) {
       dev_err(dev->device,"Init: Failed to create device file\n");
       goto cleanup_class_create;
    }
