@@ -54,7 +54,7 @@ ccflags-y += -DDMA_IN_KERNEL=1 -DGITV=\"$(GITV)\"
 ccflags-y += -I$(NVIDIA_DRIVERS)/nvidia
 
 # Object files for the module.
-$(NAME)-objs := src/dma_buffer.o src/dma_common.o
+$(NAME)-objs := src/dma_buffer.o src/dma_common.o src/data_dev_common.o
 $(NAME)-objs += src/axi_version.o src/axis_gen2.o src/gpu_async.o src/data_gpu_top.o
 
 # Module target.

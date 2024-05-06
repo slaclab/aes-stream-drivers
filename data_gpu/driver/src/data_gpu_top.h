@@ -24,24 +24,7 @@
 #include <linux/pci.h>
 #include <dma_common.h>
 
-/* Maximum number of DMA devices */
-#define MAX_DMA_DEVICES 32
-
-/* PCI IDs */
-#define PCI_VENDOR_ID_SLAC 0x1a4a
-#define PCI_DEVICE_ID_DDEV 0x2030
-
 /* Memory mapping offsets and sizes */
-#define AGEN2_OFF   0x00000000
-#define AGEN2_SIZE  0x00010000
-#define PHY_OFF     0x00010000
-#define PHY_SIZE    0x00010000
-#define AVER_OFF    0x00020000
-#define AVER_SIZE   0x00010000
-#define PROM_OFF    0x00030000
-#define PROM_SIZE   0x00050000
-#define USER_OFF    0x00800000
-#define USER_SIZE   0x00800000
 #define GPU_OFF     0x00A00000
 
 /* Function prototypes */

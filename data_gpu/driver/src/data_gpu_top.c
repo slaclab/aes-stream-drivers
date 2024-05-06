@@ -19,6 +19,7 @@
 **/
 
 #include <data_gpu_top.h>
+#include <data_dev_common.h>
 #include <AxiVersion.h>
 #include <axi_version.h>
 #include <linux/module.h>
@@ -41,15 +42,7 @@
 int cfgTxCount = 1024;  // Transmit buffer count
 int cfgRxCount = 1024;  // Receive buffer count
 int cfgSize    = 0x20000; // Size of the buffer: 128kB
-int cfgMode    = BUFF_COHERENT; // Buffer mode: coherent
 int cfgCont    = 1;        // Continuous operation flag
-int cfgDevName = 0;
-
-/*
- * Global array of DMA devices.
- * This array holds the configuration and status of each DMA device handled by this driver.
- */
-struct DmaDevice gDmaDevices[MAX_DMA_DEVICES];
 
 /*
  * PCI device identification array.
@@ -62,10 +55,14 @@ static struct pci_device_id DataGpu_Ids[] = {
 
 /* Module metadata definitions */
 #define MOD_NAME "datagpu" // Name of the module
+
 MODULE_LICENSE("GPL"); // License type: GPL for open source compliance
 MODULE_DEVICE_TABLE(pci, DataGpu_Ids); // Associate the PCI ID table with this module
 module_init(DataGpu_Init); // Initialize the module with DataGpu_Init function
 module_exit(DataGpu_Exit); // Clean-up the module with DataGpu_Exit function
+
+/** Exposed to common driver code **/
+const char* gModName = MOD_NAME;
 
 /*
  * PCI driver structure definition.
@@ -78,43 +75,52 @@ static struct pci_driver DataGpuDriver = {
    .remove   = DataGpu_Remove, // Remove function for device disconnection
 };
 
+/** Exposed to common driver code **/
+struct pci_driver* gPciDriver = &DataGpuDriver;
+
 /**
- * DataGpu_Init - Initialize the DataGpu Kernel Module.
+ * DataGpu_Init - Initialize the Data Device kernel module
  *
- * This function initializes the Data GPU kernel module. It allocates and clears
- * memory for all DMA devices managed by this module, initializes global variables,
- * and registers the module with the PCI subsystem as a driver for specified devices.
+ * This function initializes the Data Device kernel module. See DataDev_Common_Init
+ * for the rest of the module init functionality.
  *
- * Return: Zero on success, negative error code on failure.
+ * Return: 0 on success, negative error code on failure.
  */
 int32_t DataGpu_Init(void) {
-   /* Clear memory for all DMA devices to reset their configuration. */
-   memset(gDmaDevices, 0, sizeof(struct DmaDevice) * MAX_DMA_DEVICES);
-
-   /* Log module initialization with the kernel logging system. */
-   pr_info("%s: Init\n", MOD_NAME);
-
-   /* Initialize global pointers and counters. */
-   gCl = NULL;             // Clear global class pointer.
-   gDmaDevCount = 0;       // Reset the count of DMA devices managed by this module.
-
-   /* Register this driver with the PCI subsystem to handle devices matching our IDs. */
-   return pci_register_driver(&DataGpuDriver);
+   // Run common init code
+   return DataDev_Common_Init();
 }
 
 /**
- * DataGpu_Exit - Clean up the DataGpu Kernel Module.
+ * DataGpu_Exit - Clean up and exit the Data Device kernel module
  *
- * This function is called when the DataGpu kernel module is being removed
- * from the system. It unregisters the driver from the PCI subsystem and
- * logs the module exit with the kernel logging system.
+ * This function is called when the Data Device kernel module is being removed
+ * from the kernel. See DataDev_Common_Exit for the rest of the module exit
+ * functionality.
  */
 void DataGpu_Exit(void) {
-   /* Log module exit with the kernel logging system. */
-   pr_info("%s: Exit.\n", MOD_NAME);
+   // Run common exit code
+   DataDev_Common_Exit();
+}
 
-   /* Unregister this driver from the PCI subsystem. */
-   pci_unregister_driver(&DataGpuDriver);
+/**
+ * DataGpu_InitCfg - Init device configuration parameters
+ * @dev: DMA device to initialize
+ * 
+ * This is called from DataDev_Common_Probe and should be used to init any
+ * device configuration parameters specific to this driver.
+ *
+ * Return: 0 on success, negative error code on failure
+ */
+int DataGpu_InitCfg(struct DmaDevice* dev) {
+   // Initialize device configuration parameters
+   dev->cfgTxCount = cfgTxCount;
+   dev->cfgRxCount = cfgRxCount;
+   dev->cfgSize    = cfgSize;
+   dev->cfgMode    = cfgMode;
+   dev->cfgCont    = cfgCont;
+   
+   return 0;
 }
 
 /**
@@ -129,195 +135,38 @@ void DataGpu_Exit(void) {
  * Return: 0 on success, negative error code on failure.
  */
 int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
-   struct DmaDevice *dev;
-   struct pci_device_id *id;
-   struct hardware_functions *hfunc;
-
-   int32_t x;
-   int32_t axiWidth;
-   int ret;
-   int probeReturn = 0;
-
-   // Validate buffer mode configuration
-   if ( cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM ) {
-      pr_err("%s: Probe: Invalid buffer mode = %i.\n", MOD_NAME, cfgMode);
-      return -EINVAL; // Return directly with an error code
-   }
-
-   // Initialize hardware function pointers
-   hfunc = &(DataGpu_functions);
-
-   // Cast device ID for further operations
-   id = (struct pci_device_id *) dev_id;
-
-   // Initialize driver data to indicate an empty slot
-   id->driver_data = -1;
-
-   // Search for an available device slot
-   for (x = 0; x < MAX_DMA_DEVICES; x++) {
-      if (gDmaDevices[x].baseAddr == 0) {
-         id->driver_data = x;
-         break;
-      }
-   }
-
-   // Check for device slots overflow
-   if (id->driver_data < 0) {
-      pr_err("%s: Probe: Too Many Devices.\n", MOD_NAME);
-      return -ENOMEM; // Return directly with an error code
-   }
-   dev = &gDmaDevices[id->driver_data];
-   dev->index = id->driver_data;
-
-   // Attempt to compose a unique device name based on configuration
-   if (cfgDevName != 0) {
-      // Utilize the PCI device bus number for unique device naming
-      // Helpful when multiple PCIe cards are installed in the same server
-      ret = snprintf(dev->devName, sizeof(dev->devName), "%s_%02x", MOD_NAME, pcidev->bus->number);
-   } else {
-      // Default to sequential naming based on the device's index
-      // Ensures uniqueness in a single card scenario
-      ret = snprintf(dev->devName, sizeof(dev->devName), "%s_%i", MOD_NAME, dev->index);
-   }
-   if (ret < 0 || ret >= sizeof(dev->devName)) {
-      pr_err("%s: Probe: Error in snprintf() while formatting device name\n", MOD_NAME);
-      probeReturn = -EINVAL; // Return directly with an error code
-      goto err_pre_en;
-   }
-
-   // Activate the PCI device
-   ret = pci_enable_device(pcidev);
-   if (ret) {
-      pr_err("%s: Probe: pci_enable_device() = %i.\n", MOD_NAME, ret);
-      probeReturn = ret; // Return with error code
-      goto err_pre_en;
-   }
-   pci_set_master(pcidev); // Set the device as bus master
-
-   // Retrieve and store the base address and size of the device's register space
-   dev->baseAddr = pci_resource_start (pcidev, 0);
-   dev->baseSize = pci_resource_len (pcidev, 0);
-
-   // Map the device's register space for use in the driver
-   if ( Dma_MapReg(dev) < 0 ) {
-      probeReturn = -ENOMEM; // Memory allocation error
-      goto err_post_en;
-   }
-
-   // Initialize device configuration parameters
-   dev->cfgTxCount = cfgTxCount;
-   dev->cfgRxCount = cfgRxCount;
-   dev->cfgSize    = cfgSize;
-   dev->cfgMode    = cfgMode;
-   dev->cfgCont    = cfgCont;
-
-   /// Assign the IRQ number from the pci_dev structure
-   dev->irq = pcidev->irq;
-
-   // Set basic device context
-   dev->pcidev = pcidev;               // PCI device structure
-   dev->device = &(pcidev->dev);       // Device structure
-   dev->hwFunc = hfunc;                // Hardware function pointer
-
-   // Initialize device memory regions
-   dev->reg    = dev->base + AGEN2_OFF;   // Register base address
-   dev->rwBase = dev->base + PHY_OFF;     // Read/Write base address
-   dev->rwSize = (2*USER_SIZE) - PHY_OFF; // Read/Write region size
-
-   // GPU Init
-   Gpu_Init(dev, GPU_OFF);
-
-   // Manage device reset cycle
-   dev_info(dev->device,"Init: Setting user reset\n");
-   AxiVersion_SetUserReset(dev->base + AVER_OFF,true); // Set user reset
-   dev_info(dev->device,"Init: Clearing user reset\n");
-   AxiVersion_SetUserReset(dev->base + AVER_OFF,false); // Clear user reset
-
-   // Configure DMA based on AXI address width: 128bit desc, = 64-bit address map
-   if ((readl(dev->reg) & 0x10000) != 0) {
-      axiWidth = (readl(dev->reg + 0x34) >> 8) & 0xFF; // Extract AXI address width
-
-      // Attempt to set DMA and coherent DMA masks based on AXI width
-      if (!dma_set_mask(dev->device, DMA_BIT_MASK(axiWidth))) {
-         dev_info(dev->device, "Init: Using %d-bit DMA mask.\n", axiWidth);
-
-         if (!dma_set_coherent_mask(dev->device, DMA_BIT_MASK(axiWidth))) {
-            dev_info(dev->device, "Init: Using %d-bit coherent DMA mask.\n", axiWidth);
-         } else {
-            dev_err(dev->device, "Init: Failed to set coherent DMA mask.\n");
-            probeReturn = -EINVAL;
-            goto err_post_en;
-         }
-      } else {
-         dev_err(dev->device, "Init: Failed to set DMA mask.\n");
-         probeReturn = -EINVAL;
-         goto err_post_en;
-      }
-   }
-
-   // Initialize common DMA functionalities
-   if (Dma_Init(dev) < 0) {
-      probeReturn = -ENOMEM;      // Indicate memory allocation error
-      goto err_post_en;
-   }
-
-   // Log memory mapping information
-   dev_info(dev->device,"Init: Reg  space mapped to 0x%p.\n",dev->reg);
-   dev_info(dev->device,"Init: User space mapped to 0x%p with size 0x%x.\n",dev->rwBase,dev->rwSize);
-   dev_info(dev->device,"Init: Top Register = 0x%x\n",readl(dev->reg));
-
-   // Finalize device probe successfully
-   gDmaDevCount++; // Increment global device count
-   return 0;      // Success
-
-err_post_en:
-   pci_disable_device(pcidev);      // Disable PCI device on failure
-err_pre_en:
-   memset(dev, 0, sizeof(*dev));    // Clear out the slot we took over in gDmaDevices
-   return probeReturn;
+   // Run common driver code with our callback
+   return DataDev_Common_Probe(pcidev, dev_id, DataGpu_InitCfg);
 }
 
 /**
- * DataGpu_Remove - Clean up resources for a DataGpu device.
- * @pcidev: Pointer to the PCI device structure.
+ * DataGpu_Remove - Clean up and remove a DMA device
+ * @pcidev: PCI device structure
  *
- * This function is called by the PCI subsystem to remove a device (usually on module unload
- * or when the device is physically removed from the system). It searches for the device
- * within the global DMA devices array, disables the PCI device, cleans up DMA resources,
- * and logs the removal.
+ * This function is called by the PCI core when the device is removed from the system.
+ * It searches for the device in the global DMA devices array, decrements the global
+ * DMA device count, calls the common DMA clean function to free allocated resources,
+ * and disables the PCI device.
  */
 void DataGpu_Remove(struct pci_dev *pcidev) {
-   uint32_t x;
-   struct DmaDevice *dev = NULL;
+   // Run common driver code
+   DataDev_Common_Remove(pcidev);
+}
 
-   /* Log the call to remove the device. */
-   pr_info("%s: Remove: Remove called.\n", MOD_NAME);
-
-   /* Search for the device in the global DMA devices array. */
-   for (x = 0; x < MAX_DMA_DEVICES; x++) {
-      if (gDmaDevices[x].baseAddr == pci_resource_start(pcidev, 0)) {
-         dev = &gDmaDevices[x];
-         break;
-      }
-   }
-
-   /* If the device is not found, log an error and exit. */
-   if (dev == NULL) {
-      pr_err("%s: Remove: Device Not Found.\n", MOD_NAME);
-      return;
-   }
-
-   /* Decrement the global count of DMA devices. */
-   gDmaDevCount--;
-
-   /* Disable the PCI device to prevent further access. */
-   pci_disable_device(pcidev);
-
-   /* Clean up DMA resources specific to this device. */
-   Dma_Clean(dev);
-
-   /* Log the successful removal of the device. */
-   pr_info("%s: Remove: Driver is unloaded.\n", MOD_NAME);
+/**
+ * DataGpu_SeqShow - Display device information in sequence file
+ * @s: sequence file pointer to which the device information is written
+ * @dev: device structure containing the data to be displayed
+ *
+ * This function reads the AXI version from the device and displays it along
+ * with other device-specific information using the AxiVersion_Show and
+ * AxisG2_SeqShow functions. It's primarily used for proc file outputs,
+ * presenting a standardized view of device details for debugging or
+ * system monitoring.
+ */
+void DataGpu_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
+   // Run common driver code
+   DataDev_Common_SeqShow(s, dev);
 }
 
 /**
@@ -342,47 +191,14 @@ int32_t DataGpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
       case GPU_Rem_Nvidia_Memory:
          return Gpu_Command(dev, cmd, arg);
 
-      // AXI Version Read
-      // Reads the AXI version from a specified offset within the device.
-      case AVER_Get:
-         return AxiVersion_Get(dev, dev->base + AVER_OFF, arg);
-
       // Default handler for other commands not specifically handled above.
-      // Delegates to a generic AxisG2_Command function for any other commands.
+      // Delegates to a generic DataDev_Common_Command function for any other commands.
       default:
-         return AxisG2_Command(dev, cmd, arg);
+         return DataDev_Common_Command(dev, cmd, arg);
    }
 
    // If the command is not recognized, return an error.
    return -1;
-}
-
-/**
- * DataGpu_SeqShow - Display device information in the proc file system.
- *
- * This function is responsible for adding device-specific data to the proc file
- * system, allowing users to read device information such as version details and
- * other status information via the `/proc` interface. It reads the AXI version
- * information from the device and displays it, along with other device-specific
- * information.
- *
- * @s: Pointer to the seq_file structure, used by the kernel to manage sequence files.
- * @dev: Pointer to the DmaDevice structure, representing the device whose information
- *       is to be displayed.
- *
- * This function does not return a value.
- */
-void DataGpu_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
-   struct AxiVersion aVer;
-
-   /* Read AXI version information from the device. */
-   AxiVersion_Read(dev, dev->base + AVER_OFF, &aVer);
-
-   /* Display the AXI version information. */
-   AxiVersion_Show(s, dev, &aVer);
-
-   /* Display additional device-specific information. */
-   AxisG2_SeqShow(s, dev);
 }
 
 /**
@@ -403,15 +219,18 @@ void DataGpu_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
  * @seqShow: Show device sequence information (for debugging or status reports).
  */
 struct hardware_functions DataGpu_functions = {
-   .irq          = AxisG2_Irq,          // Handle interrupts.
-   .init         = AxisG2_Init,         // Initialize device hardware.
-   .clear        = AxisG2_Clear,        // Clear device state or buffers.
-   .enable       = AxisG2_Enable,       // Enable device operations.
-   .retRxBuffer  = AxisG2_RetRxBuffer,  // Retrieve received buffer.
-   .sendBuffer   = AxisG2_SendBuffer,   // Send buffer to device.
-   .command      = DataGpu_Command,     // Issue commands to device.
-   .seqShow      = DataGpu_SeqShow,     // Display device sequence info.
+   .irq          = AxisG2_Irq,             // Handle interrupts.
+   .init         = AxisG2_Init,            // Initialize device hardware.
+   .clear        = AxisG2_Clear,           // Clear device state or buffers.
+   .enable       = AxisG2_Enable,          // Enable device operations.
+   .retRxBuffer  = AxisG2_RetRxBuffer,     // Retrieve received buffer.
+   .sendBuffer   = AxisG2_SendBuffer,      // Send buffer to device.
+   .command      = DataGpu_Command,        // Issue commands to device.
+   .seqShow      = DataGpu_SeqShow, // Display device sequence info.
 };
+
+/** Exposed to common driver code **/
+struct hardware_functions* gHardwareFuncs = &DataGpu_functions;
 
 /**
  * Module parameters definition and description.
