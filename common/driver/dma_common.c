@@ -1025,6 +1025,14 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          }
          break;
 
+      // Get GIT Version
+      case DMA_Get_GITV:
+         if (copy_to_user((char *)arg, GITV, sizeof(GITV))) {
+            return -EFAULT;
+         }
+         return 0;
+         break;
+
       // Get API Version
       case DMA_Get_Version:
          return DMA_VERSION;
