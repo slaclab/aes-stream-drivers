@@ -226,7 +226,7 @@ int Dma_Init(struct DmaDevice *dev) {
    res = alloc_chrdev_region(&(dev->devNum), 0, 1, dev->devName);
    if (res < 0) {
       dev_err(dev->device,"Init: Cannot register char device\n");
-      return(-1);
+      return -1;
    }
 
    // Initialize the device
@@ -258,7 +258,7 @@ int Dma_Init(struct DmaDevice *dev) {
    }
 
    // Attempt to create the device
-   if (device_create(gCl, NULL, dev->devNum, NULL, dev->devName) == NULL) {
+   if (device_create(gCl, NULL, dev->devNum, NULL, "%s", dev->devName) == NULL) {
       dev_err(dev->device,"Init: Failed to create device file\n");
       goto cleanup_class_create;
    }
@@ -816,12 +816,12 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
       // Get buffer count
       case DMA_Get_Buff_Count:
-         return(dev->rxBuffers.count + dev->txBuffers.count);
+         return dev->rxBuffers.count + dev->txBuffers.count;
          break;
 
       // Get rx buffer count
       case DMA_Get_RxBuff_Count:
-         return(dev->rxBuffers.count);
+         return dev->rxBuffers.count;
          break;
 
       // Get rx buffer in User count
@@ -831,7 +831,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
             buff = dmaGetBufferList(&(dev->rxBuffers),x);
             if (  buff->userHas   ) userCnt++;
          }
-         return(userCnt);
+         return userCnt;
          break;
 
       // Get rx buffer in HW count
@@ -841,7 +841,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
             buff = dmaGetBufferList(&(dev->rxBuffers),x);
             if ( buff->inHw &&  (!buff->inQ)   ) hwCnt++;
          }
-         return(hwCnt);
+         return hwCnt;
          break;
 
       // Get rx buffer in Pre-HW Queue count
@@ -851,7 +851,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
             buff = dmaGetBufferList(&(dev->rxBuffers),x);
             if ( buff->inHw &&  buff->inQ   ) hwQCnt++;
          }
-         return(hwQCnt);
+         return hwQCnt;
          break;
 
       // Get rx buffer in SW Queue count
@@ -861,7 +861,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
             buff = dmaGetBufferList(&(dev->rxBuffers),x);
             if ( (!buff->inHw) &&  buff->inQ   ) qCnt++;
          }
-         return(qCnt);
+         return qCnt;
          break;
 
       // Get rx buffer missing count
@@ -871,12 +871,12 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
             buff = dmaGetBufferList(&(dev->rxBuffers),x);
             if ( (buff->userHas==NULL) && (buff->inHw==0) &&  (buff->inQ==0)   ) miss++;
          }
-         return(miss);
+         return miss;
          break;
 
       // Get tx buffer count
       case DMA_Get_TxBuff_Count:
-         return(dev->txBuffers.count);
+         return dev->txBuffers.count;
          break;
 
       // Get tx buffer in User count
@@ -886,7 +886,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
             buff = dmaGetBufferList(&(dev->txBuffers),x);
             if (  buff->userHas   ) userCnt++;
          }
-         return(userCnt);
+         return userCnt;
          break;
 
       // Get tx buffer in HW count
@@ -896,7 +896,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
             buff = dmaGetBufferList(&(dev->txBuffers),x);
             if ( buff->inHw &&  (!buff->inQ)   ) hwCnt++;
          }
-         return(hwCnt);
+         return hwCnt;
          break;
 
       // Get tx buffer in Pre-HW Queue count
@@ -906,7 +906,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
             buff = dmaGetBufferList(&(dev->txBuffers),x);
             if ( buff->inHw &&  buff->inQ   ) hwQCnt++;
          }
-         return(hwQCnt);
+         return hwQCnt;
          break;
 
       // Get tx buffer in SW Queue count
@@ -916,7 +916,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
             buff = dmaGetBufferList(&(dev->txBuffers),x);
             if ( (!buff->inHw) &&  buff->inQ   ) qCnt++;
          }
-         return(qCnt);
+         return qCnt;
          break;
 
       // Get tx buffer missing count
@@ -926,46 +926,46 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
             buff = dmaGetBufferList(&(dev->txBuffers),x);
             if ( (buff->userHas==NULL) && (buff->inHw==0) &&  (buff->inQ==0)   ) miss++;
          }
-         return(miss);
+         return miss;
          break;
 
       // Get buffer size, same size for rx and tx
       case DMA_Get_Buff_Size:
-         return(dev->cfgSize);
+         return dev->cfgSize;
          break;
 
       // Check if read is ready
       case DMA_Read_Ready:
-         return(dmaQueueNotEmpty(&(desc->q)));
+         return dmaQueueNotEmpty(&(desc->q));
          break;
 
       // Set debug level
       case DMA_Set_Debug:
          dev->debug = arg;
          dev_info(dev->device,"debug set to %u.\n",(uint32_t)arg);
-         return(0);
+         return 0;
          break;
 
       // Attempt to reserve destination
       case DMA_Set_Mask:
          memset(newMask,0,DMA_MASK_SIZE);
          ((uint32_t *)newMask)[0] = arg;
-         return(Dma_SetMaskBytes(dev,desc,newMask));
+         return Dma_SetMaskBytes(dev,desc,newMask);
          break;
 
       // Attempt to reserve destination
       case DMA_Set_MaskBytes:
-         if ( copy_from_user(newMask,(void *)arg,DMA_MASK_SIZE) ) return(-1);
-         return(Dma_SetMaskBytes(dev,desc,newMask));
+         if ( copy_from_user(newMask,(void *)arg,DMA_MASK_SIZE) ) return -1;
+         return Dma_SetMaskBytes(dev,desc,newMask);
          break;
 
       // Return buffer index
       case DMA_Ret_Index:
          cnt = (cmd >> 16) & 0xFFFF;
 
-         if ( cnt == 0 ) return(0);
+         if ( cnt == 0 ) return 0;
          indexes = kzalloc(cnt * sizeof(uint32_t),GFP_KERNEL);
-         if (copy_from_user(indexes,(void *)arg,(cnt * sizeof(uint32_t)))) return(-1);
+         if (copy_from_user(indexes,(void *)arg,(cnt * sizeof(uint32_t)))) return -1;
 
          buffList = (struct DmaBuffer **)kzalloc(cnt * sizeof(struct DmaBuffer *),GFP_KERNEL);
          bCnt = 0;
@@ -996,7 +996,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
             else {
                dev_warn(dev->device,"Command: Invalid index posted: %i.\n", indexes[x]);
                kfree(indexes);
-               return(-1);
+               return -1;
             }
          }
 
@@ -1005,7 +1005,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
          kfree(buffList);
          kfree(indexes);
-         return(0);
+         return 0;
          break;
 
       // Request a write buffer index
@@ -1015,37 +1015,37 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          buff = dmaQueuePop(&(dev->tq));
 
          // No buffers are available
-         if ( buff == NULL ) return(-1);
+         if ( buff == NULL ) return -1;
          else {
             buff->userHas = desc;
 
             if ( dev->debug > 0 )
                dev_info(dev->device,"Command: Returning buffer %i to user\n",buff->index);
-            return(buff->index);
+            return buff->index;
          }
          break;
 
       // Get API Version
       case DMA_Get_Version:
-         return(DMA_VERSION);
+         return DMA_VERSION;
          break;
 
       // Register write
       case DMA_Write_Register:
-         return(Dma_WriteRegister(dev,arg));
+         return Dma_WriteRegister(dev,arg);
          break;
 
       // Register read
       case DMA_Read_Register:
-         return(Dma_ReadRegister(dev,arg));
+         return Dma_ReadRegister(dev,arg);
          break;
 
       // All other commands handled by card specific functions
       default:
-         return(dev->hwFunc->command(dev,cmd,arg));
+         return dev->hwFunc->command(dev,cmd,arg);
          break;
    }
-   return(0);
+   return 0;
 }
 
 /**
@@ -1430,7 +1430,7 @@ int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t *mask)
 
    // Ensure the function is called only once
    static const uint8_t zero[DMA_MASK_SIZE] = {0};
-   if (memcmp(desc->destMask, zero, DMA_MASK_SIZE)) return (-1);
+   if (memcmp(desc->destMask, zero, DMA_MASK_SIZE)) return -1;
 
    // Prevent data reception while adjusting the mask
    spin_lock_irqsave(&dev->maskLock, iflags);
@@ -1446,7 +1446,7 @@ int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t *mask)
             spin_unlock_irqrestore(&dev->maskLock, iflags);
             if (dev->debug > 0)
                dev_info(dev->device, "Dma_SetMask: Dest %i already mapped\n", idx);
-            return (-1);
+            return -1;
          }
       }
    }
@@ -1469,7 +1469,7 @@ int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t *mask)
    // Restore interrupts
    spin_unlock_irqrestore(&dev->maskLock, iflags);
 
-   return (0);
+   return 0;
 }
 
 /**

@@ -61,7 +61,7 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
    list->dev       = dev;
    list->baseIdx   = baseIdx;
 
-   if ( count == 0 ) return(0);
+   if ( count == 0 ) return 0;
 
    // Allocate first level pointers
    if ((list->indexed = (struct DmaBuffer ***) kzalloc(sizeof(struct DmaBuffer**) * list->subCount, GFP_KERNEL)) == NULL ) {
@@ -139,7 +139,7 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
    // Sort the buffers
    if ( list->sorted != NULL ) sort(list->sorted,list->count,sizeof(struct DmaBuffer *),dmaSortComp,NULL);
 
-   return(list->count);
+   return list->count;
 
    /* Cleanup */
 cleanup_buffers:
@@ -329,11 +329,11 @@ struct DmaBuffer *dmaFindBufferList(struct DmaBufferList *list, dma_addr_t handl
          sl = x / BUFFERS_PER_LIST;
          sli = x % BUFFERS_PER_LIST;
          if (list->indexed[sl][sli]->buffHandle == handle) {
-            return(list->indexed[sl][sli]);
+            return list->indexed[sl][sli];
          }
       }
       // Buffer not found in unsorted list
-      return(NULL);
+      return NULL;
    }
    // Handle sorted list case: binary search for efficiency
    else {
@@ -342,9 +342,9 @@ struct DmaBuffer *dmaFindBufferList(struct DmaBufferList *list, dma_addr_t handl
 
       if (result == NULL) {
          // Buffer not found in sorted list
-         return(NULL);
+         return NULL;
       } else {
-         return((*result));
+         return *result;
       }
    }
 }
@@ -362,9 +362,9 @@ struct DmaBuffer *dmaFindBufferList(struct DmaBufferList *list, dma_addr_t handl
 struct DmaBuffer *dmaFindBuffer(struct DmaDevice *dev, dma_addr_t handle) {
    struct DmaBuffer *buff;
 
-   if ((buff = dmaFindBufferList(&(dev->txBuffers), handle)) != NULL) return(buff);
-   if ((buff = dmaFindBufferList(&(dev->rxBuffers), handle)) != NULL) return(buff);
-   return(NULL);
+   if ((buff = dmaFindBufferList(&(dev->txBuffers), handle)) != NULL) return buff;
+   if ((buff = dmaFindBufferList(&(dev->rxBuffers), handle)) != NULL) return buff;
+   return NULL;
 }
 
 /**
@@ -382,11 +382,11 @@ struct DmaBuffer *dmaGetBufferList(struct DmaBufferList *list, uint32_t index) {
    uint32_t sl;
    uint32_t sli;
 
-   if (index < list->baseIdx || index >= (list->baseIdx + list->count)) return(NULL);
+   if (index < list->baseIdx || index >= (list->baseIdx + list->count)) return NULL;
    else {
       sl  = (index - list->baseIdx) / BUFFERS_PER_LIST;
       sli = (index - list->baseIdx) % BUFFERS_PER_LIST;
-      return(list->indexed[sl][sli]);
+      return list->indexed[sl][sli];
    }
 }
 
@@ -402,9 +402,9 @@ struct DmaBuffer *dmaGetBufferList(struct DmaBufferList *list, uint32_t index) {
  */
 struct DmaBuffer *dmaGetBuffer(struct DmaDevice *dev, uint32_t index) {
    struct DmaBuffer *buff;
-   if ((buff = dmaGetBufferList(&(dev->txBuffers), index)) != NULL) return(buff);
-   if ((buff = dmaGetBufferList(&(dev->rxBuffers), index)) != NULL) return(buff);
-   return(NULL);
+   if ((buff = dmaGetBufferList(&(dev->txBuffers), index)) != NULL) return buff;
+   if ((buff = dmaGetBufferList(&(dev->rxBuffers), index)) != NULL) return buff;
+   return NULL;
 }
 
 /**
@@ -428,16 +428,16 @@ struct DmaBuffer *dmaRetBufferIrq(struct DmaDevice *dev, dma_addr_t handle) {
    if ((buff = dmaFindBufferList(&(dev->txBuffers), handle)) != NULL) {
       dmaBufferFromHw(buff);   // Prepare buffer for hardware interaction
       dmaQueuePushIrq(&(dev->tq), buff); // Re-queue the buffer
-      return (NULL);
+      return NULL;
    }
    // Attempt to return rx buffer if found in receive list
    else if ((buff = dmaFindBufferList(&(dev->rxBuffers), handle)) != NULL) {
-      return (buff);
+      return buff;
    }
    // Log warning if buffer is not found in either list
    else {
       dev_warn(dev->device, "dmaRetBufferIrq: Failed to locate descriptor %.8x.\n", (uint32_t)handle);
-      return (NULL);
+      return NULL;
    }
 }
 
@@ -463,16 +463,16 @@ struct DmaBuffer *dmaRetBufferIdx(struct DmaDevice *dev, uint32_t index) {
    if ((buff = dmaGetBufferList(&(dev->txBuffers), index)) != NULL) {
       dmaBufferFromHw(buff);
       dmaQueuePush(&(dev->tq), buff);
-      return (NULL);
+      return NULL;
    }
    // Attempt to retrieve and return the buffer from the receive queue
    else if ((buff = dmaGetBufferList(&(dev->rxBuffers), index)) != NULL) {
-      return (buff);
+      return buff;
    }
    // Log warning if the buffer cannot be found in either queue
    else {
       dev_warn(dev->device, "dmaRetBufferIdx: Failed to locate descriptor %i.\n", index);
-      return (NULL);
+      return NULL;
    }
 }
 
@@ -498,16 +498,16 @@ struct DmaBuffer *dmaRetBufferIdxIrq(struct DmaDevice *dev, uint32_t index) {
    if ((buff = dmaGetBufferList(&(dev->txBuffers), index)) != NULL) {
       dmaBufferFromHw(buff);
       dmaQueuePushIrq(&(dev->tq), buff);
-      return (NULL);
+      return NULL;
    }
    // Attempt to return buffer from receive queue if found
    else if ((buff = dmaGetBufferList(&(dev->rxBuffers), index)) != NULL) {
-      return (buff);
+      return buff;
    }
    // Log warning if buffer is not found in either list
    else {
       dev_warn(dev->device, "dmaRetBufferIdxIrq: Failed to locate descriptor %i.\n", index);
-      return (NULL);
+      return NULL;
    }
 }
 
@@ -910,7 +910,7 @@ struct DmaBuffer * dmaQueuePop  ( struct DmaQueue *queue ) {
       ret->inQ = 0;
    }
    spin_unlock_irqrestore(&(queue->lock),iflags);
-   return(ret);
+   return ret;
 }
 
 /**
@@ -1027,7 +1027,7 @@ ssize_t dmaQueuePopListIrq(struct DmaQueue *queue, struct DmaBuffer **buff, size
 
    // Unlock the queue after operation
    spin_unlock(&(queue->lock));
-   return(ret);
+   return ret;
 }
 
 /**
