@@ -1,5 +1,13 @@
 #!/bin/bash
 
+# Function to check if the script is run with sudo
+check_sudo() {
+    if [ "$EUID" -ne 0 ]; then
+        echo "Error: This script must be run with sudo." >&2
+        exit 1
+    fi
+}
+
 # Function to check if gcc-12 is installed
 check_gcc_12_installed() {
     if ! command -v gcc-12 >/dev/null 2>&1; then
@@ -7,6 +15,9 @@ check_gcc_12_installed() {
         exit 1
     fi
 }
+
+# Check if the script is run with sudo
+check_sudo
 
 # Call the gcc-12 check function early in the script to ensure it's available
 check_gcc_12_installed
