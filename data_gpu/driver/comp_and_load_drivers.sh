@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Provide defaults for CC
+[ -z "$CC" ] && CC=gcc
+
 # Function to check if the script is run with sudo
 check_sudo() {
     if [ "$EUID" -ne 0 ]; then
@@ -7,11 +10,12 @@ check_sudo() {
         exit 1
     fi
 }
-
-# Function to check if gcc-12 is installed
-check_gcc_12_installed() {
-    if ! command -v gcc-12 >/dev/null 2>&1; then
-        echo "Error: gcc-12 is not installed. Please install gcc-12 and try again." >&2
+# Checks that GCC matches what the kernel was built with
+check_gcc_version() {
+    _GCC_VER="$($CC --version | grep -Eo "\s[0-9]+\.[0-9]+\.[0-9]+\s" | awk '{$1=$1};1')"
+    if ! cat /proc/version | grep -Eoq "gcc version $_GCC_VER"; then
+        echo "Error: GCC version 'gcc version $_GCC_VER' does not match what the kernel was built with: '$(cat /proc/version | grep -Eo "gcc version [0-9]+\.[0-9]+\.[0-9]+")'"
+        echo "  You can specify an alternative compiler by setting the 'CC' environment variable"
         exit 1
     fi
 }
@@ -19,8 +23,8 @@ check_gcc_12_installed() {
 # Check if the script is run with sudo
 check_sudo
 
-# Call the gcc-12 check function early in the script to ensure it's available
-check_gcc_12_installed
+# Check that our GCC matches what the kernel was built with
+check_gcc_version
 
 # Function to find the latest Nvidia version directory
 get_latest_nvidia_path() {
@@ -57,9 +61,11 @@ echo "Using Nvidia path: $NVIDIA_PATH"
 
 cd $NVIDIA_PATH
 
-make CC=gcc-12
+make
 
-modprobe ecc || { echo "Error: Failed to insert ecc module."; exit 1; }
+if modinfo ecc >/dev/null 2>&1; then
+    modprobe ecc || { echo "Error: Failed to insert ecc module."; exit 1; }
+fi
 
 /usr/sbin/insmod nvidia.ko NVreg_OpenRmEnableUnsupportedGpus=1 NVreg_EnableStreamMemOPs=1 || { echo "Error: Failed to insert nvidia.ko."; exit 1; }
 
