@@ -1,0 +1,60 @@
+diff --git a/petalinux/aximemorymap/files/aximemorymap.c b/petalinux/aximemorymap/files/aximemorymap.c
+index 68e20f5..ab76304 100644
+--- a/petalinux/aximemorymap/files/aximemorymap.c
++++ b/petalinux/aximemorymap/files/aximemorymap.c
+@@ -34,7 +34,6 @@
+ #include <linux/of_address.h>
+ #include <linux/of_irq.h>
+ #include <linux/slab.h>
+-#include <linux/version.h>
+ 
+ /**
+  * MODULE_NAME - "axi_memory_map"
+@@ -112,7 +111,11 @@ struct file_operations MapFunctions = {
+  * Note: The permissions set by this callback can be overridden by udev rules on
+  * systems where udev is responsible for device node creation and management.
+  */
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
+ char *Map_DevNode(struct device *dev, umode_t *mode) {
++#else
++char *Map_DevNode(const struct device *dev, umode_t *mode) {
++#endif
+    if (mode != NULL) *mode = 0666; // Set default permissions to read and write for user, group, and others
+    return NULL; // Return NULL as no specific device node name alteration is required
+ }
+@@ -157,7 +160,11 @@ int Map_Init(void) {
+ 
+    // Step 4: Create a device class
+    pr_info("%s: Init: Creating device class\n", MOD_NAME);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
+    gCl = class_create(THIS_MODULE, dev.devName);
++#else
++   gCl = class_create(dev.devName);
++#endif
+    if (IS_ERR(gCl)) {
+       pr_err("%s: Init: Failed to create device class\n", MOD_NAME);
+       unregister_chrdev_region(dev.devNum, 1); // Clean up allocated resources
+diff --git a/petalinux/aximemorymap/files/aximemorymap.h b/petalinux/aximemorymap/files/aximemorymap.h
+index 96d502b..73490d2 100755
+--- a/petalinux/aximemorymap/files/aximemorymap.h
++++ b/petalinux/aximemorymap/files/aximemorymap.h
+@@ -30,6 +30,7 @@
+ #include <linux/cdev.h>
+ #include <linux/types.h>
+ #include <linux/fs.h>
++#include <linux/version.h>
+ #include <DmaDriver.h>
+ 
+ // Defines the size of the map, set to 64K.
+@@ -71,7 +72,11 @@ struct MapDevice {
+ };
+ 
+ // Function prototypes for device operations.
++#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
+ char *Map_DevNode(struct device *dev, umode_t *mode);
++#else
++char *Map_DevNode(const struct device *dev, umode_t *mode);
++#endif
+ int Map_Init(void);
+ void Map_Exit(void);
+ int Map_Open(struct inode *inode, struct file *filp);
