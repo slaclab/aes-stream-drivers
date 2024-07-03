@@ -19,12 +19,14 @@
  * ----------------------------------------------------------------------------
 **/
 
-#include <dma_buffer.h>
 #include <asm/io.h>
 #include <linux/dma-mapping.h>
 #include <linux/sort.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+#include <linux/version.h>
+
+#include <dma_buffer.h>
 #include <dma_common.h>
 
 /**
@@ -106,12 +108,22 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
 
       // Streaming buffer type, standard kernel memory
       else if ( list->dev->cfgMode & BUFF_STREAM ) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
+         buff->buffAddr = kmalloc(list->dev->cfgSize, GFP_KERNEL);
+         if (buff->buffAddr != NULL) {
+            buff->buffHandle = dma_map_single(list->dev->device, buff->buffAddr, list->dev->cfgSize, direction);
+            // Check for mapping error
+            if ( dma_mapping_error(list->dev->device,buff->buffHandle) ) {
+               buff->buffHandle = 0;
+            }
+         }
+#else
          buff->buffAddr = dma_alloc_pages(list->dev->device, list->dev->cfgSize, &buff->buffHandle, direction, GFP_KERNEL);
-
          // Check for mapping error
          if (buff->buffAddr == NULL) {
             dev_err(dev->device, "dmaAllocBuffers: dma_alloc_pages failed\n");
          }
+#endif
       }
 
       // ACP type with permanent handle mapping, dma capable kernel memory
