@@ -114,14 +114,18 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
             buff->buffHandle = dma_map_single(list->dev->device, buff->buffAddr, list->dev->cfgSize, direction);
             // Check for mapping error
             if ( dma_mapping_error(list->dev->device,buff->buffHandle) ) {
+               // DMA mapping was successful 
                buff->buffHandle = 0;
+            } else {
+               // DMA mapping failed
+               dev_err(dev->device, "dmaAllocBuffers(BUFF_STREAM): DMA mapping failed\n");
             }
          }
 #else
          buff->buffAddr = dma_alloc_pages(list->dev->device, list->dev->cfgSize, &buff->buffHandle, direction, GFP_KERNEL);
          // Check for mapping error
          if (buff->buffAddr == NULL) {
-            dev_err(dev->device, "dmaAllocBuffers: dma_alloc_pages failed\n");
+            dev_err(dev->device, "dmaAllocBuffers(BUFF_STREAM): dma_alloc_pages failed\n");
          }
 #endif
       }
