@@ -120,6 +120,9 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
                // DMA mapping failed
                dev_err(dev->device, "dmaAllocBuffers(BUFF_STREAM): DMA mapping failed\n");
             }
+         } else {
+            // DMA mapping failed
+            dev_err(list->dev->device, "dmaAllocBuffers(BUFF_STREAM): kmalloc Memory allocation failed\n");
          }
 #else
          buff->buffAddr = dma_alloc_pages(list->dev->device, list->dev->cfgSize, &buff->buffHandle, direction, GFP_KERNEL);
