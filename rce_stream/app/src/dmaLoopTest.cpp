@@ -134,8 +134,7 @@ void *runWrite ( void *t ) {
          txData->running = false;
          return(NULL);
       }
-   }
-   else {
+   } else {
       if ((data = malloc(txData->size)) == NULL ) {
          printf("Write failed to allocate buffer\n");
          txData->running = false;
@@ -180,8 +179,7 @@ void *runWrite ( void *t ) {
          if ( ret < 0 ) {
             printf("Write Error at count %lu. Dest=%i\n",txData->count,txData->dest);
             break;
-         }
-         else if ( ret > 0 ) {
+         } else if ( ret > 0 ) {
             txData->count++;
             txData->total += ret;
             prbValid = false;
@@ -240,8 +238,7 @@ void *runRead ( void *t ) {
          rxData->running = false;
          return(NULL);
       }
-   }
-   else {
+   } else {
       if ((data = malloc(maxSize)) == NULL ) {
          printf("Read failed to allocate buffer\n");
          rxData->running = false;
@@ -277,8 +274,9 @@ void *runRead ( void *t ) {
          if ( idxEn ) {
             ret = dmaReadIndex(fd,&dmaIndex,&rxFlags,NULL,&rxDest);
             data = dmaBuffers[dmaIndex];
+         } else {
+             ret = dmaRead(fd,data,maxSize,&rxFlags,NULL,&rxDest);
          }
-         else ret = dmaRead(fd,data,maxSize,&rxFlags,NULL,&rxDest);
 
          rxFuser = axisGetFuser(rxFlags);
          rxLuser = axisGetLuser(rxFlags);
@@ -297,8 +295,7 @@ void *runRead ( void *t ) {
                printf("Read Error. Dest=%i, ExpDest=%i, Ret=%i, Exp=%i, Fuser=0x%.2x, Luser=0x%.2x\n",
                      rxDest,rxData->dest,ret,rxData->size,rxFuser,rxLuser);
                break;
-            }
-            else {
+            } else {
                rxData->count++;
                rxData->total += ret;
             }
@@ -382,8 +379,7 @@ int main (int argc, char **argv) {
             printf("Error creating write thread\n");
             return(2);
          }
-      }
-      else {
+      } else {
          txData[dCount]->running = false;
          txData[dCount]->enable  = false;
       }
@@ -403,9 +399,17 @@ int main (int argc, char **argv) {
       allDone = true;
       for (x=0; x < dCount; x++) {
          if ( args.txDis == 0 ) {
-            if ( txData[x]->running == false ) runEn = false; else allDone = false;
+            if ( txData[x]->running == false ) {
+                runEn = false;
+            } else {
+                allDone = false;
+            }
          }
-         if ( rxData[x]->running == false ) runEn = false; else allDone = false;
+         if ( rxData[x]->running == false ) {
+             runEn = false;
+         } else {
+             allDone = false;
+         }
       }
       if ( runEn == false ) {
          for (x=0; x < dCount; x++) {

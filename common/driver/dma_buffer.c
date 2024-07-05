@@ -104,10 +104,9 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
       if ( list->dev->cfgMode & BUFF_COHERENT ) {
          buff->buffAddr =
             dma_alloc_coherent(list->dev->device, list->dev->cfgSize, &(buff->buffHandle), GFP_DMA | GFP_KERNEL);
-      }
 
       // Streaming buffer type, standard kernel memory
-      else if ( list->dev->cfgMode & BUFF_STREAM ) {
+      } else if ( list->dev->cfgMode & BUFF_STREAM ) {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
          buff->buffAddr = kmalloc(list->dev->cfgSize, GFP_KERNEL);
          if (buff->buffAddr != NULL) {
@@ -131,10 +130,9 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
             dev_err(dev->device, "dmaAllocBuffers(BUFF_STREAM): dma_alloc_pages failed\n");
          }
 #endif
-      }
 
       // ACP type with permanent handle mapping, dma capable kernel memory
-      else if ( list->dev->cfgMode & BUFF_ARM_ACP ) {
+      } else if ( list->dev->cfgMode & BUFF_ARM_ACP ) {
          buff->buffAddr = kzalloc(list->dev->cfgSize, GFP_DMA | GFP_KERNEL);
          if (buff->buffAddr != NULL)
             buff->buffHandle = virt_to_phys(buff->buffAddr);
@@ -353,9 +351,9 @@ struct DmaBuffer *dmaFindBufferList(struct DmaBufferList *list, dma_addr_t handl
       }
       // Buffer not found in unsorted list
       return NULL;
-   }
+
    // Handle sorted list case: binary search for efficiency
-   else {
+   } else {
       struct DmaBuffer **result = (struct DmaBuffer **)
          bsearch(&handle, list->sorted, list->count, sizeof(struct DmaBuffer *), dmaSearchComp);
 
@@ -401,8 +399,9 @@ struct DmaBuffer *dmaGetBufferList(struct DmaBufferList *list, uint32_t index) {
    uint32_t sl;
    uint32_t sli;
 
-   if (index < list->baseIdx || index >= (list->baseIdx + list->count)) return NULL;
-   else {
+   if (index < list->baseIdx || index >= (list->baseIdx + list->count)) {
+       return NULL;
+   } else {
       sl  = (index - list->baseIdx) / BUFFERS_PER_LIST;
       sli = (index - list->baseIdx) % BUFFERS_PER_LIST;
       return list->indexed[sl][sli];
@@ -448,13 +447,13 @@ struct DmaBuffer *dmaRetBufferIrq(struct DmaDevice *dev, dma_addr_t handle) {
       dmaBufferFromHw(buff);   // Prepare buffer for hardware interaction
       dmaQueuePushIrq(&(dev->tq), buff); // Re-queue the buffer
       return NULL;
-   }
+
    // Attempt to return rx buffer if found in receive list
-   else if ((buff = dmaFindBufferList(&(dev->rxBuffers), handle)) != NULL) {
+   } else if ((buff = dmaFindBufferList(&(dev->rxBuffers), handle)) != NULL) {
       return buff;
-   }
+
    // Log warning if buffer is not found in either list
-   else {
+   } else {
       dev_warn(dev->device, "dmaRetBufferIrq: Failed to locate descriptor %.8x.\n", (uint32_t)handle);
       return NULL;
    }
@@ -483,13 +482,13 @@ struct DmaBuffer *dmaRetBufferIdx(struct DmaDevice *dev, uint32_t index) {
       dmaBufferFromHw(buff);
       dmaQueuePush(&(dev->tq), buff);
       return NULL;
-   }
+
    // Attempt to retrieve and return the buffer from the receive queue
-   else if ((buff = dmaGetBufferList(&(dev->rxBuffers), index)) != NULL) {
+   } else if ((buff = dmaGetBufferList(&(dev->rxBuffers), index)) != NULL) {
       return buff;
-   }
+
    // Log warning if the buffer cannot be found in either queue
-   else {
+   } else {
       dev_warn(dev->device, "dmaRetBufferIdx: Failed to locate descriptor %i.\n", index);
       return NULL;
    }
@@ -518,13 +517,13 @@ struct DmaBuffer *dmaRetBufferIdxIrq(struct DmaDevice *dev, uint32_t index) {
       dmaBufferFromHw(buff);
       dmaQueuePushIrq(&(dev->tq), buff);
       return NULL;
-   }
+
    // Attempt to return buffer from receive queue if found
-   else if ((buff = dmaGetBufferList(&(dev->rxBuffers), index)) != NULL) {
+   } else if ((buff = dmaGetBufferList(&(dev->rxBuffers), index)) != NULL) {
       return buff;
-   }
+
    // Log warning if buffer is not found in either list
-   else {
+   } else {
       dev_warn(dev->device, "dmaRetBufferIdxIrq: Failed to locate descriptor %i.\n", index);
       return NULL;
    }

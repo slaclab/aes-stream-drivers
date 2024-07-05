@@ -180,10 +180,9 @@ int Rce_Probe(struct platform_device *pdev) {
    // Version 2
    if ( ((ioread32(dev->reg) >> 24) & 0xFF) >= 2 ) {
       dev->hwFunc = &(AxisG2_functions);
-   }
 
    // Version 1
-   else {
+   } else {
       iowrite32(0x1,((uint8_t *)dev->reg)+0x8);
       if ( ioread32(((uint8_t *)dev->reg)+0x8) != 0x1 ) {
          release_mem_region(dev->baseAddr, dev->baseSize);

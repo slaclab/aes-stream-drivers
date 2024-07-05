@@ -121,8 +121,7 @@ int main (int argc, char **argv) {
          printf("Failed to map dma buffers!\n");
          return(0);
       }
-   }
-   else {
+   } else {
       if ((txData = malloc(args.size)) == NULL ) {
          printf("Failed to allocate rxData!\n");
          return(0);
@@ -145,8 +144,7 @@ int main (int argc, char **argv) {
       ret = select(s+1,NULL,&fds,NULL,&timeout);
       if ( ret <= 0 ) {
          printf("Write timeout\n");
-      }
-      else {
+      } else {
 
          if ( args.idxEn ) {
             dmaIndex = dmaGetIndex(s);

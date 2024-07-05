@@ -640,17 +640,18 @@ ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos)
          dp = (void *)rd[x].data;
 
       // Use index if pointer is zero
-      if (dp == 0) buff[x]->userHas = desc;
-      else {
+      if (dp == 0) {
+          buff[x]->userHas = desc;
+      } else {
          // Warn if user buffer is too small
          if (rd[x].size < buff[x]->size) {
             dev_warn(dev->device, "Read: user buffer is too small. Rx=%i, User=%i.\n",
                      buff[x]->size, (int32_t)rd[x].size);
             rd[x].error |= DMA_ERR_MAX;
             rd[x].ret = -1;
-         }
+
          // Copy data to user space
-         else if ((ret = copy_to_user(dp, buff[x]->buffAddr, buff[x]->size))) {
+         } else if ((ret = copy_to_user(dp, buff[x]->buffAddr, buff[x]->size))) {
             dev_warn(dev->device, "Read: failed to copy data to user space ret=%li, user=%p kern=%p size=%u.\n",
                      ret, dp, buff[x]->buffAddr, buff[x]->size);
             rd[x].ret = -1;
@@ -980,10 +981,9 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
                   buff->userHas = NULL;
                   buffList[bCnt++] = buff;
                }
-            }
 
             // Attempt to find in tx list
-            else if ( (buff = dmaGetBufferList(&(dev->txBuffers),indexes[x])) != NULL ) {
+            } else if ( (buff = dmaGetBufferList(&(dev->txBuffers),indexes[x])) != NULL ) {
 
                // Only return if owned by current desc
                if ( buff->userHas == desc ) {
@@ -992,8 +992,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
                   // Return entry to TX queue
                   dmaQueuePush(&(dev->tq),buff);
                }
-            }
-            else {
+            } else {
                dev_warn(dev->device,"Command: Invalid index posted: %i.\n", indexes[x]);
                kfree(indexes);
                return -1;
@@ -1015,8 +1014,9 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          buff = dmaQueuePop(&(dev->tq));
 
          // No buffers are available
-         if ( buff == NULL ) return -1;
-         else {
+         if ( buff == NULL ) {
+             return -1;
+         } else {
             buff->userHas = desc;
 
             if ( dev->debug > 0 )
@@ -1151,9 +1151,9 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma)
       // Map coherent buffer
       if (dev->cfgMode & BUFF_COHERENT) {
          ret = dma_mmap_coherent(dev->device, vma, buff->buffAddr, buff->buffHandle, dev->cfgSize);
-      }
+
       // Map streaming buffer or ARM ACP
-      else if (dev->cfgMode & BUFF_STREAM || dev->cfgMode & BUFF_ARM_ACP) {
+      } else if (dev->cfgMode & BUFF_STREAM || dev->cfgMode & BUFF_ARM_ACP) {
          ret = io_remap_pfn_range(vma, vma->vm_start,
                                virt_to_phys((void *)buff->buffAddr) >> PAGE_SHIFT,
                                vsize, vma->vm_page_prot);

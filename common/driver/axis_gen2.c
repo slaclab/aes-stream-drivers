@@ -139,10 +139,10 @@ inline void AxisG2_WriteFree ( struct DmaBuffer *buff, struct AxisG2Reg *reg, ui
 
       // Write the second part to the device's write FIFO B
       writel(wrData[1], &(reg->writeFifoB));
-   }
+
    // If not using 128-bit descriptors, write the buffer handle directly
    // to the device's DMA address table based on the buffer index
-   else {
+   } else {
       // For 64-bit descriptors
       writel(buff->buffHandle, &(reg->dmaAddr[buff->index]));
    }
@@ -490,14 +490,15 @@ void AxisG2_Init(struct DmaDevice *dev) {
       buff = dmaGetBufferList(&(dev->rxBuffers),x);
 
       // Map failure
-      if ( dmaBufferToHw(buff) < 0 ) dev_warn(dev->device,"Init: Failed to map dma buffer.\n");
+      if ( dmaBufferToHw(buff) < 0 ) {
+          dev_warn(dev->device,"Init: Failed to map dma buffer.\n");
 
       // Add to software queue, if enabled and hardware is full
-      else if ( hwData->desc128En && (hwData->hwWrBuffCnt >= (hwData->addrCount-1)) )
+      } else if ( hwData->desc128En && (hwData->hwWrBuffCnt >= (hwData->addrCount-1)) ) {
          dmaQueuePush(&(hwData->wrQueue),buff);
 
       // Add to hardware queue
-      else {
+      } else {
          ++hwData->hwWrBuffCnt;
          AxisG2_WriteFree(buff,reg,hwData->desc128En);
       }

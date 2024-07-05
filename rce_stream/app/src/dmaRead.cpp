@@ -109,8 +109,7 @@ int main (int argc, char **argv) {
    dmaInitMaskBytes(mask);
    if ( args.dest == NULL ) {
       memset(mask,0xFF,DMA_MASK_SIZE);
-   }
-   else {
+   } else {
       strcpy(tBuff,args.dest);
       tok = strtok(tBuff,",");
       while ( tok != NULL ) {
@@ -128,8 +127,7 @@ int main (int argc, char **argv) {
          printf("Failed to map dma buffers!\n");
          return(0);
       }
-   }
-   else {
+   } else {
       if ((rxData = malloc(maxSize)) == NULL ) {
          printf("Failed to allocate rxData!\n");
          return(0);
@@ -152,8 +150,7 @@ int main (int argc, char **argv) {
       ret = select(s+1,&fds,NULL,NULL,&timeout);
       if ( ret <= 0 ) {
          printf("Read timeout\n");
-      }
-      else {
+      } else {
 
          // DMA Read
          if ( args.idxEn ) {
