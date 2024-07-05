@@ -121,7 +121,7 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
                dev_err(dev->device, "dmaAllocBuffers(BUFF_STREAM): DMA mapping failed\n");
             }
          } else {
-            // DMA mapping failed
+            // Memory allocation failed
             dev_err(list->dev->device, "dmaAllocBuffers(BUFF_STREAM): kmalloc Memory allocation failed\n");
          }
 #else
