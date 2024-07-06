@@ -79,7 +79,6 @@ struct DmaDesc;
  */
 
 struct DmaDevice {
-
    // PCI address regions
    phys_addr_t baseAddr;
    uint32_t    baseSize;
@@ -152,7 +151,6 @@ struct DmaDevice {
  * DMA transfers for a specific destination or set of destinations.
  */
 struct DmaDesc {
-
    // Mask of destinations
    uint8_t destMask[DMA_MASK_SIZE];
 

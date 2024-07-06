@@ -148,7 +148,6 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
          dev_warn(dev->device,"Gpu_AddNvidia: error mapping page tables ret=%i\n",ret);
 
       } else {
-
          // Determine how much memory is contiguous
          mapSize = 0;
          for (x=0; x < buffer->dmaMapping->entries; x++) {

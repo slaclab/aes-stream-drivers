@@ -150,7 +150,6 @@ void *runWrite ( void *t ) {
 
 
    while (txData->enable) {
-
       // Setup fds for select call
       FD_ZERO(&fds);
       FD_SET(fd,&fds);
@@ -160,7 +159,6 @@ void *runWrite ( void *t ) {
       timeout.tv_usec=100;
       ret = select(fd+1,NULL,&fds,NULL,&timeout);
       if ( ret != 0 ) {
-
          if ( txData->idxEn ) {
             dmaIndex = dmaGetIndex(fd);
             if ( dmaIndex < 0 ) continue;
@@ -260,7 +258,6 @@ void *runRead ( void *t ) {
    printf("Starting read thread.  Dest=%i, Size=%i\n",rxData->dest,rxData->size);
 
    while (rxData->enable) {
-
       // Setup fds for select call
       FD_ZERO(&fds);
       FD_SET(fd,&fds);
@@ -270,7 +267,6 @@ void *runRead ( void *t ) {
       timeout.tv_usec=100;
       ret = select(fd+1,&fds,NULL,NULL,&timeout);
       if ( ret != 0 ) {
-
          if ( idxEn ) {
             ret = dmaReadIndex(fd,&dmaIndex,&rxFlags,NULL,&rxDest);
             data = dmaBuffers[dmaIndex];
@@ -282,7 +278,6 @@ void *runRead ( void *t ) {
          rxLuser = axisGetLuser(rxFlags);
 
          if ( ret != 0 ) {
-
             //  data
             if ( (rxData->prbEn) && (! prbs.processData(data,ret)) ) {
                rxData->prbErr++;
@@ -489,4 +484,3 @@ int main (int argc, char **argv) {
 
    return(0);
 }
-

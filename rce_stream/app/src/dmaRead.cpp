@@ -137,7 +137,6 @@ int main (int argc, char **argv) {
    count  = 0;
    prbRes = 0;
    do {
-
       // Setup fds for select call
       FD_ZERO(&fds);
       FD_SET(s,&fds);
@@ -151,7 +150,6 @@ int main (int argc, char **argv) {
       if ( ret <= 0 ) {
          printf("Read timeout\n");
       } else {
-
          // DMA Read
          if ( args.idxEn ) {
             ret = dmaReadIndex(s,&dmaIndex,&rxFlags,NULL,&rxDest);

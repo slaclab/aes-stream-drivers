@@ -41,7 +41,6 @@ struct MemMap {
 
 // Map structure
 struct MapDevice {
-
    // Device tracking
    uint32_t        major;
    dev_t           devNum;
@@ -49,7 +48,6 @@ struct MapDevice {
    struct cdev     charDev;
    struct device * device;
    struct MemMap * maps;
-
 };
 
 char *Map_DevNode(struct device *dev, umode_t *mode);

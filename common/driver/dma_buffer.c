@@ -194,7 +194,6 @@ void dmaFreeBuffersList(struct DmaBufferList *list) {
       sli = x % BUFFERS_PER_LIST;
 
       if (list->indexed[sl][sli]->buffAddr != NULL) {
-
          // Free coherent buffer
          if (list->dev->cfgMode & BUFF_COHERENT) {
             dma_free_coherent(list->dev->device, list->dev->cfgSize,
@@ -915,7 +914,6 @@ struct DmaBuffer * dmaQueuePop  ( struct DmaQueue *queue ) {
    if ( queue->read == queue->write ) {
       ret = NULL;
    } else {
-
       ret = queue->queue[queue->read / BUFFERS_PER_LIST][queue->read % BUFFERS_PER_LIST];
 
       // Increment read pointer safely within queue bounds

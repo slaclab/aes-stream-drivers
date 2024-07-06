@@ -242,7 +242,6 @@ uint32_t AxisG2_Process (struct DmaDevice * dev, struct AxisG2Reg *reg, struct A
       // Attempt to find buffer in tx pool and return. otherwise return rx entry to hw.
       // Must adjust counters here and check for buffer need
       if ((buff = dmaRetBufferIdxIrq (dev,ret.index)) != NULL) {
-
          // Add to receive/write software queue
          if ( hwData->hwWrBuffCnt >= (hwData->addrCount-1) ) {
             dmaQueuePushIrq(&(hwData->wrQueue),buff);
@@ -753,7 +752,6 @@ int32_t AxisG2_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    reg = (struct AxisG2Reg *)dev->reg;
 
    switch (cmd) {
-
       case AXIS_Read_Ack:
          // Lock the device command execution context
          spin_lock(&dev->commandLock);

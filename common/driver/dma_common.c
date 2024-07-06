@@ -214,7 +214,6 @@ int Dma_MapReg(struct DmaDevice *dev) {
  * Returns 0 on success, or a negative error code on failure.
  */
 int Dma_Init(struct DmaDevice *dev) {
-
    int32_t x;
    int32_t res;
    uint64_t tot;
@@ -812,7 +811,6 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
    // Determine command
    switch (cmd & 0xFFFF) {
-
       // Get buffer count
       case DMA_Get_Buff_Count:
          return dev->rxBuffers.count + dev->txBuffers.count;
@@ -970,10 +968,8 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          bCnt = 0;
 
          for (x=0; x < cnt; x++) {
-
             // Attempt to find buffer in RX list
             if ( (buff = dmaGetBufferList(&(dev->rxBuffers),indexes[x])) != NULL ) {
-
                // Only return if owned by current desc
                if ( buff->userHas == desc ) {
                   buff->userHas = NULL;
@@ -982,7 +978,6 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
             // Attempt to find in tx list
             } else if ( (buff = dmaGetBufferList(&(dev->txBuffers),indexes[x])) != NULL ) {
-
                // Only return if owned by current desc
                if ( buff->userHas == desc ) {
                   buff->userHas = NULL;

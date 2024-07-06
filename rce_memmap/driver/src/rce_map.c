@@ -175,7 +175,6 @@ int Map_Release(struct inode *inode, struct file *filp) {
 
 // Find or allocate map space
 uint8_t * Map_Find(uint32_t addr) {
-
    struct MemMap *cur;
    struct MemMap *new;
 
@@ -187,14 +186,12 @@ uint8_t * Map_Find(uint32_t addr) {
    }
 
    while (cur != NULL) {
-
       // Current pointer matches
       if ( (addr >= cur->addr) && (addr < (cur->addr + MAP_SIZE)) )
          return((uint8_t*)(cur->base + (addr-cur->addr)));
 
       // Next address is too high, insert new structure
       if ( (cur->next == NULL) || (addr < ((struct MemMap *)cur->next)->addr) ) {
-
          // Create new map
          if ( (new = (struct MemMap *)kmalloc(sizeof(struct MemMap),GFP_KERNEL)) == NULL ) {
             printk(KERN_ERR MOD_NAME " Map_Find: Could not allocate map memory\n");
@@ -226,7 +223,6 @@ uint8_t * Map_Find(uint32_t addr) {
          cur->next = new;
       }
       cur = cur->next;
-
    }
 
    return(NULL);
@@ -240,7 +236,6 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
    // Determine command
    switch (cmd) {
-
       // Get API Version
       case DMA_Get_Version:
          return(DMA_VERSION);

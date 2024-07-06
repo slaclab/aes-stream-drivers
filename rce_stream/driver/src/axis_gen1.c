@@ -53,7 +53,6 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
 
    // Read IRQ Status
    if ( ioread32(&(reg->intPendAck)) != 0 ) {
-
        // Ack interrupt
       iowrite32(0x1,&(reg->intPendAck));
 
@@ -62,10 +61,8 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
 
       // Read from FIFOs
       while ( (stat = ioread32(&(reg->fifoValid))) != 0 ) {
-
          // Transmit return
          if ( (stat & 0x2) != 0 ) {
-
             // Read handle
             if (((handle = ioread32(&(reg->txFree))) & 0x80000000) != 0 ) {
                handle &= 0x7FFFFFFC;
@@ -82,7 +79,6 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
 
          // Receive data
          if ( (stat & 0x1) != 0 ) {
-
             // Read handle
             while (((handle = ioread32(&(reg->rxPend))) & 0x80000000) != 0 ) {
                handle &= 0x7FFFFFFC;
@@ -112,7 +108,6 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
 
                // Find RX buffer entry
                if ((buff = dmaFindBufferList (&(dev->rxBuffers),handle)) != NULL) {
-
                   // Extract data from descriptor
                   buff->count++;
                   buff->size  = size;
@@ -265,7 +260,6 @@ int32_t AxisG1_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32
    reg = (struct AxisG1Reg *)dev->reg;
 
    for (x=0; x < count; x++) {
-
       // Create descriptor
       control  = (buff[x]->dest       ) & 0x000000FF;
       control += (buff[x]->flags <<  8) & 0x00FFFF00; // flags[15:9] = luser, flags[7:0] = fuser
@@ -294,7 +288,6 @@ int32_t AxisG1_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    reg = (struct AxisG1Reg *)dev->reg;
 
    switch (cmd) {
-
       // Read ACK
       case AXIS_Read_Ack:
          spin_lock(&dev->commandLock);

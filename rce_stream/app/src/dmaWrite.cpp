@@ -131,7 +131,6 @@ int main (int argc, char **argv) {
    prbValid = false;
    count = 0;
    do {
-
       // Setup fds for select call
       FD_ZERO(&fds);
       FD_SET(s,&fds);
@@ -145,7 +144,6 @@ int main (int argc, char **argv) {
       if ( ret <= 0 ) {
          printf("Write timeout\n");
       } else {
-
          if ( args.idxEn ) {
             dmaIndex = dmaGetIndex(s);
             if ( dmaIndex < 0 ) continue;
