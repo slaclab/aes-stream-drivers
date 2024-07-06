@@ -255,10 +255,10 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->rwSize = (2*USER_SIZE) - PHY_OFF;  // Read/Write region size
 
    // Manage device reset cycle
-   dev_info(dev->device,"Init: Setting user reset\n");
-   AxiVersion_SetUserReset(dev->base + AVER_OFF,true);  // Set user reset
-   dev_info(dev->device,"Init: Clearing user reset\n");
-   AxiVersion_SetUserReset(dev->base + AVER_OFF,false);  // Clear user reset
+   dev_info(dev->device, "Init: Setting user reset\n");
+   AxiVersion_SetUserReset(dev->base + AVER_OFF, true);  // Set user reset
+   dev_info(dev->device, "Init: Clearing user reset\n");
+   AxiVersion_SetUserReset(dev->base + AVER_OFF, false);  // Clear user reset
 
    // Configure DMA based on AXI address width: 128bit desc, = 64-bit address map
    if ((readl(dev->reg) & 0x10000) != 0) {
@@ -292,9 +292,9 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    hwData = (struct AxisG2Data *)dev->hwData;
 
    // Log memory mapping information
-   dev_info(dev->device,"Init: Reg space mapped to 0x%p.\n",dev->reg);
-   dev_info(dev->device,"Init: User space mapped to 0x%p with size 0x%x.\n",dev->rwBase,dev->rwSize);
-   dev_info(dev->device,"Init: Top Register = 0x%x\n",readl(dev->reg));
+   dev_info(dev->device, "Init: Reg space mapped to 0x%p.\n", dev->reg);
+   dev_info(dev->device, "Init: User space mapped to 0x%p with size 0x%x.\n", dev->rwBase, dev->rwSize);
+   dev_info(dev->device, "Init: Top Register = 0x%x\n", readl(dev->reg));
 
    // Finalize device probe successfully
    gDmaDevCount++;                   // Increment global device count
@@ -432,50 +432,50 @@ struct hardware_functions DataDev_functions = {
 };
 
 // Parameters
-module_param(cfgTxCount,int,0);
+module_param(cfgTxCount, int, 0);
 MODULE_PARM_DESC(cfgTxCount, "TX buffer count");
 
-module_param(cfgRxCount,int,0);
+module_param(cfgRxCount, int, 0);
 MODULE_PARM_DESC(cfgRxCount, "RX buffer count");
 
-module_param(cfgSize,int,0);
+module_param(cfgSize, int, 0);
 MODULE_PARM_DESC(cfgSize, "Rx/TX Buffer size");
 
-module_param(cfgMode,int,0);
+module_param(cfgMode, int, 0);
 MODULE_PARM_DESC(cfgMode, "RX buffer mode");
 
-module_param(cfgCont,int,0);
+module_param(cfgCont, int, 0);
 MODULE_PARM_DESC(cfgCont, "RX continue enable");
 
-module_param(cfgIrqHold,int,0);
+module_param(cfgIrqHold, int, 0);
 MODULE_PARM_DESC(cfgIrqHold, "IRQ Holdoff");
 
-module_param(cfgIrqDis,int,0);
+module_param(cfgIrqDis, int, 0);
 MODULE_PARM_DESC(cfgIrqDis, "IRQ Disable");
 
-module_param(cfgBgThold0,int,0);
+module_param(cfgBgThold0, int, 0);
 MODULE_PARM_DESC(cfgBgThold0, "Buff Group Threshold 0");
 
-module_param(cfgBgThold1,int,0);
+module_param(cfgBgThold1, int, 0);
 MODULE_PARM_DESC(cfgBgThold1, "Buff Group Threshold 1");
 
-module_param(cfgBgThold2,int,0);
+module_param(cfgBgThold2, int, 0);
 MODULE_PARM_DESC(cfgBgThold2, "Buff Group Threshold 2");
 
-module_param(cfgBgThold3,int,0);
+module_param(cfgBgThold3, int, 0);
 MODULE_PARM_DESC(cfgBgThold3, "Buff Group Threshold 3");
 
-module_param(cfgBgThold4,int,0);
+module_param(cfgBgThold4, int, 0);
 MODULE_PARM_DESC(cfgBgThold4, "Buff Group Threshold 4");
 
-module_param(cfgBgThold5,int,0);
+module_param(cfgBgThold5, int, 0);
 MODULE_PARM_DESC(cfgBgThold5, "Buff Group Threshold 5");
 
-module_param(cfgBgThold6,int,0);
+module_param(cfgBgThold6, int, 0);
 MODULE_PARM_DESC(cfgBgThold6, "Buff Group Threshold 6");
 
-module_param(cfgBgThold7,int,0);
+module_param(cfgBgThold7, int, 0);
 MODULE_PARM_DESC(cfgBgThold7, "Buff Group Threshold 7");
 
-module_param(cfgDevName,int,0);
+module_param(cfgDevName, int, 0);
 MODULE_PARM_DESC(cfgDevName, "Device Name Formating Setting");

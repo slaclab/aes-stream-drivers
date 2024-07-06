@@ -51,21 +51,21 @@ struct PrgArgs {
    uint32_t     txDis;
 };
 
-static struct PrgArgs DefArgs = { "/dev/axi_stream_dma_0", "0", 0, 10000, 0,0x2,0x0,0,0 };
+static struct PrgArgs DefArgs = { "/dev/axi_stream_dma_0", "0", 0, 10000, 0, 0x2, 0x0, 0, 0 };
 
 static char   args_doc[] = "";
 static char   doc[]      = "";
 
 static struct argp_option options[] = {
-   { "path",    'p', "PATH",   OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/pgpcard_0.",0},
-   { "dest",    'm', "LIST",   OPTION_ARG_OPTIONAL, "Comman seperated list of destinations.",0},
-   { "prbsdis", 'd', 0,        OPTION_ARG_OPTIONAL, "Disable PRBS checking.",0},
-   { "size",    's', "SIZE",   OPTION_ARG_OPTIONAL, "Size for transmitted frames.",0},
-   { "indexen", 'i', 0,        OPTION_ARG_OPTIONAL, "Use index based receive buffers.",0},
-   { "fuser",   'f', "FUSER",  OPTION_ARG_OPTIONAL, "Value for first user field in hex. Default=0x2",0},
-   { "luser",   'l', "LUSER",  OPTION_ARG_OPTIONAL, "Value for last user field in hex. Default=0x0",0},
-   { "time",    't', "TIME",   OPTION_ARG_OPTIONAL, "Pause time between writes in uSec. Default=0",0},
-   { "txdis",   'r', "TIME",   OPTION_ARG_OPTIONAL, "Disable transmit threads. Default=0",0},
+   { "path",    'p', "PATH",   OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
+   { "dest",    'm', "LIST",   OPTION_ARG_OPTIONAL, "Comman seperated list of destinations.", 0},
+   { "prbsdis", 'd', 0,        OPTION_ARG_OPTIONAL, "Disable PRBS checking.", 0},
+   { "size",    's', "SIZE",   OPTION_ARG_OPTIONAL, "Size for transmitted frames.", 0},
+   { "indexen", 'i', 0,        OPTION_ARG_OPTIONAL, "Use index based receive buffers.", 0},
+   { "fuser",   'f', "FUSER",  OPTION_ARG_OPTIONAL, "Value for first user field in hex. Default=0x2", 0},
+   { "luser",   'l', "LUSER",  OPTION_ARG_OPTIONAL, "Value for last user field in hex. Default=0x0", 0},
+   { "time",    't', "TIME",   OPTION_ARG_OPTIONAL, "Pause time between writes in uSec. Default=0", 0},
+   { "txdis",   'r', "TIME",   OPTION_ARG_OPTIONAL, "Disable transmit threads. Default=0", 0},
    {0}
 };
 
@@ -75,19 +75,19 @@ error_t parseArgs(int key,  char *arg, struct argp_state *state) {
    switch (key) {
       case 'p': args->path    = arg; break;
       case 'm': args->dest    = arg; break;
-      case 's': args->size    = strtol(arg,NULL,10); break;
+      case 's': args->size    = strtol(arg, NULL, 10); break;
       case 'd': args->prbsDis = 1; break;
       case 'i': args->idxEn   = 1; break;
-      case 'f': args->fuser   = strtol(arg,NULL,16); break;
-      case 'l': args->luser   = strtol(arg,NULL,16); break;
-      case 't': args->pause   = strtol(arg,NULL,10); break;
-      case 'r': args->txDis   = strtol(arg,NULL,10); break;
+      case 'f': args->fuser   = strtol(arg, NULL, 16); break;
+      case 'l': args->luser   = strtol(arg, NULL, 16); break;
+      case 't': args->pause   = strtol(arg, NULL, 10); break;
+      case 'r': args->txDis   = strtol(arg, NULL, 10); break;
       default: return ARGP_ERR_UNKNOWN; break;
    }
    return(0);
 }
 
-static struct argp argp = {options,parseArgs,args_doc,doc};
+static struct argp argp = {options, parseArgs, args_doc, doc};
 
 class RunData {
    public:
@@ -113,7 +113,7 @@ void *runWrite(void *t) {
    int32_t         ret;
    void *          data;
    int32_t         fd;
-   PrbsData        prbs(32,4,1,2,6,31);
+   PrbsData        prbs(32, 4, 1, 2, 6, 31);
    void **         dmaBuffers;
    uint32_t        dmaSize;
    uint32_t        dmaCount;
@@ -129,7 +129,7 @@ void *runWrite(void *t) {
    }
 
    if ( txData->idxEn ) {
-      if ((dmaBuffers = dmaMapDma(fd,&dmaCount,&dmaSize)) == NULL) {
+      if ((dmaBuffers = dmaMapDma(fd, &dmaCount, &dmaSize)) == NULL) {
          printf("Write failed to map dma buffer\n");
          txData->running = false;
          return(NULL);
@@ -146,18 +146,18 @@ void *runWrite(void *t) {
    prbValid = false;
 
    usleep(1000000+100*(txData->dest));
-   printf("Starting write thread. Dest=%i, Size=%i\n",txData->dest,txData->size);
+   printf("Starting write thread. Dest=%i, Size=%i\n", txData->dest, txData->size);
 
 
    while (txData->enable) {
       // Setup fds for select call
       FD_ZERO(&fds);
-      FD_SET(fd,&fds);
+      FD_SET(fd, &fds);
 
       // Wait for write ready
       timeout.tv_sec = 0;
       timeout.tv_usec = 100;
-      ret = select(fd+1,NULL,&fds,NULL,&timeout);
+      ret = select(fd+1, NULL, &fds, NULL, &timeout);
       if ( ret != 0 ) {
          if ( txData->idxEn ) {
             dmaIndex = dmaGetIndex(fd);
@@ -167,15 +167,15 @@ void *runWrite(void *t) {
 
          // Gen data
          if ( txData->prbEn && !prbValid ) {
-            prbs.genData(data,txData->size);
+            prbs.genData(data, txData->size);
             prbValid = true;
          }
 
-         if ( txData->idxEn ) ret = dmaWriteIndex(fd,dmaIndex,txData->size,axisSetFlags(txData->fuser,txData->luser,0),txData->dest);
-         else ret = dmaWrite(fd,data,txData->size,axisSetFlags(txData->fuser,txData->luser,0),txData->dest);
+         if ( txData->idxEn ) ret = dmaWriteIndex(fd, dmaIndex, txData->size, axisSetFlags(txData->fuser, txData->luser, 0), txData->dest);
+         else ret = dmaWrite(fd, data, txData->size, axisSetFlags(txData->fuser, txData->luser, 0), txData->dest);
 
          if ( ret < 0 ) {
-            printf("Write Error at count %lu. Dest=%i\n",txData->count,txData->dest);
+            printf("Write Error at count %lu. Dest=%i\n", txData->count, txData->dest);
             break;
          } else if ( ret > 0 ) {
             txData->count++;
@@ -186,18 +186,17 @@ void *runWrite(void *t) {
       }
    }
 
-   if ( txData->idxEn ) dmaUnMapDma(fd,dmaBuffers);
+   if ( txData->idxEn ) dmaUnMapDma(fd, dmaBuffers);
    else free(data);
    close(fd);
 
    txData->running = false;
 
-   printf("Write thread stopped!. Dest=%i\n",txData->dest);
+   printf("Write thread stopped!. Dest=%i\n", txData->dest);
 
    pthread_exit(NULL);
    return(NULL);
 }
-
 
 void *runRead(void *t) {
    fd_set          fds;
@@ -217,7 +216,7 @@ void *runRead(void *t) {
    bool            idxEn;
    uint8_t         mask[DMA_MASK_SIZE];
 
-   PrbsData        prbs(32,4,1,2,6,31);
+   PrbsData        prbs(32, 4, 1, 2, 6, 31);
 
    RunData *rxData = (RunData *)t;
 
@@ -231,7 +230,7 @@ void *runRead(void *t) {
    }
 
    if ( rxData->idxEn ) {
-      if ((dmaBuffers = dmaMapDma(fd,&dmaCount,&dmaSize)) == NULL) {
+      if ((dmaBuffers = dmaMapDma(fd, &dmaCount, &dmaSize)) == NULL) {
          printf("Read failed to map dma buffer\n");
          rxData->running = false;
          return(NULL);
@@ -245,33 +244,33 @@ void *runRead(void *t) {
    }
 
    dmaInitMaskBytes(mask);
-   dmaAddMaskBytes(mask,rxData->dest);
+   dmaAddMaskBytes(mask, rxData->dest);
    usleep(100*rxData->dest);
 
-   if ( dmaSetMaskBytes(fd,mask) != 0 ) {
-      printf("Error setting mask. Dest=%i\n",rxData->dest);
+   if ( dmaSetMaskBytes(fd, mask) != 0 ) {
+      printf("Error setting mask. Dest=%i\n", rxData->dest);
       rxData->running = false;
       close(fd);
       return NULL;
    }
 
-   printf("Starting read thread.  Dest=%i, Size=%i\n",rxData->dest,rxData->size);
+   printf("Starting read thread.  Dest=%i, Size=%i\n", rxData->dest, rxData->size);
 
    while (rxData->enable) {
       // Setup fds for select call
       FD_ZERO(&fds);
-      FD_SET(fd,&fds);
+      FD_SET(fd, &fds);
 
       // Wait for read ready
       timeout.tv_sec = 0;
       timeout.tv_usec = 100;
-      ret = select(fd+1,&fds,NULL,NULL,&timeout);
+      ret = select(fd+1, &fds, NULL, NULL, &timeout);
       if ( ret != 0 ) {
          if ( idxEn ) {
-            ret = dmaReadIndex(fd,&dmaIndex,&rxFlags,NULL,&rxDest);
+            ret = dmaReadIndex(fd, &dmaIndex, &rxFlags, NULL, &rxDest);
             data = dmaBuffers[dmaIndex];
          } else {
-             ret = dmaRead(fd,data,maxSize,&rxFlags,NULL,&rxDest);
+             ret = dmaRead(fd, data, maxSize, &rxFlags, NULL, &rxDest);
          }
 
          rxFuser = axisGetFuser(rxFlags);
@@ -279,16 +278,16 @@ void *runRead(void *t) {
 
          if ( ret != 0 ) {
             //  data
-            if ( (rxData->prbEn) && (!prbs.processData(data,ret)) ) {
+            if ( (rxData->prbEn) && (!prbs.processData(data, ret)) ) {
                rxData->prbErr++;
-               printf("Prbs mismatch. count=%lu, dest=%i, index=%i\n",rxData->count,rxData->dest,dmaIndex);
+               printf("Prbs mismatch. count=%lu, dest=%i, index=%i\n", rxData->count, rxData->dest, dmaIndex);
             }
-            if ( idxEn ) dmaRetIndex(fd,dmaIndex);
+            if ( idxEn ) dmaRetIndex(fd, dmaIndex);
 
             // Stop on size mismatch or frame errors
             if (ret != (int)rxData->size || rxDest != rxData->dest || rxData->fuser != rxFuser || rxData->luser != rxLuser) {
                printf("Read Error. Dest=%i, ExpDest=%i, Ret=%i, Exp=%i, Fuser=0x%.2x, Luser=0x%.2x\n",
-                     rxDest,rxData->dest,ret,rxData->size,rxFuser,rxLuser);
+                     rxDest, rxData->dest, ret, rxData->size, rxFuser, rxLuser);
                break;
             } else {
                rxData->count++;
@@ -298,13 +297,13 @@ void *runRead(void *t) {
       }
    }
 
-   if ( idxEn ) dmaUnMapDma(fd,dmaBuffers);
+   if ( idxEn ) dmaUnMapDma(fd, dmaBuffers);
    else free(data);
 
    close(fd);
    rxData->running = false;
 
-   printf("Read thread stopped!.  Dest=%i\n",rxData->dest);
+   printf("Read thread stopped!.  Dest=%i\n", rxData->dest);
 
    pthread_exit(NULL);
    return(NULL);
@@ -334,21 +333,21 @@ int main(int argc, char **argv) {
 
    struct PrgArgs args;
 
-   memcpy(&args,&DefArgs,sizeof(struct PrgArgs));
-   argp_parse(&argp,argc,argv,0,0,&args);
+   memcpy(&args, &DefArgs, sizeof(struct PrgArgs));
+   argp_parse(&argp, argc, argv, 0, 0, &args);
 
    // Generating endpoints
    dCount = 0;
 
-   strcpy(tBuff,args.dest);//NOLINT
-   tok = strtok(tBuff,",");
+   strcpy(tBuff, args.dest);//NOLINT
+   tok = strtok(tBuff, ",");
    while ( tok != NULL ) {
-      x = strtoul(tok,NULL,10);
-      printf("Creating loop for dest %i\n",x);
+      x = strtoul(tok, NULL, 10);
+      printf("Creating loop for dest %i\n", x);
       rxData[dCount] = new RunData;
       txData[dCount] = new RunData;
 
-      memset(rxData[dCount],0,sizeof(RunData));
+      memset(rxData[dCount], 0, sizeof(RunData));
 
       rxData[dCount]->enable  = true;
       rxData[dCount]->running = true;
@@ -361,16 +360,16 @@ int main(int argc, char **argv) {
       rxData[dCount]->prbEn   = !args.prbsDis;
       rxData[dCount]->pause   = args.pause;
 
-      sprintf(rxData[dCount]->id,"%i",x);//NOLINT
-      memcpy(txData[dCount],rxData[dCount],sizeof(RunData));
+      sprintf(rxData[dCount]->id, "%i", x);//NOLINT
+      memcpy(txData[dCount], rxData[dCount], sizeof(RunData));
 
-      if ( pthread_create(&rxThread[dCount],NULL,runRead,rxData[dCount]) ) {
+      if ( pthread_create(&rxThread[dCount], NULL, runRead, rxData[dCount]) ) {
          printf("Error creating read thread\n");
          return(2);
       }
 
       if ( args.txDis == 0 ) {
-         if ( pthread_create(&txThread[dCount],NULL,runWrite,txData[dCount]) ) {
+         if ( pthread_create(&txThread[dCount], NULL, runWrite, txData[dCount]) ) {
             printf("Error creating write thread\n");
             return(2);
          }
@@ -379,7 +378,7 @@ int main(int argc, char **argv) {
          txData[dCount]->enable  = false;
       }
       dCount++;
-      tok = strtok(NULL,",");
+      tok = strtok(NULL, ",");
    }
    time(&c_tme);
    time(&l_tme);
@@ -417,33 +416,33 @@ int main(int argc, char **argv) {
       printf("\n\n");
 
       printf("   Dest:");
-      for (x=0; x < dCount; x++) printf(" %15s",txData[x]->id);
+      for (x=0; x < dCount; x++) printf(" %15s", txData[x]->id);
       printf("\nTxCount:");
-      for (x=0; x < dCount; x++) printf(" %15lu",txData[x]->count);
+      for (x=0; x < dCount; x++) printf(" %15lu", txData[x]->count);
       printf("\n TxFreq:");
-      for (x=0; x < dCount; x++) printf(" %15lu",txData[x]->count-lastTx[x]);
+      for (x=0; x < dCount; x++) printf(" %15lu", txData[x]->count-lastTx[x]);
       printf("\nTxBytes:");
-      for (x=0; x < dCount; x++) printf(" %15lu",txData[x]->total);
+      for (x=0; x < dCount; x++) printf(" %15lu", txData[x]->total);
       printf("\n TxRate:");
 
       totTx = 0;
       for (x=0; x < dCount; x++) {
-         printf(" %15e",((double)(txData[x]->count-lastTx[x]) * 8.0 * (double)args.size) / (double)(c_tme-l_tme));
+         printf(" %15e", ((double)(txData[x]->count-lastTx[x]) * 8.0 * (double)args.size) / (double)(c_tme-l_tme));
          lastTx[x] = txData[x]->count;
          totTx    += txData[x]->count;
       }
       printf("\n");
 
       printf("RxCount:");
-      for (x=0; x < dCount; x++) printf(" %15lu",rxData[x]->count);
+      for (x=0; x < dCount; x++) printf(" %15lu", rxData[x]->count);
       printf("\n RxFreq:");
-      for (x=0; x < dCount; x++) printf(" %15lu",rxData[x]->count-lastRx[x]);
+      for (x=0; x < dCount; x++) printf(" %15lu", rxData[x]->count-lastRx[x]);
       printf("\nRxBytes:");
-      for (x=0; x < dCount; x++) printf(" %15lu",rxData[x]->total);
+      for (x=0; x < dCount; x++) printf(" %15lu", rxData[x]->total);
 
       if ( !args.prbsDis ) {
          printf("\n PrbErr:");
-         for (x=0; x < dCount; x++) printf(" %15lu",rxData[x]->prbErr);
+         for (x=0; x < dCount; x++) printf(" %15lu", rxData[x]->prbErr);
       }
       printf("\n RxRate:");
 
@@ -453,7 +452,7 @@ int main(int argc, char **argv) {
       totPrb    = 0;
       for (x=0; x < dCount; x++) {
          rxRate = ((double)(rxData[x]->count-lastRx[x]) * 8.0 * (double)args.size) / (double)(c_tme-l_tme);
-         printf(" %15e",rxRate);
+         printf(" %15e", rxRate);
          totRxFreq += (rxData[x]->count-lastRx[x]);
          lastRx[x] = rxData[x]->count;
          totRx     += rxData[x]->count;
@@ -461,11 +460,11 @@ int main(int argc, char **argv) {
          totRxRate += rxRate;
       }
       printf("\n");
-      printf("  TotTx: %15lu\n",totTx);
-      printf("  TotRx: %15lu\n",totRx);
-      printf("TotFreq: %15lu\n",totRxFreq);
-      if ( !args.prbsDis ) printf(" PrbErr: %15lu\n",totPrb);
-      printf("TotRate: %15e\n",totRxRate);
+      printf("  TotTx: %15lu\n", totTx);
+      printf("  TotRx: %15lu\n", totRx);
+      printf("TotFreq: %15lu\n", totRxFreq);
+      if ( !args.prbsDis ) printf(" PrbErr: %15lu\n", totPrb);
+      printf("TotRate: %15e\n", totRxRate);
       l_tme = c_tme;
    }
 

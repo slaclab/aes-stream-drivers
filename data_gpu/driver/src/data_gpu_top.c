@@ -228,10 +228,10 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    Gpu_Init(dev, GPU_OFF);
 
    // Manage device reset cycle
-   dev_info(dev->device,"Init: Setting user reset\n");
-   AxiVersion_SetUserReset(dev->base + AVER_OFF,true);  // Set user reset
-   dev_info(dev->device,"Init: Clearing user reset\n");
-   AxiVersion_SetUserReset(dev->base + AVER_OFF,false);  // Clear user reset
+   dev_info(dev->device, "Init: Setting user reset\n");
+   AxiVersion_SetUserReset(dev->base + AVER_OFF, true);  // Set user reset
+   dev_info(dev->device, "Init: Clearing user reset\n");
+   AxiVersion_SetUserReset(dev->base + AVER_OFF, false);  // Clear user reset
 
    // Configure DMA based on AXI address width: 128bit desc, = 64-bit address map
    if ((readl(dev->reg) & 0x10000) != 0) {
@@ -262,9 +262,9 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    }
 
    // Log memory mapping information
-   dev_info(dev->device,"Init: Reg  space mapped to 0x%p.\n",dev->reg);
-   dev_info(dev->device,"Init: User space mapped to 0x%p with size 0x%x.\n",dev->rwBase,dev->rwSize);
-   dev_info(dev->device,"Init: Top Register = 0x%x\n",readl(dev->reg));
+   dev_info(dev->device, "Init: Reg  space mapped to 0x%p.\n", dev->reg);
+   dev_info(dev->device, "Init: User space mapped to 0x%p with size 0x%x.\n", dev->rwBase, dev->rwSize);
+   dev_info(dev->device, "Init: Top Register = 0x%x\n", readl(dev->reg));
 
    // Finalize device probe successfully
    gDmaDevCount++;  // Increment global device count
@@ -457,5 +457,5 @@ MODULE_PARM_DESC(cfgCont, "RX continue enable: Enable/disable continuous receive
 
 /* Used to determine the device name formatting
  */
-module_param(cfgDevName,int,0);
+module_param(cfgDevName, int, 0);
 MODULE_PARM_DESC(cfgDevName, "Device Name Formating Setting");

@@ -145,7 +145,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
       dev_warn(dev->device, "Gpu_AddNvidia: dma map done. ret = %i\n", ret);
 
       if (ret != 0) {
-         dev_warn(dev->device,"Gpu_AddNvidia: error mapping page tables ret=%i\n",ret);
+         dev_warn(dev->device, "Gpu_AddNvidia: error mapping page tables ret=%i\n", ret);
 
       } else {
          // Determine how much memory is contiguous
@@ -163,7 +163,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
          if (buffer->write) {
             writel(buffer->dmaMapping->dma_addresses[0] & 0xFFFFFFFF, data->base+0x100+data->writeBuffers.count*16);
             writel((buffer->dmaMapping->dma_addresses[0] >> 32) & 0xFFFFFFFF, data->base+0x104+data->writeBuffers.count*16);
-            writel(mapSize,data->base+0x108+data->writeBuffers.count*16);
+            writel(mapSize, data->base+0x108+data->writeBuffers.count*16);
             data->writeBuffers.count++;
          } else {
             writel(buffer->dmaMapping->dma_addresses[0] & 0xFFFFFFFF, data->base+0x200+data->readBuffers.count*16);
@@ -172,7 +172,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
          }
       }
    } else {
-       dev_warn(dev->device,"Gpu_AddNvidia: failed to pin memory with address=0x%llx. ret=%i\n", dat.address,ret);
+       dev_warn(dev->device, "Gpu_AddNvidia: failed to pin memory with address=0x%llx. ret=%i\n", dat.address, ret);
        return -1;
    }
 
@@ -188,7 +188,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
       x |= (data->readBuffers.count-1) << 16;
    }
 
-   writel(x,data->base+0x008);
+   writel(x, data->base+0x008);
    return 0;
 }
 

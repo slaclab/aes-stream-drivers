@@ -67,14 +67,14 @@ size_t dmaAllocBuffers(struct DmaDevice *dev, struct DmaBufferList *list,
 
    // Allocate first level pointers
    if ((list->indexed = (struct DmaBuffer ***)kzalloc(sizeof(struct DmaBuffer**) * list->subCount, GFP_KERNEL)) == NULL) {
-      dev_err(dev->device,"dmaAllocBuffers: Failed to allocate indexed list pointer. Count=%u.\n",list->subCount);
+      dev_err(dev->device, "dmaAllocBuffers: Failed to allocate indexed list pointer. Count=%u.\n", list->subCount);
       goto cleanup_forced_exit;
    }
 
    // Allocate sub lists
    for (x=0; x < list->subCount; x++) {
       if ((list->indexed[x] = (struct DmaBuffer **) kzalloc((sizeof(struct DmaBuffer *) * BUFFERS_PER_LIST), GFP_KERNEL)) == NULL) {
-         dev_err(dev->device,"dmaAllocBuffers: Failed to allocate sub list. Idx=%u.\n",x);
+         dev_err(dev->device, "dmaAllocBuffers: Failed to allocate sub list. Idx=%u.\n", x);
          goto cleanup_list_heads;
       }
    }
@@ -90,12 +90,12 @@ size_t dmaAllocBuffers(struct DmaDevice *dev, struct DmaBufferList *list,
       sl  = x / BUFFERS_PER_LIST;
       sli = x % BUFFERS_PER_LIST;
       if ((buff = (struct DmaBuffer *)kzalloc(sizeof(struct DmaBuffer), GFP_KERNEL)) == NULL) {
-         dev_err(dev->device,"dmaAllocBuffers: Failed to create buffer structure index %ui. Unloading.\n",x);
+         dev_err(dev->device, "dmaAllocBuffers: Failed to create buffer structure index %ui. Unloading.\n", x);
          goto cleanup_buffers;
       }
 
       // Init record
-      memset(buff,0,sizeof(struct DmaBuffer));
+      memset(buff, 0, sizeof(struct DmaBuffer));
 
       // Setup pointer back to list
       buff->buffList = list;
@@ -112,7 +112,7 @@ size_t dmaAllocBuffers(struct DmaDevice *dev, struct DmaBufferList *list,
          if (buff->buffAddr != NULL) {
             buff->buffHandle = dma_map_single(list->dev->device, buff->buffAddr, list->dev->cfgSize, direction);
             // Check for mapping error
-            if ( dma_mapping_error(list->dev->device,buff->buffHandle) ) {
+            if ( dma_mapping_error(list->dev->device, buff->buffHandle) ) {
                // DMA mapping was successful
                buff->buffHandle = 0;
             } else {
@@ -140,7 +140,7 @@ size_t dmaAllocBuffers(struct DmaDevice *dev, struct DmaBufferList *list,
 
       // Alloc or mapping failed
       if (buff->buffAddr == NULL || buff->buffHandle == 0) {
-         dev_err(dev->device,"dmaAllocBuffers: Failed to create stream buffer and dma mapping.\n");
+         dev_err(dev->device, "dmaAllocBuffers: Failed to create stream buffer and dma mapping.\n");
          goto cleanup_buffers;
       }
 
@@ -154,7 +154,7 @@ size_t dmaAllocBuffers(struct DmaDevice *dev, struct DmaBufferList *list,
    }
 
    // Sort the buffers
-   if ( list->sorted != NULL ) sort(list->sorted,list->count,sizeof(struct DmaBuffer *),dmaSortComp,NULL);
+   if ( list->sorted != NULL ) sort(list->sorted, list->count, sizeof(struct DmaBuffer *), dmaSortComp, NULL);
 
    return list->count;
 
@@ -909,7 +909,7 @@ struct DmaBuffer * dmaQueuePop(struct DmaQueue *queue ) {
    unsigned long      iflags;
    struct DmaBuffer * ret;
 
-   spin_lock_irqsave(&(queue->lock),iflags);
+   spin_lock_irqsave(&(queue->lock), iflags);
 
    if ( queue->read == queue->write ) {
       ret = NULL;
@@ -922,7 +922,7 @@ struct DmaBuffer * dmaQueuePop(struct DmaQueue *queue ) {
       // Mark the buffer as not in queue
       ret->inQ = 0;
    }
-   spin_unlock_irqrestore(&(queue->lock),iflags);
+   spin_unlock_irqrestore(&(queue->lock), iflags);
    return ret;
 }
 

@@ -224,7 +224,7 @@ int Dma_Init(struct DmaDevice *dev) {
    // Allocate device numbers for character device. 1 minor numer starting at 0
    res = alloc_chrdev_region(&(dev->devNum), 0, 1, dev->devName);
    if (res < 0) {
-      dev_err(dev->device,"Init: Cannot register char device\n");
+      dev_err(dev->device, "Init: Cannot register char device\n");
       return -1;
    }
 
@@ -234,13 +234,13 @@ int Dma_Init(struct DmaDevice *dev) {
 
    // Add the character device
    if (cdev_add(&(dev->charDev), dev->devNum, 1) == -1) {
-      dev_err(dev->device,"Init: Failed to add device file.\n");
+      dev_err(dev->device, "Init: Failed to add device file.\n");
       goto cleanup_alloc_chrdev_region;
    }
 
    // Create class struct if it does not already exist
    if (gCl == NULL) {
-      dev_info(dev->device,"Init: Creating device class\n");
+      dev_info(dev->device, "Init: Creating device class\n");
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
       gCl = class_create(THIS_MODULE, dev->devName);
@@ -249,7 +249,7 @@ int Dma_Init(struct DmaDevice *dev) {
 #endif
 
       if (gCl == NULL) {
-         dev_err(dev->device,"Init: Failed to create device class\n");
+         dev_err(dev->device, "Init: Failed to create device class\n");
          goto cleanup_cdev_add;
       }
 
@@ -258,20 +258,20 @@ int Dma_Init(struct DmaDevice *dev) {
 
    // Attempt to create the device
    if (device_create(gCl, NULL, dev->devNum, NULL, "%s", dev->devName) == NULL) {
-      dev_err(dev->device,"Init: Failed to create device file\n");
+      dev_err(dev->device, "Init: Failed to create device file\n");
       goto cleanup_class_create;
    }
 
 
    // Setup /proc
    if (NULL == proc_create_data(dev->devName, 0, NULL, &DmaProcOps, dev)) {
-      dev_err(dev->device,"Init: Failed to create proc entry.\n");
+      dev_err(dev->device, "Init: Failed to create proc entry.\n");
       goto cleanup_device_create;
    }
 
    // Remap the I/O register block for safe access
    if ( Dma_MapReg(dev) < 0 ) {
-      dev_err(dev->device,"Init: Failed to map register block.\n");
+      dev_err(dev->device, "Init: Failed to map register block.\n");
       goto cleanup_proc_create_data;
    }
 
@@ -284,35 +284,35 @@ int Dma_Init(struct DmaDevice *dev) {
    spin_lock_init(&(dev->maskLock));
 
    // Create TX buffers
-   dev_info(dev->device,"Init: Creating %i TX Buffers. Size=%i Bytes. Mode=%i.\n",
-        dev->cfgTxCount,dev->cfgSize,dev->cfgMode);
+   dev_info(dev->device, "Init: Creating %i TX Buffers. Size=%i Bytes. Mode=%i.\n",
+        dev->cfgTxCount, dev->cfgSize, dev->cfgMode);
    res = dmaAllocBuffers(dev, &(dev->txBuffers), dev->cfgTxCount, 0, DMA_TO_DEVICE);
    tot = res * dev->cfgSize;
 
-   dev_info(dev->device,"Init: Created  %i out of %i TX Buffers. %llu Bytes.\n", res,dev->cfgTxCount,tot);
+   dev_info(dev->device, "Init: Created  %i out of %i TX Buffers. %llu Bytes.\n", res, dev->cfgTxCount, tot);
 
    // Handle bad buffer allocation for TX
    if ( dev->cfgTxCount > 0 && res == 0 )
       goto cleanup_dma_mapreg;
 
    // Initialize transmit queue
-   res = dmaQueueInit(&(dev->tq),dev->txBuffers.count);
+   res = dmaQueueInit(&(dev->tq), dev->txBuffers.count);
    if (res == 0 && dev->txBuffers.count > 0) {
-      dev_err(dev->device,"dmaQueueInit: Failed to initialize DMA queues.\n");
+      dev_err(dev->device, "dmaQueueInit: Failed to initialize DMA queues.\n");
       goto cleanup_tx_buffers;
    }
 
    // Populate transmit queue
    for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++)
-      dmaQueuePush(&(dev->tq),dmaGetBufferList(&(dev->txBuffers),x));
+      dmaQueuePush(&(dev->tq), dmaGetBufferList(&(dev->txBuffers), x));
 
    // Create RX buffers, bidirectional because RX buffers can be passed to TX
-   dev_info(dev->device,"Init: Creating %i RX Buffers. Size=%i Bytes. Mode=%i.\n",
-        dev->cfgRxCount,dev->cfgSize,dev->cfgMode);
+   dev_info(dev->device, "Init: Creating %i RX Buffers. Size=%i Bytes. Mode=%i.\n",
+        dev->cfgRxCount, dev->cfgSize, dev->cfgMode);
    res = dmaAllocBuffers(dev, &(dev->rxBuffers), dev->cfgRxCount, dev->txBuffers.count, DMA_BIDIRECTIONAL);
    tot = res * dev->cfgSize;
 
-   dev_info(dev->device,"Init: Created  %i out of %i RX Buffers. %llu Bytes.\n", res,dev->cfgRxCount,tot);
+   dev_info(dev->device, "Init: Created  %i out of %i RX Buffers. %llu Bytes.\n", res, dev->cfgRxCount, tot);
 
    // Bad buffer allocation
    if ( dev->cfgRxCount > 0 && res == 0 )
@@ -323,12 +323,12 @@ int Dma_Init(struct DmaDevice *dev) {
 
    // Set interrupt
    if ( dev->irq != 0 ) {
-      dev_info(dev->device,"Init: IRQ %d\n", dev->irq);
+      dev_info(dev->device, "Init: IRQ %d\n", dev->irq);
       res = request_irq(dev->irq, dev->hwFunc->irq, IRQF_SHARED, dev->devName, (void*)dev);
 
       // Result of request IRQ from OS.
       if (res < 0) {
-         dev_err(dev->device,"Init: Unable to allocate IRQ.");
+         dev_err(dev->device, "Init: Unable to allocate IRQ.");
          goto cleanup_card_clear;
       }
    }
@@ -358,7 +358,7 @@ cleanup_dma_mapreg:
    Dma_UnmapReg(dev);
 
 cleanup_proc_create_data:
-   remove_proc_entry(dev->devName,NULL);
+   remove_proc_entry(dev->devName, NULL);
 
 cleanup_device_create:
    if ( gCl != NULL ) device_destroy(gCl, dev->devNum);
@@ -825,7 +825,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
       case DMA_Get_RxBuffinUser_Count:
          userCnt    = 0;
          for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
-            buff = dmaGetBufferList(&(dev->rxBuffers),x);
+            buff = dmaGetBufferList(&(dev->rxBuffers), x);
             if (  buff->userHas   ) userCnt++;
          }
          return userCnt;
@@ -835,7 +835,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
       case DMA_Get_RxBuffinHW_Count:
          hwCnt    = 0;
          for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
-            buff = dmaGetBufferList(&(dev->rxBuffers),x);
+            buff = dmaGetBufferList(&(dev->rxBuffers), x);
             if ( buff->inHw &&  (!buff->inQ)   ) hwCnt++;
          }
          return hwCnt;
@@ -845,7 +845,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
       case DMA_Get_RxBuffinPreHWQ_Count:
          hwQCnt    = 0;
          for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
-            buff = dmaGetBufferList(&(dev->rxBuffers),x);
+            buff = dmaGetBufferList(&(dev->rxBuffers), x);
             if ( buff->inHw &&  buff->inQ   ) hwQCnt++;
          }
          return hwQCnt;
@@ -855,7 +855,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
       case DMA_Get_RxBuffinSWQ_Count:
          qCnt    = 0;
          for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
-            buff = dmaGetBufferList(&(dev->rxBuffers),x);
+            buff = dmaGetBufferList(&(dev->rxBuffers), x);
             if ( (!buff->inHw) &&  buff->inQ   ) qCnt++;
          }
          return qCnt;
@@ -865,7 +865,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
       case DMA_Get_RxBuffMiss_Count:
          miss    = 0;
          for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
-            buff = dmaGetBufferList(&(dev->rxBuffers),x);
+            buff = dmaGetBufferList(&(dev->rxBuffers), x);
             if ((buff->userHas == NULL) && (buff->inHw == 0) && (buff->inQ == 0)) {
                miss++;
             }
@@ -882,7 +882,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
       case DMA_Get_TxBuffinUser_Count:
          userCnt    = 0;
          for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++) {
-            buff = dmaGetBufferList(&(dev->txBuffers),x);
+            buff = dmaGetBufferList(&(dev->txBuffers), x);
             if (  buff->userHas   ) userCnt++;
          }
          return userCnt;
@@ -892,7 +892,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
       case DMA_Get_TxBuffinHW_Count:
          hwCnt    = 0;
          for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++) {
-            buff = dmaGetBufferList(&(dev->txBuffers),x);
+            buff = dmaGetBufferList(&(dev->txBuffers), x);
             if ( buff->inHw &&  (!buff->inQ)   ) hwCnt++;
          }
          return hwCnt;
@@ -902,7 +902,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
       case DMA_Get_TxBuffinPreHWQ_Count:
          hwQCnt    = 0;
          for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++) {
-            buff = dmaGetBufferList(&(dev->txBuffers),x);
+            buff = dmaGetBufferList(&(dev->txBuffers), x);
             if ( buff->inHw &&  buff->inQ   ) hwQCnt++;
          }
          return hwQCnt;
@@ -912,7 +912,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
       case DMA_Get_TxBuffinSWQ_Count:
          qCnt    = 0;
          for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++) {
-            buff = dmaGetBufferList(&(dev->txBuffers),x);
+            buff = dmaGetBufferList(&(dev->txBuffers), x);
             if ( (!buff->inHw) &&  buff->inQ   ) qCnt++;
          }
          return qCnt;
@@ -922,7 +922,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
       case DMA_Get_TxBuffMiss_Count:
          miss    = 0;
          for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++) {
-            buff = dmaGetBufferList(&(dev->txBuffers),x);
+            buff = dmaGetBufferList(&(dev->txBuffers), x);
             if ((buff->userHas == NULL) && (buff->inHw == 0) && (buff->inQ == 0)) {
                 miss++;
             }
@@ -943,21 +943,21 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
       // Set debug level
       case DMA_Set_Debug:
          dev->debug = arg;
-         dev_info(dev->device,"debug set to %u.\n",(uint32_t)arg);
+         dev_info(dev->device, "debug set to %u.\n", (uint32_t)arg);
          return 0;
          break;
 
       // Attempt to reserve destination
       case DMA_Set_Mask:
-         memset(newMask,0,DMA_MASK_SIZE);
+         memset(newMask, 0, DMA_MASK_SIZE);
          ((uint32_t *)newMask)[0] = arg;
-         return Dma_SetMaskBytes(dev,desc,newMask);
+         return Dma_SetMaskBytes(dev, desc, newMask);
          break;
 
       // Attempt to reserve destination
       case DMA_Set_MaskBytes:
-         if ( copy_from_user(newMask,(void *)arg,DMA_MASK_SIZE) ) return -1;
-         return Dma_SetMaskBytes(dev,desc,newMask);
+         if ( copy_from_user(newMask, (void *)arg, DMA_MASK_SIZE) ) return -1;
+         return Dma_SetMaskBytes(dev, desc, newMask);
          break;
 
       // Return buffer index
@@ -965,15 +965,15 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          cnt = (cmd >> 16) & 0xFFFF;
 
          if ( cnt == 0 ) return 0;
-         indexes = kzalloc(cnt * sizeof(uint32_t),GFP_KERNEL);
-         if (copy_from_user(indexes,(void *)arg,(cnt * sizeof(uint32_t)))) return -1;
+         indexes = kzalloc(cnt * sizeof(uint32_t), GFP_KERNEL);
+         if (copy_from_user(indexes, (void *)arg, (cnt * sizeof(uint32_t)))) return -1;
 
-         buffList = (struct DmaBuffer **)kzalloc(cnt * sizeof(struct DmaBuffer *),GFP_KERNEL);
+         buffList = (struct DmaBuffer **)kzalloc(cnt * sizeof(struct DmaBuffer *), GFP_KERNEL);
          bCnt = 0;
 
          for (x=0; x < cnt; x++) {
             // Attempt to find buffer in RX list
-            if ( (buff = dmaGetBufferList(&(dev->rxBuffers),indexes[x])) != NULL ) {
+            if ( (buff = dmaGetBufferList(&(dev->rxBuffers), indexes[x])) != NULL ) {
                // Only return if owned by current desc
                if ( buff->userHas == desc ) {
                   buff->userHas = NULL;
@@ -981,23 +981,23 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
                }
 
             // Attempt to find in tx list
-            } else if ( (buff = dmaGetBufferList(&(dev->txBuffers),indexes[x])) != NULL ) {
+            } else if ( (buff = dmaGetBufferList(&(dev->txBuffers), indexes[x])) != NULL ) {
                // Only return if owned by current desc
                if ( buff->userHas == desc ) {
                   buff->userHas = NULL;
 
                   // Return entry to TX queue
-                  dmaQueuePush(&(dev->tq),buff);
+                  dmaQueuePush(&(dev->tq), buff);
                }
             } else {
-               dev_warn(dev->device,"Command: Invalid index posted: %i.\n", indexes[x]);
+               dev_warn(dev->device, "Command: Invalid index posted: %i.\n", indexes[x]);
                kfree(indexes);
                return -1;
             }
          }
 
          // Return receive buffers
-         dev->hwFunc->retRxBuffer(dev,buffList,bCnt);
+         dev->hwFunc->retRxBuffer(dev, buffList, bCnt);
 
          kfree(buffList);
          kfree(indexes);
@@ -1017,7 +1017,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
             buff->userHas = desc;
 
             if ( dev->debug > 0 )
-               dev_info(dev->device,"Command: Returning buffer %i to user\n",buff->index);
+               dev_info(dev->device, "Command: Returning buffer %i to user\n", buff->index);
             return buff->index;
          }
          break;
@@ -1037,17 +1037,17 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
       // Register write
       case DMA_Write_Register:
-         return Dma_WriteRegister(dev,arg);
+         return Dma_WriteRegister(dev, arg);
          break;
 
       // Register read
       case DMA_Read_Register:
-         return Dma_ReadRegister(dev,arg);
+         return Dma_ReadRegister(dev, arg);
          break;
 
       // All other commands handled by card specific functions
       default:
-         return dev->hwFunc->command(dev,cmd,arg);
+         return dev->hwFunc->command(dev, cmd, arg);
          break;
    }
    return 0;
@@ -1224,9 +1224,9 @@ int Dma_ProcOpen(struct inode *inode, struct file *file) {
    struct seq_file *sf;
    struct DmaDevice *dev;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,18,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
    dev = (struct DmaDevice *)pde_data(inode);
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,10,0)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
    dev = (struct DmaDevice *)PDE_DATA(inode);
 #else
    dev = (struct DmaDevice *)PDE(inode)->data;
@@ -1313,17 +1313,17 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    dev = (struct DmaDevice *)s->private;
 
    // Call applications specific show function first
-   dev->hwFunc->seqShow(s,dev);
+   dev->hwFunc->seqShow(s, dev);
 
-   seq_printf(s,"\n");
-   seq_printf(s,"-------- DMA Kernel Driver General --------\n");
-   seq_printf(s," DMA Driver's Git Version : " GITV "\n");
-   seq_printf(s," DMA Driver's API Version : 0x%x\n",DMA_VERSION);
-   seq_printf(s,"\n");
-   seq_printf(s,"---- Read Buffers (Firmware->Software) ----\n");
-   seq_printf(s,"         Buffer Count : %u\n",dev->rxBuffers.count);
-   seq_printf(s,"          Buffer Size : %u\n",dev->cfgSize);
-   seq_printf(s,"          Buffer Mode : %u\n",dev->cfgMode);
+   seq_printf(s, "\n");
+   seq_printf(s, "-------- DMA Kernel Driver General --------\n");
+   seq_printf(s, " DMA Driver's Git Version : " GITV "\n");
+   seq_printf(s, " DMA Driver's API Version : 0x%x\n", DMA_VERSION);
+   seq_printf(s, "\n");
+   seq_printf(s, "---- Read Buffers (Firmware->Software) ----\n");
+   seq_printf(s, "         Buffer Count : %u\n", dev->rxBuffers.count);
+   seq_printf(s, "          Buffer Size : %u\n", dev->cfgSize);
+   seq_printf(s, "          Buffer Mode : %u\n", dev->cfgMode);
 
    userCnt = 0;
    hwCnt   = 0;
@@ -1335,7 +1335,7 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    sum     = 0;
 
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
-      buff = dmaGetBufferList(&(dev->rxBuffers),x);
+      buff = dmaGetBufferList(&(dev->rxBuffers), x);
 
       if ( buff->count > max ) max = buff->count;
       if ( buff->count < min ) min = buff->count;
@@ -1354,21 +1354,21 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    }
    else avg = sum/dev->rxBuffers.count;
 
-   seq_printf(s,"      Buffers In User : %u\n",userCnt);
-   seq_printf(s,"        Buffers In Hw : %u\n",hwCnt);
-   seq_printf(s,"  Buffers In Pre-Hw Q : %u\n",hwQCnt);
-   seq_printf(s,"  Buffers In Rx Queue : %u\n",qCnt);
-// seq_printf(s,"      Missing Buffers : %u\n",miss);
-// seq_printf(s,"       Min Buffer Use : %u\n",min);
-// seq_printf(s,"       Max Buffer Use : %u\n",max);
-// seq_printf(s,"       Avg Buffer Use : %u\n",avg);
-// seq_printf(s,"       Tot Buffer Use : %u\n",sum);
+   seq_printf(s, "      Buffers In User : %u\n", userCnt);
+   seq_printf(s, "        Buffers In Hw : %u\n", hwCnt);
+   seq_printf(s, "  Buffers In Pre-Hw Q : %u\n", hwQCnt);
+   seq_printf(s, "  Buffers In Rx Queue : %u\n", qCnt);
+// seq_printf(s, "      Missing Buffers : %u\n", miss);
+// seq_printf(s, "       Min Buffer Use : %u\n", min);
+// seq_printf(s, "       Max Buffer Use : %u\n", max);
+// seq_printf(s, "       Avg Buffer Use : %u\n", avg);
+// seq_printf(s, "       Tot Buffer Use : %u\n", sum);
 
-   seq_printf(s,"\n");
-   seq_printf(s,"---- Write Buffers (Software->Firmware) ---\n");
-   seq_printf(s,"         Buffer Count : %u\n",dev->txBuffers.count);
-   seq_printf(s,"          Buffer Size : %u\n",dev->cfgSize);
-   seq_printf(s,"          Buffer Mode : %u\n",dev->cfgMode);
+   seq_printf(s, "\n");
+   seq_printf(s, "---- Write Buffers (Software->Firmware) ---\n");
+   seq_printf(s, "         Buffer Count : %u\n", dev->txBuffers.count);
+   seq_printf(s, "          Buffer Size : %u\n", dev->cfgSize);
+   seq_printf(s, "          Buffer Mode : %u\n", dev->cfgMode);
 
    userCnt = 0;
    hwCnt   = 0;
@@ -1380,7 +1380,7 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    sum     = 0;
 
    for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++) {
-      buff = dmaGetBufferList(&(dev->txBuffers),x);
+      buff = dmaGetBufferList(&(dev->txBuffers), x);
 
       if ( buff->count > max ) max = buff->count;
       if ( buff->count < min ) min = buff->count;
@@ -1399,16 +1399,16 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    }
    else avg = sum/dev->txBuffers.count;
 
-   seq_printf(s,"      Buffers In User : %u\n",userCnt);
-   seq_printf(s,"        Buffers In Hw : %u\n",hwCnt);
-   seq_printf(s,"  Buffers In Pre-Hw Q : %u\n",hwQCnt);
-   seq_printf(s,"  Buffers In Sw Queue : %u\n",qCnt);
-// seq_printf(s,"      Missing Buffers : %u\n",miss);
-// seq_printf(s,"       Min Buffer Use : %u\n",min);
-// seq_printf(s,"       Max Buffer Use : %u\n",max);
-// seq_printf(s,"       Avg Buffer Use : %u\n",avg);
-// seq_printf(s,"       Tot Buffer Use : %u\n",sum);
-   seq_printf(s,"\n");
+   seq_printf(s, "      Buffers In User : %u\n", userCnt);
+   seq_printf(s, "        Buffers In Hw : %u\n", hwCnt);
+   seq_printf(s, "  Buffers In Pre-Hw Q : %u\n", hwQCnt);
+   seq_printf(s, "  Buffers In Sw Queue : %u\n", qCnt);
+// seq_printf(s, "      Missing Buffers : %u\n", miss);
+// seq_printf(s, "       Min Buffer Use : %u\n", min);
+// seq_printf(s, "       Max Buffer Use : %u\n", max);
+// seq_printf(s, "       Avg Buffer Use : %u\n", avg);
+// seq_printf(s, "       Tot Buffer Use : %u\n", sum);
+   seq_printf(s, "\n");
 
    return 0;
 }
