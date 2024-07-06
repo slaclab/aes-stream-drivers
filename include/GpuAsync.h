@@ -1,7 +1,7 @@
 /**
- *-----------------------------------------------------------------------------
- * Company: SLAC National Accelerator Laboratory
- *-----------------------------------------------------------------------------
+ * ----------------------------------------------------------------------------
+ * Company    : SLAC National Accelerator Laboratory
+ * ----------------------------------------------------------------------------
  * Description:
  *    Provides definitions and inline functions for utilizing GPU asynchronous
  *    features within the aes_stream_drivers package.

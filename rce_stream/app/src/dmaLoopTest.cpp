@@ -1,12 +1,7 @@
 /**
  *-----------------------------------------------------------------------------
- * Title      : DMA rate test utility
- * ----------------------------------------------------------------------------
- * File       : dmaLoopTest.cpp
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-08
- * Last update: 2016-08-08
- * ----------------------------------------------------------------------------
+ * Company    : SLAC National Accelerator Laboratory
+ *-----------------------------------------------------------------------------
  * Description:
  * Utility to rate test the DMA engine. This utility will create a set number of
  * write and read threads to emulate a number of read and write applications.
