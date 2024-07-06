@@ -24,9 +24,13 @@
 #include <string.h>
 #include <stdlib.h>
 #include <argp.h>
+#include <iostream>
+
 #include <DmaDriver.h>
 #include <PrbsData.h>
-using namespace std;
+
+using std::cout;
+using std::endl;
 
 const char *argp_program_version = "dmaWrite 1.0";
 const char *argp_program_bug_address = "rherbst@slac.stanford.edu";

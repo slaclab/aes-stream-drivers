@@ -24,9 +24,12 @@
 #include <string.h>
 #include <argp.h>
 #include <stdlib.h>
+#include <iostream>
+
 #include <DmaDriver.h>
 
-using namespace std;
+using std::cout;
+using std::endl;
 
 // Version and contact information
 const char *argp_program_version = "setDebug 1.0";

@@ -28,8 +28,12 @@
 #include <string.h>
 #include <argp.h>
 #include <stdlib.h>
+#include <iostream>
+
 #include <AxisDriver.h>
-using namespace std;
+
+using std::cout;
+using std::endl;
 
 const  char * argp_program_version = "dmaSetDebug 1.0";
 const  char * argp_program_bug_address = "rherbst@slac.stanford.edu";

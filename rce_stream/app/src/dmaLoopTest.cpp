@@ -32,9 +32,13 @@
 #include <stdlib.h>
 #include <argp.h>
 #include <pthread.h>
+#include <iostream>
+
 #include <AxisDriver.h>
 #include <PrbsData.h>
-using namespace std;
+
+using std::cout;
+using std::endl;
 
 const  char * argp_program_version = "dmaLoopTest 1.0";
 const  char * argp_program_bug_address = "rherbst@slac.stanford.edu";

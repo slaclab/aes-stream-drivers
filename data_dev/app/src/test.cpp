@@ -25,9 +25,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include <argp.h>
+#include <iostream>
+
 #include <DmaDriver.h>
 
-using namespace std;
+using std::cout;
+using std::endl;
 
 int main(int argc, char **argv) {
    int32_t s;

@@ -24,9 +24,13 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <argp.h>
+#include <iostream>
+
 #include <AxisDriver.h>
 // #include <PrbsData.h>
-using namespace std;
+
+using std::cout;
+using std::endl;
 
 #define MAX_RET_CNT_C 1000
 
