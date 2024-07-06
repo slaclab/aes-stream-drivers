@@ -136,8 +136,8 @@ int main (int argc, char **argv) {
       FD_SET(s,&fds);
 
       // Setup select timeout for 1 second
-      timeout.tv_sec=2;
-      timeout.tv_usec=0;
+      timeout.tv_sec = 2;
+      timeout.tv_usec = 0;
 
       // Wait for Socket data ready
       ret = select(s+1,NULL,&fds,NULL,&timeout);
@@ -151,7 +151,7 @@ int main (int argc, char **argv) {
          }
 
          // Gen data
-         if ( args.prbsDis == 0 && ! prbValid ) {
+         if ( args.prbsDis == 0 && !prbValid ) {
             prbs.genData(txData,args.size);
             prbValid = true;
          }
@@ -183,4 +183,3 @@ int main (int argc, char **argv) {
    close(s);
    return(0);
 }
-

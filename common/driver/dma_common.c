@@ -866,7 +866,9 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          miss    = 0;
          for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
             buff = dmaGetBufferList(&(dev->rxBuffers),x);
-            if ( (buff->userHas==NULL) && (buff->inHw==0) &&  (buff->inQ==0)   ) miss++;
+            if ((buff->userHas == NULL) && (buff->inHw == 0) && (buff->inQ == 0)) {
+               miss++;
+            }
          }
          return miss;
          break;
@@ -921,7 +923,9 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          miss    = 0;
          for (x=dev->txBuffers.baseIdx; x < (dev->txBuffers.baseIdx + dev->txBuffers.count); x++) {
             buff = dmaGetBufferList(&(dev->txBuffers),x);
-            if ( (buff->userHas==NULL) && (buff->inHw==0) &&  (buff->inQ==0)   ) miss++;
+            if ((buff->userHas == NULL) && (buff->inHw == 0) && (buff->inQ == 0)) {
+                miss++;
+            }
          }
          return miss;
          break;

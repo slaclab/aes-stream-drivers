@@ -155,8 +155,8 @@ void *runWrite ( void *t ) {
       FD_SET(fd,&fds);
 
       // Wait for write ready
-      timeout.tv_sec=0;
-      timeout.tv_usec=100;
+      timeout.tv_sec = 0;
+      timeout.tv_usec = 100;
       ret = select(fd+1,NULL,&fds,NULL,&timeout);
       if ( ret != 0 ) {
          if ( txData->idxEn ) {
@@ -166,7 +166,7 @@ void *runWrite ( void *t ) {
          }
 
          // Gen data
-         if ( txData->prbEn && ! prbValid ) {
+         if ( txData->prbEn && !prbValid ) {
             prbs.genData(data,txData->size);
             prbValid = true;
          }
@@ -263,8 +263,8 @@ void *runRead ( void *t ) {
       FD_SET(fd,&fds);
 
       // Wait for read ready
-      timeout.tv_sec=0;
-      timeout.tv_usec=100;
+      timeout.tv_sec = 0;
+      timeout.tv_usec = 100;
       ret = select(fd+1,&fds,NULL,NULL,&timeout);
       if ( ret != 0 ) {
          if ( idxEn ) {
@@ -279,7 +279,7 @@ void *runRead ( void *t ) {
 
          if ( ret != 0 ) {
             //  data
-            if ( (rxData->prbEn) && (! prbs.processData(data,ret)) ) {
+            if ( (rxData->prbEn) && (!prbs.processData(data,ret)) ) {
                rxData->prbErr++;
                printf("Prbs mismatch. count=%lu, dest=%i, index=%i\n",rxData->count,rxData->dest,dmaIndex);
             }
@@ -441,7 +441,7 @@ int main (int argc, char **argv) {
       printf("\nRxBytes:");
       for (x=0; x < dCount; x++) printf(" %15lu",rxData[x]->total);
 
-      if ( ! args.prbsDis ) {
+      if ( !args.prbsDis ) {
          printf("\n PrbErr:");
          for (x=0; x < dCount; x++) printf(" %15lu",rxData[x]->prbErr);
       }
@@ -464,7 +464,7 @@ int main (int argc, char **argv) {
       printf("  TotTx: %15lu\n",totTx);
       printf("  TotRx: %15lu\n",totRx);
       printf("TotFreq: %15lu\n",totRxFreq);
-      if ( ! args.prbsDis ) printf(" PrbErr: %15lu\n",totPrb);
+      if ( !args.prbsDis ) printf(" PrbErr: %15lu\n",totPrb);
       printf("TotRate: %15e\n",totRxRate);
       l_tme = c_tme;
    }

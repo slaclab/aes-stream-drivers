@@ -142,8 +142,8 @@ int main (int argc, char **argv) {
       FD_SET(s,&fds);
 
       // Setup select timeout for 1 second
-      timeout.tv_sec=2;
-      timeout.tv_usec=0;
+      timeout.tv_sec = 2;
+      timeout.tv_usec = 0;
 
       // Wait for Socket data ready
       ret = select(s+1,&fds,NULL,NULL,&timeout);

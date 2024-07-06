@@ -118,7 +118,7 @@ int Map_Init(void) {
 
    // Map space
    dev.maps->base = ioremap_wc(dev.maps->addr, MAP_SIZE);
-   if (! dev.maps->base ) {
+   if (!dev.maps->base ) {
       printk(KERN_ERR MOD_NAME " Init: Could not map memory addr %p with size 0x%x.\n",(void *)dev.maps->addr,MAP_SIZE);
       kfree(dev.maps);
       return (-1);
@@ -203,7 +203,7 @@ uint8_t * Map_Find(uint32_t addr) {
 
          // Map space
          new->base = ioremap_wc(new->addr, MAP_SIZE);
-         if (! new->base ) {
+         if (!new->base) {
             printk(KERN_ERR MOD_NAME " Map_Find: Could not map memory addr %p (%p) with size 0x%x.\n",(void *)new->addr,(void*)addr,MAP_SIZE);
             kfree(new);
             return (NULL);
