@@ -20,7 +20,6 @@ SRC_URI = "file://Makefile \
 	   file://axis_gen1.c \
 	   file://AxisDriver.h \
 	   file://DmaDriver.h \
-	   file://COPYING \
           "
 
 S = "${WORKDIR}"
