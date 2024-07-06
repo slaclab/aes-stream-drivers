@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
 
    // Perform DMA write operations
    do {
-      while ((ret = dmaWrite(s, txData, dmaSize, 0, 0)) == 0);
+      while ((ret = dmaWrite(s, txData, dmaSize, 0, 0)) == 0) {}
 
       if (ret < 0) {
          printf("DMA write error occurred\n");
