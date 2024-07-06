@@ -154,8 +154,9 @@ int main(int argc, char **argv) {
          if ( args.idxEn ) {
             ret = dmaReadIndex(s, &dmaIndex, &rxFlags, NULL, &rxDest);
             rxData = dmaBuffers[dmaIndex];
+         } else {
+             ret = dmaRead(s, rxData, maxSize, &rxFlags, NULL, &rxDest);
          }
-         else ret = dmaRead(s, rxData, maxSize, &rxFlags, NULL, &rxDest);
 
          rxFuser = axisGetFuser(rxFlags);
          rxLuser = axisGetFuser(rxFlags);
@@ -178,8 +179,11 @@ int main(int argc, char **argv) {
       }
    } while ( 1 );
 
-   if ( args.idxEn ) dmaUnMapDma(s, dmaBuffers);
-   else free(rxData);
+   if ( args.idxEn ) {
+       dmaUnMapDma(s, dmaBuffers);
+   } else {
+       free(rxData);
+   }
 
    close(s);
    return(0);

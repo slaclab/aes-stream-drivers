@@ -176,8 +176,11 @@ int main(int argc, char **argv) {
    gettimeofday(&endTime, NULL);
 
    // Clean up allocated resources
-   if (args.idxEn) dmaUnMapDma(s, dmaBuffers);
-   else free(txData);
+   if (args.idxEn) {
+       dmaUnMapDma(s, dmaBuffers);
+   } else {
+       free(txData);
+   }
 
    // Calculate and print write operation statistics
    timersub(&endTime, &startTime, &diffTime);

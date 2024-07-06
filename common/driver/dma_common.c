@@ -735,8 +735,11 @@ ssize_t Dma_Write(struct file *filp, const char *buffer, size_t count, loff_t *f
    }
 
    // Convert pointer based on architecture or request
-   if (sizeof(void *) == 4 || wr.is32) dp = (void *)(wr.data & 0xFFFFFFFF);
-   else dp = (void *)wr.data;
+   if (sizeof(void *) == 4 || wr.is32) {
+       dp = (void *)(wr.data & 0xFFFFFFFF);
+   } else {
+       dp = (void *)wr.data;
+   }
 
    // Use index if pointer is null
    if (dp == 0) {
@@ -771,8 +774,11 @@ ssize_t Dma_Write(struct file *filp, const char *buffer, size_t count, loff_t *f
       dev_info(dev->device, "Write: Size=%i, Dest=%i, Flags=0x%.8x, res=%li\n",
                buff->size, buff->dest, buff->flags, res);
    }
-   if (res < 0) return res;
-   else return buff->size;
+   if (res < 0) {
+       return res;
+   } else {
+       return buff->size;
+   }
 }
 
 /**
@@ -1252,8 +1258,11 @@ int Dma_ProcOpen(struct inode *inode, struct file *file) {
  * Return: Non-NULL pointer on first iteration, NULL to stop.
  */
 void *Dma_SeqStart(struct seq_file *s, loff_t *pos) {
-   if (*pos == 0) return (void *)1;
-   else return NULL;
+   if (*pos == 0) {
+       return (void *)1;
+   } else {
+       return NULL;
+   }
 }
 
 /**
@@ -1351,8 +1360,9 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    if (dev->rxBuffers.count == 0) {
       min = 0;
       avg = 0;
+   } else {
+       avg = sum/dev->rxBuffers.count;
    }
-   else avg = sum/dev->rxBuffers.count;
 
    seq_printf(s, "      Buffers In User : %u\n", userCnt);
    seq_printf(s, "        Buffers In Hw : %u\n", hwCnt);
@@ -1396,8 +1406,9 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    if (dev->txBuffers.count == 0) {
       min = 0;
       avg = 0;
+   } else {
+       avg = sum/dev->txBuffers.count;
    }
-   else avg = sum/dev->txBuffers.count;
 
    seq_printf(s, "      Buffers In User : %u\n", userCnt);
    seq_printf(s, "        Buffers In Hw : %u\n", hwCnt);

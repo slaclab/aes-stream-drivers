@@ -309,19 +309,22 @@ uint32_t AxisG2_Process(struct DmaDevice * dev, struct AxisG2Reg *reg, struct Ax
             if (hwData->hwWrBuffCnt < (hwData->addrCount-1)) {
                AxisG2_WriteFree(buff, reg, hwData->desc128En);
                ++hwData->hwWrBuffCnt;
+            } else {
+                dmaQueuePushIrq(&(hwData->wrQueue), buff);
             }
-            else dmaQueuePushIrq(&(hwData->wrQueue), buff);
 
             // Background operation handling
             if ( (hwData->bgEnable >> buff->id) & 0x1 ) {
                writel(0x1, &(reg->bgCount[buff->id]));
             }
-         }
 
          // Lane/VC is open; add to RX queue
-         else dmaRxBufferIrq(desc, buff);
+         } else {
+             dmaRxBufferIrq(desc, buff);
+         }
+      } else {
+          dev_warn(dev->device, "Process: Failed to locate RX buffer index %i.\n", ret.index);
       }
-      else dev_warn(dev->device, "Process: Failed to locate RX buffer index %i.\n", ret.index);
 
       // Update write index
       hwData->writeIndex = ((hwData->writeIndex+1) % hwData->addrCount);

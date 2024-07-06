@@ -151,9 +151,11 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
          // Determine how much memory is contiguous
          mapSize = 0;
          for (x=0; x < buffer->dmaMapping->entries; x++) {
-            if (buffer->dmaMapping->dma_addresses[0] + mapSize == buffer->dmaMapping->dma_addresses[x] )
+            if (buffer->dmaMapping->dma_addresses[0] + mapSize == buffer->dmaMapping->dma_addresses[x]) {
                mapSize += GPU_BOUND_SIZE;
-            else break;
+            } else {
+                break;
+            }
          }
 
          dev_warn(dev->device, "Gpu_AddNvidia: dma address 0 = 0x%llx, total = %li, pages = %i\n",

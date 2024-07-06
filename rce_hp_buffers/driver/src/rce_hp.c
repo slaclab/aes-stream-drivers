@@ -51,9 +51,11 @@ void RceHp_Init(struct DmaDevice *dev) {
    // Push buffers to hardware
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
       buff = dmaGetBufferList(&(dev->rxBuffers), x);
-      if ( dmaBufferToHw(buff) < 0 )
+      if ( dmaBufferToHw(buff) < 0 ) {
          dev_warn(dev->device, "Init: Failed to map dma buffer.\n");
-      else iowrite32(buff->buffHandle, &(reg->bufferAlloc));
+      } else {
+          iowrite32(buff->buffHandle, &(reg->bufferAlloc));
+      }
    }
 
    // Set dest mask

@@ -141,8 +141,11 @@ void Map_Exit(void) {
    struct MemMap *tmp;
 
    // Unregister Device Driver
-   if ( gCl != NULL ) device_destroy(gCl, dev.devNum);
-   else printk(KERN_ERR MOD_NAME " Clean: gCl is already NULL.\n");
+   if ( gCl != NULL ) {
+       device_destroy(gCl, dev.devNum);
+   } else {
+       printk(KERN_ERR MOD_NAME " Clean: gCl is already NULL.\n");
+   }
 
    unregister_chrdev_region(dev.devNum, 1);
 

@@ -92,8 +92,9 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
                if ( (size & 0xFF000000) != 0xE0000000 ) {
                   dev_warn(dev->device, "Irq: Bad FIFO size marker 0x%.8x.\n", size);
                   size = 0;
+               } else {
+                   size &= 0xFFFFFF;
                }
-               else size &= 0xFFFFFF;
 
                // Get status
                do {
@@ -136,8 +137,11 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
                   spin_lock(&dev->maskLock);
 
                   // Find owner of lane/vc
-                  if ( buff->dest < DMA_MAX_DEST ) desc = dev->desc[buff->dest];
-                  else desc = NULL;
+                  if ( buff->dest < DMA_MAX_DEST ) {
+                      desc = dev->desc[buff->dest];
+                  } else {
+                      desc = NULL;
+                  }
 
                   // Return entry to FPGA if destc is not open
                   if ( desc == NULL ) {
@@ -145,17 +149,19 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
                         dev_info(dev->device, "Irq: Port not open return to free list.\n");
                      }
                      iowrite32(handle, &(reg->rxFree));
-                  }
 
                   // lane/vc is open,  Add to RX Queue
-                  else dmaRxBuffer(desc, buff);
+                  } else {
+                      dmaRxBuffer(desc, buff);
+                  }
 
                   // Unlock
                   spin_unlock(&dev->maskLock);
-               }
 
                // Buffer was not found
-               else dev_warn(dev->device, "Irq: Failed to locate RX descriptor 0x%.8x.\n", handle);
+               } else {
+                   dev_warn(dev->device, "Irq: Failed to locate RX descriptor 0x%.8x.\n", handle);
+               }
             }
          }
       }
@@ -190,14 +196,19 @@ void AxisG1_Init(struct DmaDevice *dev) {
    // Push RX buffers to hardware
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
       buff = dmaGetBufferList(&(dev->rxBuffers), x);
-      if ( dmaBufferToHw(buff) < 0 )
+      if ( dmaBufferToHw(buff) < 0 ) {
          dev_warn(dev->device, "Init: Failed to map dma buffer.\n");
-      else iowrite32(buff->buffHandle, &(reg->rxFree));
+      } else {
+          iowrite32(buff->buffHandle, &(reg->rxFree));
+      }
    }
 
    // Set cache mode
-   if ( dev->cfgMode & BUFF_ARM_ACP ) iowrite32(0xF, &(reg->swCache));
-   else iowrite32(0, &(reg->swCache));
+   if ( dev->cfgMode & BUFF_ARM_ACP ) {
+       iowrite32(0xF, &(reg->swCache));
+   } else {
+       iowrite32(0, &(reg->swCache));
+   }
 
    // Set dest mask
    memset(dev->destMask, 0xFF, DMA_MASK_SIZE);
@@ -244,9 +255,11 @@ void AxisG1_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t
    reg = (struct AxisG1Reg *)dev->reg;
 
    for (x=0; x < count; x++) {
-      if ( dmaBufferToHw(buff[x]) < 0 )
+      if ( dmaBufferToHw(buff[x]) < 0 ) {
          dev_warn(dev->device, "RetRxBuffer: Failed to map dma buffer.\n");
-      else iowrite32(buff[x]->buffHandle, &(reg->rxFree));
+      } else {
+         iowrite32(buff[x]->buffHandle, &(reg->rxFree));
+      }
    }
 }
 

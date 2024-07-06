@@ -171,8 +171,11 @@ void *runWrite(void *t) {
             prbValid = true;
          }
 
-         if ( txData->idxEn ) ret = dmaWriteIndex(fd, dmaIndex, txData->size, axisSetFlags(txData->fuser, txData->luser, 0), txData->dest);
-         else ret = dmaWrite(fd, data, txData->size, axisSetFlags(txData->fuser, txData->luser, 0), txData->dest);
+         if ( txData->idxEn ) {
+             ret = dmaWriteIndex(fd, dmaIndex, txData->size, axisSetFlags(txData->fuser, txData->luser, 0), txData->dest);
+         } else {
+             ret = dmaWrite(fd, data, txData->size, axisSetFlags(txData->fuser, txData->luser, 0), txData->dest);
+         }
 
          if ( ret < 0 ) {
             printf("Write Error at count %lu. Dest=%i\n", txData->count, txData->dest);
@@ -186,8 +189,11 @@ void *runWrite(void *t) {
       }
    }
 
-   if ( txData->idxEn ) dmaUnMapDma(fd, dmaBuffers);
-   else free(data);
+   if ( txData->idxEn ) {
+       dmaUnMapDma(fd, dmaBuffers);
+   } else {
+       free(data);
+   }
    close(fd);
 
    txData->running = false;
@@ -297,8 +303,11 @@ void *runRead(void *t) {
       }
    }
 
-   if ( idxEn ) dmaUnMapDma(fd, dmaBuffers);
-   else free(data);
+   if ( idxEn ) {
+       dmaUnMapDma(fd, dmaBuffers);
+   } else {
+       free(data);
+   }
 
    close(fd);
    rxData->running = false;

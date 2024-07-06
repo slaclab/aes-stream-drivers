@@ -157,8 +157,11 @@ int main(int argc, char **argv) {
          }
 
          // DMA Write
-         if ( args.idxEn ) ret = dmaWriteIndex(s, dmaIndex, args.size, axisSetFlags(args.fuser, args.luser, 0), args.dest);
-         else ret = dmaWrite(s, txData, args.size, axisSetFlags(args.fuser, args.luser, 0), args.dest);
+         if ( args.idxEn ) {
+             ret = dmaWriteIndex(s, dmaIndex, args.size, axisSetFlags(args.fuser, args.luser, 0), args.dest);
+         } else {
+             ret = dmaWrite(s, txData, args.size, axisSetFlags(args.fuser, args.luser, 0), args.dest);
+         }
 
          if ( ret > 0 ) {
             prbValid = false;
@@ -172,13 +175,17 @@ int main(int argc, char **argv) {
                }
                printf("\n");
             }
+         } else if ( ret < 0 ) {
+             printf("Write error!\n");
          }
-         else if ( ret < 0 ) printf("Write error!\n");
       }
    } while ( count < args.count );
 
-   if ( args.idxEn ) dmaUnMapDma(s, dmaBuffers);
-   else free(txData);
+   if ( args.idxEn ) {
+       dmaUnMapDma(s, dmaBuffers);
+   } else {
+       free(txData);
+   }
 
    close(s);
    return(0);
