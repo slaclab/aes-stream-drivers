@@ -82,5 +82,5 @@ struct AxiVersion {
       return(ioctl(fd, AVER_Get, aVer));
    }
 
-#endif // !DMA_IN_KERNEL
-#endif // __AXI_VERSION_H__
+#endif  // !DMA_IN_KERNEL
+#endif  // __AXI_VERSION_H__

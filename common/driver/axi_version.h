@@ -86,4 +86,4 @@ void AxiVersion_Read(struct DmaDevice *dev, void *base, struct AxiVersion *aVer)
 void AxiVersion_Show(struct seq_file *s, struct DmaDevice *dev, struct AxiVersion *aVer);
 void AxiVersion_SetUserReset(void *base, bool state);
 
-#endif // __AXI__VERSION_H__
+#endif  // __AXI__VERSION_H__

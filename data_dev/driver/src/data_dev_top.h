@@ -52,4 +52,4 @@ int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);
 void DataDev_SeqShow(struct seq_file *s, struct DmaDevice *dev);
 extern struct hardware_functions DataDev_functions;
 
-#endif // __DATA_DEV_TOP_H__
+#endif  // __DATA_DEV_TOP_H__

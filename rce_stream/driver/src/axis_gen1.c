@@ -111,7 +111,7 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
                   // Extract data from descriptor
                   buff->count++;
                   buff->size  = size;
-                  buff->flags = (status >>  8) & 0xFFFF; // 15:8 = luser, 7:0 = fuser
+                  buff->flags = (status >>  8) & 0xFFFF;  // 15:8 = luser, 7:0 = fuser
                   buff->dest  = (status >>  0) & 0x00FF;
                   buff->error = (size == 0)?DMA_ERR_FIFO:0;
 
@@ -262,7 +262,7 @@ int32_t AxisG1_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32
    for (x=0; x < count; x++) {
       // Create descriptor
       control  = (buff[x]->dest  <<  0) & 0x000000FF;
-      control += (buff[x]->flags <<  8) & 0x00FFFF00; // flags[15:9] = luser, flags[7:0] = fuser
+      control += (buff[x]->flags <<  8) & 0x00FFFF00;  // flags[15:9] = luser, flags[7:0] = fuser
 
       if ( dmaBufferToHw(buff[x]) < 0 ) {
          dev_warn(dev->device,"SendBuffer: Failed to map dma buffer.\n");

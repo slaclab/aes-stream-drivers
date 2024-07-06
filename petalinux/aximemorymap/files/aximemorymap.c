@@ -116,8 +116,8 @@ char *Map_DevNode(struct device *dev, umode_t *mode) {
 #else
 char *Map_DevNode(const struct device *dev, umode_t *mode) {
 #endif
-   if (mode != NULL) *mode = 0666; // Set default permissions to read and write for user, group, and others
-   return NULL; // Return NULL as no specific device node name alteration is required
+   if (mode != NULL) *mode = 0666;  // Set default permissions to read and write for user, group, and others
+   return NULL;  // Return NULL as no specific device node name alteration is required
 }
 
 /**
@@ -167,7 +167,7 @@ int Map_Init(void) {
 #endif
    if (IS_ERR(gCl)) {
       pr_err("%s: Init: Failed to create device class\n", MOD_NAME);
-      unregister_chrdev_region(dev.devNum, 1); // Clean up allocated resources
+      unregister_chrdev_region(dev.devNum, 1);  // Clean up allocated resources
       return PTR_ERR(gCl);
    }
    gCl->devnode = Map_DevNode;
@@ -175,7 +175,7 @@ int Map_Init(void) {
    // Step 5: Create a device file
    if (device_create(gCl, NULL, dev.devNum, NULL, dev.devName) == NULL) {
       pr_err("%s: Init: Failed to create device file\n", MOD_NAME);
-      class_destroy(gCl); // Clean up on failure
+      class_destroy(gCl);  // Clean up on failure
       unregister_chrdev_region(dev.devNum, 1);
       return -1;
    }
@@ -187,7 +187,7 @@ int Map_Init(void) {
    // Step 7: Add the character device
    if (cdev_add(&dev.charDev, dev.devNum, 1) == -1) {
       pr_err("%s: Init: Failed to add device file.\n", MOD_NAME);
-      device_destroy(gCl, dev.devNum); // Clean up on failure
+      device_destroy(gCl, dev.devNum);  // Clean up on failure
       class_destroy(gCl);
       unregister_chrdev_region(dev.devNum, 1);
       return -1;
@@ -197,7 +197,7 @@ int Map_Init(void) {
    dev.maps = (struct MemMap *)kzalloc(sizeof(struct MemMap), GFP_KERNEL);
    if (dev.maps == NULL) {
       pr_err("%s: Init: Could not allocate map memory\n", MOD_NAME);
-      cdev_del(&dev.charDev); // Clean up on failure
+      cdev_del(&dev.charDev);  // Clean up on failure
       device_destroy(gCl, dev.devNum);
       class_destroy(gCl);
       unregister_chrdev_region(dev.devNum, 1);
@@ -210,7 +210,7 @@ int Map_Init(void) {
    dev.maps->base = ioremap_wc(dev.maps->addr, MAP_SIZE);
    if (!dev.maps->base) {
       pr_err("%s: Init: Could not map memory addr 0x%llx with size 0x%x.\n", MOD_NAME, (uint64_t)dev.maps->addr, MAP_SIZE);
-      kfree(dev.maps); // Clean up on failure
+      kfree(dev.maps);  // Clean up on failure
       cdev_del(&dev.charDev);
       device_destroy(gCl, dev.devNum);
       class_destroy(gCl);
@@ -335,8 +335,8 @@ uint8_t *Map_Find(uint64_t addr) {
             return NULL;
          }
 
-         new->addr = (addr / MAP_SIZE) * MAP_SIZE; // Align to MAP_SIZE
-         new->base = ioremap_wc(new->addr, MAP_SIZE); // Map physical address
+         new->addr = (addr / MAP_SIZE) * MAP_SIZE;  // Align to MAP_SIZE
+         new->base = ioremap_wc(new->addr, MAP_SIZE);  // Map physical address
          if (!new->base) {
             pr_err("%s: Map_Find: Could not map memory addr 0x%llx (0x%llx) with size 0x%x.\n",
                    MOD_NAME, (uint64_t)new->addr, (uint64_t)addr, MAP_SIZE);
@@ -372,7 +372,7 @@ uint8_t *Map_Find(uint64_t addr) {
 ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
    struct DmaRegisterData rData;
    uint8_t *base;
-   ssize_t ret = -1; // Default return value for error
+   ssize_t ret = -1;  // Default return value for error
 
    // Determine which IOCTL command is being executed
    switch (cmd) {
@@ -389,7 +389,7 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
             if ((base = Map_Find(rData.address)) != NULL) {
                // Write data to the register
                writel(rData.data, base);
-               ret = 0; // Success
+               ret = 0;  // Success
             } else {
                pr_warn("%s: Dma_Write_Register: Map_Find failed.\n", MOD_NAME);
             }
@@ -407,7 +407,7 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
                rData.data = readl(base);
                // Put the updated register data back to user space
                if (!put_user(rData.data, &((struct DmaRegisterData __user *)arg)->data)) {//NOLINT
-                  ret = 0; // Success
+                  ret = 0;  // Success
                } else {
                   pr_warn("%s: Dma_Read_Register: put_user failed.\n", MOD_NAME);
                }
@@ -424,7 +424,7 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          pr_warn("%s: Map_Ioctl: Unsupported IOCTL command.\n", MOD_NAME);
    }
 
-   return ret; // Return the result
+   return ret;  // Return the result
 }
 
 /**
@@ -468,7 +468,7 @@ ssize_t Map_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
  * Return: On success, the number of bytes written. On error, a negative value.
  */
 ssize_t Map_Write(struct file *filp, const char* buffer, size_t count, loff_t* f_pos) {
-   return -1; // DMA write operation is not supported
+   return -1;  // DMA write operation is not supported
 }
 
 /**

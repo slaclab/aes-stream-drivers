@@ -151,7 +151,7 @@ void Map_Exit(void) {
       tmp = dev.maps;
       dev.maps = dev.maps->next;
 
-      //release_mem_region(tmp->addr, MAP_SIZE);
+      // release_mem_region(tmp->addr, MAP_SIZE);
       iounmap(tmp->base);
       kfree(tmp);
    }

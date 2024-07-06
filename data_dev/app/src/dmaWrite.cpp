@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
    uint32_t count;
    fd_set fds;
    void *txData = NULL;
-   PrbsData prbs(32, 4, 1, 2, 6, 31); // Example PRBS (Pseudo-Random Binary Sequence) generator initialization
+   PrbsData prbs(32, 4, 1, 2, 6, 31);  // Example PRBS (Pseudo-Random Binary Sequence) generator initialization
    void **dmaBuffers = NULL;
    uint32_t dmaSize;
    uint32_t dmaCount;

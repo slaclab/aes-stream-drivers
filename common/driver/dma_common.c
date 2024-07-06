@@ -464,7 +464,7 @@ int Dma_Open(struct inode *inode, struct file *filp) {
    desc = (struct DmaDesc *)kzalloc(sizeof(struct DmaDesc), GFP_KERNEL);
    if (!desc) {
       dev_err(dev->device, "Open: kzalloc failed\n");
-      return -ENOMEM; // Return an error if allocation fails
+      return -ENOMEM;  // Return an error if allocation fails
    }
 
    memset(desc, 0, sizeof(struct DmaDesc));
@@ -1269,7 +1269,7 @@ void *Dma_SeqStart(struct seq_file *s, loff_t *pos) {
  */
 void *Dma_SeqNext(struct seq_file *s, void *v, loff_t *pos) {
    (*pos)++;
-   return NULL; // Always return NULL as there is no next item
+   return NULL;  // Always return NULL as there is no next item
 }
 
 /**

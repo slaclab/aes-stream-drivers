@@ -355,7 +355,7 @@ int main(int argc, char **argv) {
       rxData[dCount]->dest    = x;
       rxData[dCount]->fuser   = args.fuser;
       rxData[dCount]->luser   = args.luser;
-      rxData[dCount]->size    = (args.size + (x*4)); // (lane * 4 + vc) * 4
+      rxData[dCount]->size    = (args.size + (x*4));  // (lane * 4 + vc) * 4
       rxData[dCount]->dev     = args.path;
       rxData[dCount]->idxEn   = args.idxEn;
       rxData[dCount]->prbEn   = !args.prbsDis;

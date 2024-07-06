@@ -85,4 +85,4 @@ ssize_t Map_Write(struct file *filp, const char *buffer, size_t count, loff_t *f
 uint8_t *Map_Find(uint64_t addr);
 ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg);
 
-#endif // __AXI_MEMORY_MAP_H__
+#endif  // __AXI_MEMORY_MAP_H__

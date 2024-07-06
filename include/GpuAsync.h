@@ -85,5 +85,5 @@ static inline ssize_t gpuRemNvidiaMemory(int32_t fd) {
    return(ioctl(fd, GPU_Rem_Nvidia_Memory, 0));
 }
 
-#endif // !DMA_IN_KERNEL
-#endif // __GPU_ASYNC_H__
+#endif  // !DMA_IN_KERNEL
+#endif  // __GPU_ASYNC_H__

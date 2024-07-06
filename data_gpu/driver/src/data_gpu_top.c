@@ -40,8 +40,8 @@
  */
 int cfgTxCount = 1024;  // Transmit buffer count
 int cfgRxCount = 1024;  // Receive buffer count
-int cfgSize    = 0x20000; // Size of the buffer: 128kB
-int cfgMode    = BUFF_COHERENT; // Buffer mode: coherent
+int cfgSize    = 0x20000;  // Size of the buffer: 128kB
+int cfgMode    = BUFF_COHERENT;  // Buffer mode: coherent
 int cfgCont    = 1;        // Continuous operation flag
 int cfgDevName = 0;
 
@@ -56,26 +56,26 @@ struct DmaDevice gDmaDevices[MAX_DMA_DEVICES];
  * This array is used by the kernel to match this driver to the specific hardware based on PCI IDs.
  */
 static struct pci_device_id DataGpu_Ids[] = {
-   { PCI_DEVICE(PCI_VENDOR_ID_SLAC, PCI_DEVICE_ID_DDEV) }, // Device ID for SLAC vendor, specific device
-   { 0, } // Terminator for the ID list
+   { PCI_DEVICE(PCI_VENDOR_ID_SLAC, PCI_DEVICE_ID_DDEV) },  // Device ID for SLAC vendor, specific device
+   { 0, }  // Terminator for the ID list
 };
 
 /* Module metadata definitions */
-#define MOD_NAME "datagpu" // Name of the module
-MODULE_LICENSE("GPL"); // License type: GPL for open source compliance
-MODULE_DEVICE_TABLE(pci, DataGpu_Ids); // Associate the PCI ID table with this module
-module_init(DataGpu_Init); // Initialize the module with DataGpu_Init function
-module_exit(DataGpu_Exit); // Clean-up the module with DataGpu_Exit function
+#define MOD_NAME "datagpu"  // Name of the module
+MODULE_LICENSE("GPL");  // License type: GPL for open source compliance
+MODULE_DEVICE_TABLE(pci, DataGpu_Ids);  // Associate the PCI ID table with this module
+module_init(DataGpu_Init);  // Initialize the module with DataGpu_Init function
+module_exit(DataGpu_Exit);  // Clean-up the module with DataGpu_Exit function
 
 /*
  * PCI driver structure definition.
  * This structure contains callback functions and device IDs for the DataGpu driver.
  */
 static struct pci_driver DataGpuDriver = {
-   .name     = MOD_NAME,    // Name of the driver
-   .id_table = DataGpu_Ids, // PCI device ID table
-   .probe    = DataGpu_Probe,  // Probe function for device discovery
-   .remove   = DataGpu_Remove, // Remove function for device disconnection
+   .name     = MOD_NAME,        // Name of the driver
+   .id_table = DataGpu_Ids,     // PCI device ID table
+   .probe    = DataGpu_Probe,   // Probe function for device discovery
+   .remove   = DataGpu_Remove,  // Remove function for device disconnection
 };
 
 /**
@@ -141,7 +141,7 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    // Validate buffer mode configuration
    if ( cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM ) {
       pr_err("%s: Probe: Invalid buffer mode = %i.\n", MOD_NAME, cfgMode);
-      return -EINVAL; // Return directly with an error code
+      return -EINVAL;  // Return directly with an error code
    }
 
    // Initialize hardware function pointers
@@ -164,7 +164,7 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    // Check for device slots overflow
    if (id->driver_data < 0) {
       pr_err("%s: Probe: Too Many Devices.\n", MOD_NAME);
-      return -ENOMEM; // Return directly with an error code
+      return -ENOMEM;  // Return directly with an error code
    }
    dev = &gDmaDevices[id->driver_data];
    dev->index = id->driver_data;
@@ -181,7 +181,7 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    }
    if (ret < 0 || ret >= sizeof(dev->devName)) {
       pr_err("%s: Probe: Error in snprintf() while formatting device name\n", MOD_NAME);
-      probeReturn = -EINVAL; // Return directly with an error code
+      probeReturn = -EINVAL;  // Return directly with an error code
       goto err_pre_en;
    }
 
@@ -189,10 +189,10 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    ret = pci_enable_device(pcidev);
    if (ret) {
       pr_err("%s: Probe: pci_enable_device() = %i.\n", MOD_NAME, ret);
-      probeReturn = ret; // Return with error code
+      probeReturn = ret;  // Return with error code
       goto err_pre_en;
    }
-   pci_set_master(pcidev); // Set the device as bus master
+   pci_set_master(pcidev);  // Set the device as bus master
 
    // Retrieve and store the base address and size of the device's register space
    dev->baseAddr = pci_resource_start(pcidev, 0);
@@ -200,7 +200,7 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    // Map the device's register space for use in the driver
    if ( Dma_MapReg(dev) < 0 ) {
-      probeReturn = -ENOMEM; // Memory allocation error
+      probeReturn = -ENOMEM;  // Memory allocation error
       goto err_post_en;
    }
 
@@ -215,27 +215,27 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->irq = pcidev->irq;
 
    // Set basic device context
-   dev->pcidev = pcidev;               // PCI device structure
-   dev->device = &(pcidev->dev);       // Device structure
-   dev->hwFunc = hfunc;                // Hardware function pointer
+   dev->pcidev = pcidev;          // PCI device structure
+   dev->device = &(pcidev->dev);  // Device structure
+   dev->hwFunc = hfunc;           // Hardware function pointer
 
    // Initialize device memory regions
-   dev->reg    = dev->base + AGEN2_OFF;   // Register base address
-   dev->rwBase = dev->base + PHY_OFF;     // Read/Write base address
-   dev->rwSize = (2*USER_SIZE) - PHY_OFF; // Read/Write region size
+   dev->reg    = dev->base + AGEN2_OFF;    // Register base address
+   dev->rwBase = dev->base + PHY_OFF;      // Read/Write base address
+   dev->rwSize = (2*USER_SIZE) - PHY_OFF;  // Read/Write region size
 
    // GPU Init
    Gpu_Init(dev, GPU_OFF);
 
    // Manage device reset cycle
    dev_info(dev->device,"Init: Setting user reset\n");
-   AxiVersion_SetUserReset(dev->base + AVER_OFF,true); // Set user reset
+   AxiVersion_SetUserReset(dev->base + AVER_OFF,true);  // Set user reset
    dev_info(dev->device,"Init: Clearing user reset\n");
-   AxiVersion_SetUserReset(dev->base + AVER_OFF,false); // Clear user reset
+   AxiVersion_SetUserReset(dev->base + AVER_OFF,false);  // Clear user reset
 
    // Configure DMA based on AXI address width: 128bit desc, = 64-bit address map
    if ((readl(dev->reg) & 0x10000) != 0) {
-      axiWidth = (readl(dev->reg + 0x34) >> 8) & 0xFF; // Extract AXI address width
+      axiWidth = (readl(dev->reg + 0x34) >> 8) & 0xFF;  // Extract AXI address width
 
       // Attempt to set DMA and coherent DMA masks based on AXI width
       if (!dma_set_mask(dev->device, DMA_BIT_MASK(axiWidth))) {
@@ -267,8 +267,8 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev_info(dev->device,"Init: Top Register = 0x%x\n",readl(dev->reg));
 
    // Finalize device probe successfully
-   gDmaDevCount++; // Increment global device count
-   return 0;      // Success
+   gDmaDevCount++;  // Increment global device count
+   return 0;  // Success
 
 err_post_en:
    pci_disable_device(pcidev);      // Disable PCI device on failure

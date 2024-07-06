@@ -443,8 +443,8 @@ struct DmaBuffer *dmaRetBufferIrq(struct DmaDevice *dev, dma_addr_t handle) {
 
    // Attempt to return buffer to transmit queue if found
    if ((buff = dmaFindBufferList(&(dev->txBuffers), handle)) != NULL) {
-      dmaBufferFromHw(buff);   // Prepare buffer for hardware interaction
-      dmaQueuePushIrq(&(dev->tq), buff); // Re-queue the buffer
+      dmaBufferFromHw(buff);  // Prepare buffer for hardware interaction
+      dmaQueuePushIrq(&(dev->tq), buff);  // Re-queue the buffer
       return NULL;
 
    // Attempt to return rx buffer if found in receive list
@@ -735,12 +735,12 @@ uint32_t dmaQueuePush(struct DmaQueue *queue, struct DmaBuffer *entry) {
 
    // Check for buffer overflow - this condition should ideally never occur
    if (next == queue->read) {
-      ret = 1; // Indicate failure due to no space left in the queue
+      ret = 1;  // Indicate failure due to no space left in the queue
    } else {
       // Add the entry to the queue and update the write index
       queue->queue[queue->write / BUFFERS_PER_LIST][queue->write % BUFFERS_PER_LIST] = entry;
       queue->write = next;
-      entry->inQ = 1; // Mark the buffer as queued
+      entry->inQ = 1;  // Mark the buffer as queued
    }
 
    // Release the spinlock and restore interrupts
@@ -876,13 +876,13 @@ uint32_t dmaQueuePushListIrq(struct DmaQueue *queue, struct DmaBuffer **buff, si
 
       // Check for buffer overflow - this condition should not normally occur.
       if (next == queue->read) {
-         ret = 1; // Indicate failure due to overflow.
+         ret = 1;  // Indicate failure due to overflow.
          break;
       } else {
          // Properly place buffer in queue and mark it as in queue.
          queue->queue[queue->write / BUFFERS_PER_LIST][queue->write % BUFFERS_PER_LIST] = buff[x];
          queue->write = next;
-         buff[x]->inQ = 1; // Mark buffer as enqueued.
+         buff[x]->inQ = 1;  // Mark buffer as enqueued.
       }
    }
    spin_unlock(&(queue->lock));

@@ -76,11 +76,11 @@ const char *RceDevNames[MAX_DMA_DEVICES] = {
 };
 
 /* Module metadata */
-#define MOD_NAME "axi_stream_dma" ///< Module name
+#define MOD_NAME "axi_stream_dma"  ///< Module name
 
-MODULE_AUTHOR("Ryan Herbst"); ///< Module author
-MODULE_DESCRIPTION("AXI Stream DMA driver. V3"); ///< Module description
-MODULE_LICENSE("GPL"); ///< Module license
+MODULE_AUTHOR("Ryan Herbst");  ///< Module author
+MODULE_DESCRIPTION("AXI Stream DMA driver. V3");  ///< Module description
+MODULE_LICENSE("GPL");  ///< Module license
 
 /**
  * Rce_runtime_suspend - Suspend routine for runtime power management.
@@ -242,7 +242,7 @@ int Rce_Probe(struct platform_device *pdev) {
          dev->cfgMode = cfgMode2;
          break;
       default:
-         return -1; // Invalid index
+         return -1;  // Invalid index
    }
 
    // Instance-independent configuration
@@ -271,7 +271,7 @@ int Rce_Probe(struct platform_device *pdev) {
 
    // Initialize DMA and check for success
    if (Dma_Init(dev) < 0)
-      return -1; // Return error if DMA initialization fails
+      return -1;  // Return error if DMA initialization fails
 
    // Successful DMA initialization increments device count
    gDmaDevCount++;

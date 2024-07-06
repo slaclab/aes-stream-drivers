@@ -101,7 +101,7 @@ inline uint8_t AxisG2_MapReturn(struct DmaDevice * dev, struct AxisG2Return *ret
       ret->index  = (ptr[0] >>  4) & 0xFFF;
       ret->cont   = (ptr[0] >>  3) & 0x1;
       ret->result = ptr[0] & 0x7;
-      ret->id     = 0; // ID is set to 0 for 64-bit descriptors
+      ret->id     = 0;  // ID is set to 0 for 64-bit descriptors
    }
 
    // Logging for debug purposes
@@ -169,34 +169,34 @@ inline void AxisG2_WriteTx(struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32
    uint32_t chan;
 
    // Configure buffer flags for transmission
-   rdData[0]  = (buff->flags >> 13) & 0x00000008; // bit[3] = continue = flags[16]
-   rdData[0] |= (buff->flags <<  8) & 0x00FF0000; // Bits[23:16] = lastUser = flags[15:8]
-   rdData[0] |= (buff->flags << 24) & 0xFF000000; // Bits[31:24] = firstUser = flags[7:0]
+   rdData[0]  = (buff->flags >> 13) & 0x00000008;  // bit[3] = continue = flags[16]
+   rdData[0] |= (buff->flags <<  8) & 0x00FF0000;  // Bits[23:16] = lastUser = flags[15:8]
+   rdData[0] |= (buff->flags << 24) & 0xFF000000;  // Bits[31:24] = firstUser = flags[7:0]
 
    if (desc128En) {
       // For 128-bit descriptor enabled
       dest = buff->dest % 256;
       chan = buff->dest / 256;
 
-      rdData[0] |= (chan << 4) & 0x000000F0; // Channel number
-      rdData[0] |= (dest << 8) & 0x0000FF00; // Destination ID
+      rdData[0] |= (chan << 4) & 0x000000F0;  // Channel number
+      rdData[0] |= (dest << 8) & 0x0000FF00;  // Destination ID
 
-      rdData[1] = buff->size; // Buffer size
+      rdData[1] = buff->size;  // Buffer size
 
       // Buffer index and handle for 128-bit descriptor
       rdData[2] = buff->index & 0x0FFFFFFF;
-      rdData[2] |= (buff->buffHandle << 24) & 0xF0000000; // Addr bits[31:28]
-      rdData[3]  = (buff->buffHandle >>  8) & 0xFFFFFFFF; // Addr bits[39:8]
+      rdData[2] |= (buff->buffHandle << 24) & 0xF0000000;  // Addr bits[31:28]
+      rdData[3]  = (buff->buffHandle >>  8) & 0xFFFFFFFF;  // Addr bits[39:8]
 
       // Write to FIFO registers for 128-bit descriptor
       writel(rdData[3], &(reg->readFifoD));
       writel(rdData[2], &(reg->readFifoC));
    } else {
       // For 64-bit descriptors
-      rdData[0] |= (buff->index <<  4) & 0x0000FFF0; // Buffer ID
+      rdData[0] |= (buff->index <<  4) & 0x0000FFF0;  // Buffer ID
 
-      rdData[1]  = buff->size & 0x00FFFFFF; // Buffer size
-      rdData[1] |= (buff->dest << 24) & 0xFF000000; // Destination ID
+      rdData[1]  = buff->size & 0x00FFFFFF;  // Buffer size
+      rdData[1] |= (buff->dest << 24) & 0xFF000000;  // Destination ID
 
       // Write buffer handle to DMA address table
       writel(buff->buffHandle, &(reg->dmaAddr[buff->index]));
@@ -284,9 +284,9 @@ uint32_t AxisG2_Process(struct DmaDevice * dev, struct AxisG2Reg *reg, struct Ax
          buff->error = (ret.size == 0)?DMA_ERR_FIFO:ret.result;
          buff->id    = ret.id;
 
-         buff->flags =  ret.fuser;                     // firstUser = flags[7:0]
-         buff->flags |= (ret.luser << 8) & 0x0000FF00; // lastUser = flags[15:8]
-         buff->flags |= (ret.cont << 16) & 0x00010000; // continue = flags[16]
+         buff->flags =  ret.fuser;                      // firstUser = flags[7:0]
+         buff->flags |= (ret.luser << 8) & 0x0000FF00;  // lastUser = flags[15:8]
+         buff->flags |= (ret.cont << 16) & 0x00010000;  // continue = flags[16]
 
          hwData->contCount += ret.cont;
 
@@ -465,8 +465,8 @@ void AxisG2_Init(struct DmaDevice *dev) {
    // Configure cache mode based on device configuration:
    // bits3:0 = descWr, bits 11:8 = bufferWr, bits 15:12 = bufferRd
    x = 0;
-   if (dev->cfgMode & BUFF_ARM_ACP) x |= 0xA600; // Buffer write and read cache policy
-   if (dev->cfgMode & AXIS2_RING_ACP) x |= 0x00A6; // Descriptor write cache policy
+   if (dev->cfgMode & BUFF_ARM_ACP) x |= 0xA600;  // Buffer write and read cache policy
+   if (dev->cfgMode & AXIS2_RING_ACP) x |= 0x00A6;  // Descriptor write cache policy
    writel(x, &(reg->cacheConfig));
 
    // Set maximum transfer size

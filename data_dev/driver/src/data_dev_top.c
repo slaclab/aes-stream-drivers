@@ -35,7 +35,7 @@
 // Init Configuration values
 int cfgTxCount  = 1024;
 int cfgRxCount  = 1024;
-int cfgSize     = 0x20000; // 128kB
+int cfgSize     = 0x20000;  // 128kB
 int cfgMode     = BUFF_COHERENT;
 int cfgCont     = 1;
 int cfgIrqHold  = 10000;
@@ -161,7 +161,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    // Validate buffer mode configuration
    if ( cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM ) {
       pr_err("%s: Probe: Invalid buffer mode = %i.\n", MOD_NAME, cfgMode);
-      return -EINVAL; // Return directly with an error code
+      return -EINVAL;  // Return directly with an error code
    }
 
    // Initialize hardware function pointers
@@ -184,7 +184,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    // Check for device slots overflow
    if (id->driver_data < 0) {
       pr_err("%s: Probe: Too Many Devices.\n", MOD_NAME);
-      return -ENOMEM; // Return directly with an error code
+      return -ENOMEM;  // Return directly with an error code
    }
    dev = &gDmaDevices[id->driver_data];
    dev->index = id->driver_data;
@@ -202,17 +202,17 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    if (ret < 0 || ret >= sizeof(dev->devName)) {
       pr_err("%s: Probe: Error in snprintf() while formatting device name\n", MOD_NAME);
       probeReturn = -EINVAL;
-      goto err_pre_en;        // Bail out, but clean up first
+      goto err_pre_en;  // Bail out, but clean up first
    }
 
    // Activate the PCI device
    ret = pci_enable_device(pcidev);
    if (ret) {
       pr_err("%s: Probe: pci_enable_device() = %i.\n", MOD_NAME, ret);
-      probeReturn = ret;      // Return directly with error code
-      goto err_pre_en;        // Bail out, but clean up first
+      probeReturn = ret;  // Return directly with error code
+      goto err_pre_en;    // Bail out, but clean up first
    }
-   pci_set_master(pcidev); // Set the device as bus master
+   pci_set_master(pcidev);  // Set the device as bus master
 
    // Retrieve and store the base address and size of the device's register space
    dev->baseAddr = pci_resource_start(pcidev, 0);
@@ -220,7 +220,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    // Map the device's register space for use in the driver
    if ( Dma_MapReg(dev) < 0 ) {
-      probeReturn = -ENOMEM; // Memory allocation error
+      probeReturn = -ENOMEM;  // Memory allocation error
       goto err_post_en;
    }
 
@@ -245,24 +245,24 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->irq = pcidev->irq;
 
    // Set basic device context
-   dev->pcidev = pcidev;               // PCI device structure
-   dev->device = &(pcidev->dev);       // Device structure
-   dev->hwFunc = hfunc;                // Hardware function pointer
+   dev->pcidev = pcidev;          // PCI device structure
+   dev->device = &(pcidev->dev);  // Device structure
+   dev->hwFunc = hfunc;           // Hardware function pointer
 
    // Initialize device memory regions
-   dev->reg    = dev->base + AGEN2_OFF;   // Register base address
-   dev->rwBase = dev->base + PHY_OFF;     // Read/Write base address
-   dev->rwSize = (2*USER_SIZE) - PHY_OFF; // Read/Write region size
+   dev->reg    = dev->base + AGEN2_OFF;    // Register base address
+   dev->rwBase = dev->base + PHY_OFF;      // Read/Write base address
+   dev->rwSize = (2*USER_SIZE) - PHY_OFF;  // Read/Write region size
 
    // Manage device reset cycle
    dev_info(dev->device,"Init: Setting user reset\n");
-   AxiVersion_SetUserReset(dev->base + AVER_OFF,true); // Set user reset
+   AxiVersion_SetUserReset(dev->base + AVER_OFF,true);  // Set user reset
    dev_info(dev->device,"Init: Clearing user reset\n");
-   AxiVersion_SetUserReset(dev->base + AVER_OFF,false); // Clear user reset
+   AxiVersion_SetUserReset(dev->base + AVER_OFF,false);  // Clear user reset
 
    // Configure DMA based on AXI address width: 128bit desc, = 64-bit address map
    if ((readl(dev->reg) & 0x10000) != 0) {
-      axiWidth = (readl(dev->reg + 0x34) >> 8) & 0xFF; // Extract AXI address width
+      axiWidth = (readl(dev->reg + 0x34) >> 8) & 0xFF;  // Extract AXI address width
 
       // Attempt to set DMA and coherent DMA masks based on AXI width
       if (!dma_set_mask(dev->device, DMA_BIT_MASK(axiWidth))) {

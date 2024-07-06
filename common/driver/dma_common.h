@@ -87,7 +87,7 @@ struct DmaDevice {
    uint8_t * base;
 
    // Register pointers, may be the same as reg
-   void * reg; // hardware specific
+   void * reg;  // hardware specific
 
    // Direct read/write offset and size
    uint8_t * rwBase;
@@ -224,4 +224,4 @@ int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t * mask
 int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg);
 int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg);
 
-#endif // __DMA_COMMON_H__
+#endif  // __DMA_COMMON_H__
