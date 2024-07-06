@@ -359,8 +359,7 @@ uint32_t AxisG2_Process (struct DmaDevice * dev, struct AxisG2Reg *reg, struct A
  * Return:
  * IRQ_HANDLED - Indicates that the interrupt was successfully handled.
  */
-irqreturn_t AxisG2_Irq(int irq, void *dev_id)
-{
+irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    struct DmaDevice *dev;
    struct AxisG2Reg *reg;
    struct AxisG2Data *hwData;
@@ -749,8 +748,7 @@ int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32
  * Return: Status of the command execution.
  *---------------------------------------------------------------------------
  */
-int32_t AxisG2_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg)
-{
+int32_t AxisG2_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    struct AxisG2Reg *reg;
    reg = (struct AxisG2Reg *)dev->reg;
 

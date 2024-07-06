@@ -94,8 +94,7 @@ MODULE_LICENSE("GPL"); ///< Module license
  * @dev: Device structure representing the DMA device.
  * @return: Always returns 0, indicating success.
  */
-static int Rce_runtime_suspend(struct device *dev)
-{
+static int Rce_runtime_suspend(struct device *dev) {
    // Currently, there are no device-specific suspend actions required.
    // Placeholder for implementing suspend logic specific to the device.
    return 0;
@@ -114,8 +113,7 @@ static int Rce_runtime_suspend(struct device *dev)
  * @dev: Device structure representing the DMA device.
  * @return: Always returns 0, indicating success.
  */
-static int Rce_runtime_resume(struct device *dev)
-{
+static int Rce_runtime_resume(struct device *dev) {
    // Currently, no device-specific resume actions are required.
    // Placeholder for future implementation of resume logic specific to the device.
    return 0;
@@ -297,8 +295,7 @@ int Rce_Probe(struct platform_device *pdev) {
  * @pdev: Platform device structure representing the DMA device.
  * @return: Returns 0 on successful cleanup, -1 if no matching device is found.
  */
-int Rce_Remove(struct platform_device *pdev)
-{
+int Rce_Remove(struct platform_device *pdev) {
    int32_t x;
    const char *tmpName;
    int32_t tmpIdx;

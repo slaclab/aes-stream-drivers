@@ -62,7 +62,7 @@ struct file_operations MapFunctions = {
 };
 
 // Devnode callback to set permissions of created devices
-char *Map_DevNode(struct device *dev, umode_t *mode){
+char *Map_DevNode(struct device *dev, umode_t *mode) {
    if ( mode != NULL ) *mode = 0666;
    return(NULL);
 }

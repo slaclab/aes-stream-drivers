@@ -271,7 +271,7 @@ int Dma_Init(struct DmaDevice *dev) {
    }
 
    // Remap the I/O register block for safe access
-   if ( Dma_MapReg(dev) < 0 ){
+   if ( Dma_MapReg(dev) < 0 ) {
       dev_err(dev->device,"Init: Failed to map register block.\n");
       goto cleanup_proc_create_data;
    }
@@ -585,8 +585,7 @@ int Dma_Release(struct inode *inode, struct file *filp) {
  *
  * Return: The number of read structures on success or an error code on failure.
  */
-ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos)
-{
+ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
    struct DmaBuffer **buff;
    struct DmaReadData *rd;
    void *dp;
@@ -693,8 +692,7 @@ ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos)
  *
  * Return: Number of bytes written on success, negative error code on failure.
  */
-ssize_t Dma_Write(struct file *filp, const char *buffer, size_t count, loff_t *f_pos)
-{
+ssize_t Dma_Write(struct file *filp, const char *buffer, size_t count, loff_t *f_pos) {
    ssize_t ret;
    ssize_t res;
    void *dp;
@@ -1107,8 +1105,7 @@ uint32_t Dma_Poll(struct file *filp, poll_table *wait) {
  *
  * Return: 0 on success, negative error code on failure.
  */
-int Dma_Mmap(struct file *filp, struct vm_area_struct *vma)
-{
+int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
    struct DmaDesc   *desc;
    struct DmaDevice *dev;
    struct DmaBuffer *buff;
@@ -1492,8 +1489,7 @@ int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t *mask)
  *
  * Return: 0 on success, or -1 on failure.
  */
-int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg)
-{
+int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg) {
    int32_t ret;
    struct DmaRegisterData rData;
 
@@ -1529,8 +1525,7 @@ int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg)
  *
  * Return: 0 on success, -1 on failure.
  */
-int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg)
-{
+int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg) {
    int32_t ret;
    struct DmaRegisterData rData;
 

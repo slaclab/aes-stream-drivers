@@ -679,8 +679,7 @@ cleanup_force_exit:
  * including the queue elements and the queue array itself. It resets the queue
  * count and sub-count to zero.
  */
-void dmaQueueFree(struct DmaQueue *queue)
-{
+void dmaQueueFree(struct DmaQueue *queue) {
    uint32_t x;
 
    queue->count = 0;
@@ -702,8 +701,7 @@ void dmaQueueFree(struct DmaQueue *queue)
  * comparing the read and write pointers. It is useful for deciding whether
  * data processing or retrieval operations are necessary.
  */
-uint32_t dmaQueueNotEmpty(struct DmaQueue *queue)
-{
+uint32_t dmaQueueNotEmpty(struct DmaQueue *queue) {
    if (queue->read == queue->write)
       return 0;
    else
@@ -724,8 +722,7 @@ uint32_t dmaQueueNotEmpty(struct DmaQueue *queue)
  *         1 on failure, indicating a buffer overflow or other issue preventing
  *         the entry from being added to the queue.
  */
-uint32_t dmaQueuePush(struct DmaQueue *queue, struct DmaBuffer *entry)
-{
+uint32_t dmaQueuePush(struct DmaQueue *queue, struct DmaBuffer *entry) {
    unsigned long iflags;
    uint32_t      next;
    uint32_t      ret;
