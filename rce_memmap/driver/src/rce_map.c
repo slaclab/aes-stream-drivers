@@ -73,7 +73,7 @@ int Map_Init(void) {
 
    memset(&dev,0,sizeof(struct MapDevice));
 
-   strcpy(dev.devName,MOD_NAME);
+   strcpy(dev.devName,MOD_NAME);//NOLINT
 
    // Allocate device numbers for character device. 1 minor numer starting at 0
    res = alloc_chrdev_region(&(dev.devNum), 0, 1, dev.devName);

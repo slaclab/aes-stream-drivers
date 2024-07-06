@@ -110,7 +110,7 @@ int main (int argc, char **argv) {
    if ( args.dest == NULL ) {
       memset(mask,0xFF,DMA_MASK_SIZE);
    } else {
-      strcpy(tBuff,args.dest);
+      strcpy(tBuff,args.dest);//NOLINT
       tok = strtok(tBuff,",");
       while ( tok != NULL ) {
          x = strtoul(tok,NULL,10);

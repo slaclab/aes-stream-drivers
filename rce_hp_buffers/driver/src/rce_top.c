@@ -115,7 +115,7 @@ int Rce_Probe(struct platform_device *pdev) {
    gDmaDevCount++;
 
    // Create a device name
-   strcpy(dev->devName,tmpName);
+   strcpy(dev->devName,tmpName);//NOLINT
 
    // Get Base Address of registers from pci structure.
    dev->baseAddr = pdev->resource[0].start;

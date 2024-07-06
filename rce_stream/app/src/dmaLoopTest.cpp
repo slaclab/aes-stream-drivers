@@ -345,7 +345,7 @@ int main (int argc, char **argv) {
    // Generating endpoints
    dCount = 0;
 
-   strcpy(tBuff,args.dest);
+   strcpy(tBuff,args.dest);//NOLINT
    tok = strtok(tBuff,",");
    while ( tok != NULL ) {
       x = strtoul(tok,NULL,10);
@@ -366,7 +366,7 @@ int main (int argc, char **argv) {
       rxData[dCount]->prbEn   = !args.prbsDis;
       rxData[dCount]->pause   = args.pause;
 
-      sprintf(rxData[dCount]->id,"%i",x);
+      sprintf(rxData[dCount]->id,"%i",x);//NOLINT
       memcpy(txData[dCount],rxData[dCount],sizeof(RunData));
 
       if ( pthread_create(&rxThread[dCount],NULL,runRead,rxData[dCount]) ) {
