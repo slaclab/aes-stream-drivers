@@ -204,7 +204,7 @@ extern struct file_operations DmaFunctions;
 
 // Function prototypes
 char *Dma_DevNode(struct device *dev, umode_t *mode);
-int Dma_MapReg ( struct DmaDevice *dev );
+int Dma_MapReg(struct DmaDevice *dev);
 int Dma_Init(struct DmaDevice *dev);
 void Dma_Clean(struct DmaDevice *dev);
 int Dma_Open(struct inode *inode, struct file *filp);
@@ -212,7 +212,7 @@ int Dma_Release(struct inode *inode, struct file *filp);
 ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos);
 ssize_t Dma_Write(struct file *filp, const char* buffer, size_t count, loff_t* f_pos);
 ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg);
-uint32_t Dma_Poll(struct file *filp, poll_table *wait );
+uint32_t Dma_Poll(struct file *filp, poll_table *wait);
 int Dma_Mmap(struct file *filp, struct vm_area_struct *vma);
 int Dma_Fasync(int fd, struct file *filp, int mode);
 int Dma_ProcOpen(struct inode *inode, struct file *file);
@@ -220,7 +220,7 @@ void * Dma_SeqStart(struct seq_file *s, loff_t *pos);
 void * Dma_SeqNext(struct seq_file *s, void *v, loff_t *pos);
 void Dma_SeqStop(struct seq_file *s, void *v);
 int Dma_SeqShow(struct seq_file *s, void *v);
-int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t * mask );
+int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t * mask);
 int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg);
 int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg);
 

@@ -118,7 +118,7 @@ int Map_Init(void) {
 
    // Map space
    dev.maps->base = ioremap_wc(dev.maps->addr, MAP_SIZE);
-   if (!dev.maps->base ) {
+   if (!dev.maps->base) {
       printk(KERN_ERR MOD_NAME " Init: Could not map memory addr %p with size 0x%x.\n",(void *)dev.maps->addr,MAP_SIZE);
       kfree(dev.maps);
       return (-1);

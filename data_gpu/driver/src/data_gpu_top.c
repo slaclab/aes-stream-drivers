@@ -195,8 +195,8 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    pci_set_master(pcidev); // Set the device as bus master
 
    // Retrieve and store the base address and size of the device's register space
-   dev->baseAddr = pci_resource_start (pcidev, 0);
-   dev->baseSize = pci_resource_len (pcidev, 0);
+   dev->baseAddr = pci_resource_start(pcidev, 0);
+   dev->baseSize = pci_resource_len(pcidev, 0);
 
    // Map the device's register space for use in the driver
    if ( Dma_MapReg(dev) < 0 ) {

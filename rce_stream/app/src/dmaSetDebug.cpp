@@ -49,10 +49,10 @@ static struct argp_option options[] = {
    {0}
 };
 
-error_t parseArgs ( int key,  char *arg, struct argp_state *state ) {
+error_t parseArgs(int key,  char *arg, struct argp_state *state) {
    struct PrgArgs *args = (struct PrgArgs *)state->input;
 
-   switch(key) {
+   switch (key) {
       case 'p': args->path = arg; break;
       case ARGP_KEY_ARG:
           switch (state->arg_num) {
@@ -70,7 +70,7 @@ error_t parseArgs ( int key,  char *arg, struct argp_state *state ) {
 
 static struct argp argp = {options,parseArgs,args_doc,doc};
 
-int main (int argc, char **argv) {
+int main(int argc, char **argv) {
    int s;
 
    struct PrgArgs args;

@@ -63,10 +63,10 @@ static struct argp_option options[] = {
    {0}
 };
 
-error_t parseArgs ( int key,  char *arg, struct argp_state *state ) {
+error_t parseArgs(int key,  char *arg, struct argp_state *state) {
    struct PrgArgs *args = (struct PrgArgs *)state->input;
 
-   switch(key) {
+   switch (key) {
       case 'p': args->path = arg; break;
       case 'd': args->prbsDis = 1; break;
       case 's': args->size = strtol(arg,NULL,10); break;
@@ -91,7 +91,7 @@ error_t parseArgs ( int key,  char *arg, struct argp_state *state ) {
 
 static struct argp argp = {options,parseArgs,args_doc,doc};
 
-int main (int argc, char **argv) {
+int main(int argc, char **argv) {
    int32_t       s;
    int32_t       ret;
    uint32_t      count;
@@ -122,7 +122,7 @@ int main (int argc, char **argv) {
          return(0);
       }
    } else {
-      if ((txData = malloc(args.size)) == NULL ) {
+      if ((txData = malloc(args.size)) == NULL) {
          printf("Failed to allocate rxData!\n");
          return(0);
       }

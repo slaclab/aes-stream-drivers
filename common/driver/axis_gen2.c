@@ -67,7 +67,7 @@ struct hardware_functions AxisG2_functions = {
  *
  * Return: Status of the mapping (0 for failure, 1 for success).
  */
-inline uint8_t AxisG2_MapReturn ( struct DmaDevice * dev, struct AxisG2Return *ret, uint32_t desc128En, uint32_t index, uint32_t *ring) {
+inline uint8_t AxisG2_MapReturn(struct DmaDevice * dev, struct AxisG2Return *ret, uint32_t desc128En, uint32_t index, uint32_t *ring) {
    uint32_t * ptr;
    uint32_t chan;
    uint32_t dest;
@@ -124,7 +124,7 @@ inline uint8_t AxisG2_MapReturn ( struct DmaDevice * dev, struct AxisG2Return *r
  * of free buffers. It writes the buffer index and, if enabled, the buffer handle
  * to the device's write FIFOs to mark the buffer as free.
  */
-inline void AxisG2_WriteFree ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En ) {
+inline void AxisG2_WriteFree(struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En) {
    uint32_t wrData[2];
 
    // Mask the buffer index to fit within the 28-bit field
@@ -219,7 +219,7 @@ inline void AxisG2_WriteTx(struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32
  *
  * Returns: Number of processed items
  */
-uint32_t AxisG2_Process (struct DmaDevice * dev, struct AxisG2Reg *reg, struct AxisG2Data *hwData ) {
+uint32_t AxisG2_Process(struct DmaDevice * dev, struct AxisG2Reg *reg, struct AxisG2Data *hwData) {
    struct DmaDesc *desc;
    struct DmaBuffer *buff;
    struct AxisG2Return ret;
@@ -241,7 +241,7 @@ uint32_t AxisG2_Process (struct DmaDevice * dev, struct AxisG2Reg *reg, struct A
 
       // Attempt to find buffer in tx pool and return. otherwise return rx entry to hw.
       // Must adjust counters here and check for buffer need
-      if ((buff = dmaRetBufferIdxIrq (dev,ret.index)) != NULL) {
+      if ((buff = dmaRetBufferIdxIrq(dev,ret.index)) != NULL) {
          // Add to receive/write software queue
          if ( hwData->hwWrBuffCnt >= (hwData->addrCount-1) ) {
             dmaQueuePushIrq(&(hwData->wrQueue),buff);
@@ -340,7 +340,7 @@ uint32_t AxisG2_Process (struct DmaDevice * dev, struct AxisG2Reg *reg, struct A
             AxisG2_WriteFree(hwData->buffList[x],reg,hwData->desc128En);
             ++hwData->hwWrBuffCnt;
          }
-      } while(bCnt > 0);
+      } while (bCnt > 0);
    }
 
    return handleCount;
@@ -430,7 +430,7 @@ void AxisG2_Init(struct DmaDevice *dev) {
    size = hwData->addrCount*(hwData->desc128En?16:8);
 
    // Allocate DMA buffers based on configuration mode
-   if(dev->cfgMode & AXIS2_RING_ACP) {
+   if (dev->cfgMode & AXIS2_RING_ACP) {
       // Allocate read and write buffers in contiguous physical memory
       hwData->readAddr   = kzalloc(size, GFP_DMA | GFP_KERNEL);
       hwData->readHandle = virt_to_phys(hwData->readAddr);

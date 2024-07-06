@@ -64,14 +64,14 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
          // Transmit return
          if ( (stat & 0x2) != 0 ) {
             // Read handle
-            if (((handle = ioread32(&(reg->txFree))) & 0x80000000) != 0 ) {
+            if (((handle = ioread32(&(reg->txFree))) & 0x80000000) != 0) {
                handle &= 0x7FFFFFFC;
 
                if ( dev->debug > 0 )
                   dev_info(dev->device,"Irq: Return TX Status Value 0x%.8x.\n",handle);
 
                // Attempt to find buffer in tx pool and return. otherwise return rx entry to hw.
-               if ((buff = dmaRetBufferIrq (dev,handle)) != NULL) {
+               if ((buff = dmaRetBufferIrq(dev,handle)) != NULL) {
                   iowrite32(handle,&(reg->rxFree));
                }
             }
@@ -80,7 +80,7 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
          // Receive data
          if ( (stat & 0x1) != 0 ) {
             // Read handle
-            while (((handle = ioread32(&(reg->rxPend))) & 0x80000000) != 0 ) {
+            while (((handle = ioread32(&(reg->rxPend))) & 0x80000000) != 0) {
                handle &= 0x7FFFFFFC;
 
                // Read size
@@ -107,12 +107,12 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
                }
 
                // Find RX buffer entry
-               if ((buff = dmaFindBufferList (&(dev->rxBuffers),handle)) != NULL) {
+               if ((buff = dmaFindBufferList(&(dev->rxBuffers),handle)) != NULL) {
                   // Extract data from descriptor
                   buff->count++;
                   buff->size  = size;
                   buff->flags = (status >>  8) & 0xFFFF; // 15:8 = luser, 7:0 = fuser
-                  buff->dest  = (status      ) & 0xFF;
+                  buff->dest  = (status >>  0) & 0x00FF;
                   buff->error = (size == 0)?DMA_ERR_FIFO:0;
 
                   // Check for errors
@@ -261,7 +261,7 @@ int32_t AxisG1_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32
 
    for (x=0; x < count; x++) {
       // Create descriptor
-      control  = (buff[x]->dest       ) & 0x000000FF;
+      control  = (buff[x]->dest  <<  0) & 0x000000FF;
       control += (buff[x]->flags <<  8) & 0x00FFFF00; // flags[15:9] = luser, flags[7:0] = fuser
 
       if ( dmaBufferToHw(buff[x]) < 0 ) {

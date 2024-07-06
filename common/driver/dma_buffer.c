@@ -45,7 +45,7 @@
  *
  * Return: the count of successfully allocated buffers, or 0 on failure.
  */
-size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
+size_t dmaAllocBuffers(struct DmaDevice *dev, struct DmaBufferList *list,
                          uint32_t count, uint32_t baseIdx, enum dma_data_direction direction) {
    uint32_t x;
    uint32_t sl;
@@ -66,7 +66,7 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
    if ( count == 0 ) return 0;
 
    // Allocate first level pointers
-   if ((list->indexed = (struct DmaBuffer ***) kzalloc(sizeof(struct DmaBuffer**) * list->subCount, GFP_KERNEL)) == NULL ) {
+   if ((list->indexed = (struct DmaBuffer ***)kzalloc(sizeof(struct DmaBuffer**) * list->subCount, GFP_KERNEL)) == NULL) {
       dev_err(dev->device,"dmaAllocBuffers: Failed to allocate indexed list pointer. Count=%u.\n",list->subCount);
       goto cleanup_forced_exit;
    }
@@ -89,7 +89,7 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
    for (x=0; x < count; x++) {
       sl  = x / BUFFERS_PER_LIST;
       sli = x % BUFFERS_PER_LIST;
-      if ( (buff = (struct DmaBuffer *) kzalloc(sizeof(struct DmaBuffer), GFP_KERNEL)) == NULL) {
+      if ((buff = (struct DmaBuffer *)kzalloc(sizeof(struct DmaBuffer), GFP_KERNEL)) == NULL) {
          dev_err(dev->device,"dmaAllocBuffers: Failed to create buffer structure index %ui. Unloading.\n",x);
          goto cleanup_buffers;
       }
@@ -139,7 +139,7 @@ size_t dmaAllocBuffers ( struct DmaDevice *dev, struct DmaBufferList *list,
       }
 
       // Alloc or mapping failed
-      if ( buff->buffAddr == NULL || buff->buffHandle == 0) {
+      if (buff->buffAddr == NULL || buff->buffHandle == 0) {
          dev_err(dev->device,"dmaAllocBuffers: Failed to create stream buffer and dma mapping.\n");
          goto cleanup_buffers;
       }
@@ -905,7 +905,7 @@ uint32_t dmaQueuePushListIrq(struct DmaQueue *queue, struct DmaBuffer **buff, si
  *
  * Return: A pointer to a DmaBuffer if available; NULL if the queue is empty.
  */
-struct DmaBuffer * dmaQueuePop  ( struct DmaQueue *queue ) {
+struct DmaBuffer * dmaQueuePop(struct DmaQueue *queue ) {
    unsigned long      iflags;
    struct DmaBuffer * ret;
 

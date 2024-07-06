@@ -178,12 +178,12 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
 
    x = 0;
 
-   if (data->writeBuffers.count > 0 ) {
+   if (data->writeBuffers.count > 0) {
       x |= 0x00000100;
       x |= (data->writeBuffers.count-1);
    }
 
-   if (data->readBuffers.count > 0 ) {
+   if (data->readBuffers.count > 0) {
       x |= 0x01000000;
       x |= (data->readBuffers.count-1) << 16;
    }

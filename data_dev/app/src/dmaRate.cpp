@@ -56,7 +56,7 @@ static struct argp_option options[] = {
 error_t parseArgs(int key, char *arg, struct argp_state *state) {
    struct PrgArgs *args = (struct PrgArgs *)state->input;
 
-   switch(key) {
+   switch (key) {
       case 'p': args->path = arg; break;
       case 'c': args->count = atoi(arg); break;
       default: return ARGP_ERR_UNKNOWN; break;

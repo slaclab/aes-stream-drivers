@@ -264,7 +264,7 @@ int Dma_Init(struct DmaDevice *dev) {
 
 
    // Setup /proc
-   if ( NULL == proc_create_data(dev->devName, 0, NULL, &DmaProcOps, dev)) {
+   if (NULL == proc_create_data(dev->devName, 0, NULL, &DmaProcOps, dev)) {
       dev_err(dev->device,"Init: Failed to create proc entry.\n");
       goto cleanup_device_create;
    }
@@ -286,7 +286,7 @@ int Dma_Init(struct DmaDevice *dev) {
    // Create TX buffers
    dev_info(dev->device,"Init: Creating %i TX Buffers. Size=%i Bytes. Mode=%i.\n",
         dev->cfgTxCount,dev->cfgSize,dev->cfgMode);
-   res = dmaAllocBuffers (dev, &(dev->txBuffers), dev->cfgTxCount, 0, DMA_TO_DEVICE );
+   res = dmaAllocBuffers(dev, &(dev->txBuffers), dev->cfgTxCount, 0, DMA_TO_DEVICE);
    tot = res * dev->cfgSize;
 
    dev_info(dev->device,"Init: Created  %i out of %i TX Buffers. %llu Bytes.\n", res,dev->cfgTxCount,tot);
@@ -309,7 +309,7 @@ int Dma_Init(struct DmaDevice *dev) {
    // Create RX buffers, bidirectional because RX buffers can be passed to TX
    dev_info(dev->device,"Init: Creating %i RX Buffers. Size=%i Bytes. Mode=%i.\n",
         dev->cfgRxCount,dev->cfgSize,dev->cfgMode);
-   res = dmaAllocBuffers (dev, &(dev->rxBuffers), dev->cfgRxCount, dev->txBuffers.count, DMA_BIDIRECTIONAL);
+   res = dmaAllocBuffers(dev, &(dev->rxBuffers), dev->cfgRxCount, dev->txBuffers.count, DMA_BIDIRECTIONAL);
    tot = res * dev->cfgSize;
 
    dev_info(dev->device,"Init: Created  %i out of %i RX Buffers. %llu Bytes.\n", res,dev->cfgRxCount,tot);
@@ -324,7 +324,7 @@ int Dma_Init(struct DmaDevice *dev) {
    // Set interrupt
    if ( dev->irq != 0 ) {
       dev_info(dev->device,"Init: IRQ %d\n", dev->irq);
-      res = request_irq( dev->irq, dev->hwFunc->irq, IRQF_SHARED, dev->devName, (void*)dev);
+      res = request_irq(dev->irq, dev->hwFunc->irq, IRQF_SHARED, dev->devName, (void*)dev);
 
       // Result of request IRQ from OS.
       if (res < 0) {

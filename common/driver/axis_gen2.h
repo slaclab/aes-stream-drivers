@@ -210,10 +210,10 @@ struct AxisG2Data {
 };
 
 // Function prototypes
-inline uint8_t AxisG2_MapReturn ( struct DmaDevice *dev, struct AxisG2Return *ret, uint32_t desc128En, uint32_t index, uint32_t *ring);
-inline void AxisG2_WriteFree ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En );
-inline void AxisG2_WriteTx ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En );
-uint32_t AxisG2_Process (struct DmaDevice * dev, struct AxisG2Reg *reg, struct AxisG2Data *hwData );
+inline uint8_t AxisG2_MapReturn(struct DmaDevice *dev, struct AxisG2Return *ret, uint32_t desc128En, uint32_t index, uint32_t *ring);
+inline void AxisG2_WriteFree(struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En);
+inline void AxisG2_WriteTx(struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En);
+uint32_t AxisG2_Process(struct DmaDevice * dev, struct AxisG2Reg *reg, struct AxisG2Data *hwData);
 irqreturn_t AxisG2_Irq(int irq, void *dev_id);
 void AxisG2_Init(struct DmaDevice *dev);
 void AxisG2_Enable(struct DmaDevice *dev);
@@ -223,8 +223,8 @@ int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32
 int32_t AxisG2_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);
 void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev);
 extern struct hardware_functions AxisG2_functions;
-void AxisG2_WqTask_IrqForce ( struct work_struct *work );
-void AxisG2_WqTask_Poll ( struct work_struct *work );
-void AxisG2_WqTask_Service ( struct work_struct *work );
+void AxisG2_WqTask_IrqForce(struct work_struct *work);
+void AxisG2_WqTask_Poll(struct work_struct *work);
+void AxisG2_WqTask_Service(struct work_struct *work);
 
 #endif // __AXIS_GEN2_H__

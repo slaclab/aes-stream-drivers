@@ -69,10 +69,10 @@ static struct argp_option options[] = {
    {0}
 };
 
-error_t parseArgs ( int key,  char *arg, struct argp_state *state ) {
+error_t parseArgs(int key,  char *arg, struct argp_state *state) {
    struct PrgArgs *args = (struct PrgArgs *)state->input;
 
-   switch(key) {
+   switch (key) {
       case 'p': args->path    = arg; break;
       case 'm': args->dest    = arg; break;
       case 's': args->size    = strtol(arg,NULL,10); break;
@@ -107,7 +107,7 @@ class RunData {
       bool         running;
 };
 
-void *runWrite ( void *t ) {
+void *runWrite(void *t) {
    fd_set          fds;
    struct timeval  timeout;
    int32_t         ret;
@@ -122,20 +122,20 @@ void *runWrite ( void *t ) {
 
    RunData *txData = (RunData *)t;
 
-   if ( (fd = open(txData->dev, O_RDWR )) < 0 ) {
+   if ((fd = open(txData->dev, O_RDWR)) < 0) {
       printf("Error opening device\n");
       txData->running = false;
       return(NULL);
    }
 
    if ( txData->idxEn ) {
-      if ((dmaBuffers = dmaMapDma(fd,&dmaCount,&dmaSize)) == NULL ) {
+      if ((dmaBuffers = dmaMapDma(fd,&dmaCount,&dmaSize)) == NULL) {
          printf("Write failed to map dma buffer\n");
          txData->running = false;
          return(NULL);
       }
    } else {
-      if ((data = malloc(txData->size)) == NULL ) {
+      if ((data = malloc(txData->size)) == NULL) {
          printf("Write failed to allocate buffer\n");
          txData->running = false;
          return(NULL);
@@ -199,7 +199,7 @@ void *runWrite ( void *t ) {
 }
 
 
-void *runRead ( void *t ) {
+void *runRead(void *t) {
    fd_set          fds;
    struct timeval  timeout;
    int32_t         ret;
@@ -224,20 +224,20 @@ void *runRead ( void *t ) {
    maxSize = rxData->size*2;
    idxEn   = rxData->idxEn;
 
-   if ( (fd = open(rxData->dev, O_RDWR )) < 0 ) {
+   if ( (fd = open(rxData->dev, O_RDWR)) < 0 ) {
       printf("Error opening device\n");
       rxData->running = false;
       return NULL;
    }
 
    if ( rxData->idxEn ) {
-      if ((dmaBuffers = dmaMapDma(fd,&dmaCount,&dmaSize)) == NULL ) {
+      if ((dmaBuffers = dmaMapDma(fd,&dmaCount,&dmaSize)) == NULL) {
          printf("Read failed to map dma buffer\n");
          rxData->running = false;
          return(NULL);
       }
    } else {
-      if ((data = malloc(maxSize)) == NULL ) {
+      if ((data = malloc(maxSize)) == NULL) {
          printf("Read failed to allocate buffer\n");
          rxData->running = false;
          return(NULL);
@@ -286,7 +286,7 @@ void *runRead ( void *t ) {
             if ( idxEn ) dmaRetIndex(fd,dmaIndex);
 
             // Stop on size mismatch or frame errors
-            if ( ret != (int)rxData->size || rxDest != rxData->dest || rxData->fuser != rxFuser || rxData->luser != rxLuser) {
+            if (ret != (int)rxData->size || rxDest != rxData->dest || rxData->fuser != rxFuser || rxData->luser != rxLuser) {
                printf("Read Error. Dest=%i, ExpDest=%i, Ret=%i, Exp=%i, Fuser=0x%.2x, Luser=0x%.2x\n",
                      rxDest,rxData->dest,ret,rxData->size,rxFuser,rxLuser);
                break;
@@ -310,7 +310,7 @@ void *runRead ( void *t ) {
    return(NULL);
 }
 
-int main (int argc, char **argv) {
+int main(int argc, char **argv) {
    RunData     * txData[DMA_MASK_SIZE];
    RunData     * rxData[DMA_MASK_SIZE];
    pthread_t     txThread[DMA_MASK_SIZE];
