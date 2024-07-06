@@ -26,7 +26,6 @@
 #include <linux/platform_device.h>
 #include <linux/poll.h>
 #include <linux/cdev.h>
-#include <linux/types.h>
 #include <linux/fs.h>
 #include <DmaDriver.h>
 
