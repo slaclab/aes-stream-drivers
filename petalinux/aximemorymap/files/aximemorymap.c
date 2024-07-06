@@ -383,8 +383,8 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
       case DMA_Write_Register:
          // Get register data from user space
-         if (!get_user(rData.address, &((struct DmaRegisterData __user *)arg)->address) &&
-             !get_user(rData.data, &((struct DmaRegisterData __user *)arg)->data)) {
+         if (!get_user(rData.address, &((struct DmaRegisterData __user *)arg)->address) &&//NOLINT
+             !get_user(rData.data, &((struct DmaRegisterData __user *)arg)->data)) {//NOLINT
             // Find the memory base address for the register
             if ((base = Map_Find(rData.address)) != NULL) {
                // Write data to the register
@@ -400,13 +400,13 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
       case DMA_Read_Register:
          // Get register address from user space
-         if (!get_user(rData.address, &((struct DmaRegisterData __user *)arg)->address)) {
+         if (!get_user(rData.address, &((struct DmaRegisterData __user *)arg)->address)) {//NOLINT
             // Find the memory base address for the register
             if ((base = Map_Find(rData.address)) != NULL) {
                // Read data from the register
                rData.data = readl(base);
                // Put the updated register data back to user space
-               if (!put_user(rData.data, &((struct DmaRegisterData __user *)arg)->data)) {
+               if (!put_user(rData.data, &((struct DmaRegisterData __user *)arg)->data)) {//NOLINT
                   ret = 0; // Success
                } else {
                   pr_warn("%s: Dma_Read_Register: put_user failed.\n", MOD_NAME);
