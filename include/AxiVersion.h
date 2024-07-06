@@ -59,7 +59,7 @@ struct AxiVersion {
 #ifndef DMA_IN_KERNEL
    // Everything below is hidden during kernel module compile
    #include <stdlib.h>
-   #include <string.h>
+   #include <string.h>//NOLINT
    #include <sys/mman.h>
    #include <stdio.h>
    #include <unistd.h>

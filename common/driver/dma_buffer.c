@@ -570,7 +570,7 @@ void dmaRxBufferIrq(struct DmaDesc *desc, struct DmaBuffer *buff) {
  */
 void dmaSortBuffers(struct DmaBufferList *list) {
    if (list->count > 0)
-      sort(list->sorted, list->count, sizeof(struct DmaBuffer *), dmaSortComp, NULL);
+      sort(list->sorted, list->count, sizeof(struct DmaBuffer *), dmaSortComp, NULL);//NOLINT
 }
 
 /**
