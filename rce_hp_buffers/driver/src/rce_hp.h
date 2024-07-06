@@ -19,9 +19,10 @@
 #ifndef __RCE_HP_H__
 #define __RCE_HP_H__
 
+#include <linux/interrupt.h>
+
 #include "dma_common.h"
 #include "dma_buffer.h"
-#include <linux/interrupt.h>
 
 struct RceHpReg {
    uint32_t spare[100];      // skip  0x0 - 0x3FF

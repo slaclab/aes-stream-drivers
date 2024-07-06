@@ -22,9 +22,10 @@
 #ifndef __AXIS_GEN1_H__
 #define __AXIS_GEN1_H__
 
+#include <linux/interrupt.h>
+
 #include "dma_common.h"
 #include "dma_buffer.h"
-#include <linux/interrupt.h>
 
 struct AxisG1Reg {
    uint32_t rxEnable;        // 0x00000
