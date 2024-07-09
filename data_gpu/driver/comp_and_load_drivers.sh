@@ -1,48 +1,20 @@
 #!/bin/bash
 
-# Provide defaults for CC
-[ -z "$CC" ] && CC=gcc
-
-# Function to check if the script is run with sudo
-check_sudo() {
-    if [ "$EUID" -ne 0 ]; then
-        echo "Error: This script must be run with sudo." >&2
-        exit 1
-    fi
-}
-# Checks that GCC matches what the kernel was built with
-check_gcc_version() {
-    _GCC_VER="$($CC --version | grep -Eo "\s[0-9]+\.[0-9]+\.[0-9]+\s" | awk '{$1=$1};1')"
-    if ! cat /proc/version | grep -Eoq "gcc version $_GCC_VER"; then
-        echo "Error: GCC version 'gcc version $_GCC_VER' does not match what the kernel was built with: '$(cat /proc/version | grep -Eo "gcc version [0-9]+\.[0-9]+\.[0-9]+")'"
-        echo "  You can specify an alternative compiler by setting the 'CC' environment variable"
-        exit 1
-    fi
-}
-
 # Check if the script is run with sudo
-check_sudo
+if [ "$EUID" -ne 0 ]; then
+    echo "Error: This script must be run with sudo." >&2
+    exit 1
+fi
 
-# Check that our GCC matches what the kernel was built with
-check_gcc_version
+# Get the gcc that kernel was built with
+version_info=$(cat /proc/version)
+CC=$(echo "$version_info" | grep -oP '\b\w+-\w+-gcc-\d+\b')
+echo "CC: $CC"
 
-# Function to find the latest Nvidia version directory
-get_latest_nvidia_path() {
-    # Navigate to the /usr/src directory
-    cd /usr/src
-
-    # List and sort NVIDIA directories, then get the last one (the latest)
-    latest_nvidia_path=$(ls -d nvidia-* | sort -V | tail -n 1)
-
-    # Check if no NVIDIA directory was found
-    if [ -z "$latest_nvidia_path" ]; then
-        echo "Error: No NVIDIA directory found in /usr/src" >&2
-        exit 1
-    else
-        # Print the full path of the latest NVIDIA directory
-        echo "/usr/src/$latest_nvidia_path"
-    fi
-}
+# Define Nvidia path
+output=$(find /usr -name nv-p2p.h)
+NVIDIA_PATH=$(echo "$output" | grep -oP '^/usr/src/nvidia-\d+\.\d+\.\d+')
+echo "Using Nvidia path: $NVIDIA_PATH"
 
 # Return directory
 RET_DIR=$PWD
@@ -55,12 +27,8 @@ echo "Using RET_DIR: $RET_DIR"
 /usr/sbin/rmmod nvidia-modeset 2>/dev/null
 /usr/sbin/rmmod nvidia 2>/dev/null
 
-# Define Nvidia path
-NVIDIA_PATH=$(get_latest_nvidia_path)
-echo "Using Nvidia path: $NVIDIA_PATH"
-
+# Go to nvidia path and build
 cd $NVIDIA_PATH
-
 make
 
 if modinfo ecc >/dev/null 2>&1; then
