@@ -21,11 +21,11 @@ RET_DIR=$PWD
 echo "Using RET_DIR: $RET_DIR"
 
 # Remove existing Nvidia modules (if any)
-/usr/sbin/rmmod datagpu 2>&1
-/usr/sbin/rmmod nvidia-drm 2>&1
-/usr/sbin/rmmod nvidia-uvm 2>&1
-/usr/sbin/rmmod nvidia-modeset 2>&1
-/usr/sbin/rmmod nvidia 2>&1
+/usr/sbin/rmmod datagpu 2>/dev/null
+/usr/sbin/rmmod nvidia-drm 2>/dev/null
+/usr/sbin/rmmod nvidia-uvm 2>/dev/null
+/usr/sbin/rmmod nvidia-modeset 2>/dev/null
+/usr/sbin/rmmod nvidia 2>/dev/null
 
 # Go to nvidia path and build Nvidia driver
 cd "$NVIDIA_PATH" || { echo "Error: Failed to change directory to $NVIDIA_PATH"; exit 1; }
