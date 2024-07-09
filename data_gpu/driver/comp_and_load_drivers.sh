@@ -20,19 +20,12 @@ echo "Using Nvidia path: $NVIDIA_PATH"
 RET_DIR=$PWD
 echo "Using RET_DIR: $RET_DIR"
 
-# Stop the Xserver and nvidia-persistenced to prevent rmmod due to Module XXX is in use by: YYY
-# https://forums.developer.nvidia.com/t/cant-install-new-driver-cannot-unload-module/63639
-systemctl stop gdm     # For GNOME Display Manager
-systemctl stop lightdm # For LightDM
-systemctl stop sddm    # For SDDM
-systemctl stop nvidia-persistenced
-
 # Remove existing Nvidia modules (if any)
-/usr/sbin/rmmod datagpu
-/usr/sbin/rmmod nvidia-drm
-/usr/sbin/rmmod nvidia-uvm
-/usr/sbin/rmmod nvidia-modeset
-/usr/sbin/rmmod nvidia
+/usr/sbin/rmmod datagpu 2>&1
+/usr/sbin/rmmod nvidia-drm 2>&1
+/usr/sbin/rmmod nvidia-uvm 2>&1
+/usr/sbin/rmmod nvidia-modeset 2>&1
+/usr/sbin/rmmod nvidia 2>&1
 
 # Go to nvidia path and build Nvidia driver
 cd "$NVIDIA_PATH" || { echo "Error: Failed to change directory to $NVIDIA_PATH"; exit 1; }
