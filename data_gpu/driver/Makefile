@@ -13,8 +13,9 @@
 # contained in the LICENSE.txt file.
 # ----------------------------------------------------------------------------
 
-# Optional path to NVIDIA drivers, if not specified, use empty string.
+# Args to this Makefile
 NVIDIA_DRIVERS ?= ""
+CC ?= ""
 
 # Define the module name.
 NAME := datagpu
@@ -63,10 +64,10 @@ obj-m := $(NAME).o
 # Default target: Display git version and build the module.
 all:
 	@echo $(GITV)
-	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(HOME) modules
+	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) CC=$(CC) -C $(KERNELDIR) M=$(HOME) modules
 
 # Clean target: Remove built module files and object files.
 clean:
-	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(HOME) clean
+	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) CC=$(CC) -C $(KERNELDIR) M=$(HOME) clean
 	rm -f $(OBJS)
 

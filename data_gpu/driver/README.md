@@ -14,10 +14,14 @@ $ sudo apt-get install nvidia-cuda-toolkit
 $ sudo ./comp_and_load_drivers.sh
 ```
 
-If NVLink support is required, install cuda-drivers-fabricmanager-<driver version> as well. However, as of Febuary 2024, the latest version of fabricmanager is 535.
-When it becomes available on Ubuntu, install with:
+Disable the Xserver and nvidia-persistenced to prevent rmmod due to Module XXX is in use by: YYY
+because the Nvidia driver gets loaded by default at startup 
 
-```
-$ sudo apt-get install cuda-drivers-fabricmanager-545
-```
+https://forums.developer.nvidia.com/t/cant-install-new-driver-cannot-unload-module/63639
 
+```bash
+$ sudo systemctl disable gdm     # For GNOME Display Manager
+$ sudo systemctl disable lightdm # For LightDM
+$ sudo systemctl disable sddm    # For SDDM
+$ sudo systemctl disable nvidia-persistenced
+```
