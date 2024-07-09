@@ -12,8 +12,8 @@ check_sudo() {
 }
 # Checks that GCC matches what the kernel was built with
 check_gcc_version() {
-    _GCC_VER="$($CC --version | grep -Eo "\s[0-9]+\.[0-9]+\.[0-9]+\s" | awk '{$1=$1};1')"
-    if ! cat /proc/version | grep -Eoq "gcc version $_GCC_VER"; then
+    _GCC_VER="$($CC --version | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+    if ! cat /proc/version | grep -Eo "gcc version $_GCC_VER" > /dev/null; then
         echo "Error: GCC version 'gcc version $_GCC_VER' does not match what the kernel was built with: '$(cat /proc/version | grep -Eo "gcc version [0-9]+\.[0-9]+\.[0-9]+")'"
         echo "  You can specify an alternative compiler by setting the 'CC' environment variable"
         exit 1
