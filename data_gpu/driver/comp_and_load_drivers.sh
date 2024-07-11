@@ -54,7 +54,7 @@ cd "$NVIDIA_PATH" || { echo "Error: Failed to change directory to $NVIDIA_PATH";
 # Clean previous builds
 make clean
 # Build Nvidia driver
-make CC=$CC
+make CC=$CC -j $(nproc)
 
 if modinfo ecc >/dev/null 2>&1; then
     modprobe ecc || { echo "Error: Failed to insert ecc module."; exit 1; }
