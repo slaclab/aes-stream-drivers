@@ -1,4 +1,5 @@
 #!/bin/bash
+# vi: et sw=4 ts=4
 
 # Check if the script is run with sudo
 if [ "$EUID" -ne 0 ]; then
@@ -30,7 +31,11 @@ echo "CC: $CC"
 
 # Define Nvidia path
 output=$(find /usr -name nv-p2p.h 2>/dev/null)
-NVIDIA_PATH=$(echo "$output" | grep -oP '^/usr/src/nvidia-\d+\.\d+\.\d+' | head -n 1)
+NVIDIA_PATH=$(echo "$output" | grep -oP '^/usr/src/nvidia(-open)?-\d+\.\d+\.\d+' | head -n 1)
+if [ -z "$NVIDIA_PATH" ]; then
+    echo "Could not find NVIDIA open drivers in /usr/src. Is it installed?"
+    exit 1
+fi
 echo "Using Nvidia path: $NVIDIA_PATH"
 
 # Return directory
