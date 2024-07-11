@@ -51,7 +51,10 @@ echo "Using RET_DIR: $RET_DIR"
 
 # Go to nvidia path and build Nvidia driver
 cd "$NVIDIA_PATH" || { echo "Error: Failed to change directory to $NVIDIA_PATH"; exit 1; }
-make CC=$CC
+# Clean previous builds
+make clean
+# Build Nvidia driver
+make CC=$CC -j $(nproc)
 
 if modinfo ecc >/dev/null 2>&1; then
     modprobe ecc || { echo "Error: Failed to insert ecc module."; exit 1; }
