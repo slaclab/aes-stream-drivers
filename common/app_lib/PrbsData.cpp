@@ -150,9 +150,13 @@ bool PrbsData::processData(const void *data, uint32_t size) {
    // Verify PRBS sequence
    for (word = 2; word < size / (_width / 8); word++) {
       expected = flfsr(expected);
-      if (_width == 16) got = data16[word];
-      else if (_width == 32) got = data32[word];
-      else got = 0;
+      if (_width == 16) {
+          got = data16[word];
+      } else if (_width == 32) {
+          got = data32[word];
+      } else {
+          got = 0;
+      }
 
       if (expected != got) {
          fprintf(stderr, "Bad value at index %i. exp=0x%x, got=0x%x\n", word, expected, got);

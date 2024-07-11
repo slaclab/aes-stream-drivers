@@ -1,11 +1,7 @@
 /**
  *-----------------------------------------------------------------------------
- * Title      : Top level module
- * ----------------------------------------------------------------------------
- * File       : rce_map.h
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2018-06-07
- * ----------------------------------------------------------------------------
+ * Company    : SLAC National Accelerator Laboratory
+ *-----------------------------------------------------------------------------
  * Description:
  * Top level module types and functions.
  * ----------------------------------------------------------------------------
@@ -26,7 +22,6 @@
 #include <linux/platform_device.h>
 #include <linux/poll.h>
 #include <linux/cdev.h>
-#include <linux/types.h>
 #include <linux/fs.h>
 #include <DmaDriver.h>
 
@@ -42,7 +37,6 @@ struct MemMap {
 
 // Map structure
 struct MapDevice {
-
    // Device tracking
    uint32_t        major;
    dev_t           devNum;
@@ -50,7 +44,6 @@ struct MapDevice {
    struct cdev     charDev;
    struct device * device;
    struct MemMap * maps;
-
 };
 
 char *Map_DevNode(struct device *dev, umode_t *mode);

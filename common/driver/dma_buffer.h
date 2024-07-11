@@ -164,4 +164,4 @@ ssize_t dmaQueuePopListIrq(struct DmaQueue *queue, struct DmaBuffer **buff, size
 void dmaQueuePoll(struct DmaQueue *queue, struct file *filp, poll_table *wait);
 void dmaQueueWait(struct DmaQueue *queue);
 
-#endif // __DMA_BUFFER_H__
+#endif  // __DMA_BUFFER_H__

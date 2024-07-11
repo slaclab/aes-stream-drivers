@@ -1,7 +1,7 @@
 /**
- *-----------------------------------------------------------------------------
- * Company: SLAC National Accelerator Laboratory
- *-----------------------------------------------------------------------------
+ * ----------------------------------------------------------------------------
+ * Company    : SLAC National Accelerator Laboratory
+ * ----------------------------------------------------------------------------
  * Description:
  *    Defines an interface for accessing AXI version information in kernel space.
  *-----------------------------------------------------------------------------
@@ -59,7 +59,7 @@ struct AxiVersion {
 #ifndef DMA_IN_KERNEL
    // Everything below is hidden during kernel module compile
    #include <stdlib.h>
-   #include <string.h>
+   #include <string.h>//NOLINT
    #include <sys/mman.h>
    #include <stdio.h>
    #include <unistd.h>
@@ -82,5 +82,5 @@ struct AxiVersion {
       return(ioctl(fd, AVER_Get, aVer));
    }
 
-#endif // !DMA_IN_KERNEL
-#endif // __AXI_VERSION_H__
+#endif  // !DMA_IN_KERNEL
+#endif  // __AXI_VERSION_H__

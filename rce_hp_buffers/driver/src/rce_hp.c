@@ -1,11 +1,7 @@
 /**
  *-----------------------------------------------------------------------------
- * Title      : RCE HP Driver
- * ----------------------------------------------------------------------------
- * File       : rce_hp.h
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2017-08-11
- * ----------------------------------------------------------------------------
+ * Company    : SLAC National Accelerator Laboratory
+ *-----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory
  * of this distribution and at:
@@ -42,23 +38,25 @@ void RceHp_Init(struct DmaDevice *dev) {
    reg = (struct RceHpReg *)dev->reg;
 
    // Clear Buffers
-   iowrite32(0x1,&(reg->bufferClear));
-   iowrite32(0x0,&(reg->bufferClear));
+   iowrite32(0x1, &(reg->bufferClear));
+   iowrite32(0x0, &(reg->bufferClear));
 
    // Set buffer size
-   iowrite32(dev->cfgSize,&(reg->bufferSize));
+   iowrite32(dev->cfgSize, &(reg->bufferSize));
 
    // Push buffers to hardware
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
-      buff = dmaGetBufferList(&(dev->rxBuffers),x);
-      if ( dmaBufferToHw(buff) < 0 )
-         dev_warn(dev->device,"Init: Failed to map dma buffer.\n");
-      else iowrite32(buff->buffHandle,&(reg->bufferAlloc));
+      buff = dmaGetBufferList(&(dev->rxBuffers), x);
+      if ( dmaBufferToHw(buff) < 0 ) {
+         dev_warn(dev->device, "Init: Failed to map dma buffer.\n");
+      } else {
+          iowrite32(buff->buffHandle, &(reg->bufferAlloc));
+      }
    }
 
    // Set dest mask
-   memset(dev->destMask,0x0,DMA_MASK_SIZE);
-   dev_info(dev->device,"Init: Done.\n");
+   memset(dev->destMask, 0x0, DMA_MASK_SIZE);
+   dev_info(dev->device, "Init: Done.\n");
 }
 
 // Enable the card
@@ -67,7 +65,7 @@ void RceHp_Enable(struct DmaDevice *dev) {
    reg = (struct RceHpReg *)dev->reg;
 
    // Enable
-   iowrite32(0x1,&(reg->enable));
+   iowrite32(0x1, &(reg->enable));
 }
 
 // Clear card in top level Remove
@@ -76,10 +74,10 @@ void RceHp_Clear(struct DmaDevice *dev) {
    reg = (struct RceHpReg *)dev->reg;
 
    // Clear FIFOs
-   iowrite32(0x1,&(reg->bufferClear));
+   iowrite32(0x1, &(reg->bufferClear));
 
    // Disable
-   iowrite32(0x0,&(reg->enable));
+   iowrite32(0x0, &(reg->enable));
 }
 
 

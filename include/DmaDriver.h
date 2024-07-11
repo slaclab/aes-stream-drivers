@@ -1,7 +1,7 @@
 /**
- *-----------------------------------------------------------------------------
- * Company: SLAC National Accelerator Laboratory
- *-----------------------------------------------------------------------------
+ * ----------------------------------------------------------------------------
+ * Company    : SLAC National Accelerator Laboratory
+ * ----------------------------------------------------------------------------
  * Description:
  *    This header file defines the interfaces and data structures used by
  *    DMA (Direct Memory Access) drivers in the aes_stream_drivers package.

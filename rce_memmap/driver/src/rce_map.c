@@ -1,11 +1,7 @@
 /**
  *-----------------------------------------------------------------------------
- * Title      : Top level module
- * ----------------------------------------------------------------------------
- * File       : rce_map.c
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2018-06-07
- * ----------------------------------------------------------------------------
+ * Company    : SLAC National Accelerator Laboratory
+ *-----------------------------------------------------------------------------
  * Description:
  * Top level module types and functions.
  * ----------------------------------------------------------------------------
@@ -62,7 +58,7 @@ struct file_operations MapFunctions = {
 };
 
 // Devnode callback to set permissions of created devices
-char *Map_DevNode(struct device *dev, umode_t *mode){
+char *Map_DevNode(struct device *dev, umode_t *mode) {
    if ( mode != NULL ) *mode = 0666;
    return(NULL);
 }
@@ -71,11 +67,11 @@ char *Map_DevNode(struct device *dev, umode_t *mode){
 int Map_Init(void) {
    int32_t res;
 
-   memset(&dev,0,sizeof(struct MapDevice));
+   memset(&dev, 0, sizeof(struct MapDevice));
 
-   strcpy(dev.devName,MOD_NAME);
+   strcpy(dev.devName,MOD_NAME);//NOLINT
 
-   // Allocate device numbers for character device. 1 minor numer starting at 0
+   // Allocate device numbers for character device. 1 minor number starting at 0
    res = alloc_chrdev_region(&(dev.devNum), 0, 1, dev.devName);
    if (res < 0) {
       printk(KERN_ERR MOD_NAME " Init: Cannot register char device\n");
@@ -109,7 +105,7 @@ int Map_Init(void) {
    }
 
    // Map initial space
-   if ( (dev.maps = (struct MemMap *)kmalloc(sizeof(struct MemMap),GFP_KERNEL)) == NULL ) {
+   if ( (dev.maps = (struct MemMap *)kmalloc(sizeof(struct MemMap), GFP_KERNEL)) == NULL ) {
       printk(KERN_ERR MOD_NAME " Init: Could not allocate map memory\n");
       return (-1);
    }
@@ -118,12 +114,12 @@ int Map_Init(void) {
 
    // Map space
    dev.maps->base = ioremap_wc(dev.maps->addr, MAP_SIZE);
-   if (! dev.maps->base ) {
-      printk(KERN_ERR MOD_NAME " Init: Could not map memory addr %p with size 0x%x.\n",(void *)dev.maps->addr,MAP_SIZE);
+   if (!dev.maps->base) {
+      printk(KERN_ERR MOD_NAME " Init: Could not map memory addr %p with size 0x%x.\n", (void *)dev.maps->addr, MAP_SIZE);
       kfree(dev.maps);
       return (-1);
    }
-   printk(KERN_INFO MOD_NAME " Init: Mapped addr %p with size 0x%x to %p.\n",(void *)dev.maps->addr,MAP_SIZE,(void *)dev.maps->base);
+   printk(KERN_INFO MOD_NAME " Init: Mapped addr %p with size 0x%x to %p.\n", (void *)dev.maps->addr, MAP_SIZE, (void *)dev.maps->base);
 
    // Hold memory region
 //   if ( request_mem_region(dev.maps->addr, MAP_SIZE, dev.devName) == NULL ) {
@@ -141,8 +137,11 @@ void Map_Exit(void) {
    struct MemMap *tmp;
 
    // Unregister Device Driver
-   if ( gCl != NULL ) device_destroy(gCl, dev.devNum);
-   else printk(KERN_ERR MOD_NAME " Clean: gCl is already NULL.\n");
+   if ( gCl != NULL ) {
+       device_destroy(gCl, dev.devNum);
+   } else {
+       printk(KERN_ERR MOD_NAME " Clean: gCl is already NULL.\n");
+   }
 
    unregister_chrdev_region(dev.devNum, 1);
 
@@ -151,7 +150,7 @@ void Map_Exit(void) {
       tmp = dev.maps;
       dev.maps = dev.maps->next;
 
-      //release_mem_region(tmp->addr, MAP_SIZE);
+      // release_mem_region(tmp->addr, MAP_SIZE);
       iounmap(tmp->base);
       kfree(tmp);
    }
@@ -175,28 +174,25 @@ int Map_Release(struct inode *inode, struct file *filp) {
 
 // Find or allocate map space
 uint8_t * Map_Find(uint32_t addr) {
-
    struct MemMap *cur;
    struct MemMap *new;
 
    cur = dev.maps;
 
    if ( (addr < cfgMinAddr) || (addr > cfgMaxAddr) ) {
-      printk(KERN_ERR MOD_NAME " Map_Find: Invalid address %p. Allowed range %p - %p\n",(void *)addr,(void *)cfgMinAddr,(void*)cfgMaxAddr);
+      printk(KERN_ERR MOD_NAME " Map_Find: Invalid address %p. Allowed range %p - %p\n", (void *)addr, (void *)cfgMinAddr, (void*)cfgMaxAddr);
       return (NULL);
    }
 
    while (cur != NULL) {
-
       // Current pointer matches
       if ( (addr >= cur->addr) && (addr < (cur->addr + MAP_SIZE)) )
          return((uint8_t*)(cur->base + (addr-cur->addr)));
 
       // Next address is too high, insert new structure
       if ( (cur->next == NULL) || (addr < ((struct MemMap *)cur->next)->addr) ) {
-
          // Create new map
-         if ( (new = (struct MemMap *)kmalloc(sizeof(struct MemMap),GFP_KERNEL)) == NULL ) {
+         if ( (new = (struct MemMap *)kmalloc(sizeof(struct MemMap), GFP_KERNEL)) == NULL ) {
             printk(KERN_ERR MOD_NAME " Map_Find: Could not allocate map memory\n");
             return NULL;
          }
@@ -206,12 +202,12 @@ uint8_t * Map_Find(uint32_t addr) {
 
          // Map space
          new->base = ioremap_wc(new->addr, MAP_SIZE);
-         if (! new->base ) {
-            printk(KERN_ERR MOD_NAME " Map_Find: Could not map memory addr %p (%p) with size 0x%x.\n",(void *)new->addr,(void*)addr,MAP_SIZE);
+         if (!new->base) {
+            printk(KERN_ERR MOD_NAME " Map_Find: Could not map memory addr %p (%p) with size 0x%x.\n", (void *)new->addr, (void*)addr, MAP_SIZE);
             kfree(new);
             return (NULL);
          }
-         printk(KERN_INFO MOD_NAME " Map_Find: Mapped addr %p with size 0x%x to %p.\n",(void *)new->addr,MAP_SIZE,(void *)new->base);
+         printk(KERN_INFO MOD_NAME " Map_Find: Mapped addr %p with size 0x%x to %p.\n", (void *)new->addr, MAP_SIZE, (void *)new->base);
 
          // Hold memory region
 //         if ( request_mem_region(new->addr, MAP_SIZE, dev.devName) == NULL ) {
@@ -226,7 +222,6 @@ uint8_t * Map_Find(uint32_t addr) {
          cur->next = new;
       }
       cur = cur->next;
-
    }
 
    return(NULL);
@@ -240,7 +235,6 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
    // Determine command
    switch (cmd) {
-
       // Get API Version
       case DMA_Get_Version:
          return(DMA_VERSION);
@@ -249,21 +243,21 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
       // Register write
       case DMA_Write_Register:
 
-         if ((ret = copy_from_user(&rData,(void *)arg,sizeof(struct DmaRegisterData)))) {
+         if ((ret = copy_from_user(&rData, (void *)arg, sizeof(struct DmaRegisterData)))) {
             printk(KERN_WARNING MOD_NAME " Dma_Write_Register: copy_from_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
             return(-1);
          }
 
          if ( (base = Map_Find(rData.address)) == NULL ) return(-1);
 
-         iowrite32(rData.data,base);
+         iowrite32(rData.data, base);
          return(0);
          break;
 
       // Register read
       case DMA_Read_Register:
 
-         if ((ret=copy_from_user(&rData,(void *)arg,sizeof(struct DmaRegisterData)))) {
+         if ((ret=copy_from_user(&rData, (void *)arg, sizeof(struct DmaRegisterData)))) {
             printk(KERN_WARNING MOD_NAME " Dma_Read_Register: copy_from_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
             return(-1);
          }
@@ -272,7 +266,7 @@ ssize_t Map_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
          rData.data = ioread32(base);
 
          // Return the data structure
-         if ((ret=copy_to_user((void *)arg,&rData,sizeof(struct DmaRegisterData)))) {
+         if ((ret=copy_to_user((void *)arg, &rData, sizeof(struct DmaRegisterData)))) {
             printk(KERN_WARNING MOD_NAME " Dma_Read_Register: copy_to_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
             return(-1);
          }
@@ -295,9 +289,9 @@ ssize_t Map_Write(struct file *filp, const char* buffer, size_t count, loff_t* f
    return -1;
 }
 
-module_param(cfgMinAddr,uint,0);
+module_param(cfgMinAddr, uint, 0);
 MODULE_PARM_DESC(cfgMinAddr, "Min Map Addr");
 
-module_param(cfgMaxAddr,uint,0);
+module_param(cfgMaxAddr, uint, 0);
 MODULE_PARM_DESC(cfgMaxAddr, "Max Map Addr");
 

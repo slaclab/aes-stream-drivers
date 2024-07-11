@@ -1,12 +1,7 @@
 /**
  *-----------------------------------------------------------------------------
- * Title      : Top level module
- * ----------------------------------------------------------------------------
- * File       : rce_top.c
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-08
- * Last update: 2016-08-08
- * ----------------------------------------------------------------------------
+ * Company    : SLAC National Accelerator Laboratory
+ *-----------------------------------------------------------------------------
  * Description:
  * Top level module types and functions.
  * ----------------------------------------------------------------------------
@@ -110,7 +105,7 @@ int Rce_Probe(struct platform_device *pdev) {
    // Find matching entry
    tmpIdx = -1;
    for ( x=0; x < MAX_DMA_DEVICES; x++ ) {
-      if (strcmp(tmpName,RceDevNames[x]) == 0) {
+      if (strcmp(tmpName, RceDevNames[x]) == 0) {
          tmpIdx = x;
          break;
       }
@@ -118,7 +113,7 @@ int Rce_Probe(struct platform_device *pdev) {
 
    // Matching device not found
    if ( tmpIdx < 0 ) {
-      pr_warn("%s: Probe: Matching device not found: %s.\n", MOD_NAME,tmpName);
+      pr_warn("%s: Probe: Matching device not found: %s.\n", MOD_NAME, tmpName);
       return(-1);
    }
    dev = &gDmaDevices[tmpIdx];
@@ -126,14 +121,14 @@ int Rce_Probe(struct platform_device *pdev) {
    pr_info("%s: Probe: Using index %i for %s.\n", MOD_NAME, tmpIdx, tmpName);
 
    // Init structure
-   memset(dev,0,sizeof(struct DmaDevice));
+   memset(dev, 0, sizeof(struct DmaDevice));
    dev->index = tmpIdx;
 
    // Increment count
    gDmaDevCount++;
 
    // Create a device name
-   strcpy(dev->devName,tmpName);
+   strcpy(dev->devName,tmpName);//NOLINT
 
    // Get Base Address of registers from pci structure.
    dev->baseAddr = pdev->resource[0].start;
@@ -180,14 +175,13 @@ int Rce_Probe(struct platform_device *pdev) {
    // Version 2
    if ( ((ioread32(dev->reg) >> 24) & 0xFF) >= 2 ) {
       dev->hwFunc = &(AxisG2_functions);
-   }
 
    // Version 1
-   else {
-      iowrite32(0x1,((uint8_t *)dev->reg)+0x8);
+   } else {
+      iowrite32(0x1, ((uint8_t *)dev->reg)+0x8);
       if ( ioread32(((uint8_t *)dev->reg)+0x8) != 0x1 ) {
          release_mem_region(dev->baseAddr, dev->baseSize);
-         dev_info(dev->device,"Probe: Empty register space. Exiting\n");
+         dev_info(dev->device, "Probe: Empty register space. Exiting\n");
          return(-1);
       }
       dev->hwFunc = &(AxisG1_functions);
@@ -195,10 +189,10 @@ int Rce_Probe(struct platform_device *pdev) {
 
    // Coherent
    /* not available on arm64 */
-#if ! defined( __aarch64__)
-   if( (dev->cfgMode & BUFF_ARM_ACP) || (dev->cfgMode & AXIS2_RING_ACP) ) {
-       set_dma_ops(&pdev->dev,&arm_coherent_dma_ops);
-       dev_info(dev->device,"Probe: Set COHERENT DMA =%i\n",dev->cfgMode);
+#if !defined( __aarch64__)
+   if ( (dev->cfgMode & BUFF_ARM_ACP) || (dev->cfgMode & AXIS2_RING_ACP) ) {
+       set_dma_ops(&pdev->dev, &arm_coherent_dma_ops);
+       dev_info(dev->device, "Probe: Set COHERENT DMA =%i\n", dev->cfgMode);
    }
 #endif
    // Call common dma init function
@@ -221,7 +215,7 @@ int Rce_Remove(struct platform_device *pdev) {
    // Find matching entry
    tmpIdx = -1;
    for ( x=0; x < MAX_DMA_DEVICES; x++ ) {
-      if (strcmp(tmpName,RceDevNames[x]) == 0) {
+      if (strcmp(tmpName, RceDevNames[x]) == 0) {
          tmpIdx = x;
          break;
       }
@@ -244,39 +238,39 @@ int Rce_Remove(struct platform_device *pdev) {
 }
 
 // Parameters
-module_param(cfgTxCount0,int,0);
+module_param(cfgTxCount0, int, 0);
 MODULE_PARM_DESC(cfgTxCount0, "TX buffer count");
 
-module_param(cfgTxCount1,int,0);
+module_param(cfgTxCount1, int, 0);
 MODULE_PARM_DESC(cfgTxCount1, "TX buffer count");
 
-module_param(cfgTxCount2,int,0);
+module_param(cfgTxCount2, int, 0);
 MODULE_PARM_DESC(cfgTxCount2, "TX buffer count");
 
-module_param(cfgRxCount0,int,0);
+module_param(cfgRxCount0, int, 0);
 MODULE_PARM_DESC(cfgRxCount0, "RX buffer count");
 
-module_param(cfgRxCount1,int,0);
+module_param(cfgRxCount1, int, 0);
 MODULE_PARM_DESC(cfgRxCount1, "RX buffer count");
 
-module_param(cfgRxCount2,int,0);
+module_param(cfgRxCount2, int, 0);
 MODULE_PARM_DESC(cfgRxCount2, "RX buffer count");
 
-module_param(cfgSize0,int,0);
+module_param(cfgSize0, int, 0);
 MODULE_PARM_DESC(cfgSize0, "RX/TX buffer size");
 
-module_param(cfgSize1,int,0);
+module_param(cfgSize1, int, 0);
 MODULE_PARM_DESC(cfgSize1, "RX/TX buffer size");
 
-module_param(cfgSize2,int,0);
+module_param(cfgSize2, int, 0);
 MODULE_PARM_DESC(cfgSize2, "RX/TX buffer size");
 
-module_param(cfgMode0,int,0);
+module_param(cfgMode0, int, 0);
 MODULE_PARM_DESC(cfgMode0, "RX buffer mode");
 
-module_param(cfgMode1,int,0);
+module_param(cfgMode1, int, 0);
 MODULE_PARM_DESC(cfgMode1, "RX buffer mode");
 
-module_param(cfgMode2,int,0);
+module_param(cfgMode2, int, 0);
 MODULE_PARM_DESC(cfgMode2, "RX buffer mode");
 

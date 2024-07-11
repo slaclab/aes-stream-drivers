@@ -24,9 +24,13 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <argp.h>
+#include <iostream>
+
 #include <AxisDriver.h>
 // #include <PrbsData.h>
-using namespace std;
+
+using std::cout;
+using std::endl;
 
 #define MAX_RET_CNT_C 1000
 
@@ -56,7 +60,7 @@ static struct argp_option options[] = {
 error_t parseArgs(int key, char *arg, struct argp_state *state) {
    struct PrgArgs *args = (struct PrgArgs *)state->input;
 
-   switch(key) {
+   switch (key) {
       case 'p': args->path = arg; break;
       case 'c': args->count = atoi(arg); break;
       default: return ARGP_ERR_UNKNOWN; break;

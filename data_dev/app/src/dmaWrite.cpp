@@ -24,9 +24,13 @@
 #include <string.h>
 #include <stdlib.h>
 #include <argp.h>
+#include <iostream>
+
 #include <DmaDriver.h>
 #include <PrbsData.h>
-using namespace std;
+
+using std::cout;
+using std::endl;
 
 const char *argp_program_version = "dmaWrite 1.0";
 const char *argp_program_bug_address = "rherbst@slac.stanford.edu";
@@ -93,7 +97,7 @@ int main(int argc, char **argv) {
    uint32_t count;
    fd_set fds;
    void *txData = NULL;
-   PrbsData prbs(32, 4, 1, 2, 6, 31); // Example PRBS (Pseudo-Random Binary Sequence) generator initialization
+   PrbsData prbs(32, 4, 1, 2, 6, 31);  // Example PRBS (Pseudo-Random Binary Sequence) generator initialization
    void **dmaBuffers = NULL;
    uint32_t dmaSize;
    uint32_t dmaCount;
@@ -176,8 +180,11 @@ int main(int argc, char **argv) {
    gettimeofday(&endTime, NULL);
 
    // Clean up allocated resources
-   if (args.idxEn) dmaUnMapDma(s, dmaBuffers);
-   else free(txData);
+   if (args.idxEn) {
+       dmaUnMapDma(s, dmaBuffers);
+   } else {
+       free(txData);
+   }
 
    // Calculate and print write operation statistics
    timersub(&endTime, &startTime, &diffTime);

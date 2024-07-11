@@ -34,14 +34,13 @@
  * it, and associates it with the given DmaDevice. It sets up
  * the base address for GPU operations and initializes buffer counts.
  */
-void Gpu_Init(struct DmaDevice *dev, uint32_t offset)
-{
+void Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
    struct GpuData *gpuData;
 
    /* Allocate memory for GPU utility data */
    gpuData = (struct GpuData *)kzalloc(sizeof(struct GpuData), GFP_KERNEL);
    if (!gpuData)
-      return; // Handle memory allocation failure if necessary
+      return;  // Handle memory allocation failure if necessary
 
    /* Associate GPU utility data with the device */
    dev->utilData = gpuData;
@@ -64,8 +63,7 @@ void Gpu_Init(struct DmaDevice *dev, uint32_t offset)
  *
  * Return: 0 on success, -1 on error.
  */
-int32_t Gpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg)
-{
+int32_t Gpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    switch (cmd) {
       // Add NVIDIA Memory
       case GPU_Add_Nvidia_Memory:
@@ -147,26 +145,27 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
       dev_warn(dev->device, "Gpu_AddNvidia: dma map done. ret = %i\n", ret);
 
       if (ret != 0) {
-         dev_warn(dev->device,"Gpu_AddNvidia: error mapping page tables ret=%i\n",ret);
-      }
-      else {
+         dev_warn(dev->device, "Gpu_AddNvidia: error mapping page tables ret=%i\n", ret);
 
+      } else {
          // Determine how much memory is contiguous
          mapSize = 0;
          for (x=0; x < buffer->dmaMapping->entries; x++) {
-            if (buffer->dmaMapping->dma_addresses[0] + mapSize == buffer->dmaMapping->dma_addresses[x] )
+            if (buffer->dmaMapping->dma_addresses[0] + mapSize == buffer->dmaMapping->dma_addresses[x]) {
                mapSize += GPU_BOUND_SIZE;
-            else break;
+            } else {
+                break;
+            }
          }
 
          dev_warn(dev->device, "Gpu_AddNvidia: dma address 0 = 0x%llx, total = %li, pages = %i\n",
                buffer->dmaMapping->dma_addresses[0], mapSize, x);
 
          // Update buffer count and write DMA addresses to device
-         if (buffer->write){
+         if (buffer->write) {
             writel(buffer->dmaMapping->dma_addresses[0] & 0xFFFFFFFF, data->base+0x100+data->writeBuffers.count*16);
             writel((buffer->dmaMapping->dma_addresses[0] >> 32) & 0xFFFFFFFF, data->base+0x104+data->writeBuffers.count*16);
-            writel(mapSize,data->base+0x108+data->writeBuffers.count*16);
+            writel(mapSize, data->base+0x108+data->writeBuffers.count*16);
             data->writeBuffers.count++;
          } else {
             writel(buffer->dmaMapping->dma_addresses[0] & 0xFFFFFFFF, data->base+0x200+data->readBuffers.count*16);
@@ -175,23 +174,23 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
          }
       }
    } else {
-       dev_warn(dev->device,"Gpu_AddNvidia: failed to pin memory with address=0x%llx. ret=%i\n", dat.address,ret);
+       dev_warn(dev->device, "Gpu_AddNvidia: failed to pin memory with address=0x%llx. ret=%i\n", dat.address, ret);
        return -1;
    }
 
    x = 0;
 
-   if (data->writeBuffers.count > 0 ) {
+   if (data->writeBuffers.count > 0) {
       x |= 0x00000100;
       x |= (data->writeBuffers.count-1);
    }
 
-   if (data->readBuffers.count > 0 ) {
+   if (data->readBuffers.count > 0) {
       x |= 0x01000000;
       x |= (data->readBuffers.count-1) << 16;
    }
 
-   writel(x,data->base+0x008);
+   writel(x, data->base+0x008);
    return 0;
 }
 
@@ -208,8 +207,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
  *
  * Return: Always returns 0 indicating success.
  */
-int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg)
-{
+int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
    uint32_t x;
    u64 virt_start;
 

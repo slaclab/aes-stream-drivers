@@ -45,4 +45,4 @@ public:
    bool processData(const void *data, uint32_t size);
 };
 
-#endif // __PRBS_DATA_H__
+#endif  // __PRBS_DATA_H__

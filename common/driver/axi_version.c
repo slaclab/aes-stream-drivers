@@ -121,37 +121,37 @@ void AxiVersion_Show(struct seq_file *s, struct DmaDevice *dev, struct AxiVersio
    int32_t x;
    bool gitDirty = true;
 
-   seq_printf(s,"---------- Firmware Axi Version -----------\n");
-   seq_printf(s,"     Firmware Version : 0x%x\n",aVer->firmwareVersion);
-   seq_printf(s,"           ScratchPad : 0x%x\n",aVer->scratchPad);
-   seq_printf(s,"        Up Time Count : %u\n",aVer->upTimeCount);
+   seq_printf(s, "---------- Firmware Axi Version -----------\n");
+   seq_printf(s, "     Firmware Version : 0x%x\n", aVer->firmwareVersion);
+   seq_printf(s, "           ScratchPad : 0x%x\n", aVer->scratchPad);
+   seq_printf(s, "        Up Time Count : %u\n", aVer->upTimeCount);
 
-   // seq_printf(s,"             Fd Value : 0x");
-   // for (x=0; x < 8; x++) seq_printf(s,"%.02x",aVer->fdValue[8-x]);
-   // seq_printf(s,"\n");
+   // seq_printf(s, "             Fd Value : 0x");
+   // for (x=0; x < 8; x++) seq_printf(s, "%.02x", aVer->fdValue[8-x]);
+   // seq_printf(s, "\n");
    // for (x=0; x < 64; x++)
-   // seq_printf(s,"          User Values : 0x%x\n",aVer->userValues[x]);
-   // seq_printf(s,"            Device ID : 0x%x\n",aVer->deviceId);
+   // seq_printf(s, "          User Values : 0x%x\n", aVer->userValues[x]);
+   // seq_printf(s, "            Device ID : 0x%x\n", aVer->deviceId);
 
    // Git hash processing to determine if code is 'dirty'
-   seq_printf(s,"             Git Hash : ");
+   seq_printf(s, "             Git Hash : ");
    for (x=0; x < 20; x++) {
       if ( aVer->gitHash[19-x] != 0 ) gitDirty = false;
    }
    if ( gitDirty ) {
-      seq_printf(s,"dirty (uncommitted code)");
+      seq_printf(s, "dirty (uncommitted code)");
    } else {
-      for (x=0; x < 20; x++) seq_printf(s,"%.02x",aVer->gitHash[19-x]);
+      for (x=0; x < 20; x++) seq_printf(s, "%.02x", aVer->gitHash[19-x]);
    }
-   seq_printf(s,"\n");
+   seq_printf(s, "\n");
 
    // Displaying DNA value
-   seq_printf(s,"            DNA Value : 0x");
-   for (x=0; x < 16; x++) seq_printf(s,"%.02x",aVer->dnaValue[15-x]);
-   seq_printf(s,"\n");
+   seq_printf(s, "            DNA Value : 0x");
+   for (x=0; x < 16; x++) seq_printf(s, "%.02x", aVer->dnaValue[15-x]);
+   seq_printf(s, "\n");
 
    // Build string display
-   seq_printf(s,"         Build String : %s\n",aVer->buildString);
+   seq_printf(s, "         Build String : %s\n", aVer->buildString);
 }
 
 /**

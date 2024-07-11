@@ -1,7 +1,7 @@
 /**
- *-----------------------------------------------------------------------------
- * Company: SLAC National Accelerator Laboratory
- *-----------------------------------------------------------------------------
+ * ----------------------------------------------------------------------------
+ * Company    : SLAC National Accelerator Laboratory
+ * ----------------------------------------------------------------------------
  * Description:
  *    Definitions and inline functions for interacting with the Data Development driver
  *-----------------------------------------------------------------------------
@@ -24,4 +24,4 @@
 #include <DmaDriver.h>   // Direct Memory Access (DMA) Driver
 #include <AxiVersion.h>  // Kernel AXI Version Interface
 
-#endif // __DATA_DRIVER_H__
+#endif  // __DATA_DRIVER_H__
