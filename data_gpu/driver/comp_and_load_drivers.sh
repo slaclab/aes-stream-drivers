@@ -6,9 +6,26 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# Get the gcc that kernel was built with
-version_content=$(cat /proc/version)
-CC=$(echo "$version_content" | grep -oP 'x86_64-linux-gnu-gcc-\d+')
+# Determine the Linux distribution
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    distro=$ID
+else
+    echo "Error: Cannot determine the Linux distribution." >&2
+    exit 1
+fi
+
+# Set the CC variable based on the distribution
+if [ "$distro" == "ubuntu" ]; then
+    # Get the gcc that kernel was built with
+    version_content=$(cat /proc/version)
+    CC=$(echo "$version_content" | grep -oP 'x86_64-linux-gnu-gcc-\d+')
+elif [ "$distro" == "rhel" ] || [ "$distro" == "rocky" ]; then
+    CC="x86_64-redhat-linux-gcc"
+else
+    echo "Error: Unsupported Linux distribution." >&2
+    exit 1
+fi
 echo "CC: $CC"
 
 # Define Nvidia path
