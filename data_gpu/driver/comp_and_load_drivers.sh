@@ -51,6 +51,9 @@ echo "Using RET_DIR: $RET_DIR"
 
 # Go to nvidia path and build Nvidia driver
 cd "$NVIDIA_PATH" || { echo "Error: Failed to change directory to $NVIDIA_PATH"; exit 1; }
+# Clean previous builds
+make clean
+# Build Nvidia driver
 make CC=$CC
 
 if modinfo ecc >/dev/null 2>&1; then
