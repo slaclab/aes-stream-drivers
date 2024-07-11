@@ -54,4 +54,4 @@ int Rce_Probe(struct platform_device *pdev);
  */
 int Rce_Remove(struct platform_device *pdev);
 
-#endif // __RCE_TOP_H__
+#endif  // __RCE_TOP_H__

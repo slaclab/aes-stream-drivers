@@ -76,11 +76,11 @@ const char *RceDevNames[MAX_DMA_DEVICES] = {
 };
 
 /* Module metadata */
-#define MOD_NAME "axi_stream_dma" ///< Module name
+#define MOD_NAME "axi_stream_dma"  ///< Module name
 
-MODULE_AUTHOR("Ryan Herbst"); ///< Module author
-MODULE_DESCRIPTION("AXI Stream DMA driver. V3"); ///< Module description
-MODULE_LICENSE("GPL"); ///< Module license
+MODULE_AUTHOR("Ryan Herbst");  ///< Module author
+MODULE_DESCRIPTION("AXI Stream DMA driver. V3");  ///< Module description
+MODULE_LICENSE("GPL");  ///< Module license
 
 /**
  * Rce_runtime_suspend - Suspend routine for runtime power management.
@@ -94,8 +94,7 @@ MODULE_LICENSE("GPL"); ///< Module license
  * @dev: Device structure representing the DMA device.
  * @return: Always returns 0, indicating success.
  */
-static int Rce_runtime_suspend(struct device *dev)
-{
+static int Rce_runtime_suspend(struct device *dev) {
    // Currently, there are no device-specific suspend actions required.
    // Placeholder for implementing suspend logic specific to the device.
    return 0;
@@ -114,8 +113,7 @@ static int Rce_runtime_suspend(struct device *dev)
  * @dev: Device structure representing the DMA device.
  * @return: Always returns 0, indicating success.
  */
-static int Rce_runtime_resume(struct device *dev)
-{
+static int Rce_runtime_resume(struct device *dev) {
    // Currently, no device-specific resume actions are required.
    // Placeholder for future implementation of resume logic specific to the device.
    return 0;
@@ -244,7 +242,7 @@ int Rce_Probe(struct platform_device *pdev) {
          dev->cfgMode = cfgMode2;
          break;
       default:
-         return -1; // Invalid index
+         return -1;  // Invalid index
    }
 
    // Instance-independent configuration
@@ -273,7 +271,7 @@ int Rce_Probe(struct platform_device *pdev) {
 
    // Initialize DMA and check for success
    if (Dma_Init(dev) < 0)
-      return -1; // Return error if DMA initialization fails
+      return -1;  // Return error if DMA initialization fails
 
    // Successful DMA initialization increments device count
    gDmaDevCount++;
@@ -297,8 +295,7 @@ int Rce_Probe(struct platform_device *pdev) {
  * @pdev: Platform device structure representing the DMA device.
  * @return: Returns 0 on successful cleanup, -1 if no matching device is found.
  */
-int Rce_Remove(struct platform_device *pdev)
-{
+int Rce_Remove(struct platform_device *pdev) {
    int32_t x;
    const char *tmpName;
    int32_t tmpIdx;

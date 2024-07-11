@@ -24,9 +24,12 @@
 #include <string.h>
 #include <argp.h>
 #include <stdlib.h>
+#include <iostream>
+
 #include <DmaDriver.h>
 
-using namespace std;
+using std::cout;
+using std::endl;
 
 // Version and contact information
 const char *argp_program_version = "setDebug 1.0";
@@ -63,12 +66,12 @@ error_t parseArgs(int key, char *arg, struct argp_state *state) {
          if (state->arg_num == 0) {
             args->level = strtol(arg, NULL, 10);
          } else {
-            argp_usage(state); // Too many arguments
+            argp_usage(state);  // Too many arguments
          }
          break;
       case ARGP_KEY_END:
          if (state->arg_num < 1) {
-            argp_usage(state); // Not enough arguments
+            argp_usage(state);  // Not enough arguments
          }
          break;
       default:

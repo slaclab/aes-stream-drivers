@@ -1,11 +1,5 @@
-# 
 # ----------------------------------------------------------------------------
-# Title      : PGP applications makefile
-# ----------------------------------------------------------------------------
-# File       : Makefile
-# Author     : Ryan Herbst, rherbst@slac.stanford.edu
-# Created    : 2016-08-08
-# Last update: 2016-08-08
+# Company    : SLAC National Accelerator Laboratory
 # ----------------------------------------------------------------------------
 # Description:
 # PGP applications makefile
@@ -18,7 +12,6 @@
 # copied, modified, propagated, or distributed except according to the terms 
 # contained in the LICENSE.txt file.
 # ----------------------------------------------------------------------------
-# 
 
 # Variables
 HOME     := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))

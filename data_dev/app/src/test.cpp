@@ -25,9 +25,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include <argp.h>
+#include <iostream>
+
 #include <DmaDriver.h>
 
-using namespace std;
+using std::cout;
+using std::endl;
 
 int main(int argc, char **argv) {
    int32_t s;
@@ -61,7 +64,7 @@ int main(int argc, char **argv) {
 
    // Perform DMA write operations
    do {
-      while ((ret = dmaWrite(s, txData, dmaSize, 0, 0)) == 0);
+      while ((ret = dmaWrite(s, txData, dmaSize, 0, 0)) == 0) {}
 
       if (ret < 0) {
          printf("DMA write error occurred\n");

@@ -1,9 +1,5 @@
 # ----------------------------------------------------------------------------
-# Title      : RCE HP buffer driver makefile
-# ----------------------------------------------------------------------------
-# File       : Makefile
-# Author     : Ryan Herbst, rherbst@slac.stanford.edu
-# Created    : 2017-08-11
+# Company    : SLAC National Accelerator Laboratory
 # ----------------------------------------------------------------------------
 # This file is part of the aes_stream_drivers package. It is subject to
 # the license terms in the LICENSE.txt file found in the top-level directory
@@ -13,7 +9,6 @@
 # copied, modified, propagated, or distributed except according to the terms
 # contained in the LICENSE.txt file.
 # ----------------------------------------------------------------------------
-#
 
 NAME := rce_hp
 HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))

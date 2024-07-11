@@ -1,7 +1,7 @@
 /**
- *-----------------------------------------------------------------------------
- * Company: SLAC National Accelerator Laboratory
- *-----------------------------------------------------------------------------
+ * ----------------------------------------------------------------------------
+ * Company    : SLAC National Accelerator Laboratory
+ * ----------------------------------------------------------------------------
  * Description:
  *    Provides definitions and inline functions for utilizing GPU asynchronous
  *    features within the aes_stream_drivers package.
@@ -85,5 +85,5 @@ static inline ssize_t gpuRemNvidiaMemory(int32_t fd) {
    return(ioctl(fd, GPU_Rem_Nvidia_Memory, 0));
 }
 
-#endif // !DMA_IN_KERNEL
-#endif // __GPU_ASYNC_H__
+#endif  // !DMA_IN_KERNEL
+#endif  // __GPU_ASYNC_H__

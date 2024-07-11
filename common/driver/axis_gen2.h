@@ -75,42 +75,42 @@
  * hardware access to perform DMA operations.
  */
 struct AxisG2Reg {
-   uint32_t enableVer;       // 0x0000
-   uint32_t intEnable;       // 0x0004
-   uint32_t contEnable;      // 0x0008
-   uint32_t dropEnable;      // 0x000C
-   uint32_t wrBaseAddrLow;   // 0x0010
-   uint32_t wrBaseAddrHigh;  // 0x0014
-   uint32_t rdBaseAddrLow;   // 0x0018
-   uint32_t rdBaseAddrHigh;  // 0x001C
-   uint32_t fifoReset;       // 0x0020
-   uint32_t spareA;          // 0x0024
-   uint32_t maxSize;         // 0x0028
-   uint32_t online;          // 0x002C
-   uint32_t acknowledge;     // 0x0030
-   uint32_t channelCount;    // 0x0034
-   uint32_t addrWidth;       // 0x0038
-   uint32_t cacheConfig;     // 0x003C
-   uint32_t readFifoA;       // 0x0040
-   uint32_t readFifoB;       // 0x0044
-   uint32_t writeFifoA;      // 0x0048
-   uint32_t intAckAndEnable; // 0x004C
-   uint32_t intReqCount;     // 0x0050
-   uint32_t hwWrIndex;       // 0x0054
-   uint32_t hwRdIndex;       // 0x0058
-   uint32_t wrReqMissed;     // 0x005C
-   uint32_t readFifoC;       // 0x0060
-   uint32_t readFifoD;       // 0x0064
-   uint32_t spareB[2];       // 0x0068 - 0x006C
-   uint32_t writeFifoB;      // 0x0070
-   uint32_t spareC[3];       // 0x0074 - 0x007C
-   uint32_t forceInt;        // 0x0080
-   uint32_t irqHoldOff;      // 0x0084
-   uint32_t spareD[2];       // 0x0088 - 0x008C
-   uint32_t bgThold[8];      // 0x0090 - 0x00AC
-   uint32_t bgCount[8];      // 0x00B0 - 0x00CC
-   uint32_t spareE[4044];    // 0x00D0 - 0x3FFC
-   uint32_t dmaAddr[4096];   // 0x4000 - 0x7FFC
+   uint32_t enableVer;        // 0x0000
+   uint32_t intEnable;        // 0x0004
+   uint32_t contEnable;       // 0x0008
+   uint32_t dropEnable;       // 0x000C
+   uint32_t wrBaseAddrLow;    // 0x0010
+   uint32_t wrBaseAddrHigh;   // 0x0014
+   uint32_t rdBaseAddrLow;    // 0x0018
+   uint32_t rdBaseAddrHigh;   // 0x001C
+   uint32_t fifoReset;        // 0x0020
+   uint32_t spareA;           // 0x0024
+   uint32_t maxSize;          // 0x0028
+   uint32_t online;           // 0x002C
+   uint32_t acknowledge;      // 0x0030
+   uint32_t channelCount;     // 0x0034
+   uint32_t addrWidth;        // 0x0038
+   uint32_t cacheConfig;      // 0x003C
+   uint32_t readFifoA;        // 0x0040
+   uint32_t readFifoB;        // 0x0044
+   uint32_t writeFifoA;       // 0x0048
+   uint32_t intAckAndEnable;  // 0x004C
+   uint32_t intReqCount;      // 0x0050
+   uint32_t hwWrIndex;        // 0x0054
+   uint32_t hwRdIndex;        // 0x0058
+   uint32_t wrReqMissed;      // 0x005C
+   uint32_t readFifoC;        // 0x0060
+   uint32_t readFifoD;        // 0x0064
+   uint32_t spareB[2];        // 0x0068 - 0x006C
+   uint32_t writeFifoB;       // 0x0070
+   uint32_t spareC[3];        // 0x0074 - 0x007C
+   uint32_t forceInt;         // 0x0080
+   uint32_t irqHoldOff;       // 0x0084
+   uint32_t spareD[2];        // 0x0088 - 0x008C
+   uint32_t bgThold[8];       // 0x0090 - 0x00AC
+   uint32_t bgCount[8];       // 0x00B0 - 0x00CC
+   uint32_t spareE[4044];     // 0x00D0 - 0x3FFC
+   uint32_t dmaAddr[4096];    // 0x4000 - 0x7FFC
 };
 
 /**
@@ -138,14 +138,14 @@ struct AxisG2Reg {
  *          and referencing purposes.
  */
 struct AxisG2Return {
-   uint32_t index;  // Index of the operation
-   uint32_t size;   // Size of the data transferred
-   uint8_t  result; // Result of the operation
-   uint8_t  fuser;  // First user-defined value
-   uint8_t  luser;  // Last user-defined value
-   uint16_t dest;   // Destination identifier
-   uint8_t  cont;   // Continuous operation flag
-   uint8_t  id;     // Operation identifier
+   uint32_t index;   // Index of the operation
+   uint32_t size;    // Size of the data transferred
+   uint8_t  result;  // Result of the operation
+   uint8_t  fuser;   // First user-defined value
+   uint8_t  luser;   // Last user-defined value
+   uint16_t dest;    // Destination identifier
+   uint8_t  cont;    // Continuous operation flag
+   uint8_t  id;      // Operation identifier
 };
 
 /**
@@ -210,10 +210,10 @@ struct AxisG2Data {
 };
 
 // Function prototypes
-inline uint8_t AxisG2_MapReturn ( struct DmaDevice *dev, struct AxisG2Return *ret, uint32_t desc128En, uint32_t index, uint32_t *ring);
-inline void AxisG2_WriteFree ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En );
-inline void AxisG2_WriteTx ( struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En );
-uint32_t AxisG2_Process (struct DmaDevice * dev, struct AxisG2Reg *reg, struct AxisG2Data *hwData );
+inline uint8_t AxisG2_MapReturn(struct DmaDevice *dev, struct AxisG2Return *ret, uint32_t desc128En, uint32_t index, uint32_t *ring);
+inline void AxisG2_WriteFree(struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En);
+inline void AxisG2_WriteTx(struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En);
+uint32_t AxisG2_Process(struct DmaDevice * dev, struct AxisG2Reg *reg, struct AxisG2Data *hwData);
 irqreturn_t AxisG2_Irq(int irq, void *dev_id);
 void AxisG2_Init(struct DmaDevice *dev);
 void AxisG2_Enable(struct DmaDevice *dev);
@@ -223,8 +223,8 @@ int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32
 int32_t AxisG2_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);
 void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev);
 extern struct hardware_functions AxisG2_functions;
-void AxisG2_WqTask_IrqForce ( struct work_struct *work );
-void AxisG2_WqTask_Poll ( struct work_struct *work );
-void AxisG2_WqTask_Service ( struct work_struct *work );
+void AxisG2_WqTask_IrqForce(struct work_struct *work);
+void AxisG2_WqTask_Poll(struct work_struct *work);
+void AxisG2_WqTask_Service(struct work_struct *work);
 
-#endif // __AXIS_GEN2_H__
+#endif  // __AXIS_GEN2_H__

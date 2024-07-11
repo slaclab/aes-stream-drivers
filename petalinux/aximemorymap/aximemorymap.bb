@@ -11,7 +11,6 @@ SRC_URI = "file://Makefile \
            file://aximemorymap.c \
            file://aximemorymap.h \
            file://DmaDriver.h \
-	   file://COPYING \
           "
 
 S = "${WORKDIR}"

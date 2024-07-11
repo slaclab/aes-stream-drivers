@@ -1,11 +1,7 @@
 /**
  *-----------------------------------------------------------------------------
- * Title      : Top level module
- * ----------------------------------------------------------------------------
- * File       : rce_top.c
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2017-08-11
- * ----------------------------------------------------------------------------
+ * Company    : SLAC National Accelerator Laboratory
+ *-----------------------------------------------------------------------------
  * Description:
  * Top level module types and functions.
  * ----------------------------------------------------------------------------
@@ -92,7 +88,7 @@ int Rce_Probe(struct platform_device *pdev) {
    // Find matching entry
    tmpIdx = -1;
    for ( x=0; x < MAX_DMA_DEVICES; x++ ) {
-      if (strcmp(tmpName,RceDevNames[x]) == 0) {
+      if (strcmp(tmpName, RceDevNames[x]) == 0) {
          tmpIdx = x;
          break;
       }
@@ -100,7 +96,7 @@ int Rce_Probe(struct platform_device *pdev) {
 
    // Matching device not found
    if ( tmpIdx < 0 ) {
-      pr_warn("%s: Probe: Matching device not found: %s.\n", MOD_NAME,tmpName);
+      pr_warn("%s: Probe: Matching device not found: %s.\n", MOD_NAME, tmpName);
       return(-1);
    }
    dev = &gDmaDevices[tmpIdx];
@@ -108,14 +104,14 @@ int Rce_Probe(struct platform_device *pdev) {
    pr_info("%s: Probe: Using index %i for %s.\n", MOD_NAME, tmpIdx, tmpName);
 
    // Init structure
-   memset(dev,0,sizeof(struct DmaDevice));
+   memset(dev, 0, sizeof(struct DmaDevice));
    dev->index = tmpIdx;
 
    // Increment count
    gDmaDevCount++;
 
    // Create a device name
-   strcpy(dev->devName,tmpName);
+   strcpy(dev->devName,tmpName);//NOLINT
 
    // Get Base Address of registers from pci structure.
    dev->baseAddr = pdev->resource[0].start;
@@ -156,7 +152,7 @@ int Rce_Remove(struct platform_device *pdev) {
    // Find matching entry
    tmpIdx = -1;
    for ( x=0; x < MAX_DMA_DEVICES; x++ ) {
-      if (strcmp(tmpName,RceDevNames[x]) == 0) {
+      if (strcmp(tmpName, RceDevNames[x]) == 0) {
          tmpIdx = x;
          break;
       }
@@ -179,9 +175,9 @@ int Rce_Remove(struct platform_device *pdev) {
 }
 
 // Parameters
-module_param(cfgCount,int,0);
+module_param(cfgCount, int, 0);
 MODULE_PARM_DESC(cfgCount, "Buffer count");
 
-module_param(cfgSize,int,0);
+module_param(cfgSize, int, 0);
 MODULE_PARM_DESC(cfgSize, "Buffer size");
 

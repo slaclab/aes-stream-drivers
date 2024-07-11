@@ -1,12 +1,7 @@
 /**
  *-----------------------------------------------------------------------------
- * Title      : RCE HP Driver
- * ----------------------------------------------------------------------------
- * File       : rce_hp.h
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-08
- * Last update: 2016-08-08
- * ----------------------------------------------------------------------------
+ * Company    : SLAC National Accelerator Laboratory
+ *-----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory
  * of this distribution and at:
@@ -19,9 +14,10 @@
 #ifndef __RCE_HP_H__
 #define __RCE_HP_H__
 
+#include <linux/interrupt.h>
+
 #include "dma_common.h"
 #include "dma_buffer.h"
-#include <linux/interrupt.h>
 
 struct RceHpReg {
    uint32_t spare[100];      // skip  0x0 - 0x3FF
