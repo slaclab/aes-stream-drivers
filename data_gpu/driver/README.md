@@ -22,17 +22,19 @@ $ sudo systemctl disable sddm    # For SDDM
 $ sudo systemctl disable nvidia-persistenced
 ```
 
-Add the nvida cuda package for nvidia-545.23.08 and install the cuda toolkit:
+Install nvidia cuda packages and cuda toolkit:
 
 ```bash
 $ wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb
 $ sudo dpkg -i cuda-keyring_1.0-1_all.deb
 $ sudo apt update
-$ sudo apt install nvidia-kernel-source-545 # Tested with nvidia-545.23.08
-$ sudo apt install nvidia-cuda-toolkit
+$ sudo apt-get purge nvidia-* -y
+$ sudo apt autoremove -y
+$ sudo apt install nvidia-kernel-source-545-open nvidia-cuda-toolkit -y
+$ sudo reboot
 ```
 
-Add `iommu=off nouveau.modeset=0 rd.driver.blacklist=nouveau` GRUB_CMDLINE_LINUX:
+Next, Add `iommu=off nouveau.modeset=0 rd.driver.blacklist=nouveau` GRUB_CMDLINE_LINUX:
 
 ```bash
 $ sudo nano /etc/default/grub
