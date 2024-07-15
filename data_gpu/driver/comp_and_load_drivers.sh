@@ -43,11 +43,14 @@ RET_DIR=$PWD
 echo "Using RET_DIR: $RET_DIR"
 
 # Remove existing Nvidia modules (if any)
-/usr/sbin/rmmod datagpu 2>/dev/null
-/usr/sbin/rmmod nvidia-drm 2>/dev/null
-/usr/sbin/rmmod nvidia-uvm 2>/dev/null
-/usr/sbin/rmmod nvidia-modeset 2>/dev/null
-/usr/sbin/rmmod nvidia 2>/dev/null
+modules=("datagpu" "nvidia-drm" "nvidia-uvm" "nvidia-modeset" "nvidia" "nouveau")
+for module in "${modules[@]}"; do
+    output=$(/usr/sbin/rmmod $module 2>&1)
+    status=$?
+    if [[ $status -ne 0 && $output != *"Module $module is not currently loaded"* ]]; then
+        echo "Error: Failed to unload module $module. It might be in use."
+    fi
+done
 
 # Go to nvidia path and build Nvidia driver
 cd "$NVIDIA_PATH" || { echo "Error: Failed to change directory to $NVIDIA_PATH"; exit 1; }
