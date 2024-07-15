@@ -47,8 +47,11 @@ modules=("datagpu" "nvidia-drm" "nvidia-uvm" "nvidia-modeset" "nvidia" "nouveau"
 for module in "${modules[@]}"; do
     output=$(/usr/sbin/rmmod $module 2>&1)
     status=$?
-    if [[ $status -ne 0 && $output != *"Module $module is not currently loaded"* ]]; then
-        echo "Error: Failed to unload module $module. It might be in use."
+    if [[ $status -ne 0 ]]; then
+        if [[ $output == *"Module $module is in use"* ]]; then
+            echo "Error: Module $module is in use. Stopping script."
+            exit 1
+        fi
     fi
 done
 
