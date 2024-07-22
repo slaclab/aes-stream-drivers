@@ -27,6 +27,11 @@ Install nvidia cuda packages and cuda toolkit:
 ```bash
 $ wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb
 $ sudo dpkg -i cuda-keyring_1.0-1_all.deb
+$ sudo /usr/sbin/rmmod nvidia-drm
+$ sudo /usr/sbin/rmmod nvidia-uvm
+$ sudo /usr/sbin/rmmod nvidia-modeset
+$ sudo /usr/sbin/rmmod nvidia
+$ sudo /usr/sbin/rmmod nouveau
 $ sudo apt update
 $ sudo apt-get purge nvidia-* -y
 $ sudo apt autoremove -y
