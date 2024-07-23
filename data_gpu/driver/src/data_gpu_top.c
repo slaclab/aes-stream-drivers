@@ -310,11 +310,11 @@ void DataGpu_Remove(struct pci_dev *pcidev) {
    /* Decrement the global count of DMA devices. */
    gDmaDevCount--;
 
-   /* Disable the PCI device to prevent further access. */
-   pci_disable_device(pcidev);
-
    /* Clean up DMA resources specific to this device. */
    Dma_Clean(dev);
+
+   /* Disable the PCI device to prevent further access. */
+   pci_disable_device(pcidev);
 
    /* Log the successful removal of the device. */
    pr_info("%s: Remove: Driver is unloaded.\n", MOD_NAME);
