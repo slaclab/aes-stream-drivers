@@ -30,7 +30,11 @@
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/version.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
 #include <linux/dma-map-ops.h>
+#endif
 
 // Init Configuration values
 int cfgTxCount0 = 8;
