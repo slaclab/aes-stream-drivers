@@ -113,11 +113,9 @@ size_t dmaAllocBuffers(struct DmaDevice *dev, struct DmaBufferList *list,
             buff->buffHandle = dma_map_single(list->dev->device, buff->buffAddr, list->dev->cfgSize, direction);
             // Check for mapping error
             if ( dma_mapping_error(list->dev->device, buff->buffHandle) ) {
-               // DMA mapping was successful
-               buff->buffHandle = 0;
-            } else {
                // DMA mapping failed
                dev_err(dev->device, "dmaAllocBuffers(BUFF_STREAM): DMA mapping failed\n");
+               buff->buffHandle = 0;
             }
          } else {
             // Memory allocation failed
