@@ -30,6 +30,7 @@
  **/
 #define GPU_Add_Nvidia_Memory 0x8002   // Command to add NVIDIA GPU memory
 #define GPU_Rem_Nvidia_Memory 0x8003   // Command to remove NVIDIA GPU memory
+#define GPU_Set_Write_ENable  0x8004   // Set Write Enable Flag
 
 /**
  * struct GpuNvidiaData - Represents NVIDIA GPU memory data.
@@ -83,6 +84,20 @@ static inline ssize_t gpuAddNvidiaMemory(int32_t fd, uint32_t write, uint64_t ad
  **/
 static inline ssize_t gpuRemNvidiaMemory(int32_t fd) {
    return(ioctl(fd, GPU_Rem_Nvidia_Memory, 0));
+}
+
+/**
+ * gpuSetWriteEn - Set write enable for buffer
+ * @dev: pointer to the DMA device structure
+ * @arg: user space argument pointing to buffer index
+ *
+ * This function enables a DMA buffer for DMA operations.
+ *
+ * Return: 0 on success, negative error code on failure.
+ */
+static inline ssize_t gpuSetWriteEn(uint32_t idx) {
+   uint32_t lidx = idx;
+   return(ioctl(fd, GPU_Set_Write_Enable, &lidx));
 }
 
 #endif  // !DMA_IN_KERNEL

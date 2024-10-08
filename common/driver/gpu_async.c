@@ -65,6 +65,7 @@ void Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
  */
 int32_t Gpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    switch (cmd) {
+
       // Add NVIDIA Memory
       case GPU_Add_Nvidia_Memory:
          return Gpu_AddNvidia(dev, arg);
@@ -73,6 +74,11 @@ int32_t Gpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
       // Remove NVIDIA Memory
       case GPU_Rem_Nvidia_Memory:
          return Gpu_RemNvidia(dev, arg);
+         break;
+
+      // Set write enable flag
+      case GPU_Set_Write_Enable:
+         return Gpu_SetWriteEn(dev, arg);
          break;
 
       default:
@@ -260,3 +266,37 @@ void Gpu_FreeNvidia(void *data) {
    dev_warn(dev->device, "Gpu_FreeNvidia: Called\n");
    Gpu_RemNvidia(dev, 0);
 }
+
+/**
+ * Gpu_SetWriteEn - Set write enable for buffer
+ * @dev: pointer to the DMA device structure
+ * @arg: user space argument pointing to buffer index
+ *
+ * This function enables a DMA buffer for DMA operations.
+ *
+ * Return: 0 on success, negative error code on failure.
+ */
+int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg) {
+   uint32_t idx;
+   int32_t ret;
+
+   struct GpuData   * data;
+
+   data = (struct GpuData *)dev->utilData;
+
+   // Copy data from user space
+   if ((ret = copy_from_user(&idx, (void *)arg, sizeof(uint32_t)))) {
+      dev_warn(dev->device, "Gpu_SetWriteEn: copy_from_user failed. ret=%i, user=%p\n", ret, (void *)arg);
+      return -1;
+   }
+
+   if ( idx >= data->writeBuffers.count ) {
+      dev_warn(dev->device, "Gpu_SetWriteEn: Invalid write buffer index idx=%i, count=%i\n", idx, data->writeBuffers.count);
+      return -1;
+   }
+
+   writel(0x1, data->base+0x300+idx*4);
+
+   return 0;
+}
+
