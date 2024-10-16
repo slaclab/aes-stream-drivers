@@ -173,11 +173,11 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    if (cfgDevName != 0) {
       // Utilize the PCI device bus number for unique device naming
       // Helpful when multiple PCIe cards are installed in the same server
-      ret = snprintf(dev->devName, sizeof(dev->devName), "%s_%02x", MOD_NAME, pcidev->bus->number);
+      ret = snprintf(dev->devName, sizeof(dev->devName), "%s_%02x", MOD_NAME, pcidev->bus->number);//NOLINT
    } else {
       // Default to sequential naming based on the device's index
       // Ensures uniqueness in a single card scenario
-      ret = snprintf(dev->devName, sizeof(dev->devName), "%s_%i", MOD_NAME, dev->index);
+      ret = snprintf(dev->devName, sizeof(dev->devName), "%s_%i", MOD_NAME, dev->index);//NOLINT
    }
    if (ret < 0 || ret >= sizeof(dev->devName)) {
       pr_err("%s: Probe: Error in snprintf() while formatting device name\n", MOD_NAME);
