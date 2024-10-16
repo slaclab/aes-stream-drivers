@@ -1,7 +1,7 @@
 /**
- * ----------------------------------------------------------------------------
- * Company    : SLAC National Accelerator Laboratory
- * ----------------------------------------------------------------------------
+ *-----------------------------------------------------------------------------
+ * Company: SLAC National Accelerator Laboratory
+ *-----------------------------------------------------------------------------
  * Description:
  *    This header file defines the interfaces and data structures used by
  *    DMA (Direct Memory Access) drivers in the aes_stream_drivers package.
@@ -26,6 +26,7 @@
     #include <linux/types.h>
 #else
     #include <stdint.h>
+
     #include <string>
 #endif
 
@@ -166,7 +167,7 @@ static inline ssize_t dmaWrite(int32_t fd, const void* buf, size_t size, uint32_
     w.flags = flags;
     w.size  = size;
     w.is32  = (sizeof(void*) == 4);
-    w.data  = (uint64_t)buf;
+    w.data  = (uint64_t)buf;//NOLINT
 
     return (write(fd, &w, sizeof(struct DmaWriteData)));
 }
@@ -236,7 +237,7 @@ static inline ssize_t dmaWriteVector(int32_t fd,
         w.flags = (x == 0) ? begFlags : ((x == (iovlen - 1)) ? endFlags : midFlags);
         w.size  = iov[x].iov_len;
         w.is32  = (sizeof(void*) == 4);
-        w.data  = (uint64_t)iov[x].iov_base;
+        w.data  = (uint64_t)iov[x].iov_base;//NOLINT
 
         do {
             res = write(fd, &w, sizeof(struct DmaWriteData));
@@ -287,7 +288,7 @@ static inline ssize_t dmaWriteIndexVector(int32_t fd,
         w.flags = (x == 0) ? begFlags : ((x == (iovlen - 1)) ? endFlags : midFlags);
         w.size  = iov[x].iov_len;
         w.is32  = (sizeof(void*) == 4);
-        w.index = (uint32_t)(((uint64_t)iov[x].iov_base) & 0xFFFFFFFF);
+        w.index = (uint32_t)(((uint64_t)iov[x].iov_base) & 0xFFFFFFFF);//NOLINT
 
         do {
             res = write(fd, &w, sizeof(struct DmaWriteData));
@@ -323,7 +324,7 @@ static inline ssize_t dmaRead(int32_t fd, void* buf, size_t maxSize, uint32_t* f
     memset(&r, 0, sizeof(struct DmaReadData));
     r.size = maxSize;
     r.is32 = (sizeof(void*) == 4);
-    r.data = (uint64_t)buf;
+    r.data = (uint64_t)buf;//NOLINT
 
     ret = read(fd, &r, sizeof(struct DmaReadData));
 
@@ -633,7 +634,6 @@ static inline ssize_t dmaGetBuffSize(int32_t fd) {
 static inline ssize_t dmaGetBuffCount(int32_t fd) {
     return (ioctl(fd, DMA_Get_Buff_Count, 0));
 }
-
 
 /**
  * dmaGetGitVersion - Get the DMA Driver's Git Version
