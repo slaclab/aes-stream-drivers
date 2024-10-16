@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <argp.h>
 #include <iostream>
+#include <cstdio>
 
 #include <DmaDriver.h>
 #include <PrbsData.h>
