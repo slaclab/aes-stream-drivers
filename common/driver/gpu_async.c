@@ -20,6 +20,7 @@
 
 #include <gpu_async.h>
 #include <GpuAsync.h>
+#include <GpuAsyncRegs.h>
 #include <linux/seq_file.h>
 #include <linux/signal.h>
 #include <linux/slab.h>
@@ -49,6 +50,7 @@ void Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
    gpuData->base = dev->base + offset;
    gpuData->writeBuffers.count = 0;
    gpuData->readBuffers.count = 0;
+   gpuData->offset = offset;
 }
 
 /**
@@ -186,13 +188,13 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
    x = 0;
 
    if (data->writeBuffers.count > 0) {
-      x |= 0x00000100;
-      x |= (data->writeBuffers.count-1);
+      x |= 0x00000100; // Set write-enable bit
+      x |= (data->writeBuffers.count-1); // Set the 0-based write buffer count
    }
 
    if (data->readBuffers.count > 0) {
-      x |= 0x01000000;
-      x |= (data->readBuffers.count-1) << 16;
+      x |= 0x01000000; // Set read-enable bit
+      x |= (data->readBuffers.count-1) << 16; // Set the 0-based read buffer count
    }
 
    writel(x, data->base+0x008);
@@ -299,3 +301,45 @@ int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg) {
    return 0;
 }
 
+/**
+ * Gpu_Show - Show information about DataGpu internal state
+ * @s: Sequence file pointer to write to
+ * @dev: Device to read from
+ */
+void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
+   int i;
+   struct GpuData* data = (struct GpuData*)dev->utilData;
+
+   const u32 readBuffCnt = readGpuAsyncReg(data->base, &GpuAsyncReg_ReadCount)+1;
+   const u32 writeBuffCnt = readGpuAsyncReg(data->base, &GpuAsyncReg_WriteCount)+1;
+   const u32 writeEnable = readGpuAsyncReg(data->base, &GpuAsyncReg_WriteEnable);
+   const u32 readEnable = readGpuAsyncReg(data->base, &GpuAsyncReg_ReadEnable);
+
+   seq_printf(s, "\n---------------- DataGPU State ----------------\n");
+   seq_printf(s, "    GpuAsyncCore Offset : 0x%X\n", data->offset);
+   seq_printf(s, "            Max Buffers : %d\n", readGpuAsyncReg(data->base, &GpuAsyncReg_MaxBuffers));
+   seq_printf(s, "     Write Buffer Count : %d\n", writeBuffCnt);
+   seq_printf(s, "           Write Enable : %d\n", writeEnable);
+   seq_printf(s, "      Read Buffer Count : %d\n", readBuffCnt);
+   seq_printf(s, "            Read Enable : %d\n", readEnable);
+   seq_printf(s, "         RX Frame Count : %d\n", readGpuAsyncReg(data->base, &GpuAsyncReg_RxFrameCnt));
+   seq_printf(s, "         TX Frame Count : %d\n", readGpuAsyncReg(data->base, &GpuAsyncReg_TxFrameCnt));
+   seq_printf(s, "  AXI Write Error Count : %d\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiWriteErrorCnt));
+   seq_printf(s, "   AXI Read Error Count : %d\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiReadErrorCnt));
+
+   for (i = 0; i < writeBuffCnt && writeEnable; ++i) {
+      u32 wal = readl(data->base + GPU_ASYNC_REG_WRITE_ADDR_L_OFFSET(i));
+      u32 wah = readl(data->base + GPU_ASYNC_REG_WRITE_ADDR_H_OFFSET(i));
+      seq_printf(s, "\n-------- Write Buffer %d --------\n", i);
+      seq_printf(s, "  Write Address : 0x%llX\n", ((u64)wah << 32) | wal);
+      seq_printf(s, "     Write Size : 0x%X\n", readl(data->base + GPU_ASYNC_REG_WRITE_SIZE_OFFSET(i)));
+   }
+
+   for (i = 0; i < readBuffCnt && readEnable; ++i) {
+      u32 ral = readl(data->base + GPU_ASYNC_REG_READ_ADDR_L_OFFSET(i));
+      u32 rah = readl(data->base + GPU_ASYNC_REG_READ_ADDR_H_OFFSET(i));
+      seq_printf(s, "\n-------- Read Buffer %d --------\n", i);
+      seq_printf(s, "  Read Address : 0x%llX\n", ((u64)rah << 32) | ral);
+      seq_printf(s, "     Read Size : 0x%X\n", readl(data->base + GPU_ASYNC_REG_REMOTE_READ_SIZE_OFFSET(i)));
+   }
+}

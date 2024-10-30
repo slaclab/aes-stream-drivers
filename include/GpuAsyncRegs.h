@@ -20,6 +20,10 @@
 
 #include <linux/types.h>
 
+#ifdef DMA_IN_KERNEL
+#include <linux/io.h>
+#endif
+
 struct GpuAsyncRegister {
     uint32_t offset;
     uint32_t bitOffset;
@@ -27,12 +31,21 @@ struct GpuAsyncRegister {
 };
 
 static inline uint32_t readGpuAsyncReg(const volatile void* baseptr, const struct GpuAsyncRegister* reg) {
+#ifdef DMA_IN_KERNEL
+    return (readl((uint8_t*)baseptr + reg->offset) & reg->bitMask) >> reg->bitOffset;
+#else
     uint32_t val = reg->bitMask & *(const volatile uint32_t*)(((const volatile uint8_t*)baseptr) + reg->offset);
     return val >> reg->bitOffset;
+#endif
 }
 
 static inline void writeGpuAsyncReg(volatile void* baseptr, const struct GpuAsyncRegister* reg, uint32_t value) {
-    *(volatile uint32_t*)((volatile uint8_t*)baseptr + reg->offset) &= (value << reg->bitOffset) | ~reg->bitMask;
+    volatile uint32_t* regp = (volatile uint32_t*)(volatile uint8_t*)baseptr + reg->offset;
+#ifdef DMA_IN_KERNEL
+    writel((readl(regp) & ~reg->bitMask) | ((value << reg->bitOffset) & reg->bitMask), regp);
+#else
+    *regp = (*regp & ~reg->bitMask) | ((value << reg->bitOffset) & reg->bitMask);
+#endif
 }
 
 #define GPU_ASYNC_DEF_REG(_name, _off, _bitOff, _bitMask)           \
@@ -68,7 +81,6 @@ GPU_ASYNC_DEF_REG(DynamicRouteDests1, 0x2C, 32, 0xFF000000);
 
 // The following register defintiions are firmware specific. GpuAsyncCore can have up to 16 buffers, but defaults to 4.
 // You must check the MaxBuffers register for the true value
-
 
 /*********************** Write Buffers ************************/
 

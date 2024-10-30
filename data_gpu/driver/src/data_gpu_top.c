@@ -32,6 +32,7 @@
 #include <linux/pci.h>
 #include <axis_gen2.h>
 #include <GpuAsync.h>
+#include <GpuAsyncRegs.h>
 #include <gpu_async.h>
 
 /*
@@ -384,6 +385,9 @@ void DataGpu_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
 
    /* Display additional device-specific information. */
    AxisG2_SeqShow(s, dev);
+
+   /* Display DataGPU-specific state information */
+   Gpu_Show(s, dev);
 }
 
 /**
