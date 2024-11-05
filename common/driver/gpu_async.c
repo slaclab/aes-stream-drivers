@@ -65,7 +65,6 @@ void Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
  */
 int32_t Gpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    switch (cmd) {
-
       // Add NVIDIA Memory
       case GPU_Add_Nvidia_Memory:
          return Gpu_AddNvidia(dev, arg);
