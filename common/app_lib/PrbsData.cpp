@@ -22,6 +22,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include <cstdio>
+
 // Constructor with specific width and tap counts
 PrbsData::PrbsData(uint32_t width, uint32_t tapCnt, ...) {
    va_list a_list;

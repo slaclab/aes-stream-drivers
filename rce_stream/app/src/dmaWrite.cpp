@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <argp.h>
 #include <iostream>
+#include <cstdio>
 
 #include <AxisDriver.h>
 #include <PrbsData.h>

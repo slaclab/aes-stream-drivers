@@ -24,6 +24,7 @@
 #include <argp.h>
 #include <stdlib.h>
 #include <iostream>
+#include <cstdio>
 
 #include <AxisDriver.h>
 

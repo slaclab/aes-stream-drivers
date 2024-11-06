@@ -28,6 +28,7 @@
 #include <argp.h>
 #include <pthread.h>
 #include <iostream>
+#include <cstdio>
 
 #include <AxisDriver.h>
 #include <PrbsData.h>
