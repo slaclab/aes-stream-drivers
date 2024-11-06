@@ -340,6 +340,7 @@ int32_t DataGpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
       // Handles adding or removing Nvidia memory based on the command specified.
       case GPU_Add_Nvidia_Memory:
       case GPU_Rem_Nvidia_Memory:
+      case GPU_Set_Write_Enable:
          return Gpu_Command(dev, cmd, arg);
 
       // AXI Version Read

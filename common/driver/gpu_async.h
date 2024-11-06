@@ -102,5 +102,6 @@ int32_t Gpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);
 int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg);
 int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg);
 void Gpu_FreeNvidia(void * data);
+int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg);
 
 #endif  // __GPU_ASYNC_2_H__
