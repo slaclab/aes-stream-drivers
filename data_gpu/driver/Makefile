@@ -13,8 +13,15 @@
 # contained in the LICENSE.txt file.
 # ----------------------------------------------------------------------------
 
+-include Makefile.local
+
 # Args to this Makefile
-NVIDIA_DRIVERS ?= ""
+ifeq ($(NVIDIA_DRIVERS),)
+$(error NVIDIA_DRIVERS is not set, please generate Makefile.local using build-nvidia.sh, or supply NVIDIA_DRIVERS on the command line)
+endif
+
+$(info Using NVIDIA_DRIVERS=$(NVIDIA_DRIVERS))
+
 CC ?= ""
 
 # Define the module name.
