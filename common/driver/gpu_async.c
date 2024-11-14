@@ -188,13 +188,13 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
    x = 0;
 
    if (data->writeBuffers.count > 0) {
-      x |= 0x00000100; // Set write-enable bit
-      x |= (data->writeBuffers.count-1); // Set the 0-based write buffer count
+      x |= 0x00000100;  // Set write-enable bit
+      x |= (data->writeBuffers.count-1);  // Set the 0-based write buffer count
    }
 
    if (data->readBuffers.count > 0) {
-      x |= 0x01000000; // Set read-enable bit
-      x |= (data->readBuffers.count-1) << 16; // Set the 0-based read buffer count
+      x |= 0x01000000;  // Set read-enable bit
+      x |= (data->readBuffers.count-1) << 16;  // Set the 0-based read buffer count
    }
 
    writel(x, data->base+0x008);
