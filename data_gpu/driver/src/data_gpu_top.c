@@ -226,7 +226,7 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->rwSize = (2*USER_SIZE) - PHY_OFF;  // Read/Write region size
 
    // GPU Init
-   Gpu_Init(dev, GPU_OFF);
+   Gpu_Init(dev, GPU_ASYNC_CORE_OFFSET);
 
    // Manage device reset cycle
    dev_info(dev->device, "Init: Setting user reset\n");

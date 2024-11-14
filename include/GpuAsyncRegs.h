@@ -24,6 +24,9 @@
 #include <linux/io.h>
 #endif
 
+// Offset of AxiPcieGpuAsyncCore. Must match the value within the firmware
+#define GPU_ASYNC_CORE_OFFSET     0x00028000
+
 struct GpuAsyncRegister {
     uint32_t offset;
     uint32_t bitOffset;
