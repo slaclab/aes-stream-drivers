@@ -32,6 +32,7 @@
 #include <linux/pci.h>
 #include <axis_gen2.h>
 #include <GpuAsync.h>
+#include <GpuAsyncRegs.h>
 #include <gpu_async.h>
 
 /*
@@ -225,7 +226,7 @@ int DataGpu_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->rwSize = (2*USER_SIZE) - PHY_OFF;  // Read/Write region size
 
    // GPU Init
-   Gpu_Init(dev, GPU_OFF);
+   Gpu_Init(dev, GPU_ASYNC_CORE_OFFSET);
 
    // Manage device reset cycle
    dev_info(dev->device, "Init: Setting user reset\n");
@@ -384,6 +385,9 @@ void DataGpu_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
 
    /* Display additional device-specific information. */
    AxisG2_SeqShow(s, dev);
+
+   /* Display DataGPU-specific state information */
+   Gpu_Show(s, dev);
 }
 
 /**

@@ -42,7 +42,6 @@
 #define PROM_SIZE   0x00050000
 #define USER_OFF    0x00800000
 #define USER_SIZE   0x00800000
-#define GPU_OFF     0x00028000
 
 /* Function prototypes */
 int32_t DataGpu_Init(void);
