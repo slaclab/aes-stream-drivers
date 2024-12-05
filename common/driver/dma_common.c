@@ -1174,15 +1174,14 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
          // Mark the user pages as uncache-minus. io_remap_pfn_range will not do this for us, even though
          //  we ask for coherent memory.
          if ((ret = set_memory_uc((uintptr_t)buff->buffAddr, vsize >> PAGE_SHIFT)) == 0) {
-            ret = io_remap_pfn_range(vma, vma->vm_start, virt_to_phys((void*)buff->buffAddr) >> PAGE_SHIFT, 
+            ret = io_remap_pfn_range(vma, vma->vm_start, virt_to_phys((void*)buff->buffAddr) >> PAGE_SHIFT,
                                      vsize, pgprot_noncached(vma->vm_page_prot));
 
             // Track this region so we can restore the previous protection flags when it's unmapped
             vma->vm_ops = &DmaVmOps;
             vma->vm_private_data = buff->buffAddr;
-         }
-         else {
-            dev_warn(dev->device, 
+         } else {
+            dev_warn(dev->device,
                "map: Failed to set virtual memory range as uncache-minus start 0x%.8lx, end 0x%.8lx, offset %li, size %li, index %i, Ret=%i\n",
                vma->vm_start, vma->vm_end, offset, vsize, idx, ret);
          }
@@ -1235,7 +1234,7 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
  * @vma: Virtual memory area to unmap
  * 
  * The primary purpose of this is to restore the write-back protection mode
- * before returning the page(s) to the free pool. In Dma_Mmap, we set 
+ * before returning the page(s) to the free pool. In Dma_Mmap, we set
  * the uncache-minus flag (UC-) on the user pages.
  *
  * Return: None.
