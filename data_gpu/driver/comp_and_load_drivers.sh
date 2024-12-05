@@ -1,11 +1,29 @@
 #!/bin/bash
 # vi: et sw=4 ts=4
 
+# chdir into the directory containing this script
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
 # Check if the script is run with sudo
 if [ "$EUID" -ne 0 ]; then
     echo "Error: This script must be run with sudo." >&2
     exit 1
 fi
+
+NO_NVIDIA_BUILD=0
+while test $# -gt 0; do
+    case $1 in
+        -n)
+            NO_NVIDIA_BUILD=1
+            shift
+            ;;
+        *)
+            echo "USAGE $0 [-n]"
+            echo "  -n   : Skip rebuilding NVIDIA drivers"
+            exit 1
+            ;;
+    esac
+done
 
 # Determine the Linux distribution
 if [ -f /etc/os-release ]; then
@@ -55,12 +73,14 @@ for module in "${modules[@]}"; do
     fi
 done
 
-# Go to nvidia path and build Nvidia driver
-cd "$NVIDIA_PATH" || { echo "Error: Failed to change directory to $NVIDIA_PATH"; exit 1; }
-# Clean previous builds
-make clean
-# Build Nvidia driver
-make CC=$CC -j $(nproc)
+if [ ! $NO_NVIDIA_BUILD -eq 1 ]; then
+    # Go to nvidia path and build Nvidia driver
+    cd "$NVIDIA_PATH" || { echo "Error: Failed to change directory to $NVIDIA_PATH"; exit 1; }
+    # Clean previous builds
+    make clean
+    # Build Nvidia driver
+    make CC=$CC -j $(nproc)
+fi
 
 if modinfo ecc >/dev/null 2>&1; then
     modprobe ecc || { echo "Error: Failed to insert ecc module."; exit 1; }
