@@ -29,6 +29,12 @@
 #include <linux/version.h>
 #include <linux/slab.h>
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+#include <asm/set_memory.h>
+#else
+#include <asm/cacheflush.h>
+#endif
+
 /**
  * struct DmaFunctions - Define interface routines for DMA operations
  * @owner:          Pointer to the module owner of this structure
@@ -120,6 +126,19 @@ static struct seq_operations DmaSeqOps = {
    .next  = Dma_SeqNext,    ///< Move to the next element
    .stop  = Dma_SeqStop,    ///< Stop the sequence
    .show  = Dma_SeqShow     ///< Display the current element
+};
+
+/**
+ * struct DmaVmOps
+ * 
+ * The structure defines the operations for coherent virtual memory
+ * areas allocated by Dma_Mmap. See the implementation of
+ * Dma_UnMapMem for more information about this.
+ *
+ * @close: Pointer to the function that is called when the memory is unmapped
+ */
+static struct vm_operations_struct DmaVmOps = {
+   .close = Dma_UnMapMem,     ///< Unmap the memory region
 };
 
 /**
@@ -1152,7 +1171,21 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
 
       // Map coherent buffer
       if (dev->cfgMode & BUFF_COHERENT) {
-         ret = dma_mmap_coherent(dev->device, vma, buff->buffAddr, buff->buffHandle, dev->cfgSize);
+         // Mark the user pages as uncache-minus. io_remap_pfn_range will not do this for us, even though
+         //  we ask for coherent memory.
+         if ((ret = set_memory_uc((uintptr_t)buff->buffAddr, vsize >> PAGE_SHIFT)) == 0) {
+            ret = io_remap_pfn_range(vma, vma->vm_start, virt_to_phys((void*)buff->buffAddr) >> PAGE_SHIFT, 
+                                     vsize, pgprot_noncached(vma->vm_page_prot));
+
+            // Track this region so we can restore the previous protection flags when it's unmapped
+            vma->vm_ops = &DmaVmOps;
+            vma->vm_private_data = buff->buffAddr;
+         }
+         else {
+            dev_warn(dev->device, 
+               "map: Failed to set virtual memory range as uncache-minus start 0x%.8lx, end 0x%.8lx, offset %li, size %li, index %i, Ret=%i\n",
+               vma->vm_start, vma->vm_end, offset, vsize, idx, ret);
+         }
 
       // Map streaming buffer or ARM ACP
       } else if (dev->cfgMode & BUFF_STREAM || dev->cfgMode & BUFF_ARM_ACP) {
@@ -1195,6 +1228,21 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
 
       return 0;
    }
+}
+
+/**
+ * Dma_UnMapMem - Unmap a memory region mapped with Dma_Mmap.
+ * @vma: Virtual memory area to unmap
+ * 
+ * The primary purpose of this is to restore the write-back protection mode
+ * before returning the page(s) to the free pool. In Dma_Mmap, we set 
+ * the uncache-minus flag (UC-) on the user pages.
+ *
+ * Return: None.
+ */
+void Dma_UnMapMem(struct vm_area_struct* vma) {
+   // Restore write-back protection mode
+   set_memory_wb((uintptr_t)vma->vm_private_data, (vma->vm_end - vma->vm_start) >> PAGE_SHIFT);
 }
 
 /**
