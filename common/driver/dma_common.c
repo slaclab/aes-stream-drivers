@@ -1171,15 +1171,26 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
 
       // Map coherent buffer
       if (dev->cfgMode & BUFF_COHERENT) {
-         // Mark the user pages as uncache-minus. io_remap_pfn_range will not do this for us, even though
-         //  we ask for coherent memory.
-         if ((ret = set_memory_uc((uintptr_t)buff->buffAddr, vsize >> PAGE_SHIFT)) == 0) {
+      #if defined(__x86_64__) || defined(__i386__)
+         // Mark the user pages as uncache-minus in the PAT. io_remap_pfn_range will not do this for us, even though
+         //  we ask for coherent memory. Only relevant for x86 processors.
+         ret = set_memory_uc((uintptr_t)buff->buffAddr, vsize >> PAGE_SHIFT);
+      #else
+         ret = 0;
+      #endif
+         if (ret == 0) {
+         #if defined(__x86_64__) || defined(__i386__)
             ret = io_remap_pfn_range(vma, vma->vm_start, virt_to_phys((void*)buff->buffAddr) >> PAGE_SHIFT,
                                      vsize, pgprot_noncached(vma->vm_page_prot));
+         #else
+            ret = dma_mmap_coherent(dev->device, vma, buff->buffAddr, buff->buffHandle, dev->cfgSize);
+         #endif
 
+         #if defined(__x86_64__) || defined(__i386__)
             // Track this region so we can restore the previous protection flags when it's unmapped
             vma->vm_ops = &DmaVmOps;
             vma->vm_private_data = buff->buffAddr;
+         #endif
          } else {
             dev_warn(dev->device,
                "map: Failed to set virtual memory range as uncache-minus start 0x%.8lx, end 0x%.8lx, offset %li, size %li, index %i, Ret=%i\n",
@@ -1240,8 +1251,10 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
  * Return: None.
  */
 void Dma_UnMapMem(struct vm_area_struct* vma) {
+#if defined(__x86_64__) || defined(__i386__)
    // Restore write-back protection mode
    set_memory_wb((uintptr_t)vma->vm_private_data, (vma->vm_end - vma->vm_start) >> PAGE_SHIFT);
+#endif
 }
 
 /**
