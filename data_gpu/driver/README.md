@@ -11,7 +11,7 @@ See section 5.
 # System Configurations
 
 Disable the Xserver and nvidia-persistenced to prevent rmmod due to Module XXX is in use by: YYY
-because the Nvidia driver gets loaded by default at startup 
+because the Nvidia driver gets loaded by default at startup
 
 https://forums.developer.nvidia.com/t/cant-install-new-driver-cannot-unload-module/63639
 
