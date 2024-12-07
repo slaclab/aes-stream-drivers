@@ -223,5 +223,6 @@ int Dma_SeqShow(struct seq_file *s, void *v);
 int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t * mask);
 int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg);
 int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg);
+void Dma_UnMapMem(struct vm_area_struct * area);
 
 #endif  // __DMA_COMMON_H__
