@@ -4,7 +4,7 @@
 
 ```bash
 # Create the module template
-petalinux-create -t modules --name axistreamdma --enable 
+petalinux-create -t modules --name axistreamdma --enable
 
 # Remove the template
 rm -rf project-spec/meta-user/recipes-modules/axistreamdma
@@ -46,7 +46,7 @@ petalinux-build -c device-tree
 
 ```bash
 # Create the module template
-petalinux-create -t modules --name aximemorymap --enable 
+petalinux-create -t modules --name aximemorymap --enable
 
 # Remove the template
 rm -rf project-spec/meta-user/recipes-modules/aximemorymap
