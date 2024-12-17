@@ -58,7 +58,7 @@ endif
 
 # Compiler flags: Include paths and definitions.
 ccflags-y += -I$(HOME)/src
-ccflags-y += -DDMA_IN_KERNEL=1 -DGITV=\"$(GITV)\"
+ccflags-y += -DDMA_IN_KERNEL=1 -DGITV=\"$(GITV)\" -DDATA_GPU=1
 ccflags-y += -I$(NVIDIA_DRIVERS)/nvidia
 
 # Object files for the module.
