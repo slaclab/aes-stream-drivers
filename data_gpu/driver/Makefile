@@ -58,12 +58,12 @@ endif
 
 # Compiler flags: Include paths and definitions.
 ccflags-y += -I$(HOME)/src
-ccflags-y += -DDMA_IN_KERNEL=1 -DGITV=\"$(GITV)\"
+ccflags-y += -DDMA_IN_KERNEL=1 -DGITV=\"$(GITV)\" -DDATA_GPU=1
 ccflags-y += -I$(NVIDIA_DRIVERS)/nvidia
 
 # Object files for the module.
 $(NAME)-objs := src/dma_buffer.o src/dma_common.o
-$(NAME)-objs += src/axi_version.o src/axis_gen2.o src/gpu_async.o src/data_gpu_top.o
+$(NAME)-objs += src/axi_version.o src/axis_gen2.o src/gpu_async.o src/data_dev_top.o
 
 # Module target.
 obj-m := $(NAME).o
