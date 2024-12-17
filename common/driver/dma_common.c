@@ -242,7 +242,8 @@ int Dma_Init(struct DmaDevice *dev) {
    if (gCl == NULL) {
       dev_info(dev->device, "Init: Creating device class\n");
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
+      /* Another Rocky Linux 9 header change */
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0) && !(defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9,4)))
       gCl = class_create(THIS_MODULE, dev->devName);
 #else
       gCl = class_create(dev->devName);
@@ -1230,7 +1231,8 @@ int Dma_ProcOpen(struct inode *inode, struct file *file) {
    struct seq_file *sf;
    struct DmaDevice *dev;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+   /*  I find that Rocky 9.3 (based on 5.14.0) has made this change */
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9,3)))
    dev = (struct DmaDevice *)pde_data(inode);
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
    dev = (struct DmaDevice *)PDE_DATA(inode);
