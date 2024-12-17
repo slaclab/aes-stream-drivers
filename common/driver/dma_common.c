@@ -29,6 +29,10 @@
 #include <linux/version.h>
 #include <linux/slab.h>
 
+#ifndef RHEL_RELEASE_VERSION
+#define RHEL_RELEASE_VERSION(...) 0
+#endif
+
 /**
  * struct DmaFunctions - Define interface routines for DMA operations
  * @owner:          Pointer to the module owner of this structure
@@ -242,10 +246,11 @@ int Dma_Init(struct DmaDevice *dev) {
    if (gCl == NULL) {
       dev_info(dev->device, "Init: Creating device class\n");
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
-      gCl = class_create(THIS_MODULE, dev->devName);
-#else
+      // RHEL9.4+ backported this breaking change from kernel 6.4.0
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 4))
       gCl = class_create(dev->devName);
+#else
+      gCl = class_create(THIS_MODULE, dev->devName);
 #endif
 
       if (gCl == NULL) {
@@ -1230,7 +1235,8 @@ int Dma_ProcOpen(struct inode *inode, struct file *file) {
    struct seq_file *sf;
    struct DmaDevice *dev;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+   // PDE_DATA removed in kernel 5.17, backported to RHEL 9.X (9.1 is a guess here, please change if not accurate)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 1))
    dev = (struct DmaDevice *)pde_data(inode);
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
    dev = (struct DmaDevice *)PDE_DATA(inode);
