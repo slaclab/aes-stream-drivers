@@ -377,7 +377,6 @@ void DataDev_Remove(struct pci_dev *pcidev) {
  */
 int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    switch (cmd) {
-
 #ifdef DATA_GPU
       // GPU Commands
       // Handles adding or removing Nvidia memory based on the command specified.
