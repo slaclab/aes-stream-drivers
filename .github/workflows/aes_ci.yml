@@ -43,6 +43,54 @@ jobs:
         run: |
           find . -name '*.h' -o -name '*.cpp' -o -name '*.c' | xargs cpplint
 
+
+# ----------------------------------------------------------------------------
+  build:
+    name: Compile Kernel Module
+    strategy:
+      fail-fast: false # I want to see all build errors
+      matrix:
+        container: [ "ubuntu:22.04", "rockylinux:9", "debian:experimental", "ghcr.io/jjl772/centos7-vault" ]
+    runs-on: ubuntu-22.04
+    container: ${{ matrix.container }}
+    steps:
+      # FIXME: using checkout@v1 due to nodejs version issues in centos7
+      - uses: actions/checkout@v1
+        with:
+          fetch-depth: 0
+      
+      # Setup for all debian/ubuntu-based images
+      - run: |
+          apt-get update && apt-get upgrade -y && apt-get install -y build-essential make bash sed kmod dkms git
+        if: ${{ startsWith(matrix.container, 'ubuntu') || startsWith(matrix.container, 'debian') }}
+
+      # Ubuntu 22.04, kernels 5.19, 6.5 and 6.8 (ub24.04 uses kernel 6.8 too)
+      - run: |
+          apt-get install -y linux-headers-5.19.0-50-generic linux-headers-6.8.0-49-generic linux-headers-6.5.0-45-generic
+        if: ${{ matrix.container == 'ubuntu:22.04' }}
+
+      # Latest released kernel + GCC
+      - run: |
+          apt-get install -y linux-headers-amd64
+        if: ${{ matrix.container == 'debian:experimental' }}
+
+      # RHEL7, kernel 3.10
+      - run: |
+          yum update -y && yum install -y kernel-devel kernel-modules kernel-headers gcc gcc-c++ make sed git elfutils-libelf-devel
+        if: ${{ matrix.container == 'ghcr.io/jjl772/centos7-vault' }}
+
+      # RHEL9, frankenstein kernel 5.14
+      - run: |
+          dnf update -y && dnf install -y kernel-devel kernel-modules-core kernel-headers gcc gcc-c++ make sed git elfutils-libelf-devel
+        if: ${{ startsWith(matrix.container, 'rocky') || startsWith(matrix.container, 'centos') }}
+
+      - name: Compile Driver
+        run: make driver
+
+      - name: Compile App
+        run: make app
+
+
 # ----------------------------------------------------------------------------
 
   gen_release:
