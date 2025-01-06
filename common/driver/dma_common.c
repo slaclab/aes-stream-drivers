@@ -1235,8 +1235,8 @@ int Dma_ProcOpen(struct inode *inode, struct file *file) {
    struct seq_file *sf;
    struct DmaDevice *dev;
 
-   // PDE_DATA removed in kernel 5.17, backported to RHEL 9.X (9.1 is a guess here, please change if not accurate)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 1))
+   // PDE_DATA removed in kernel 5.17, backported to RHEL 9.3's 5.14 kernel
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 3))
    dev = (struct DmaDevice *)pde_data(inode);
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
    dev = (struct DmaDevice *)PDE_DATA(inode);
