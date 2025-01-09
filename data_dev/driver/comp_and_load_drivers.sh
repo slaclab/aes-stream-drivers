@@ -17,7 +17,7 @@ else
 fi
 
 # Set the CC variable based on the distribution
-if [ "$distro" == "ubuntu" ]; then
+if [ "$distro" == "ubuntu" ] || [ "$distro" == "debian" ]; then
     # Get the gcc that kernel was built with
     version_content=$(cat /proc/version)
     CC=$(echo "$version_content" | grep -oP 'x86_64-linux-gnu-gcc-\d+')
@@ -31,7 +31,9 @@ echo "CC: $CC"
 
 # Define Nvidia path
 output=$(find /usr -name nv-p2p.h 2>/dev/null)
-NVIDIA_PATH=$(echo "$output" | grep -oP '^/usr/src/nvidia(-open)?-\d+\.\d+\.\d+' | head -n 1)
+if [ -z "$NVIDIA_PATH" ]; then
+    NVIDIA_PATH=$(echo "$output" | grep -oP '^/usr/src/nvidia(-open)?-\d+\.\d+\.\d+' | head -n 1)
+fi
 if [ -z "$NVIDIA_PATH" ]; then
     echo "Could not find NVIDIA open drivers in /usr/src. Is it installed?"
     exit 1

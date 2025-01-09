@@ -13,8 +13,15 @@
 # contained in the LICENSE.txt file.
 # ----------------------------------------------------------------------------
 
+-include Makefile.local
+
 # Name of the module to be built
 NAME := datadev
+
+# Determine if the NVIDIA drivers
+ifneq ($(NVIDIA_DRIVERS),)
+$(info NVIDIA drivers are in-use for this build. NVIDIA_DRIVERS=$(NVIDIA_DRIVERS))
+endif
 
 # Determine the current directory of the Makefile
 HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
@@ -26,12 +33,20 @@ ARCH := $(shell uname -m)
 # Cross-compile prefix, if any
 CROSS_COMPILE :=
 
+# Enable warnings during module post-processing.
+KBUILD_MODPOST_WARN := 1
+
 # Directory containing the kernel build system
 KERNELDIR := /lib/modules/$(KVER)/build
 
 # Source and object files
 SRCS := $(wildcard src/*.c)
 OBJS := $(patsubst %.c,%.o,$(SRCS))
+
+ifneq ($(NVIDIA_DRIVERS),)
+# NVIDIA extra symbols for module linking.
+KBUILD_EXTRA_SYMBOLS := $(NVIDIA_DRIVERS)/Module.symvers
+endif
 
 # Automatically determine the git version
 ifndef GITV
@@ -44,9 +59,19 @@ endif
 ccflags-y += -I$(HOME)/src
 ccflags-y += -DDMA_IN_KERNEL=1 -DGITV=\"$(GITV)\"
 
+ifneq ($(NVIDIA_DRIVERS),)
+ccflags-y += -I$(NVIDIA_DRIVERS)/nvidia
+endif
+
+$(info $(ccflags-y))
+
 # Object files that make up the module
 $(NAME)-objs := src/dma_buffer.o src/dma_common.o
 $(NAME)-objs += src/axi_version.o src/axis_gen2.o src/data_dev_top.o
+
+ifneq ($(NVIDIA_DRIVERS),)
+$(NAME)-objs += src/gpu_async.o
+endif
 
 # Target module to be built
 obj-m := $(NAME).o
@@ -54,9 +79,9 @@ obj-m := $(NAME).o
 # Default target: build the kernel module
 all:
 	@echo "Building with version: $(GITV)"
-	@make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(HOME) modules
+	@$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(HOME) modules
 
 # Clean target: remove built module and object files
 clean:
-	@make ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(HOME) clean
+	@$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(HOME) clean
 	@rm -f $(OBJS)
