@@ -13,8 +13,6 @@
 # contained in the LICENSE.txt file.
 # ----------------------------------------------------------------------------
 
--include Makefile.local
-
 # Name of the module to be built
 NAME := datadev
 
@@ -60,7 +58,7 @@ ccflags-y += -I$(HOME)/src
 ccflags-y += -DDMA_IN_KERNEL=1 -DGITV=\"$(GITV)\"
 
 ifneq ($(NVIDIA_DRIVERS),)
-ccflags-y += -I$(NVIDIA_DRIVERS)/nvidia
+ccflags-y += -I$(NVIDIA_DRIVERS)/nvidia -DDATA_GPU=1
 endif
 
 $(info $(ccflags-y))

@@ -45,7 +45,7 @@ RET_DIR=$PWD
 echo "Using RET_DIR: $RET_DIR"
 
 # Remove existing Nvidia modules (if any)
-modules=("datagpu" "nvidia-drm" "nvidia-uvm" "nvidia-modeset" "nvidia" "nouveau")
+modules=("datadev" "nvidia-drm" "nvidia-uvm" "nvidia-modeset" "nvidia" "nouveau")
 for module in "${modules[@]}"; do
     output=$(/usr/sbin/rmmod $module 2>&1)
     status=$?
@@ -78,6 +78,6 @@ fi
 cd "$RET_DIR" || { echo "Error: Failed to change directory to $RET_DIR"; exit 1; }
 # Clean previous builds
 make clean
-# Build datagpu driver
+# Build datadev driver
 make CC=$CC NVIDIA_DRIVERS=$NVIDIA_PATH
-/usr/sbin/insmod $RET_DIR/datagpu.ko || { echo "Error: Failed to insert datagpu.ko."; exit 1; }
+/usr/sbin/insmod $RET_DIR/datadev.ko || { echo "Error: Failed to insert datadev.ko."; exit 1; }
