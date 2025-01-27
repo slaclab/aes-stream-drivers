@@ -383,7 +383,7 @@ int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
       case GPU_Add_Nvidia_Memory:
       case GPU_Rem_Nvidia_Memory:
       case GPU_Set_Write_Enable:
-         return Gpu_Command(dev, cmd, arg);
+         return dev->gpuEn ? Gpu_Command(dev, cmd, arg) : -1;
 #endif
 
       case AVER_Get:
@@ -423,8 +423,10 @@ void DataDev_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    AxisG2_SeqShow(s, dev);
 
 #ifdef DATA_GPU
-   // Display DataGPU-specific state information
-   Gpu_Show(s, dev);
+   if (dev->gpuEn) {
+      // Display DataGPU-specific state information
+      Gpu_Show(s, dev);
+   }
 #endif
 }
 
