@@ -60,7 +60,7 @@ $ make app
 $ cd aes-stream-drivers
 
 # Source the setup script (required for cross-compiling)
-$ source /afs/slac.stanford.edu/g/reseng/xilinx/vivado_2016.4/Vivado/2016.4/settings64.sh
+$ source /sdf/group/faders/tools/xilinx/2016.4/Vivado/2016.4/settings64.sh
 
 # Build the drivers
 $ make rce
