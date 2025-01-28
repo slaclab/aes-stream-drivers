@@ -1329,7 +1329,7 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    seq_printf(s, " DMA Driver's Git Version : " GITV "\n");
    seq_printf(s, " DMA Driver's API Version : 0x%x\n", DMA_VERSION);
 #ifdef DATA_GPU
-   seq_printf(s, "         GPUAsync Support : Enabled\n"); 
+   seq_printf(s, "         GPUAsync Support : Enabled\n");
 #else
    seq_printf(s, "         GPUAsync Support : Disabled\n");
 #endif
