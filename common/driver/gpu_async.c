@@ -38,6 +38,13 @@
 void Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
    struct GpuData *gpuData;
 
+   uint8_t* gpuBase = dev->base + offset;
+   dev->gpuEn = !!readGpuAsyncReg(gpuBase, &GpuAsyncReg_Version);
+
+   /* GPU not enabled, avoid allocating GPU data */
+   if (!dev->gpuEn)
+      return;
+
    /* Allocate memory for GPU utility data */
    gpuData = (struct GpuData *)kzalloc(sizeof(struct GpuData), GFP_KERNEL);
    if (!gpuData)
