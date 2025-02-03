@@ -47,7 +47,7 @@
 /**
  * BUFFER_OFFSET_SHIFT - Shift for buffer offset address boundary
  */
-#define BUFFER_OFFSET_SHIFT   8
+#define BUFFER_OFFSET_SHIFT   5
 
 /**
  * BUFFER_OFFSET_SIZE - Size of buffer offset boundary
