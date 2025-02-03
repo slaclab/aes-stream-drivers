@@ -57,7 +57,7 @@
 /**
  * BUFFER_OFFSET - Offset for setting correct buffer size (maxSize)
  */
-#define BUFFER_OFFSET  (BUFFER_OFFSET_SIZE - 1)
+#define BUFFER_OFFSET  (BUFFER_OFFSET_SIZE)
 
 /**
  * MAX_GPU_BUFFERS - Maximum number of GPU buffers allowed
