@@ -38,6 +38,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r pip_requirements.txt
 
+      - name: Check for trailing whitespace
+        run: |
+          if grep -rnI '[[:blank:]]$' --include=\*.{c,cpp,h,sh} .; then
+            echo "Error: Trailing whitespace found in the repository!"
+            exit 1
+          fi
+
       # C/C++ Linter
       - name: C/C++ Linter
         run: |
