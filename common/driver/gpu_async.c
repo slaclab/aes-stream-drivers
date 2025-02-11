@@ -143,7 +143,9 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
 
    // Align virtual start address as required by NVIDIA kernel driver
    virt_start = buffer->address & GPU_BOUND_MASK;
-   pin_size = buffer->address + buffer->size - virt_start;
+
+   // Align pin size to page boundary (64k)
+   pin_size = (buffer->address + buffer->size - virt_start + GPU_BOUND_OFFSET) & GPU_BOUND_MASK;
 
    dev_warn(dev->device, "Gpu_AddNvidia: attempting to map. address=0x%llx, size=%i, virt_start=0x%llx, pin_size=%li, write=%i\n",
          buffer->address, buffer->size, virt_start, pin_size, buffer->write);
@@ -170,6 +172,10 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
             } else {
                 break;
             }
+         }
+
+         if (x < buffer->dmaMapping->entries) {
+            dev_warn(dev->device, "Gpu_AddNvidia: non-contiguous GPU memory detected: requested %d pages, only got %i pages\n", buffer->dmaMapping->entries, x);
          }
 
          dev_warn(dev->device, "Gpu_AddNvidia: dma address 0 = 0x%llx, total = %li, pages = %i\n",
