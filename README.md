@@ -10,19 +10,11 @@ Contains shared kernel and application libraries
 
 #### data_dev/
 
-Contains driver and application code for TID-AIR generic DAQ PCIe cards
+Contains driver and application code for TID-AIR generic DAQ PCIe cards, optionally with GPUDirect RDMA support (for use with NVIDIA GPUs)
 
 /etc/modprobe.d/datadev.conf
 
 options datadev cfgTxCount=1024 cfgRxCount=1024 cfgSize=131072 cfgMode=1 cfgCont=1
-
-#### data_gpu/
-
-Contains driver and application code for TID-AIR generic DAQ PCIe cards with DirectGPU Async Support
-
-/etc/modprobe.d/datagpu.conf
-
-options datagpu cfgTxCount=1024 cfgRxCount=1024 cfgSize=131072 cfgMode=1 cfgCont=1
 
 #### include/
 
