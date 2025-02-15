@@ -10,19 +10,11 @@ Contains shared kernel and application libraries
 
 #### data_dev/
 
-Contains driver and application code for TID-AIR generic DAQ PCIe cards
+Contains driver and application code for TID-AIR generic DAQ PCIe cards, optionally with GPUDirect RDMA support (for use with NVIDIA GPUs)
 
 /etc/modprobe.d/datadev.conf
 
 options datadev cfgTxCount=1024 cfgRxCount=1024 cfgSize=131072 cfgMode=1 cfgCont=1
-
-#### data_gpu/
-
-Contains driver and application code for TID-AIR generic DAQ PCIe cards with DirectGPU Async Support
-
-/etc/modprobe.d/datagpu.conf
-
-options datagpu cfgTxCount=1024 cfgRxCount=1024 cfgSize=131072 cfgMode=1 cfgCont=1
 
 #### include/
 
@@ -60,7 +52,7 @@ $ make app
 $ cd aes-stream-drivers
 
 # Source the setup script (required for cross-compiling)
-$ source /afs/slac.stanford.edu/g/reseng/xilinx/vivado_2016.4/Vivado/2016.4/settings64.sh
+$ source /sdf/group/faders/tools/xilinx/2016.4/Vivado/2016.4/settings64.sh
 
 # Build the drivers
 $ make rce

@@ -816,6 +816,7 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    seq_printf(s, "      Driver Load Count : %u\n", ((readl(&(reg->enableVer)))>>8)&0xFF);
    seq_printf(s, "               IRQ Hold : %u\n", (readl(&(reg->irqHoldOff))));
    seq_printf(s, "              BG Enable : 0x%x\n", hwData->bgEnable);
+   seq_printf(s, "           GPU Async En : %i\n", dev->gpuEn);
 
    for ( x=0; x < 8; x++ ) {
       if ( (hwData->bgEnable >> x) & 0x1 ) {
