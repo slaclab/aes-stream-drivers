@@ -3,20 +3,20 @@
 set -e
 
 while test $# -gt 0; do
-	case $1 in
-	-v)
-		VERSION="$2"
-		shift 2;
-		;;
-	-s)
-		SRCTREE="$2"
-		shift 2;
-		;;
-	*)
-		echo "USAGE: $0 -s src_tree -v kver"
-		exit 1
-		;;
-	esac
+    case $1 in
+        -v)
+            VERSION="$2"
+            shift 2
+            ;;
+        -s)
+            SRCTREE="$2"
+            shift 2
+            ;;
+        *)
+            echo "USAGE: $0 -s src_tree -v kver"
+            exit 1
+            ;;
+    esac
 done
 
 if [ $EUID -ne 0 ]; then
@@ -25,8 +25,8 @@ if [ $EUID -ne 0 ]; then
 fi
 
 if [ -z "$VERSION" ] || [ -z "$SRCTREE" ]; then
-	echo "USAGE: $0 -s src_tree -v kver"
-	exit 1
+    echo "USAGE: $0 -s src_tree -v kver"
+    exit 1
 fi
 
 # Determine the NVIDIA module version installed for this kernel
@@ -38,4 +38,3 @@ echo "NVIDIA_DRIVERS=$SRCTREE/$NVIDIA_VER" > Makefile.local
 echo "--> Building NVIDIA drivers version $NVIDIA_VER"
 
 make -C "$SRCTREE/$NVIDIA_VER" -j$(nproc)
-

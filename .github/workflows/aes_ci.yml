@@ -38,13 +38,20 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r pip_requirements.txt
 
-      - name: Check for trailing whitespace
+      - name: Check for trailing whitespace and tabs
         run: |
-          if grep -rnI '[[:blank:]]$' --include=\*.{c,cpp,h,sh} .; then
+          # Check for trailing whitespace
+          if grep -rnI '[[:blank:]]$' --include=\*.{c,cpp,h,sh,py} .; then
             echo "Error: Trailing whitespace found in the repository!"
             exit 1
           fi
-
+          
+          # Check for tab characters instead of spaces
+          if grep -rnI $'\t' --include=\*.{c,cpp,h,sh,py} .; then
+            echo "Error: Tab characters found in the repository! Please use spaces for indentation."
+            exit 1
+          fi
+\
       # C/C++ Linter
       - name: C/C++ Linter
         run: |
