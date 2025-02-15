@@ -51,7 +51,7 @@ jobs:
             echo "Error: Tab characters found in the repository! Please use spaces for indentation."
             exit 1
           fi
-\
+
       # C/C++ Linter
       - name: C/C++ Linter
         run: |
