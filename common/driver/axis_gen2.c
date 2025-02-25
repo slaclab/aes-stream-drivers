@@ -479,8 +479,8 @@ void AxisG2_Init(struct DmaDevice *dev) {
    writel(0x1, &(reg->fifoReset));
    writel(0x0, &(reg->fifoReset));
 
-   // Enable continuous mode and disable drop mode
-   writel(0x1, &(reg->contEnable));
+   // (Optionally) Enable continuous mode and disable drop mode
+   writel(dev->cfgCont ? 1 : 0, &(reg->contEnable));
    writel(0x0, &(reg->dropEnable));
 
    // Set IRQ holdoff time if supported by hardware version
