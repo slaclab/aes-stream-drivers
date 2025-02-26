@@ -479,8 +479,8 @@ void AxisG2_Init(struct DmaDevice *dev) {
    writel(0x1, &(reg->fifoReset));
    writel(0x0, &(reg->fifoReset));
 
-   // Enable continuous mode and disable drop mode
-   writel(0x1, &(reg->contEnable));
+   // (Optionally) Enable continuous mode and disable drop mode
+   writel(dev->cfgCont ? 1 : 0, &(reg->contEnable));
    writel(0x0, &(reg->dropEnable));
 
    // Set IRQ holdoff time if supported by hardware version
@@ -816,6 +816,7 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    seq_printf(s, "      Driver Load Count : %u\n", ((readl(&(reg->enableVer)))>>8)&0xFF);
    seq_printf(s, "               IRQ Hold : %u\n", (readl(&(reg->irqHoldOff))));
    seq_printf(s, "              BG Enable : 0x%x\n", hwData->bgEnable);
+   seq_printf(s, "           GPU Async En : %i\n", dev->gpuEn);
 
    for ( x=0; x < 8; x++ ) {
       if ( (hwData->bgEnable >> x) & 0x1 ) {

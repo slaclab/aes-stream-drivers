@@ -38,6 +38,13 @@
 void Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
    struct GpuData *gpuData;
 
+   uint8_t* gpuBase = dev->base + offset;
+   dev->gpuEn = !!readGpuAsyncReg(gpuBase, &GpuAsyncReg_Version);
+
+   /* GPU not enabled, avoid allocating GPU data */
+   if (!dev->gpuEn)
+      return;
+
    /* Allocate memory for GPU utility data */
    gpuData = (struct GpuData *)kzalloc(sizeof(struct GpuData), GFP_KERNEL);
    if (!gpuData)
@@ -136,7 +143,9 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
 
    // Align virtual start address as required by NVIDIA kernel driver
    virt_start = buffer->address & GPU_BOUND_MASK;
-   pin_size = buffer->address + buffer->size - virt_start;
+
+   // Align pin size to page boundary (64k)
+   pin_size = (buffer->address + buffer->size - virt_start + GPU_BOUND_OFFSET) & GPU_BOUND_MASK;
 
    dev_warn(dev->device, "Gpu_AddNvidia: attempting to map. address=0x%llx, size=%i, virt_start=0x%llx, pin_size=%li, write=%i\n",
          buffer->address, buffer->size, virt_start, pin_size, buffer->write);
@@ -165,6 +174,10 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
             }
          }
 
+         if (x < buffer->dmaMapping->entries) {
+            dev_warn(dev->device, "Gpu_AddNvidia: non-contiguous GPU memory detected: requested %d pages, only got %i pages\n", buffer->dmaMapping->entries, x);
+         }
+
          dev_warn(dev->device, "Gpu_AddNvidia: dma address 0 = 0x%llx, total = %li, pages = %i\n",
                buffer->dmaMapping->dma_addresses[0], mapSize, x);
 
@@ -172,7 +185,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
          if (buffer->write) {
             writel(buffer->dmaMapping->dma_addresses[0] & 0xFFFFFFFF, data->base+0x100+data->writeBuffers.count*16);
             writel((buffer->dmaMapping->dma_addresses[0] >> 32) & 0xFFFFFFFF, data->base+0x104+data->writeBuffers.count*16);
-            writel(mapSize, data->base+0x108+data->writeBuffers.count*16);
+            writel(mapSize - BUFFER_OFFSET, data->base+0x108+data->writeBuffers.count*16);  // Subtracted BUFFER_OFFSET to align the mapSize with maxSize in firmware
             data->writeBuffers.count++;
          } else {
             writel(buffer->dmaMapping->dma_addresses[0] & 0xFFFFFFFF, data->base+0x200+data->readBuffers.count*16);
@@ -307,7 +320,7 @@ int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg) {
  * @dev: Device to read from
  */
 void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
-   int i;
+   u32 i;
    struct GpuData* data = (struct GpuData*)dev->utilData;
 
    const u32 readBuffCnt = readGpuAsyncReg(data->base, &GpuAsyncReg_ReadCount)+1;
@@ -317,20 +330,20 @@ void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
 
    seq_printf(s, "\n---------------- DataGPU State ----------------\n");
    seq_printf(s, "    GpuAsyncCore Offset : 0x%X\n", data->offset);
-   seq_printf(s, "            Max Buffers : %d\n", readGpuAsyncReg(data->base, &GpuAsyncReg_MaxBuffers));
-   seq_printf(s, "     Write Buffer Count : %d\n", writeBuffCnt);
-   seq_printf(s, "           Write Enable : %d\n", writeEnable);
-   seq_printf(s, "      Read Buffer Count : %d\n", readBuffCnt);
-   seq_printf(s, "            Read Enable : %d\n", readEnable);
-   seq_printf(s, "         RX Frame Count : %d\n", readGpuAsyncReg(data->base, &GpuAsyncReg_RxFrameCnt));
-   seq_printf(s, "         TX Frame Count : %d\n", readGpuAsyncReg(data->base, &GpuAsyncReg_TxFrameCnt));
-   seq_printf(s, "  AXI Write Error Count : %d\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiWriteErrorCnt));
-   seq_printf(s, "   AXI Read Error Count : %d\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiReadErrorCnt));
+   seq_printf(s, "            Max Buffers : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_MaxBuffers));
+   seq_printf(s, "     Write Buffer Count : %u\n", writeBuffCnt);
+   seq_printf(s, "           Write Enable : %u\n", writeEnable);
+   seq_printf(s, "      Read Buffer Count : %u\n", readBuffCnt);
+   seq_printf(s, "            Read Enable : %u\n", readEnable);
+   seq_printf(s, "         RX Frame Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_RxFrameCnt));
+   seq_printf(s, "         TX Frame Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_TxFrameCnt));
+   seq_printf(s, "  AXI Write Error Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiWriteErrorCnt));
+   seq_printf(s, "   AXI Read Error Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiReadErrorCnt));
 
    for (i = 0; i < writeBuffCnt && writeEnable; ++i) {
       u32 wal = readl(data->base + GPU_ASYNC_REG_WRITE_ADDR_L_OFFSET(i));
       u32 wah = readl(data->base + GPU_ASYNC_REG_WRITE_ADDR_H_OFFSET(i));
-      seq_printf(s, "\n-------- Write Buffer %d --------\n", i);
+      seq_printf(s, "\n-------- Write Buffer %u --------\n", i);
       seq_printf(s, "  Write Address : 0x%llX\n", ((u64)wah << 32) | wal);
       seq_printf(s, "     Write Size : 0x%X\n", readl(data->base + GPU_ASYNC_REG_WRITE_SIZE_OFFSET(i)));
    }
@@ -338,7 +351,7 @@ void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
    for (i = 0; i < readBuffCnt && readEnable; ++i) {
       u32 ral = readl(data->base + GPU_ASYNC_REG_READ_ADDR_L_OFFSET(i));
       u32 rah = readl(data->base + GPU_ASYNC_REG_READ_ADDR_H_OFFSET(i));
-      seq_printf(s, "\n-------- Read Buffer %d --------\n", i);
+      seq_printf(s, "\n-------- Read Buffer %u --------\n", i);
       seq_printf(s, "  Read Address : 0x%llX\n", ((u64)rah << 32) | ral);
       seq_printf(s, "     Read Size : 0x%X\n", readl(data->base + GPU_ASYNC_REG_REMOTE_READ_SIZE_OFFSET(i)));
    }

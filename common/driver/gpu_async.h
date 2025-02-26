@@ -45,6 +45,21 @@
 #define GPU_BOUND_MASK    (~GPU_BOUND_OFFSET)
 
 /**
+ * BUFFER_OFFSET_SHIFT - Shift for buffer offset address boundary
+ */
+#define BUFFER_OFFSET_SHIFT   5
+
+/**
+ * BUFFER_OFFSET_SIZE - Size of buffer offset boundary
+ */
+#define BUFFER_OFFSET_SIZE    ((u64)1 << BUFFER_OFFSET_SHIFT)
+
+/**
+ * BUFFER_OFFSET - Offset for setting correct buffer size (maxSize)
+ */
+#define BUFFER_OFFSET  (BUFFER_OFFSET_SIZE)
+
+/**
  * MAX_GPU_BUFFERS - Maximum number of GPU buffers allowed
  */
 #define MAX_GPU_BUFFERS   16
