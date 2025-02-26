@@ -126,7 +126,6 @@ jobs:
       matrix:
         mod:
           - datadev
-          - datagpu
     steps:
 
       # This step checks out a copy of your repository.
@@ -156,9 +155,6 @@ jobs:
           then
              echo ::set-output name=module::"datadev"
              echo ::set-output name=dir::"data_dev/driver"
-          else
-             echo ::set-output name=module::"datagpu"
-             echo ::set-output name=dir::"data_gpu/driver"
           fi
 
       - name: Setup Package
