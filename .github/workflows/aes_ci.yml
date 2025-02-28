@@ -181,15 +181,6 @@ jobs:
           sudo echo "modprobe ${MODULE}" | sudo tee -a ${DEST_DIR}/install.sh
           sudo chmod a+rx ${DEST_DIR}/install.sh
 
-      - name: Build Debian Package
-        env:
-          MODULE: ${{ steps.get_image_info.outputs.module }}
-          VERSION: ${{ steps.get_image_info.outputs.tag }}
-
-        run: |
-          sudo dkms add -m $MODULE -v $VERSION
-          sudo dkms mkdeb -m $MODULE -v $VERSION --source-only
-
       - name: Build Tarball
         env:
           MODULE: ${{ steps.get_image_info.outputs.module }}
