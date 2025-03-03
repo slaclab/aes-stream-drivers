@@ -53,8 +53,8 @@ static char doc[] = "";
 #define STRING(N) #N
 #define XSTRING(N) STRING(N)
 static struct argp_option options[] = {
-   {"path", 'p', "PATH", OPTION_ARG_OPTIONAL, "Path of datadev device. Default=" DEF_DEV_PATH, 0},
-   {"count", 'c', "COUNT", OPTION_ARG_OPTIONAL, "Total iterations. Default=" XSTRING(DEF_COUNT), 0},
+   {"path", 'p', "PATH", 0, "Path of datadev device. Default=" DEF_DEV_PATH, 0},
+   {"count", 'c', "COUNT", 0, "Total iterations. Default=" XSTRING(DEF_COUNT), 0},
    {0}
 };
 

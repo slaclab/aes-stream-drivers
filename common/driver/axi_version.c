@@ -39,7 +39,7 @@
  */
 int32_t AxiVersion_Get(struct DmaDevice *dev, void *base, uint64_t arg) {
    struct AxiVersion axiVersion;
-   int32_t ret;
+   uint64_t ret;
 
    // Read the AXI version from the device
    AxiVersion_Read(dev, base, &axiVersion);
@@ -49,8 +49,8 @@ int32_t AxiVersion_Get(struct DmaDevice *dev, void *base, uint64_t arg) {
    if (ret) {
       // Log a warning if copy to user space fails
       dev_warn(dev->device,
-               "AxiVersion_Get: copy_to_user failed. ret=%i, user=%p kern=%p\n",
-               ret, (void *)arg, &axiVersion);
+               "AxiVersion_Get: copy_to_user failed. ret=%llu, user=%p kern=%p\n",
+               (unsigned long long)ret, (void *)arg, &axiVersion);
       return -1;
    }
    return 0;
