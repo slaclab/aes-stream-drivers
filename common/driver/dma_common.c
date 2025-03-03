@@ -292,7 +292,7 @@ int Dma_Init(struct DmaDevice *dev) {
    dev_info(dev->device, "Init: Creating %i TX Buffers. Size=%i Bytes. Mode=%i.\n",
         dev->cfgTxCount, dev->cfgSize, dev->cfgMode);
    res = dmaAllocBuffers(dev, &(dev->txBuffers), dev->cfgTxCount, 0, DMA_TO_DEVICE);
-   tot = res * dev->cfgSize;
+   tot = (uint64_t)res * dev->cfgSize;
 
    dev_info(dev->device, "Init: Created  %i out of %i TX Buffers. %llu Bytes.\n", res, dev->cfgTxCount, tot);
 
@@ -315,7 +315,7 @@ int Dma_Init(struct DmaDevice *dev) {
    dev_info(dev->device, "Init: Creating %i RX Buffers. Size=%i Bytes. Mode=%i.\n",
         dev->cfgRxCount, dev->cfgSize, dev->cfgMode);
    res = dmaAllocBuffers(dev, &(dev->rxBuffers), dev->cfgRxCount, dev->txBuffers.count, DMA_BIDIRECTIONAL);
-   tot = res * dev->cfgSize;
+   tot = (uint64_t)res * dev->cfgSize;
 
    dev_info(dev->device, "Init: Created  %i out of %i RX Buffers. %llu Bytes.\n", res, dev->cfgRxCount, tot);
 
@@ -1176,7 +1176,7 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
       return ret;
    } else {
       // Map register space
-      base = dev->cfgSize * (dev->rxBuffers.count + dev->txBuffers.count);
+      base = (off_t)dev->cfgSize * (dev->rxBuffers.count + dev->txBuffers.count);
       relMap = offset - base;
       physical = dev->baseAddr + relMap;
 
