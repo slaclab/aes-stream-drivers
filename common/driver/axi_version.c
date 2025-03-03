@@ -39,7 +39,7 @@
  */
 int32_t AxiVersion_Get(struct DmaDevice *dev, void *base, uint64_t arg) {
    struct AxiVersion axiVersion;
-   int32_t ret;
+   uint64_t ret;
 
    // Read the AXI version from the device
    AxiVersion_Read(dev, base, &axiVersion);
