@@ -683,7 +683,7 @@ static inline void** dmaMapDma(int32_t fd, uint32_t* count, uint32_t* size) {
     while (gCount < bCount) {
         offset = (off_t)bSize * (off_t)gCount;
 
-        if ((temp = mmap(0, bSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset)) == MAP_FAILED) break;
+        if ((temp = mmap64(0, bSize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset)) == MAP_FAILED) break;
         ret[gCount++] = temp;
     }
 
@@ -908,7 +908,7 @@ static inline void* dmaMapRegister(int32_t fd, off_t offset, uint32_t size) {
     intOffset = (bSize * bCount) + offset;
 
     // Attempt to map the memory region into user space
-    return mmap(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, intOffset);
+    return mmap64(0, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, intOffset);
 }
 
 /**
