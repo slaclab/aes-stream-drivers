@@ -1137,7 +1137,9 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
 
    // Determine buffer index based on offset
    idx = (uint32_t)(offset / dev->cfgSize);
-
+   dev_warn(dev->device, "Debugging driver - 0x%.8lx, end 0x%.8lx, offset %li, size %li, index %i, Ret=%i.\n",
+                  vma->vm_start, vma->vm_end, offset, vsize, idx, ret);
+   
    if (idx < (dev->rxBuffers.count + dev->txBuffers.count)) {
       // Reset offset for mapping
       vma->vm_pgoff = 0;
