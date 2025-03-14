@@ -185,7 +185,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
          if (buffer->write) {
             writel(buffer->dmaMapping->dma_addresses[0] & 0xFFFFFFFF, data->base+0x100+data->writeBuffers.count*16);
             writel((buffer->dmaMapping->dma_addresses[0] >> 32) & 0xFFFFFFFF, data->base+0x104+data->writeBuffers.count*16);
-            writel(mapSize - BUFFER_OFFSET, data->base+0x108+data->writeBuffers.count*16);  // Subtracted BUFFER_OFFSET to align the mapSize with maxSize in firmware
+            writel(mapSize, data->base+0x108+data->writeBuffers.count*16);
             data->writeBuffers.count++;
          } else {
             writel(buffer->dmaMapping->dma_addresses[0] & 0xFFFFFFFF, data->base+0x200+data->readBuffers.count*16);
