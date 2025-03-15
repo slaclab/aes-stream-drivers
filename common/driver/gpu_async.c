@@ -110,7 +110,7 @@ int32_t Gpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
 int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
    int32_t ret;
    uint32_t x;
-   u64     virt_start;
+   u64     virt_start, virt_offset, dma_address;
    size_t  pin_size;
    size_t  mapSize;
 
@@ -144,6 +144,10 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
    // Align virtual start address as required by NVIDIA kernel driver
    virt_start = buffer->address & GPU_BOUND_MASK;
 
+   // Handle addresses that aren't aligned to 64k boundary. CUDA doesn't have an easy way to perform aligned allocations, so
+   // account for that here.
+   virt_offset = buffer->address & ~GPU_BOUND_MASK;
+
    // Align pin size to page boundary (64k)
    pin_size = (buffer->address + buffer->size - virt_start + GPU_BOUND_OFFSET) & GPU_BOUND_MASK;
 
@@ -174,22 +178,28 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
             }
          }
 
+         // Special case for when dat.size is not 64k aligned
+         if (mapSize > dat.size)
+            mapSize = dat.size;
+
+         dma_address = buffer->dmaMapping->dma_addresses[0] + virt_offset;
+
          if (x < buffer->dmaMapping->entries) {
             dev_warn(dev->device, "Gpu_AddNvidia: non-contiguous GPU memory detected: requested %d pages, only got %i pages\n", buffer->dmaMapping->entries, x);
          }
 
-         dev_warn(dev->device, "Gpu_AddNvidia: dma address 0 = 0x%llx, total = %li, pages = %i\n",
-               buffer->dmaMapping->dma_addresses[0], mapSize, x);
+         dev_warn(dev->device, "Gpu_AddNvidia: dma address 0 = 0x%llx, adjusted dma address 0 = 0x%llx, total = %li, pages = %i\n",
+               buffer->dmaMapping->dma_addresses[0], dma_address, mapSize, x);
 
          // Update buffer count and write DMA addresses to device
          if (buffer->write) {
-            writel(buffer->dmaMapping->dma_addresses[0] & 0xFFFFFFFF, data->base+0x100+data->writeBuffers.count*16);
-            writel((buffer->dmaMapping->dma_addresses[0] >> 32) & 0xFFFFFFFF, data->base+0x104+data->writeBuffers.count*16);
+            writel(dma_address & 0xFFFFFFFF, data->base+0x100+data->writeBuffers.count*16);
+            writel((dma_address >> 32) & 0xFFFFFFFF, data->base+0x104+data->writeBuffers.count*16);
             writel(mapSize, data->base+0x108+data->writeBuffers.count*16);
             data->writeBuffers.count++;
          } else {
-            writel(buffer->dmaMapping->dma_addresses[0] & 0xFFFFFFFF, data->base+0x200+data->readBuffers.count*16);
-            writel((buffer->dmaMapping->dma_addresses[0] >> 32) & 0xFFFFFFFF, data->base+0x204+data->readBuffers.count*16);
+            writel(dma_address & 0xFFFFFFFF, data->base+0x200+data->readBuffers.count*16);
+            writel((dma_address >> 32) & 0xFFFFFFFF, data->base+0x204+data->readBuffers.count*16);
             data->readBuffers.count++;
          }
       }
