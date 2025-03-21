@@ -52,14 +52,14 @@ static char   args_doc[] = "dest";
 static char   doc[]      = "   Destination is passed as integers.";
 
 static struct argp_option options[] = {
-   { "path",    'p', "PATH",   OPTION_ARG_OPTIONAL, "Path of AXI stream to use. Default=/dev/axi_stream_dma_0.", 0},
-   { "prbsdis", 'd', 0,        OPTION_ARG_OPTIONAL, "Disable PRBS generation.", 0},
-   { "size",    's', "SIZE",   OPTION_ARG_OPTIONAL, "Size of data to generate. Default=1000", 0},
-   { "count",   'c', "COUNT",  OPTION_ARG_OPTIONAL, "Number of frames to generate. Default=1", 0},
-   { "fuser",   'f', "FUSER",  OPTION_ARG_OPTIONAL, "Value for first user field in hex. Default=0x2", 0},
-   { "luser",   'l', "LUSER",  OPTION_ARG_OPTIONAL, "Value for last user field in hex. Default=0x0", 0},
-   { "indexen", 'i', 0,        OPTION_ARG_OPTIONAL, "Use index based transmit buffers.", 0},
-   { "rawEn",   'r', "COUNT",  OPTION_ARG_OPTIONAL, "Show raw data up to count.", 0},
+   { "path",    'p', "PATH",   0, "Path of AXI stream to use. Default=/dev/axi_stream_dma_0.", 0},
+   { "prbsdis", 'd', 0,        0, "Disable PRBS generation.", 0},
+   { "size",    's', "SIZE",   0, "Size of data to generate. Default=1000", 0},
+   { "count",   'c', "COUNT",  0, "Number of frames to generate. Default=1", 0},
+   { "fuser",   'f', "FUSER",  0, "Value for first user field in hex. Default=0x2", 0},
+   { "luser",   'l', "LUSER",  0, "Value for last user field in hex. Default=0x0", 0},
+   { "indexen", 'i', 0,        0, "Use index based transmit buffers.", 0},
+   { "rawEn",   'r', "COUNT",  0, "Show raw data up to count.", 0},
    {0}
 };
 

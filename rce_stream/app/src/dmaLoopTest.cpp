@@ -57,15 +57,15 @@ static char   args_doc[] = "";
 static char   doc[]      = "";
 
 static struct argp_option options[] = {
-   { "path",    'p', "PATH",   OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
-   { "dest",    'm', "LIST",   OPTION_ARG_OPTIONAL, "Comman seperated list of destinations.", 0},
-   { "prbsdis", 'd', 0,        OPTION_ARG_OPTIONAL, "Disable PRBS checking.", 0},
-   { "size",    's', "SIZE",   OPTION_ARG_OPTIONAL, "Size for transmitted frames.", 0},
-   { "indexen", 'i', 0,        OPTION_ARG_OPTIONAL, "Use index based receive buffers.", 0},
-   { "fuser",   'f', "FUSER",  OPTION_ARG_OPTIONAL, "Value for first user field in hex. Default=0x2", 0},
-   { "luser",   'l', "LUSER",  OPTION_ARG_OPTIONAL, "Value for last user field in hex. Default=0x0", 0},
-   { "time",    't', "TIME",   OPTION_ARG_OPTIONAL, "Pause time between writes in uSec. Default=0", 0},
-   { "txdis",   'r', "TIME",   OPTION_ARG_OPTIONAL, "Disable transmit threads. Default=0", 0},
+   { "path",    'p', "PATH",   0, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
+   { "dest",    'm', "LIST",   0, "Comman seperated list of destinations.", 0},
+   { "prbsdis", 'd', 0,        0, "Disable PRBS checking.", 0},
+   { "size",    's', "SIZE",   0, "Size for transmitted frames.", 0},
+   { "indexen", 'i', 0,        0, "Use index based receive buffers.", 0},
+   { "fuser",   'f', "FUSER",  0, "Value for first user field in hex. Default=0x2", 0},
+   { "luser",   'l', "LUSER",  0, "Value for last user field in hex. Default=0x0", 0},
+   { "time",    't', "TIME",   0, "Pause time between writes in uSec. Default=0", 0},
+   { "txdis",   'r', "TIME",   0, "Disable transmit threads. Default=0", 0},
    {0}
 };
 
