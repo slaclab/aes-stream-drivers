@@ -55,6 +55,7 @@ int cfgBgThold5 = 0;
 int cfgBgThold6 = 0;
 int cfgBgThold7 = 0;
 int cfgDevName  = 0;
+int cfgTimeout  = 0xFFFF;
 
 // Probe failure global flag used in driver init
 // function to unregister driver
@@ -244,6 +245,8 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->cfgBgThold[5] = cfgBgThold5;   // Background threshold 5
    dev->cfgBgThold[6] = cfgBgThold6;   // Background threshold 6
    dev->cfgBgThold[7] = cfgBgThold7;   // Background threshold 7
+   dev->cfgTimeout = cfgTimeout;
+
 
    // Assign the IRQ number from the pci_dev structure
    dev->irq = pcidev->irq;
@@ -501,3 +504,6 @@ MODULE_PARM_DESC(cfgBgThold7, "Buff Group Threshold 7");
 
 module_param(cfgDevName, int, 0);
 MODULE_PARM_DESC(cfgDevName, "Device Name Formating Setting");
+
+module_param(cfgTimeout, int, 0);
+MODULE_PARM_DESC(cfgTimeout, "Internal DMA transfer timeout duration (cycles)");

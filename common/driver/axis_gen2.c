@@ -398,6 +398,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
 void AxisG2_Init(struct DmaDevice *dev) {
    uint32_t x;
    uint32_t size;
+   uint32_t ver;
 
    struct DmaBuffer  *buff;
    struct AxisG2Data *hwData;
@@ -484,7 +485,9 @@ void AxisG2_Init(struct DmaDevice *dev) {
    writel(0x0, &(reg->dropEnable));
 
    // Set IRQ holdoff time if supported by hardware version
-   if ( ((readl(&(reg->enableVer)) >> 24) & 0xFF) >= 3 ) writel(dev->cfgIrqHold, &(reg->irqHoldOff));
+   ver = readl(&(reg->enableVer));
+   if ( ((ver >> 24) & 0xFF) >= 3 ) writel(dev->cfgIrqHold, &(reg->irqHoldOff));
+   if ( ((ver >> 24) & 0xFF) >= 5 ) writel(dev->cfgTimeout, &(reg->timeout));
 
    // Push RX buffers to hardware and map
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
@@ -817,6 +820,7 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    seq_printf(s, "               IRQ Hold : %u\n", (readl(&(reg->irqHoldOff))));
    seq_printf(s, "              BG Enable : 0x%x\n", hwData->bgEnable);
    seq_printf(s, "           GPU Async En : %i\n", dev->gpuEn);
+   seq_printf(s, "            DMA Timeout : %u\n", readl(&(reg->timeout)));
 
    for ( x=0; x < 8; x++ ) {
       if ( (hwData->bgEnable >> x) & 0x1 ) {

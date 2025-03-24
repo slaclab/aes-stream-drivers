@@ -106,7 +106,8 @@ struct AxisG2Reg {
    uint32_t spareC[3];        // 0x0074 - 0x007C
    uint32_t forceInt;         // 0x0080
    uint32_t irqHoldOff;       // 0x0084
-   uint32_t spareD[2];        // 0x0088 - 0x008C
+   uint32_t timeout;          // 0x0088
+   uint32_t spareD;           // 0x008C
    uint32_t bgThold[8];       // 0x0090 - 0x00AC
    uint32_t bgCount[8];       // 0x00B0 - 0x00CC
    uint32_t spareE[4044];     // 0x00D0 - 0x3FFC
@@ -201,6 +202,8 @@ struct AxisG2Data {
 
    uint32_t    bgEnable;
    uint32_t    wqEnable;
+
+   uint32_t    timeoutAvail;
 
    struct workqueue_struct *wq;
    struct delayed_work dlyWork;
