@@ -128,6 +128,12 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
 
    if (!dat.size) return -EINVAL;
 
+   if ((dat.size & ~GPU_BOUND_MASK) != 0) {
+      dev_warn(dev->device, "Gpu_AddNvidia: error: memory size (%u) is not a multiple of GPU page size (%llu)\n",
+         dat.size, GPU_BOUND_SIZE);
+      return -EINVAL;
+   }
+
    // Set buffer pointers based on the operation mode (write/read)
    if (dat.write)
       buffer = &(data->writeBuffers.list[data->writeBuffers.count]);
