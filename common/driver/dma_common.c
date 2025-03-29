@@ -218,8 +218,8 @@ int Dma_MapReg(struct DmaDevice *dev) {
  * Returns 0 on success, or a negative error code on failure.
  */
 int Dma_Init(struct DmaDevice *dev) {
-   int32_t x;
-   int32_t res;
+   uint32_t x;
+   ssize_t res;
    uint64_t tot;
 
    // Default debug disable
@@ -291,17 +291,17 @@ int Dma_Init(struct DmaDevice *dev) {
    // Create TX buffers
    dev_info(dev->device, "Init: Creating %i TX Buffers. Size=%i Bytes. Mode=%i.\n",
         dev->cfgTxCount, dev->cfgSize, dev->cfgMode);
-   res = dmaAllocBuffers(dev, &(dev->txBuffers), dev->cfgTxCount, 0, DMA_TO_DEVICE);
+   res = (ssize_t)dmaAllocBuffers(dev, &(dev->txBuffers), dev->cfgTxCount, 0, DMA_TO_DEVICE);
    tot = (uint64_t)res * dev->cfgSize;
 
-   dev_info(dev->device, "Init: Created  %i out of %i TX Buffers. %llu Bytes.\n", res, dev->cfgTxCount, tot);
+   dev_info(dev->device, "Init: Created  %zi out of %i TX Buffers. %llu Bytes.\n", res, dev->cfgTxCount, tot);
 
    // Handle bad buffer allocation for TX
    if ( dev->cfgTxCount > 0 && res == 0 )
       goto cleanup_dma_mapreg;
 
    // Initialize transmit queue
-   res = dmaQueueInit(&(dev->tq), dev->txBuffers.count);
+   res = (ssize_t)dmaQueueInit(&(dev->tq), dev->txBuffers.count);
    if (res == 0 && dev->txBuffers.count > 0) {
       dev_err(dev->device, "dmaQueueInit: Failed to initialize DMA queues.\n");
       goto cleanup_tx_buffers;
@@ -314,10 +314,10 @@ int Dma_Init(struct DmaDevice *dev) {
    // Create RX buffers, bidirectional because RX buffers can be passed to TX
    dev_info(dev->device, "Init: Creating %i RX Buffers. Size=%i Bytes. Mode=%i.\n",
         dev->cfgRxCount, dev->cfgSize, dev->cfgMode);
-   res = dmaAllocBuffers(dev, &(dev->rxBuffers), dev->cfgRxCount, dev->txBuffers.count, DMA_BIDIRECTIONAL);
+   res = (ssize_t)dmaAllocBuffers(dev, &(dev->rxBuffers), dev->cfgRxCount, dev->txBuffers.count, DMA_BIDIRECTIONAL);
    tot = (uint64_t)res * dev->cfgSize;
 
-   dev_info(dev->device, "Init: Created  %i out of %i RX Buffers. %llu Bytes.\n", res, dev->cfgRxCount, tot);
+   dev_info(dev->device, "Init: Created  %zi out of %i RX Buffers. %llu Bytes.\n", res, dev->cfgRxCount, tot);
 
    // Bad buffer allocation
    if ( dev->cfgRxCount > 0 && res == 0 )
@@ -593,7 +593,7 @@ ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
    struct DmaBuffer **buff;
    struct DmaReadData *rd;
    void *dp;
-   ssize_t ret;
+   uint64_t ret;
    size_t rCnt;
    ssize_t bCnt;
    ssize_t x;
@@ -616,7 +616,7 @@ ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
 
    // Copy the read structure from user space
    if ((ret = copy_from_user(rd, buffer, rCnt * sizeof(struct DmaReadData)))) {
-      dev_warn(dev->device, "Read: failed to copy struct from user space ret=%li, user=%p kern=%p\n",
+      dev_warn(dev->device, "Read: failed to copy struct from user space ret=%llu, user=%p kern=%p\n",
                ret, (void *)buffer, (void *)rd);
       return -1;
    }
@@ -634,7 +634,7 @@ ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
       rd[x].flags = buff[x]->flags;
       rd[x].index = buff[x]->index;
       rd[x].error = buff[x]->error;
-      rd[x].ret = buff[x]->size;
+      rd[x].ret = (int32_t)buff[x]->size;
 
       // Convert pointer based on architecture
       if (sizeof(void *) == 4 || rd[x].is32)
@@ -655,7 +655,7 @@ ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
 
          // Copy data to user space
          } else if ((ret = copy_to_user(dp, buff[x]->buffAddr, buff[x]->size))) {
-            dev_warn(dev->device, "Read: failed to copy data to user space ret=%li, user=%p kern=%p size=%u.\n",
+            dev_warn(dev->device, "Read: failed to copy data to user space ret=%llu, user=%p kern=%p size=%u.\n",
                      ret, dp, buff[x]->buffAddr, buff[x]->size);
             rd[x].ret = -1;
          }
@@ -674,9 +674,8 @@ ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
 
    // Copy the read structure back to user space
    if ((ret = copy_to_user(buffer, rd, rCnt * sizeof(struct DmaReadData)))) {
-      dev_warn(dev->device, "Read: failed to copy struct to user space ret=%li, user=%p kern=%p\n",
+      dev_warn(dev->device, "Read: failed to copy struct to user space ret=%llu, user=%p kern=%p\n",
                ret, (void *)buffer, (void *)&rd);
-      x = -1;
    }
    kfree(rd);
    return bCnt;
@@ -697,7 +696,7 @@ ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
  * Return: Number of bytes written on success, negative error code on failure.
  */
 ssize_t Dma_Write(struct file *filp, const char *buffer, size_t count, loff_t *f_pos) {
-   ssize_t ret;
+   uint64_t ret;
    ssize_t res;
    void *dp;
    struct DmaWriteData wr;
@@ -719,7 +718,7 @@ ssize_t Dma_Write(struct file *filp, const char *buffer, size_t count, loff_t *f
 
    // Copy data structure from user space
    if ((ret = copy_from_user(&wr, buffer, sizeof(struct DmaWriteData)))) {
-      dev_warn(dev->device, "Write: failed to copy struct from user space ret=%li, user=%p kern=%p.\n",
+      dev_warn(dev->device, "Write: failed to copy struct from user space ret=%llu, user=%p kern=%p.\n",
                ret, (void *)buffer, (void *)&wr);
       return -1;
    }
@@ -758,7 +757,7 @@ ssize_t Dma_Write(struct file *filp, const char *buffer, size_t count, loff_t *f
       if ((buff = dmaQueuePop(&(dev->tq))) == NULL) return 0;
 
       if ((ret = copy_from_user(buff->buffAddr, dp, wr.size))) {
-         dev_warn(dev->device, "Write: failed to copy data from user space ret=%li, user=%p kern=%p size=%i.\n",
+         dev_warn(dev->device, "Write: failed to copy data from user space ret=%llu, user=%p kern=%p size=%i.\n",
                   ret, dp, buff->buffAddr, wr.size);
          dmaQueuePush(&(dev->tq), buff);
          return -1;
@@ -1132,8 +1131,8 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
    dev = desc->dev;
 
    // Calculate offset and size from vma
-   offset = vma->vm_pgoff << PAGE_SHIFT;
-   vsize = vma->vm_end - vma->vm_start;
+   offset = (off_t)vma->vm_pgoff << PAGE_SHIFT;
+   vsize = (off_t)vma->vm_end - (off_t)vma->vm_start;
 
    // Determine buffer index based on offset
    idx = (uint32_t)(offset / dev->cfgSize);
@@ -1350,15 +1349,15 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    hwQCnt  = 0;
    qCnt    = 0;
    miss    = 0;
-   max     = 0;
-   min     = 0xFFFFFFFF;
+   //max     = 0;
+   //min     = 0xFFFFFFFF;
    sum     = 0;
 
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
       buff = dmaGetBufferList(&(dev->rxBuffers), x);
 
-      if ( buff->count > max ) max = buff->count;
-      if ( buff->count < min ) min = buff->count;
+      //if ( buff->count > max ) max = buff->count;
+      //if ( buff->count < min ) min = buff->count;
       if ( buff->userHas ) userCnt++;
       if (  buff->inHw   && (!buff->inQ) ) hwCnt++;
       if (  buff->inHw   &&  buff->inQ   ) hwQCnt++;
@@ -1368,12 +1367,12 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
 
       sum += buff->count;
    }
-   if (dev->rxBuffers.count == 0) {
-      min = 0;
-      avg = 0;
-   } else {
-       avg = sum/dev->rxBuffers.count;
-   }
+   //if (dev->rxBuffers.count == 0) {
+   //   min = 0;
+   //   avg = 0;
+   //} else {
+   //   avg = sum/dev->rxBuffers.count;
+   //}
 
    seq_printf(s, "      Buffers In User : %u\n", userCnt);
    seq_printf(s, "        Buffers In Hw : %u\n", hwCnt);
@@ -1414,12 +1413,12 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
 
       sum += buff->count;
    }
-   if (dev->txBuffers.count == 0) {
-      min = 0;
-      avg = 0;
-   } else {
-       avg = sum/dev->txBuffers.count;
-   }
+   //if (dev->txBuffers.count == 0) {
+   //   min = 0;
+   //   avg = 0;
+   //} else {
+   //   avg = sum/dev->txBuffers.count;
+   //}
 
    seq_printf(s, "      Buffers In User : %u\n", userCnt);
    seq_printf(s, "        Buffers In Hw : %u\n", hwCnt);
@@ -1456,7 +1455,7 @@ int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t *mask)
 
    // Ensure the function is called only once
    static const uint8_t zero[DMA_MASK_SIZE] = {0};
-   if (memcmp(desc->destMask, zero, DMA_MASK_SIZE)) return -1;
+   if (memcmp(desc->destMask, zero, DMA_MASK_SIZE) != 0) return -1;
 
    // Prevent data reception while adjusting the mask
    spin_lock_irqsave(&dev->maskLock, iflags);
@@ -1511,13 +1510,13 @@ int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t *mask)
  * Return: 0 on success, or -1 on failure.
  */
 int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg) {
-   int32_t ret;
+   uint64_t ret;
    struct DmaRegisterData rData;
 
    // Attempt to copy register data from user space
    ret = copy_from_user(&rData, (void *)arg, sizeof(struct DmaRegisterData));
    if (ret) {
-      dev_warn(dev->device, "Dma_WriteRegister: copy_from_user failed. ret=%i, user=%p kern=%p\n",
+      dev_warn(dev->device, "Dma_WriteRegister: copy_from_user failed. ret=%llu, user=%p kern=%p\n",
                ret, (void *)arg, &rData);
       return -1;
    }
@@ -1547,12 +1546,12 @@ int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg) {
  * Return: 0 on success, -1 on failure.
  */
 int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg) {
-   int32_t ret;
+   uint64_t ret;
    struct DmaRegisterData rData;
 
    // Attempt to copy DmaRegisterData structure from user space
    if ((ret = copy_from_user(&rData, (void *)arg, sizeof(struct DmaRegisterData)))) {
-      dev_warn(dev->device, "Dma_ReadRegister: copy_from_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
+      dev_warn(dev->device, "Dma_ReadRegister: copy_from_user failed. ret=%llu, user=%p kern=%p\n", ret, (void *)arg, &rData);
       return -1;
    }
 
@@ -1567,7 +1566,7 @@ int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg) {
 
    // Attempt to copy the updated DmaRegisterData structure back to user space
    if ((ret = copy_to_user((void *)arg, &rData, sizeof(struct DmaRegisterData)))) {
-      dev_warn(dev->device, "Dma_ReadRegister: copy_to_user failed. ret=%i, user=%p kern=%p\n", ret, (void *)arg, &rData);
+      dev_warn(dev->device, "Dma_ReadRegister: copy_to_user failed. ret=%llu, user=%p kern=%p\n", ret, (void *)arg, &rData);
       return -1;
    }
 
