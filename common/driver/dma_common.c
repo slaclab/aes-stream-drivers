@@ -1349,15 +1349,15 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    hwQCnt  = 0;
    qCnt    = 0;
    miss    = 0;
-   //max     = 0;
-   //min     = 0xFFFFFFFF;
+// max     = 0;
+// min     = 0xFFFFFFFF;
    sum     = 0;
 
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
       buff = dmaGetBufferList(&(dev->rxBuffers), x);
 
-      //if ( buff->count > max ) max = buff->count;
-      //if ( buff->count < min ) min = buff->count;
+   // if ( buff->count > max ) max = buff->count;
+   // if ( buff->count < min ) min = buff->count;
       if ( buff->userHas ) userCnt++;
       if (  buff->inHw   && (!buff->inQ) ) hwCnt++;
       if (  buff->inHw   &&  buff->inQ   ) hwQCnt++;
@@ -1367,12 +1367,12 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
 
       sum += buff->count;
    }
-   //if (dev->rxBuffers.count == 0) {
-   //   min = 0;
-   //   avg = 0;
-   //} else {
-   //   avg = sum/dev->rxBuffers.count;
-   //}
+// if (dev->rxBuffers.count == 0) {
+//    min = 0;
+//    avg = 0;
+// } else {
+//    avg = sum/dev->rxBuffers.count;
+// }
 
    seq_printf(s, "      Buffers In User : %u\n", userCnt);
    seq_printf(s, "        Buffers In Hw : %u\n", hwCnt);
@@ -1413,12 +1413,12 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
 
       sum += buff->count;
    }
-   //if (dev->txBuffers.count == 0) {
-   //   min = 0;
-   //   avg = 0;
-   //} else {
-   //   avg = sum/dev->txBuffers.count;
-   //}
+// if (dev->txBuffers.count == 0) {
+//    min = 0;
+//    avg = 0;
+// } else {
+//    avg = sum/dev->txBuffers.count;
+// }
 
    seq_printf(s, "      Buffers In User : %u\n", userCnt);
    seq_printf(s, "        Buffers In Hw : %u\n", hwCnt);
