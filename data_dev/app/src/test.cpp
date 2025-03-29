@@ -35,7 +35,7 @@ using std::endl;
 
 int main(int argc, char **argv) {
    int32_t s;
-   int32_t ret;
+   ssize_t ret;
    uint32_t count;
    void *txData = NULL;
    uint32_t dmaSize;
@@ -81,9 +81,9 @@ int main(int argc, char **argv) {
 
    // Calculate operation duration and performance metrics
    timersub(&endTime, &startTime, &diffTime);
-   float duration = (float)diffTime.tv_sec + (float)diffTime.tv_usec / 1000000.0;
-   float rate = count / duration;
-   float period = 1.0 / rate;
+   float duration = (float)diffTime.tv_sec + (float)diffTime.tv_usec / 1000000.0f;
+   float rate = float(count) / duration;
+   float period = 1.0f / rate;
    float bw = ((float)dmaCount * (float)dmaSize) / duration;
 
    // Display performance metrics
