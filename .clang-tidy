@@ -1,4 +1,5 @@
 ExtraArgs: [-Wno-sign-conversion, -Wno-vla-cxx-extension]
+WarningsAsErrors: true
 Checks:
   - bugprone-*
   - performance-*

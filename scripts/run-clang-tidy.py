@@ -28,7 +28,7 @@ def main():
     db = {}
     with open('compile_commands.json', 'r') as fp:
         db = json.load(fp)
-    
+
     fail = False
     for o in db:
         print(f'Processing {o["file"]}...')
