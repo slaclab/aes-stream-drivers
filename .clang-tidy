@@ -1,0 +1,17 @@
+ExtraArgs: [-Wno-sign-conversion, -Wno-vla-cxx-extension]
+Checks:
+  - bugprone-*
+  - performance-*
+  #==== Below here are check removals ====#
+  # Silence 'Please use memcpy_s' warnings
+  - -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling
+  # Kernel drivers have to do a lot of int -> ptr casting
+  - -performance-no-int-to-ptr
+  # These are just annoying
+  - -bugprone-easily-swappable-parameters
+  - -bugprone-assignment-in-if-condition
+  - -bugprone-multi-level-implicit-pointer-conversion
+  - -clang-diagnostic-unused-command-line-argument
+  - -bugprone-reserved-identifier
+  # Ignored return value of fprintf and whatnot
+  - -cert-err33-c
