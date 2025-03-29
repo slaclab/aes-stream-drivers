@@ -1316,7 +1316,7 @@ int Dma_SeqShow(struct seq_file *s, void *v) {
    uint32_t max;
    uint32_t min;
    uint32_t sum;
-   uint32_t avg;
+//   uint32_t avg;
    uint32_t miss;
    uint32_t userCnt;
    uint32_t hwCnt;
