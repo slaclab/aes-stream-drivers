@@ -85,7 +85,7 @@ jobs:
 
       # Latest released kernel + GCC
       - run: |
-          apt-get install -y linux-headers-amd64
+          apt-get install -y linux-headers-amd64 bear clang-tidy clang
         if: ${{ matrix.container == 'debian:experimental' }}
 
       # RHEL7, kernel 3.10
@@ -103,6 +103,13 @@ jobs:
 
       - name: Compile App
         run: make app
+
+      - name: Clang-tidy
+        run: |
+          bear -- make driver app
+          ./scripts/filter-clangdb.py -w
+          ./scripts/run-clang-tidy.py
+        if: ${{ matrix.container == 'debian:experimental' }}
 
 
 # ----------------------------------------------------------------------------

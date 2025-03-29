@@ -73,7 +73,7 @@ inline uint8_t AxisG2_MapReturn(struct DmaDevice * dev, struct AxisG2Return *ret
    uint32_t dest;
 
    // Calculate pointer to the descriptor based on index and descriptor size
-   ptr = (ring + (index*(desc128En?4:2)));
+   ptr = (ring + (index*(desc128En?4UL:2UL)));
 
    if ( desc128En ) {
       // For 128-bit descriptors
@@ -555,7 +555,7 @@ void AxisG2_Enable(struct DmaDevice *dev) {
          // Allocate workqueue for polling mode, without interrupts
          hwData->wq = alloc_workqueue("%s", WQ_MEM_RECLAIM | WQ_SYSFS, 1, "AXIS_G2_WORKQ");
          INIT_WORK(&(hwData->irqWork), AxisG2_WqTask_Poll);
-         queue_work_on(dev->cfgIrqDis, hwData->wq, &(hwData->irqWork));
+         queue_work_on((int)dev->cfgIrqDis, hwData->wq, &(hwData->irqWork));
       }
    } else {
       hwData->wqEnable = 0;
@@ -621,7 +621,7 @@ void AxisG2_Clear(struct DmaDevice *dev) {
       kfree(hwData->writeAddr);
    } else {
       // Compute real DMA size. This must match what was passed into dma_alloc_coherent
-      size = hwData->addrCount * (hwData->desc128En ? 16 : 8);
+      size = hwData->addrCount * (hwData->desc128En ? 16UL : 8UL);
 
       // For non-ACP modes, use dma_free_coherent to ensure proper DMA memory management.
       dma_free_coherent(dev->device, size, hwData->writeAddr, hwData->writeHandle);
@@ -734,7 +734,7 @@ int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32
       writel(0x1, &(reg->forceInt));
    }
 
-   return count;
+   return (int32_t)count;
 }
 
 /**
@@ -890,7 +890,7 @@ void AxisG2_WqTask_Poll(struct work_struct *work) {
 
    // Re-queue work if work queue processing is enabled
    if (hwData->wqEnable) {
-      queue_work_on(dev->cfgIrqDis, hwData->wq, &(hwData->irqWork));
+      queue_work_on((int32_t)dev->cfgIrqDis, hwData->wq, &(hwData->irqWork));
    }
 }
 

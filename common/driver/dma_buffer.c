@@ -263,7 +263,8 @@ void dmaFreeBuffers(struct DmaBufferList *list) {
  */
 void *bsearch(const void *key, const void *base, size_t num, size_t size,
               int (*cmp)(const void *key, const void *elt)) {
-   int start = 0, end = num - 1, mid, result;
+   size_t start = 0, end = num - 1, mid;
+   int result;
 
    if (num == 0) return NULL;
 

@@ -48,11 +48,11 @@ static char   args_doc[] = "";
 static char   doc[]      = "";
 
 static struct argp_option options[] = {
-   { "path",    'p', "PATH",   OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/axi_stream_dma_0.", 0},
-   { "dest",    'm', "LIST",   OPTION_ARG_OPTIONAL, "Comma seperated list of destinations.", 0},
-   { "prbsdis", 'd', 0,        OPTION_ARG_OPTIONAL, "Disable PRBS checking.", 0},
-   { "indexen", 'i', 0,        OPTION_ARG_OPTIONAL, "Use index based receive buffers.", 0},
-   { "rawEn",   'r', "COUNT",  OPTION_ARG_OPTIONAL, "Show raw data up to count.", 0},
+   { "path",    'p', "PATH",   0, "Path of pgpcard device to use. Default=/dev/axi_stream_dma_0.", 0},
+   { "dest",    'm', "LIST",   0, "Comma seperated list of destinations.", 0},
+   { "prbsdis", 'd', 0,        0, "Disable PRBS checking.", 0},
+   { "indexen", 'i', 0,        0, "Use index based receive buffers.", 0},
+   { "rawEn",   'r', "COUNT",  0, "Show raw data up to count.", 0},
    {0}
 };
 
@@ -75,7 +75,7 @@ static struct argp argp = {options, parseArgs, args_doc, doc};
 int main(int argc, char **argv) {
    uint8_t       mask[DMA_MASK_SIZE];
    int32_t       s;
-   int32_t       ret;
+   ssize_t       ret;
    int32_t       count;
    fd_set        fds;
    void *        rxData;
@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
             if ( args.idxEn ) dmaRetIndex(s, dmaIndex);
 
             count++;
-            printf("Read ret=%i, Dest=%i, Fuser=0x%.2x, Luser=0x%.2x, prbs=%i, count=%i\n", ret, rxDest, rxFuser, rxLuser, prbRes, count);
+            printf("Read ret=%li, Dest=%i, Fuser=0x%.2x, Luser=0x%.2x, prbs=%i, count=%i\n", ret, rxDest, rxFuser, rxLuser, prbRes, count);
             if ( args.rawEn ) {
                printf("Raw Data: ");
                for (x = 0; x < args.rawEn; x++) {

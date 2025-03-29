@@ -159,10 +159,8 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    struct hardware_functions *hfunc;
 
    int32_t x;
-   int32_t axiWidth;
+   uint32_t axiWidth;
    int ret;
-
-   struct AxisG2Data *hwData;
 
    // Validate buffer mode configuration
    if ( cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM ) {
@@ -298,9 +296,6 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
       probeReturn = -ENOMEM;      // Indicate memory allocation error
       goto err_post_en;
    }
-
-   // Get hardware data structure
-   hwData = (struct AxisG2Data *)dev->hwData;
 
    // Log memory mapping information
    dev_info(dev->device, "Init: Reg space mapped to 0x%p.\n", dev->reg);

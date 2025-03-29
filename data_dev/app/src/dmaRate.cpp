@@ -73,13 +73,13 @@ static struct argp argp = {options, parseArgs, args_doc, doc};
 
 int main(int argc, char **argv) {
    uint8_t mask[DMA_MASK_SIZE];
-   int32_t ret;
+   ssize_t ret;
    int32_t s;
    uint32_t rxFlags[MAX_RET_CNT_C];
    // PrbsData prbs(32,4,1,2,6,31);
-   void **dmaBuffers;
-   uint32_t dmaSize;
-   uint32_t dmaCount;
+   void **dmaBuffers = NULL;
+   uint32_t dmaSize = 0;
+   uint32_t dmaCount = 0;
    uint32_t dmaIndex[MAX_RET_CNT_C];
    int32_t dmaRet[MAX_RET_CNT_C];
    int32_t x;
@@ -87,8 +87,8 @@ int main(int argc, char **argv) {
    float rate;
    float bw;
    float duration;
-   int32_t max;
-   int32_t total;
+   size_t max;
+   size_t total;
 
    uint32_t getCnt = MAX_RET_CNT_C;
 
@@ -124,6 +124,7 @@ int main(int argc, char **argv) {
    // Set DMA mask
    if (dmaSetMaskBytes(s, mask) != 0) {
       printf("Failed to get receive dma!\n");
+      dmaUnMapDma(s, dmaBuffers);
       return 0;
    }
 
@@ -136,7 +137,7 @@ int main(int argc, char **argv) {
       total = 0;
       gettimeofday(&sTime, NULL);
 
-      while (rate < args.count) {
+      while (rate < float(args.count)) {
          // Perform DMA Read
          gettimeofday(&(pTime[0]), NULL);
          ret = dmaReadBulkIndex(s, getCnt, dmaRet, dmaIndex, rxFlags, NULL, NULL);
@@ -144,9 +145,9 @@ int main(int argc, char **argv) {
 
          // Process read data
          for (x = 0; x < ret; ++x) {
-            if ((last = dmaRet[x]) > 0.0) {
+            if ((last = float(dmaRet[x])) > 0.0) {
                rate += 1.0;
-               bw += (last * 8.0);
+               bw += float(last * 8.0);
             }
          }
 
@@ -161,18 +162,15 @@ int main(int argc, char **argv) {
       // Calculate duration and data rates
       gettimeofday(&eTime, NULL);
       timersub(&eTime, &sTime, &dTime);
-      duration = dTime.tv_sec + (float)dTime.tv_usec / 1000000.0;
+      duration = float(dTime.tv_sec) + (float)dTime.tv_usec / 1000000.0f;
 
       rate = rate / duration;
       bw = bw / duration;
 
       // Output results
-      printf("%8i      %1.3e   %8i   %1.2e   %1.2e   %1.2e    %8li    %8li     \n",
+      printf("%8li      %1.3e   %8i   %1.2e   %1.2e   %1.2e    %8li    %8li     \n",
              max, last, args.count, duration, rate, bw,
              (pTime[1].tv_usec - pTime[0].tv_usec), (pTime[3].tv_usec - pTime[2].tv_usec));
-
-      rate = 0.0;
-      bw = 0.0;
    }
 
    return 0;
