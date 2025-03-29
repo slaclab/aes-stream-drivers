@@ -75,7 +75,7 @@ static struct argp argp = {options, parseArgs, args_doc, doc};
 int main(int argc, char **argv) {
    uint8_t       mask[DMA_MASK_SIZE];
    int32_t       s;
-   int32_t       ret;
+   ssize_t       ret;
    int32_t       count;
    fd_set        fds;
    void *        rxData;
@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
             if ( args.idxEn ) dmaRetIndex(s, dmaIndex);
 
             count++;
-            printf("Read ret=%i, Dest=%i, Fuser=0x%.2x, Luser=0x%.2x, prbs=%i, count=%i\n", ret, rxDest, rxFuser, rxLuser, prbRes, count);
+            printf("Read ret=%li, Dest=%i, Fuser=0x%.2x, Luser=0x%.2x, prbs=%i, count=%i\n", ret, rxDest, rxFuser, rxLuser, prbRes, count);
             if ( args.rawEn ) {
                printf("Raw Data: ");
                for (x = 0; x < args.rawEn; x++) {

@@ -93,7 +93,7 @@ static struct argp argp = {options, parseArgs, args_doc, doc};
 
 int main(int argc, char **argv) {
    int32_t       s;
-   int32_t       ret;
+   ssize_t       ret;
    uint32_t      count;
    fd_set        fds;
    void *        txData;
@@ -166,7 +166,7 @@ int main(int argc, char **argv) {
          if ( ret > 0 ) {
             prbValid = false;
             count++;
-            printf("Write ret=%i, Dest=%i, Fuser=0x%.2x, Luser=0x%.2x, count=%i\n", ret, args.dest, args.fuser, args.luser, count);
+            printf("Write ret=%li, Dest=%i, Fuser=0x%.2x, Luser=0x%.2x, count=%i\n", ret, args.dest, args.fuser, args.luser, count);
             if ( args.rawEn ) {
                printf("Raw Data: ");
                for (x = 0; x < args.rawEn; x++) {

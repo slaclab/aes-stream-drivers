@@ -110,7 +110,7 @@ class RunData {
 void *runWrite(void *t) {
    fd_set          fds;
    struct timeval  timeout;
-   int32_t         ret;
+   ssize_t         ret;
    void *          data;
    int32_t         fd;
    PrbsData        prbs(32, 4, 1, 2, 6, 31);
@@ -178,7 +178,7 @@ void *runWrite(void *t) {
          }
 
          if ( ret < 0 ) {
-            printf("Write Error at count %lu. Dest=%i\n", txData->count, txData->dest);
+            printf("Write Error at count %u. Dest=%i\n", txData->count, txData->dest);
             break;
          } else if ( ret > 0 ) {
             txData->count++;
@@ -207,7 +207,7 @@ void *runWrite(void *t) {
 void *runRead(void *t) {
    fd_set          fds;
    struct timeval  timeout;
-   int32_t         ret;
+   ssize_t         ret;
    void *          data;
    uint32_t        maxSize;
    uint32_t        rxDest;
@@ -255,6 +255,10 @@ void *runRead(void *t) {
 
    if ( dmaSetMaskBytes(fd, mask) != 0 ) {
       printf("Error setting mask. Dest=%i\n", rxData->dest);
+      if (rxData->idxEn)
+         dmaUnMapDma(fd, dmaBuffers);
+      else
+         free(data);
       rxData->running = false;
       close(fd);
       return NULL;
@@ -286,13 +290,13 @@ void *runRead(void *t) {
             //  data
             if ( (rxData->prbEn) && (!prbs.processData(data, ret)) ) {
                rxData->prbErr++;
-               printf("Prbs mismatch. count=%lu, dest=%i, index=%i\n", rxData->count, rxData->dest, dmaIndex);
+               printf("Prbs mismatch. count=%u, dest=%i, index=%i\n", rxData->count, rxData->dest, dmaIndex);
             }
             if ( idxEn ) dmaRetIndex(fd, dmaIndex);
 
             // Stop on size mismatch or frame errors
             if (ret != (int)rxData->size || rxDest != rxData->dest || rxData->fuser != rxFuser || rxData->luser != rxLuser) {
-               printf("Read Error. Dest=%i, ExpDest=%i, Ret=%i, Exp=%i, Fuser=0x%.2x, Luser=0x%.2x\n",
+               printf("Read Error. Dest=%i, ExpDest=%i, Ret=%li, Exp=%i, Fuser=0x%.2x, Luser=0x%.2x\n",
                      rxDest, rxData->dest, ret, rxData->size, rxFuser, rxLuser);
                break;
             } else {
@@ -319,16 +323,16 @@ void *runRead(void *t) {
 }
 
 int main(int argc, char **argv) {
-   RunData     * txData[DMA_MASK_SIZE];
-   RunData     * rxData[DMA_MASK_SIZE];
-   pthread_t     txThread[DMA_MASK_SIZE];
-   pthread_t     rxThread[DMA_MASK_SIZE];
+   RunData     * txData[DMA_MASK_SIZE] = {};
+   RunData     * rxData[DMA_MASK_SIZE] = {};
+   pthread_t     txThread[DMA_MASK_SIZE] = {};
+   pthread_t     rxThread[DMA_MASK_SIZE] = {};
    uint          x;
    time_t        c_tme;
    time_t        l_tme;
    uint          dCount;
-   uint          lastRx[DMA_MASK_SIZE];
-   uint          lastTx[DMA_MASK_SIZE];
+   uint          lastRx[DMA_MASK_SIZE] = {};
+   uint          lastTx[DMA_MASK_SIZE] = {};
    double        totRxRate;
    uint32_t      totRx;
    uint32_t      totRxFreq;
@@ -374,12 +378,14 @@ int main(int argc, char **argv) {
 
       if ( pthread_create(&rxThread[dCount], NULL, runRead, rxData[dCount]) ) {
          printf("Error creating read thread\n");
+         exit(2);
          return(2);
       }
 
       if ( args.txDis == 0 ) {
          if ( pthread_create(&txThread[dCount], NULL, runWrite, txData[dCount]) ) {
             printf("Error creating write thread\n");
+            exit(2);
             return(2);
          }
       } else {
@@ -427,11 +433,11 @@ int main(int argc, char **argv) {
       printf("   Dest:");
       for (x=0; x < dCount; x++) printf(" %15s", txData[x]->id);
       printf("\nTxCount:");
-      for (x=0; x < dCount; x++) printf(" %15lu", txData[x]->count);
+      for (x=0; x < dCount; x++) printf(" %15u", txData[x]->count);
       printf("\n TxFreq:");
-      for (x=0; x < dCount; x++) printf(" %15lu", txData[x]->count-lastTx[x]);
+      for (x=0; x < dCount; x++) printf(" %15u", txData[x]->count-lastTx[x]);
       printf("\nTxBytes:");
-      for (x=0; x < dCount; x++) printf(" %15lu", txData[x]->total);
+      for (x=0; x < dCount; x++) printf(" %15u", txData[x]->total);
       printf("\n TxRate:");
 
       totTx = 0;
@@ -443,15 +449,15 @@ int main(int argc, char **argv) {
       printf("\n");
 
       printf("RxCount:");
-      for (x=0; x < dCount; x++) printf(" %15lu", rxData[x]->count);
+      for (x=0; x < dCount; x++) printf(" %15u", rxData[x]->count);
       printf("\n RxFreq:");
-      for (x=0; x < dCount; x++) printf(" %15lu", rxData[x]->count-lastRx[x]);
+      for (x=0; x < dCount; x++) printf(" %15u", rxData[x]->count-lastRx[x]);
       printf("\nRxBytes:");
-      for (x=0; x < dCount; x++) printf(" %15lu", rxData[x]->total);
+      for (x=0; x < dCount; x++) printf(" %15u", rxData[x]->total);
 
       if ( !args.prbsDis ) {
          printf("\n PrbErr:");
-         for (x=0; x < dCount; x++) printf(" %15lu", rxData[x]->prbErr);
+         for (x=0; x < dCount; x++) printf(" %15u", rxData[x]->prbErr);
       }
       printf("\n RxRate:");
 
@@ -469,10 +475,10 @@ int main(int argc, char **argv) {
          totRxRate += rxRate;
       }
       printf("\n");
-      printf("  TotTx: %15lu\n", totTx);
-      printf("  TotRx: %15lu\n", totRx);
-      printf("TotFreq: %15lu\n", totRxFreq);
-      if ( !args.prbsDis ) printf(" PrbErr: %15lu\n", totPrb);
+      printf("  TotTx: %15u\n", totTx);
+      printf("  TotRx: %15u\n", totRx);
+      printf("TotFreq: %15u\n", totRxFreq);
+      if ( !args.prbsDis ) printf(" PrbErr: %15u\n", totPrb);
       printf("TotRate: %15e\n", totRxRate);
       l_tme = c_tme;
    }
