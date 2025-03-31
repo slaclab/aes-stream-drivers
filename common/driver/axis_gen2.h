@@ -137,6 +137,7 @@ struct AxisG2Reg {
  *          This can be used to control the flow of data processing.
  * @id:     An identifier for the operation, providing a unique tag for tracking
  *          and referencing purposes.
+ * @timeout: When set, the transaction timed out.
  */
 struct AxisG2Return {
    uint32_t index;   // Index of the operation
@@ -147,6 +148,7 @@ struct AxisG2Return {
    uint16_t dest;    // Destination identifier
    uint8_t  cont;    // Continuous operation flag
    uint8_t  id;      // Operation identifier
+   uint8_t  timeout; // Timeout flag
 };
 
 /**

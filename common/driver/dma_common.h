@@ -125,6 +125,8 @@ struct DmaDevice {
    // GPU-capable flag
    uint8_t gpuEn;
 
+   uint8_t version;
+
    // IRQ
    uint32_t irq;
 
