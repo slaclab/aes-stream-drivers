@@ -140,15 +140,15 @@ struct AxisG2Reg {
  * @timeout: When set, the transaction timed out.
  */
 struct AxisG2Return {
-   uint32_t index;   // Index of the operation
-   uint32_t size;    // Size of the data transferred
-   uint8_t  result;  // Result of the operation
-   uint8_t  fuser;   // First user-defined value
-   uint8_t  luser;   // Last user-defined value
-   uint16_t dest;    // Destination identifier
-   uint8_t  cont;    // Continuous operation flag
-   uint8_t  id;      // Operation identifier
-   uint8_t  timeout; // Timeout flag
+   uint32_t index;    // Index of the operation
+   uint32_t size;     // Size of the data transferred
+   uint8_t  result;   // Result of the operation
+   uint8_t  fuser;    // First user-defined value
+   uint8_t  luser;    // Last user-defined value
+   uint16_t dest;     // Destination identifier
+   uint8_t  cont;     // Continuous operation flag
+   uint8_t  id;       // Operation identifier
+   uint8_t  timeout;  // Timeout flag
 };
 
 /**

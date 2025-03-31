@@ -290,10 +290,10 @@ uint32_t AxisG2_Process(struct DmaDevice * dev, struct AxisG2Reg *reg, struct Ax
          buff->error = (ret.size == 0)?DMA_ERR_FIFO:ret.result;
          buff->id    = ret.id;
 
-         buff->flags =  ret.fuser;                        // firstUser = flags[7:0]
-         buff->flags |= (ret.luser << 8) & 0x0000FF00;    // lastUser = flags[15:8]
-         buff->flags |= (ret.cont << 16) & 0x00010000;    // continue = flags[16]
-         buff->flags |= (ret.timeout << 17) & 0x00020000; // timeout = flags[17]
+         buff->flags =  ret.fuser;                         // firstUser = flags[7:0]
+         buff->flags |= (ret.luser << 8) & 0x0000FF00;     // lastUser = flags[15:8]
+         buff->flags |= (ret.cont << 16) & 0x00010000;     // continue = flags[16]
+         buff->flags |= (ret.timeout << 17) & 0x00020000;  // timeout = flags[17]
 
          hwData->contCount += ret.cont;
 

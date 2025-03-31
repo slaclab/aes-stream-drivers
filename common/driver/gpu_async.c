@@ -355,7 +355,7 @@ void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
    seq_printf(s, "         RX Frame Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_RxFrameCnt));
    seq_printf(s, "         TX Frame Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_TxFrameCnt));
    seq_printf(s, "  AXI Write Error Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiWriteErrorCnt));
-   if (version >= 2) // Added in V2
+   if (version >= 2)  // Added in V2
       seq_printf(s, "AXI Write Timeout Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiWriteTimeoutCnt));
    seq_printf(s, "   AXI Read Error Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiReadErrorCnt));
 
