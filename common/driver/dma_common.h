@@ -102,6 +102,7 @@ struct DmaDevice {
    uint32_t cfgIrqHold;
    uint32_t cfgBgThold[8];
    uint32_t cfgIrqDis;
+   uint32_t cfgTimeout;
 
    // Device tracking
    uint32_t        index;
@@ -123,6 +124,8 @@ struct DmaDevice {
 
    // GPU-capable flag
    uint8_t gpuEn;
+
+   uint8_t version;
 
    // IRQ
    uint32_t irq;

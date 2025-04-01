@@ -94,7 +94,7 @@ static struct argp argp = { options, parseArgs, args_doc, doc };
 
 int main(int argc, char **argv) {
    int32_t s;
-   int32_t ret;
+   ssize_t ret;
    uint32_t count;
    fd_set fds;
    void *txData = NULL;
@@ -189,9 +189,9 @@ int main(int argc, char **argv) {
 
    // Calculate and print write operation statistics
    timersub(&endTime, &startTime, &diffTime);
-   float duration = (float)diffTime.tv_sec + (float)diffTime.tv_usec / 1000000.0;
-   float rate = count / duration;
-   float period = 1.0 / rate;
+   float duration = (float)diffTime.tv_sec + (float)diffTime.tv_usec / 1000000.0f;
+   float rate = float(count) / duration;
+   float period = 1.0f / rate;
 
    printf("Write %i events in %f seconds, rate = %f Hz, period = %f seconds\n", count, duration, rate, period);
 

@@ -73,7 +73,10 @@ inline uint8_t AxisG2_MapReturn(struct DmaDevice * dev, struct AxisG2Return *ret
    uint32_t dest;
 
    // Calculate pointer to the descriptor based on index and descriptor size
-   ptr = (ring + (index*(desc128En?4:2)));
+   ptr = (ring + (index*(desc128En?4UL:2UL)));
+
+   // Timeout flag defaulted to 0, only set for 128-bit descriptors, w/ver >= 5
+   ret->timeout = 0;
 
    if ( desc128En ) {
       // For 128-bit descriptors
@@ -89,6 +92,8 @@ inline uint8_t AxisG2_MapReturn(struct DmaDevice * dev, struct AxisG2Return *ret
       ret->id     = (ptr[0] >>  8) & 0xFF;
       ret->cont   = (ptr[0] >>  3) & 0x1;
       ret->result = ptr[0] & 0x7;
+      if (dev->version >= 5)
+         ret->timeout = !!(ptr[0] & 0x10);
 
    } else {
       // For 64-bit descriptors
@@ -170,6 +175,7 @@ inline void AxisG2_WriteTx(struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32
 
    // Configure buffer flags for transmission
    rdData[0]  = (buff->flags >> 13) & 0x00000008;  // bit[3] = continue = flags[16]
+   rdData[0]  = (buff->flags >> 13) & 0x00000010;  // bit[4] = timeout = flags[17]
    rdData[0] |= (buff->flags <<  8) & 0x00FF0000;  // Bits[23:16] = lastUser = flags[15:8]
    rdData[0] |= (buff->flags << 24) & 0xFF000000;  // Bits[31:24] = firstUser = flags[7:0]
 
@@ -284,15 +290,16 @@ uint32_t AxisG2_Process(struct DmaDevice * dev, struct AxisG2Reg *reg, struct Ax
          buff->error = (ret.size == 0)?DMA_ERR_FIFO:ret.result;
          buff->id    = ret.id;
 
-         buff->flags =  ret.fuser;                      // firstUser = flags[7:0]
-         buff->flags |= (ret.luser << 8) & 0x0000FF00;  // lastUser = flags[15:8]
-         buff->flags |= (ret.cont << 16) & 0x00010000;  // continue = flags[16]
+         buff->flags =  ret.fuser;                         // firstUser = flags[7:0]
+         buff->flags |= (ret.luser << 8) & 0x0000FF00;     // lastUser = flags[15:8]
+         buff->flags |= (ret.cont << 16) & 0x00010000;     // continue = flags[16]
+         buff->flags |= (ret.timeout << 17) & 0x00020000;  // timeout = flags[17]
 
          hwData->contCount += ret.cont;
 
          if ( dev->debug > 0 ) {
-            dev_info(dev->device, "Process: Rx size=%i, Dest=0x%x, fuser=0x%x, luser=0x%x, cont=%i, Error=0x%x\n",
-               ret.size, ret.dest, ret.fuser, ret.luser, ret.cont, buff->error);
+            dev_info(dev->device, "Process: Rx size=%i, Dest=0x%x, fuser=0x%x, luser=0x%x, cont=%i, timeout=%i, Error=0x%x\n",
+               ret.size, ret.dest, ret.fuser, ret.luser, ret.cont, ret.timeout, buff->error);
          }
 
          // Determine the owner of the buffer based on dest
@@ -417,6 +424,9 @@ void AxisG2_Init(struct DmaDevice *dev) {
    // Determine operation mode (64-bit or 128-bit) based on hardware version
    hwData->desc128En = ((readl(&(reg->enableVer)) & 0x10000) != 0);
 
+   // Determine version
+   dev->version = (readl(&(reg->enableVer)) >> 24) & 0xFF;
+
    // Initialize buffer counters
    hwData->hwWrBuffCnt = 0;
    hwData->hwRdBuffCnt = 0;
@@ -483,8 +493,9 @@ void AxisG2_Init(struct DmaDevice *dev) {
    writel(dev->cfgCont ? 1 : 0, &(reg->contEnable));
    writel(0x0, &(reg->dropEnable));
 
-   // Set IRQ holdoff time if supported by hardware version
-   if ( ((readl(&(reg->enableVer)) >> 24) & 0xFF) >= 3 ) writel(dev->cfgIrqHold, &(reg->irqHoldOff));
+   // Set IRQ holdoff time and timeout if supported by hardware version
+   if ( dev->version >= 3 ) writel(dev->cfgIrqHold, &(reg->irqHoldOff));
+   if ( dev->version >= 5 ) writel(dev->cfgTimeout, &(reg->timeout));
 
    // Push RX buffers to hardware and map
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
@@ -555,7 +566,7 @@ void AxisG2_Enable(struct DmaDevice *dev) {
          // Allocate workqueue for polling mode, without interrupts
          hwData->wq = alloc_workqueue("%s", WQ_MEM_RECLAIM | WQ_SYSFS, 1, "AXIS_G2_WORKQ");
          INIT_WORK(&(hwData->irqWork), AxisG2_WqTask_Poll);
-         queue_work_on(dev->cfgIrqDis, hwData->wq, &(hwData->irqWork));
+         queue_work_on((int)dev->cfgIrqDis, hwData->wq, &(hwData->irqWork));
       }
    } else {
       hwData->wqEnable = 0;
@@ -621,7 +632,7 @@ void AxisG2_Clear(struct DmaDevice *dev) {
       kfree(hwData->writeAddr);
    } else {
       // Compute real DMA size. This must match what was passed into dma_alloc_coherent
-      size = hwData->addrCount * (hwData->desc128En ? 16 : 8);
+      size = hwData->addrCount * (hwData->desc128En ? 16UL : 8UL);
 
       // For non-ACP modes, use dma_free_coherent to ensure proper DMA memory management.
       dma_free_coherent(dev->device, size, hwData->writeAddr, hwData->writeHandle);
@@ -734,7 +745,7 @@ int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32
       writel(0x1, &(reg->forceInt));
    }
 
-   return count;
+   return (int32_t)count;
 }
 
 /**
@@ -817,6 +828,7 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    seq_printf(s, "               IRQ Hold : %u\n", (readl(&(reg->irqHoldOff))));
    seq_printf(s, "              BG Enable : 0x%x\n", hwData->bgEnable);
    seq_printf(s, "           GPU Async En : %i\n", dev->gpuEn);
+   seq_printf(s, "            DMA Timeout : %u\n", readl(&(reg->timeout)));
 
    for ( x=0; x < 8; x++ ) {
       if ( (hwData->bgEnable >> x) & 0x1 ) {
@@ -890,7 +902,7 @@ void AxisG2_WqTask_Poll(struct work_struct *work) {
 
    // Re-queue work if work queue processing is enabled
    if (hwData->wqEnable) {
-      queue_work_on(dev->cfgIrqDis, hwData->wq, &(hwData->irqWork));
+      queue_work_on((int32_t)dev->cfgIrqDis, hwData->wq, &(hwData->irqWork));
    }
 }
 
