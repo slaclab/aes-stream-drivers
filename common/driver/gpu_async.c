@@ -128,6 +128,12 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
 
    if (!dat.size) return -EINVAL;
 
+   if ((dat.size & ~GPU_BOUND_MASK) != 0) {
+      dev_warn(dev->device, "Gpu_AddNvidia: error: memory size (%u) is not a multiple of GPU page size (%llu)\n",
+         dat.size, GPU_BOUND_SIZE);
+      return -EINVAL;
+   }
+
    // Set buffer pointers based on the operation mode (write/read)
    if (dat.write)
       buffer = &(data->writeBuffers.list[data->writeBuffers.count]);
@@ -333,6 +339,7 @@ void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
    u32 i;
    struct GpuData* data = (struct GpuData*)dev->utilData;
 
+   const u32 version = readGpuAsyncReg(data->base, &GpuAsyncReg_Version);
    const u32 readBuffCnt = readGpuAsyncReg(data->base, &GpuAsyncReg_ReadCount)+1;
    const u32 writeBuffCnt = readGpuAsyncReg(data->base, &GpuAsyncReg_WriteCount)+1;
    const u32 writeEnable = readGpuAsyncReg(data->base, &GpuAsyncReg_WriteEnable);
@@ -348,6 +355,8 @@ void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
    seq_printf(s, "         RX Frame Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_RxFrameCnt));
    seq_printf(s, "         TX Frame Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_TxFrameCnt));
    seq_printf(s, "  AXI Write Error Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiWriteErrorCnt));
+   if (version >= 2)  // Added in V2
+      seq_printf(s, "AXI Write Timeout Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiWriteTimeoutCnt));
    seq_printf(s, "   AXI Read Error Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiReadErrorCnt));
 
    for (i = 0; i < writeBuffCnt && writeEnable; ++i) {
