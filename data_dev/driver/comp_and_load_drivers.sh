@@ -64,15 +64,27 @@ make clean
 # Build Nvidia driver
 make CC=$CC -j $(nproc)
 
-if modinfo ecc >/dev/null 2>&1; then
-    modprobe ecc || { echo "Error: Failed to insert ecc module."; exit 1; }
+DEPS="ecc video"
+for MOD in $DEPS; do
+    if modinfo $MOD >/dev/null 2>&1; then
+        modprobe $MOD || { echo "Error: Failed to insert $MOD module."; exit 1; }
+    fi
+done
+
+if [ -f "$NVIDIA_PATH/nvidia.ko" ]; then
+    DRIVER_PATH="$NVIDIA_PATH"
+elif [ -f "$NVIDIA_PATH/kernel-open/nvidia.ko" ]; then
+    DRIVER_PATH="$NVIDIA_PATH/kernel-open"
+else
+    echo "ERROR: Unable to determine location of nvidia.ko!"
+    exit 1
 fi
 
 # Load the nvidia kernel drivers
-/usr/sbin/insmod $NVIDIA_PATH/nvidia.ko NVreg_OpenRmEnableUnsupportedGpus=1 NVreg_EnableStreamMemOPs=1 || { echo "Error: Failed to insert nvidia.ko."; exit 1; }
-/usr/sbin/insmod $NVIDIA_PATH/nvidia-modeset.ko || { echo "Error: Failed to insert nvidia-modeset.ko."; exit 1; }
-/usr/sbin/insmod $NVIDIA_PATH/nvidia-drm.ko modeset=1 || { echo "Error: Failed to insert nvidia-drm.ko."; exit 1; }
-/usr/sbin/insmod $NVIDIA_PATH/nvidia-uvm.ko || { echo "Error: Failed to insert nvidia-uvm.ko."; exit 1; }
+/usr/sbin/insmod $DRIVER_PATH/nvidia.ko NVreg_OpenRmEnableUnsupportedGpus=1 NVreg_EnableStreamMemOPs=1 || { echo "Error: Failed to insert nvidia.ko."; exit 1; }
+/usr/sbin/insmod $DRIVER_PATH/nvidia-modeset.ko || { echo "Error: Failed to insert nvidia-modeset.ko."; exit 1; }
+/usr/sbin/insmod $DRIVER_PATH/nvidia-drm.ko modeset=1 || { echo "Error: Failed to insert nvidia-drm.ko."; exit 1; }
+/usr/sbin/insmod $DRIVER_PATH/nvidia-uvm.ko || { echo "Error: Failed to insert nvidia-uvm.ko."; exit 1; }
 
 # Go to nvidia path and build Nvidia driver
 cd "$RET_DIR" || { echo "Error: Failed to change directory to $RET_DIR"; exit 1; }
