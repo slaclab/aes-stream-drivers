@@ -347,6 +347,7 @@ void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
 
    seq_printf(s, "\n---------------- DataGPU State ----------------\n");
    seq_printf(s, "    GpuAsyncCore Offset : 0x%X\n", data->offset);
+   seq_printf(s, "   GpuAsyncCore Version : %d\n", version);
    seq_printf(s, "            Max Buffers : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_MaxBuffers));
    seq_printf(s, "     Write Buffer Count : %u\n", writeBuffCnt);
    seq_printf(s, "           Write Enable : %u\n", writeEnable);
