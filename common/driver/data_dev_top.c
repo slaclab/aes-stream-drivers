@@ -251,6 +251,13 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    // Assign the IRQ number from the pci_dev structure
    dev->irq = pcidev->irq;
 
+   // Check that we actually have an IRQ
+   if (dev->irq == 0) {
+      pr_err("%s: No IRQ associated with PCI device\n", MOD_NAME);
+      probeReturn = -EINVAL;
+      goto err_post_en;
+   }
+
    // Set basic device context
    dev->pcidev = pcidev;          // PCI device structure
    dev->device = &(pcidev->dev);  // Device structure
