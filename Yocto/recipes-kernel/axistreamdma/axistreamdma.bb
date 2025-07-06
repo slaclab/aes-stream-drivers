@@ -8,18 +8,18 @@ inherit module
 INHIBIT_PACKAGE_STRIP = "1"
 
 SRC_URI = "file://Makefile \
-           file://rce_top.h \
+           file://axistreamdma.h \
            file://axistreamdma.c \
-	   file://dma_common.h \
-	   file://dma_common.c \
-	   file://dma_buffer.h \
-	   file://dma_buffer.c \
-	   file://axis_gen2.h \
-	   file://axis_gen2.c \
-	   file://axis_gen1.h \
-	   file://axis_gen1.c \
-	   file://AxisDriver.h \
-	   file://DmaDriver.h \
+           file://dma_common.h \
+           file://dma_common.c \
+           file://dma_buffer.h \
+           file://dma_buffer.c \
+           file://axis_gen2.h \
+           file://axis_gen2.c \
+           file://axis_gen1.h \
+           file://axis_gen1.c \
+           file://AxisDriver.h \
+           file://DmaDriver.h \
           "
 
 S = "${WORKDIR}"
