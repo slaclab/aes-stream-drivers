@@ -1,28 +1,25 @@
 <!--- ########################################################################################### -->
 
-# How to compile axi_stream_driver with petalinux packager
+# How to compile axi_stream_driver with Yocto
 
 ```bash
-# Create the module template
-petalinux-create -t modules --name axistreamdma --enable
+# Step 1 - Create a new application layer
+# Note: Only perform this step if you do not already have an application layer created 
+bitbake-layers create-layer $proj_dir/sources/meta-myapplications
+bitbake-layers add-layer    $proj_dir/sources/meta-myapplications
 
-# Remove the template
-rm -rf project-spec/meta-user/recipes-modules/axistreamdma
+# Step 2 - Copy a kernel module from aes-stream-driver into the local layer  (-L flag to remove symbolic links)
+# Note: -L flag to remove symbolic links
+mkdir -p $proj_dir/sources/meta-myapplications/recipes-kernel
+cp -rfL /path/to/my/aes-stream-drivers/Yocto/recipes-kernel/axistreamdma $proj_dir/sources/meta-myapplications/recipes-kernel/.
 
-# Copy the aes-stream-driver source code (-L flag to remove symbolic links)
-cp -rfL /path/to/my/aes-stream-drivers/petalinux/axistreamdma project-spec/meta-user/recipes-modules/axistreamdma
+# Step 3 - Enable kernel module build in the layer
+echo "MACHINE_ESSENTIAL_EXTRA_RRECOMMENDS += \"axistreamdma\"" >> $proj_dir/conf/layer.conf
 
-# Add module to petalinux configurations
-echo KERNEL_MODULE_AUTOLOAD = \"axi_stream_dma\" >> project-spec/meta-user/conf/petalinuxbsp.conf
-echo IMAGE_INSTALL_append = \" axistreamdma\" >> build/conf/local.conf
+# Step 4 (Optional) - Enable automatic loading of kernel module
+echo "KERNEL_MODULE_AUTOLOAD += \"axistreamdma\"" >> $proj_dir/conf/layer.conf
 
-# Build kernel first before the module
-petalinux-build -c kernel
-
-# Build the module
-petalinux-build -c axistreamdma
-
-# Add module to project-spec/meta-user/recipes-bsp/device-tree/files/system-user.dtsi
+# Step 5 - add module to device tree
 # Note: example below assume module's base address assigned to 0xb0000000 in Xilinx IP core
 / {
 	axi_stream_dma_0@b0000000 {
@@ -34,48 +31,36 @@ petalinux-build -c axistreamdma
 	};
 };
 
-# Rebuild the device-tree
-petalinux-build -c device-tree -x cleansstate
-petalinux-build -c device-tree
-
+# Step 6 - Build the module
+bitbake petalinux-image-minimal
 ```
 
 <!--- ########################################################################################### -->
 
-# How to compile axi_memory_map with petalinux packager
+# How to compile axi_memory_map with Yocto
 
 ```bash
-# Create the module template
-petalinux-create -t modules --name aximemorymap --enable
+# Step 1 - Create a new application layer
+# Note: Only perform this step if you do not already have an application layer created 
+bitbake-layers create-layer $proj_dir/sources/meta-myapplications
+bitbake-layers add-layer    $proj_dir/sources/meta-myapplications
 
-# Remove the template
-rm -rf project-spec/meta-user/recipes-modules/aximemorymap
+# Step 2 - Copy a kernel module from aes-stream-driver into the local layer  (-L flag to remove symbolic links)
+# Note: -L flag to remove symbolic links
+mkdir -p $proj_dir/sources/meta-myapplications/recipes-kernel
+cp -rfL /path/to/my/aes-stream-drivers/Yocto/recipes-kernel/aximemorymap $proj_dir/sources/meta-myapplications/recipes-kernel/.
 
-# Copy the aes-stream-driver source code (-L flag to remove symbolic links)
-cp -rfL /path/to/my/aes-stream-drivers/petalinux/aximemorymap project-spec/meta-user/recipes-modules/aximemorymap
+# Step 3 - Enable kernel module build in the layer
+echo "MACHINE_ESSENTIAL_EXTRA_RRECOMMENDS += \"aximemorymap\"" >> $proj_dir/conf/layer.conf
 
-# Add module to petalinux configurations
-echo KERNEL_MODULE_AUTOLOAD = \"axi_memory_map\" >> project-spec/meta-user/conf/petalinuxbsp.conf
-echo IMAGE_INSTALL_append = \" aximemorymap\" >> build/conf/local.conf
+# Step 4 (Optional) - Enable automatic loading of kernel module
+echo "KERNEL_MODULE_AUTOLOAD += \"aximemorymap\"" >> $proj_dir/conf/layer.conf
 
-# Build kernel first before the module
-petalinux-build -c kernel
-
-# Build the module
-petalinux-build -c aximemorymap
-
+# Step 5 - No action required for device tree
 # Note: axi_memory_map does NOT require an entire for the device-tree
-```
 
-<!--- ########################################################################################### -->
-
-# Note for building multiple custom modules
-
-If you are going to autoload and install module modules, then the echo commands from the instructions above should be combined like this:
-
-```bash
-echo KERNEL_MODULE_AUTOLOAD = \"axi_stream_dma axi_memory_map\" >> project-spec/meta-user/conf/petalinuxbsp.conf
-echo IMAGE_INSTALL_append = \" axistreamdma aximemorymap\" >> build/conf/local.conf
+# Step 6 - Build the module
+bitbake petalinux-image-minimal
 ```
 
 <!--- ########################################################################################### -->
