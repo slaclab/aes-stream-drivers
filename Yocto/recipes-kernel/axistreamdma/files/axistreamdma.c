@@ -19,7 +19,7 @@
  * ----------------------------------------------------------------------------
 **/
 
-#include <rce_top.h>
+#include <axistreamdma.h>
 #include <dma_common.h>
 #include <dma_buffer.h>
 #include <axis_gen1.h>
@@ -79,7 +79,7 @@ const char *RceDevNames[MAX_DMA_DEVICES] = {
 #define MOD_NAME "axi_stream_dma"  ///< Module name
 
 MODULE_AUTHOR("Ryan Herbst");  ///< Module author
-MODULE_DESCRIPTION("AXI Stream DMA driver. V3");  ///< Module description
+MODULE_DESCRIPTION("AXI Stream DMA driver. V6");  ///< Module description
 MODULE_LICENSE("GPL");  ///< Module license
 
 /**
@@ -293,9 +293,8 @@ int Rce_Probe(struct platform_device *pdev) {
  * process for debugging and auditing purposes.
  *
  * @pdev: Platform device structure representing the DMA device.
- * @return: Returns 0 on successful cleanup, -1 if no matching device is found.
  */
-int Rce_Remove(struct platform_device *pdev) {
+void Rce_Remove(struct platform_device *pdev) {
    int32_t x;
    const char *tmpName;
    int32_t tmpIdx;
@@ -321,7 +320,7 @@ int Rce_Remove(struct platform_device *pdev) {
    // Exit if no matching device is found
    if (tmpIdx < 0) {
       pr_info("%s: Remove: No matching device found.\n", MOD_NAME);
-      return -1;
+      return;
    }
 
    // Retrieve the device structure and update the global device count
@@ -332,7 +331,6 @@ int Rce_Remove(struct platform_device *pdev) {
    Dma_Clean(dev);
 
    pr_info("%s: Remove: Device removal completed.\n", MOD_NAME);
-   return 0;
 }
 
 /**
