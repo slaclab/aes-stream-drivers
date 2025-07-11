@@ -2,7 +2,7 @@
 
 [DOE Code](https://www.osti.gov/doecode/biblio/8043)
 
-Common repository for streaming kernel drivers (datadev, gpuDirect, petalinux, etc)
+Common repository for streaming kernel drivers (datadev, gpuDirect, Yocto, etc)
 
 <!--- ########################################################################################### -->
 
