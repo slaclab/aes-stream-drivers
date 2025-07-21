@@ -421,7 +421,7 @@ void DataDev_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
 
    // Show PCI Bus-Device-Function
    if (pdev) {
-      seq_printf(s, "PCIe[BUS:NUM:SLOT:FUNC] : %04x:%02x:%02x.%x\n",
+      seq_printf(s, "PCIe[BUS:NUM:SLOT.FUNC] : %04x:%02x:%02x.%x\n",
                   pci_domain_nr(pdev->bus),
                   pdev->bus->number,
                   PCI_SLOT(pdev->devfn),
