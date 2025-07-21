@@ -417,6 +417,16 @@ int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
  */
 void DataDev_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    struct AxiVersion aVer;
+   struct pci_dev *pdev = dev->pcidev;
+
+   // Show PCI Bus-Device-Function
+   if (pdev) {
+      seq_printf(s, "PCIe[BUS:NUM:SLOT:FUNC] : %04x:%02x:%02x.%x\n",
+                  pci_domain_nr(pdev->bus),
+                  pdev->bus->number,
+                  PCI_SLOT(pdev->devfn),
+                  PCI_FUNC(pdev->devfn));
+   }
 
    // Read AXI version from device
    AxiVersion_Read(dev, dev->base + AVER_OFF, &aVer);
@@ -433,6 +443,7 @@ void DataDev_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
       Gpu_Show(s, dev);
    }
 #endif
+
 }
 
 /**
