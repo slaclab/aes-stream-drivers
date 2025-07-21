@@ -443,7 +443,6 @@ void DataDev_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
       Gpu_Show(s, dev);
    }
 #endif
-
 }
 
 /**
