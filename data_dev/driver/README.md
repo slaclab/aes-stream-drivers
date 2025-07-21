@@ -41,7 +41,7 @@ $ sudo systemctl disable sddm    # For SDDM
 $ sudo systemctl disable nvidia-persistenced
 ```
 
-Install the nvidia 555 drivers and the cuda 12.3 toolkit:
+Install the nvidia 575 drivers and the cuda 12.9 toolkit:
 
 ```bash
 $ wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb
@@ -50,7 +50,7 @@ $ sudo /usr/sbin/rmmod datadev; sudo /usr/sbin/rmmod nvidia-drm; sudo /usr/sbin/
 $ sudo apt update
 $ sudo apt-get purge nvidia-* -y
 $ sudo apt autoremove -y
-$ sudo apt install cuda-toolkit-12-3 nvidia-kernel-source-555-open libnvidia-compute-555 nvidia-firmware-555-555.42.06 -y
+$ sudo apt install cuda-toolkit-12-9 nvidia-kernel-source-575-open libnvidia-compute-575 nvidia-firmware-575 -y
 $ sudo reboot
 ```
 
