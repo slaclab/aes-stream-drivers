@@ -2,7 +2,7 @@
 # Company    : SLAC National Accelerator Laboratory
 # ----------------------------------------------------------------------------
 # Description :
-# 		Builds the axi_stream_dma kernel driver for petalinux package
+# 		Builds the axi_stream_dma kernel driver for Yocto package
 # ----------------------------------------------------------------------------
 # This file is part of the aes_stream_drivers package. It is subject to
 # the license terms in the LICENSE.txt file found in the top-level directory
@@ -20,7 +20,7 @@ NAME := axi_stream_dma
 HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 # Version or identifier for this build
-GITV := petalinux
+GITV := yocto
 
 # Source files discovery within the same directory as the Makefile
 SRCS := $(wildcard $(HOME)/*.c)

@@ -32,7 +32,7 @@ echo "KERNEL_MODULE_AUTOLOAD += \"axistreamdma\"" >> $proj_dir/conf/layer.conf
 };
 
 # Step 6 - Build the module
-bitbake petalinux-image-minimal
+bitbake core-image-minimal
 ```
 
 <!--- ########################################################################################### -->
@@ -60,7 +60,7 @@ echo "KERNEL_MODULE_AUTOLOAD += \"aximemorymap\"" >> $proj_dir/conf/layer.conf
 # Note: axi_memory_map does NOT require an entire for the device-tree
 
 # Step 6 - Build the module
-bitbake petalinux-image-minimal
+bitbake core-image-minimal
 ```
 
 <!--- ########################################################################################### -->
