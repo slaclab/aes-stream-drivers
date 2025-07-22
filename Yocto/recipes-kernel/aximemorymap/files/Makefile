@@ -2,7 +2,7 @@
 # Company    : SLAC National Accelerator Laboratory
 # ----------------------------------------------------------------------------
 # Description :
-# 		Builds the axi_memory_map kernel driver for petalinux package
+# 		Builds the axi_memory_map kernel driver for Yocto package
 # ----------------------------------------------------------------------------
 # This file is part of the aes_stream_drivers package. It is subject to
 # the license terms in the LICENSE.txt file found in the top-level directory
@@ -20,7 +20,7 @@ NAME := axi_memory_map
 HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 # Versioning information from Git for embedding in the driver
-GITV := petalinux
+GITV := yocto
 
 # Source and object files
 SRCS := $(wildcard $(HOME)/*.c)
