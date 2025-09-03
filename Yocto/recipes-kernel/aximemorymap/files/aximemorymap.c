@@ -236,6 +236,9 @@ int Map_Init(void) {
 void Map_Exit(void) {
    struct MemMap *tmp, *next;
 
+   // Destroy the device (removes device file)
+   device_destroy(gCl, dev.devNum);
+
    // Unregister Device Driver
    unregister_chrdev_region(dev.devNum, 1);
 
