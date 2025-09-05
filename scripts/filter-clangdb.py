@@ -27,8 +27,10 @@ parser.add_argument('-w', dest='WRITE', action='store_true', help='Write in plac
 parser.add_argument('--strip', action='append', help='Arguments to strip (only arg names, not the whole values)')
 args = parser.parse_args()
 
+# Unsupported args
 to_strip = [
-    '-mrecord-mcount'
+    '-mrecord-mcount',
+    '-fsanitize=bounds-strict',
 ]
 
 if not os.path.exists(args.f):
