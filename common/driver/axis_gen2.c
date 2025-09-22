@@ -810,7 +810,7 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
 
    seq_printf(s, "\n");
    seq_printf(s, "---------- DMA Firmware General ----------\n");
-   seq_printf(s, "                    IRQ : %u\n", dev->irq );
+   seq_printf(s, "                    IRQ : %u\n", dev->irq);
    seq_printf(s, "          Int Req Count : %u\n", (readl(&(reg->intReqCount))));
 // seq_printf(s, "        Hw Dma Wr Index : %u\n", (readl(&(reg->hwWrIndex))));
 // seq_printf(s, "        Sw Dma Wr Index : %u\n", hwData->writeIndex);
