@@ -336,6 +336,9 @@ int Dma_Init(struct DmaDevice *dev) {
          dev_err(dev->device, "Init: Unable to allocate IRQ.");
          goto cleanup_card_clear;
       }
+
+      // Disable IRQ to avoid processing too early
+      disable_irq(dev->irq);
    }
 
    // Enable card
