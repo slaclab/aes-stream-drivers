@@ -223,6 +223,12 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->baseAddr = pci_resource_start(pcidev, 0);
    dev->baseSize = pci_resource_len(pcidev, 0);
 
+   // Check if we have a valid base address
+   if ( dev->baseAddr == 0 ) {
+      pr_err("%s: failed to get pci base address\n", MOD_NAME);
+      goto err_post_en;
+   }
+
    // Map the device's register space for use in the driver
    if ( Dma_MapReg(dev) < 0 ) {
       probeReturn = -ENOMEM;  // Memory allocation error
