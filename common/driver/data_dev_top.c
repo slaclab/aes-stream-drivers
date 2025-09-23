@@ -377,8 +377,8 @@ void DataDev_Remove(struct pci_dev *pcidev) {
  * function for further processing. The function returns the result of
  * the command execution, which could be a success indicator or an error code.
  *
- * Return: the result of the command execution. Returns -1 if the command
- * is not recognized.
+ * Return: the result of the command execution. Returns -EBADRQC (bad request number)
+ * if the command is not recognized.
  */
 int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    switch (cmd) {
@@ -388,7 +388,7 @@ int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
       case GPU_Add_Nvidia_Memory:
       case GPU_Rem_Nvidia_Memory:
       case GPU_Set_Write_Enable:
-         return dev->gpuEn ? Gpu_Command(dev, cmd, arg) : -1;
+         return dev->gpuEn ? Gpu_Command(dev, cmd, arg) : -ENOTSUPP;
 #endif
 
       case AVER_Get:
@@ -401,7 +401,7 @@ int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
          return AxisG2_Command(dev, cmd, arg);
          break;
    }
-   return -1;
+   return -EBADRQC;
 }
 
 /**

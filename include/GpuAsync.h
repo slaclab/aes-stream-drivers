@@ -60,7 +60,8 @@ struct GpuNvidiaData {
  * for the region to be accessed as specified by the write flag.
  *
  * Return: On success, returns the result of the ioctl call. On failure,
- * returns a negative error code.
+ * returns a negative error code. Returns -ENOTSUPP if the firmware does not
+ * support GPUDirect.
  **/
 static inline ssize_t gpuAddNvidiaMemory(int32_t fd, uint32_t write, uint64_t address, uint32_t size) {
    struct GpuNvidiaData dat;
@@ -80,7 +81,8 @@ static inline ssize_t gpuAddNvidiaMemory(int32_t fd, uint32_t write, uint64_t ad
  * ceasing its accessibility.
  *
  * Return: On success, returns the result of the ioctl call. On failure,
- * returns a negative error code.
+ * returns a negative error code. Returns -ENOTSUPP if the firmware does not
+ * support GPUDirect.
  **/
 static inline ssize_t gpuRemNvidiaMemory(int32_t fd) {
    return(ioctl(fd, GPU_Rem_Nvidia_Memory, 0));
@@ -94,6 +96,7 @@ static inline ssize_t gpuRemNvidiaMemory(int32_t fd) {
  * This function enables a DMA buffer for DMA operations.
  *
  * Return: 0 on success, negative error code on failure.
+ * Returns -ENOTSUPP if the firmware does not support GPUDirect.
  */
 static inline ssize_t gpuSetWriteEn(int32_t fd, uint32_t idx) {
    uint32_t lidx = idx;
