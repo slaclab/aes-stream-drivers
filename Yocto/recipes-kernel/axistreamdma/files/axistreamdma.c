@@ -35,6 +35,7 @@
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/version.h>
 
 /* Transmission buffer count configurations */
 int cfgTxCount0 = 128;
@@ -262,11 +263,19 @@ int Rce_Probe(struct platform_device *pdev) {
 
    // Check for coherent DMA mode and set if not on arm64
 #if !defined(__aarch64__)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 0, 0)
+   // For recent versions of the kernel, coherent dma is now inferred by
+   // presence of the 'dma-coherent' attribute in the device tree.
+   // Print a message indicating whether this attribute was found and coherent
+    // dma is enabled.
+   pr_info("%s: Probe: Coherent DMA set to %s\n", MOD_NAME, dev->device->dma_coherent ? "true" : "false");
+#else
    if ((dev->cfgMode & BUFF_ARM_ACP) || (dev->cfgMode & AXIS2_RING_ACP)) {
       // Set DMA operations to coherent if supported
       set_dma_ops(&pdev->dev, &arm_coherent_dma_ops);
       pr_info("%s: Probe: Set COHERENT DMA =%i\n", dev->device, dev->cfgMode);
    }
+#endif
 #endif
 
    // Initialize DMA and check for success
