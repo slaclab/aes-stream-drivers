@@ -403,7 +403,7 @@ int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
          return AxisG2_Command(dev, cmd, arg);
          break;
    }
-   return -EBADRQC;
+   return -EINVAL;
 }
 
 /**
