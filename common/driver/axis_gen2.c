@@ -572,17 +572,17 @@ void AxisG2_Enable(struct DmaDevice *dev) {
       hwData->wqEnable = 0;
    }
 
+   // Re-enable the device and online status to ensure settings take effect
+   writel(0x1, &(reg->enableVer));
+   writel(0x1, &(reg->online));
+
    // Enable interrupt handling if not disabled by configuration
    if (!dev->cfgIrqDis) {
       writel(0x1, &(reg->intEnable));
    }
 
-   // Re-enable the device and online status to ensure settings take effect
-   writel(0x1, &(reg->enableVer));
-   writel(0x1, &(reg->online));
-
-   // Re-enable interrupt handling as a final step
-   writel(0x1, &(reg->intEnable));
+   // Enable IRQ on the system to kick off processing
+   enable_irq(dev->irq);
 }
 
 /**
@@ -810,6 +810,7 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
 
    seq_printf(s, "\n");
    seq_printf(s, "---------- DMA Firmware General ----------\n");
+   seq_printf(s, "                    IRQ : %u\n", dev->irq);
    seq_printf(s, "          Int Req Count : %u\n", (readl(&(reg->intReqCount))));
 // seq_printf(s, "        Hw Dma Wr Index : %u\n", (readl(&(reg->hwWrIndex))));
 // seq_printf(s, "        Sw Dma Wr Index : %u\n", hwData->writeIndex);

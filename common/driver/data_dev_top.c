@@ -223,6 +223,12 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->baseAddr = pci_resource_start(pcidev, 0);
    dev->baseSize = pci_resource_len(pcidev, 0);
 
+   // Check if we have a valid base address
+   if ( dev->baseAddr == 0 ) {
+      pr_err("%s: failed to get pci base address\n", MOD_NAME);
+      goto err_post_en;
+   }
+
    // Map the device's register space for use in the driver
    if ( Dma_MapReg(dev) < 0 ) {
       probeReturn = -ENOMEM;  // Memory allocation error
@@ -377,8 +383,8 @@ void DataDev_Remove(struct pci_dev *pcidev) {
  * function for further processing. The function returns the result of
  * the command execution, which could be a success indicator or an error code.
  *
- * Return: the result of the command execution. Returns -1 if the command
- * is not recognized.
+ * Return: the result of the command execution. Returns -EBADRQC (bad request number)
+ * if the command is not recognized.
  */
 int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    switch (cmd) {
@@ -388,7 +394,9 @@ int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
       case GPU_Add_Nvidia_Memory:
       case GPU_Rem_Nvidia_Memory:
       case GPU_Set_Write_Enable:
-         return dev->gpuEn ? Gpu_Command(dev, cmd, arg) : -1;
+         return dev->gpuEn ? Gpu_Command(dev, cmd, arg) : -ENOTSUPP;
+      case GPU_Is_Gpu_Async_Supp:
+         return dev->gpuEn ? 1 : 0;
 #endif
 
       case AVER_Get:
@@ -401,7 +409,7 @@ int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
          return AxisG2_Command(dev, cmd, arg);
          break;
    }
-   return -1;
+   return -EINVAL;
 }
 
 /**

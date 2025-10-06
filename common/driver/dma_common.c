@@ -183,7 +183,7 @@ void Dma_UnmapReg(struct DmaDevice *dev) {
  */
 int Dma_MapReg(struct DmaDevice *dev) {
    if (dev->base == NULL) {
-      dev_info(dev->device, "Init: Mapping Register space 0x%llx with size 0x%x.\n", dev->baseAddr, dev->baseSize);
+      dev_info(dev->device, "Init: Mapping Register space 0x%llx with size 0x%x.\n", (uint64_t)dev->baseAddr, dev->baseSize);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25)
       dev->base = ioremap(dev->baseAddr, dev->baseSize);
@@ -336,6 +336,9 @@ int Dma_Init(struct DmaDevice *dev) {
          dev_err(dev->device, "Init: Unable to allocate IRQ.");
          goto cleanup_card_clear;
       }
+
+      // Disable IRQ to avoid processing too early
+      disable_irq(dev->irq);
    }
 
    // Enable card
