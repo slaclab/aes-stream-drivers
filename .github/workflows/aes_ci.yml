@@ -95,7 +95,7 @@ jobs:
 
       # RHEL9, frankenstein kernel 5.14
       - run: |
-          dnf update -y && dnf install -y kernel-devel kernel-modules-core kernel-headers gcc gcc-c++ make sed git elfutils-libelf-devel
+          dnf update -y && dnf upgrade -y && dnf install -y kernel-devel kernel-modules-core kernel-headers gcc gcc-c++ make sed git elfutils-libelf-devel
         if: ${{ startsWith(matrix.container, 'rocky') || startsWith(matrix.container, 'centos') }}
 
       - name: Compile Driver
