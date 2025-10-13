@@ -401,7 +401,9 @@ void Dma_Clean(struct DmaDevice *dev) {
    uint32_t x;
 
    // Call card-specific clear function.
-   dev->hwFunc->clear(dev);
+   if (dev->hwFunc) {
+      dev->hwFunc->clear(dev);
+   }
 
    // Release IRQ if allocated.
    if (dev->irq != 0) {
