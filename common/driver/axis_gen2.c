@@ -46,6 +46,7 @@ struct hardware_functions AxisG2_functions = {
    .init         = AxisG2_Init,
    .enable       = AxisG2_Enable,
    .clear        = AxisG2_Clear,
+   .irqEnable    = AxisG2_IrqEnable,
    .retRxBuffer  = AxisG2_RetRxBuffer,
    .sendBuffer   = AxisG2_SendBuffer,
    .command      = AxisG2_Command,
@@ -551,8 +552,6 @@ void AxisG2_Enable(struct DmaDevice *dev) {
 
    // Check if descriptor 128-bit enable flag is set
    if (hwData->desc128En) {
-      hwData->wqEnable = 1;
-
       // Configure workqueue and delayed work for interrupt handling or polling
       if (!dev->cfgIrqDis) {
          // Create a single-thread workqueue for interrupt handling
@@ -568,6 +567,9 @@ void AxisG2_Enable(struct DmaDevice *dev) {
          INIT_WORK(&(hwData->irqWork), AxisG2_WqTask_Poll);
          queue_work_on((int)dev->cfgIrqDis, hwData->wq, &(hwData->irqWork));
       }
+
+      // Enable the work queue only after we've allocated all resources
+      hwData->wqEnable = 1;
    } else {
       hwData->wqEnable = 0;
    }
@@ -580,9 +582,18 @@ void AxisG2_Enable(struct DmaDevice *dev) {
    if (!dev->cfgIrqDis) {
       writel(0x1, &(reg->intEnable));
    }
+}
 
-   // Enable IRQ on the system to kick off processing
-   enable_irq(dev->irq);
+/**
+ * AxisG2_IrqEnable - Mask or unmask IRQs on the device
+ * @dev: Pointer to the device structure
+ * @en: 1 to enable interrupts, 0 to disable
+ *
+ * This function simply masks interrupts
+ */
+void AxisG2_IrqEnable(struct DmaDevice *dev, int en) {
+   struct AxisG2Reg *reg = (struct AxisG2Reg*)dev->reg;
+   writel(en ? 0x1 : 0x0, &(reg->intEnable));
 }
 
 /**

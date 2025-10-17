@@ -25,6 +25,7 @@ struct hardware_functions AxisG1_functions = {
    .init         = AxisG1_Init,
    .enable       = AxisG1_Enable,
    .clear        = AxisG1_Clear,
+   .irqEnable    = AxisG1_IrqEnable,
    .retRxBuffer  = AxisG1_RetRxBuffer,
    .sendBuffer   = AxisG1_SendBuffer,
    .command      = AxisG1_Command,
@@ -208,6 +209,12 @@ void AxisG1_Init(struct DmaDevice *dev) {
    // Set dest mask
    memset(dev->destMask, 0xFF, DMA_MASK_SIZE);
    dev_info(dev->device, "Init: Found Version 1 Device.\n");
+}
+
+// Enable or disable IRQs in the hardware
+void AxisG1_IrqEnable(struct DmaDevice *dev, int en) {
+   struct AxisG1Reg  *reg = (struct AxisG1Reg *)dev->reg;
+   iowrite32(en ? 0x1 : 0x0, &(reg->intEnable));
 }
 
 // Enable the card

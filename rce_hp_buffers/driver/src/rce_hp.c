@@ -21,6 +21,7 @@ struct hardware_functions RceHp_functions = {
    .irq          = NULL,
    .init         = RceHp_Init,
    .enable       = RceHp_Enable,
+   .irqEnable    = RceHp_IrqEnable,
    .clear        = RceHp_Clear,
    .retRxBuffer  = RceHp_RetRxBuffer,
    .sendBuffer   = RceHp_SendBuffer,
@@ -80,6 +81,8 @@ void RceHp_Clear(struct DmaDevice *dev) {
    iowrite32(0x0, &(reg->enable));
 }
 
+// Enable/disable IRQs in hardware
+void RceHp_IrqEnable(struct DmaDevice *dev, int en) { }
 
 // Return receive buffer to card
 // Single write so we don't need to lock
