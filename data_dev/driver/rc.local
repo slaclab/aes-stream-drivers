@@ -1,0 +1,38 @@
+#!/bin/sh
+#
+# rc.local
+#
+# This script is executed at the end of each multiuser runlevel.
+# Make sure that the script will "exit 0" on success or any other
+# value on error.
+#
+# In order to enable or disable this script just change the execution
+# bits.
+#
+# If calling './load' in the driver directory is successful,
+# then this script will automatically load the driver on each boot
+# after being updated with the full path to the driver's location.
+#
+###################################################################
+
+# error out if any of the commands below error out
+set -o errexit
+# error out if attempt to use unset parameter
+set -o nounset
+
+# mount according to /etc/fstab (in case a drive didn't mount during boot up)
+mount -a
+
+###################################################################
+
+# Load the SLAC DMA driver
+# define the location of the driver so we know where to get it
+driver_location="/home/eichl008/ldmx/aes-stream-drivers/data_dev/driver"
+cd "${driver_location}"
+make clean
+make
+"${driver_location}/load"
+
+###################################################################
+
+exit 0
