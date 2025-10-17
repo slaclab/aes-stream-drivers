@@ -87,8 +87,8 @@ int main(int argc, char **argv) {
    float rate;
    float bw;
    float duration;
-   size_t max;
-   size_t total;
+   ssize_t max;
+   ssize_t total;
 
    uint32_t getCnt = MAX_RET_CNT_C;
 
