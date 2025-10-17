@@ -589,7 +589,7 @@ void AxisG2_Enable(struct DmaDevice *dev) {
  * @dev: Pointer to the device structure
  * @en: 1 to enable interrupts, 0 to disable
  *
- * This function simply masks interrupts 
+ * This function simply masks interrupts
  */
 void AxisG2_IrqEnable(struct DmaDevice *dev, int en) {
    struct AxisG2Reg *reg = (struct AxisG2Reg*)dev->reg;
