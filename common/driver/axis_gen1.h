@@ -68,6 +68,9 @@ int32_t AxisG1_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);
 // Add data to proc dump
 void AxisG1_SeqShow(struct seq_file *s, struct DmaDevice *dev);
 
+// Enable or disable IRQs in hardware
+void AxisG1_IrqEnable(struct DmaDevice *dev, int en);
+
 // Set functions for gen2 card
 extern struct hardware_functions AxisG1_functions;
 

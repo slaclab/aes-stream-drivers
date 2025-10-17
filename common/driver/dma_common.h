@@ -175,6 +175,7 @@ struct DmaDesc {
  * @irq: IRQ handler function.
  * @init: Initialization function.
  * @enable: Enable operation function.
+ * @irqEnable: Enable or disable interrupts on the device
  * @clear: Clear operation function.
  * @retRxBuffer: Return received buffer function.
  * @sendBuffer: Send buffer function.
@@ -190,6 +191,7 @@ struct hardware_functions {
    void        (*init)(struct DmaDevice *dev);
    void        (*enable)(struct DmaDevice *dev);
    void        (*clear)(struct DmaDevice *dev);
+   void        (*irqEnable)(struct DmaDevice *dev, int mask);
    void        (*retRxBuffer)(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count);
    int32_t     (*sendBuffer)(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count);
    int32_t     (*command)(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);
