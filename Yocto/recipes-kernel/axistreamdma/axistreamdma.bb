@@ -24,5 +24,9 @@ SRC_URI = "file://Makefile \
 
 S = "${WORKDIR}"
 
+do_compile() {
+    oe_runmake KERNEL_SRC=${STAGING_KERNEL_DIR} DMA_TX_BUFF_COUNT=${DMA_TX_BUFF_COUNT} DMA_RX_BUFF_COUNT=${DMA_RX_BUFF_COUNT} DMA_BUFF_SIZE=${DMA_BUFF_SIZE}
+}
+
 # The inherit of module.bbclass will automatically name module packages with
 # "kernel-module-" prefix as required by the oe-core build environment.
