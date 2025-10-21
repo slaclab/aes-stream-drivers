@@ -25,7 +25,17 @@ SRC_URI = "file://Makefile \
 S = "${WORKDIR}"
 
 do_compile() {
-    oe_runmake KERNEL_SRC=${STAGING_KERNEL_DIR} DMA_TX_BUFF_COUNT=${DMA_TX_BUFF_COUNT} DMA_RX_BUFF_COUNT=${DMA_RX_BUFF_COUNT} DMA_BUFF_SIZE=${DMA_BUFF_SIZE}
+    unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS
+    oe_runmake KERNEL_PATH=${STAGING_KERNEL_DIR}   \
+           KERNEL_VERSION=${KERNEL_VERSION}    \
+           CC="${KERNEL_CC}" LD="${KERNEL_LD}" \
+           AR="${KERNEL_AR}" \
+               O=${STAGING_KERNEL_BUILDDIR} \
+           KBUILD_EXTRA_SYMBOLS="${KBUILD_EXTRA_SYMBOLS}" \
+           DMA_TX_BUFF_COUNT=${DMA_TX_BUFF_COUNT} \
+           DMA_RX_BUFF_COUNT=${DMA_RX_BUFF_COUNT} \
+           DMA_BUFF_SIZE=${DMA_BUFF_SIZE} \
+           ${MAKE_TARGETS}
 }
 
 # The inherit of module.bbclass will automatically name module packages with
