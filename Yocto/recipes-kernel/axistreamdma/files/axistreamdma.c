@@ -37,18 +37,30 @@
 #include <linux/of_irq.h>
 #include <linux/version.h>
 
+#ifndef DMA_TX_BUFF_COUNT
+#define DMA_TX_BUFF_COUNT 128
+#endif
+
+#ifndef DMA_RX_BUFF_COUNT
+#define DMA_RX_BUFF_COUNT 128
+#endif
+
+#ifndef DMA_BUFF_SIZE
+#define DMA_BUFF_SIZE 2097152
+#endif
+
 /* Transmission buffer count configurations */
-int cfgTxCount0 = 128;
+int cfgTxCount0 = DMA_TX_BUFF_COUNT;
 int cfgTxCount1 = 8;
 int cfgTxCount2 = 8;
 
 /* Reception buffer count configurations */
-int cfgRxCount0 = 128;
+int cfgRxCount0 = DMA_RX_BUFF_COUNT;
 int cfgRxCount1 = 8;
 int cfgRxCount2 = 8;
 
 /* Buffer size configurations (in bytes) */
-int cfgSize0    = 2097152;
+int cfgSize0    = DMA_BUFF_SIZE;
 int cfgSize1    = 4096;
 int cfgSize2    = 4096;
 

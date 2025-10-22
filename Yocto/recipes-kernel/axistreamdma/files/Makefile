@@ -36,6 +36,7 @@ ccflags-y := -I$(HOME)
 ccflags-y += -DDMA_IN_KERNEL=1 -DGITV=\"$(GITV)\"
 ccflags-y += -Wformat=0 -Wno-int-to-pointer-cast
 ccflags-y += -g -DDEBUG
+ccflags-y += "-DDMA_TX_BUFF_COUNT=$(DMA_TX_BUFF_COUNT)" "-DDMA_RX_BUFF_COUNT=$(DMA_RX_BUFF_COUNT)" "-DDMA_BUFF_SIZE=$(DMA_BUFF_SIZE)"
 
 # Object files needed for the kernel module
 $(NAME)-objs := dma_buffer.o dma_common.o axis_gen1.o axis_gen2.o axistreamdma.o
