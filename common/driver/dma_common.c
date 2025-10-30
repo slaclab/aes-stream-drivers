@@ -336,9 +336,6 @@ int Dma_Init(struct DmaDevice *dev) {
          dev_err(dev->device, "Init: Unable to allocate IRQ.");
          goto cleanup_card_clear;
       }
-
-      // Disable IRQ to avoid processing too early
-      disable_irq(dev->irq);
    }
 
    // Enable card
@@ -346,9 +343,6 @@ int Dma_Init(struct DmaDevice *dev) {
    return 0;
 
    /* Clean mess on failure */
-
-// Free requested IRQ
-   if ( dev->irq != 0 ) free_irq(dev->irq, dev);
 
 cleanup_card_clear:
    dev->hwFunc->clear(dev);
@@ -400,13 +394,18 @@ cleanup_alloc_chrdev_region:
 void Dma_Clean(struct DmaDevice *dev) {
    uint32_t x;
 
-   // Call card-specific clear function.
-   dev->hwFunc->clear(dev);
+   // Disable interrupts on the card itself
+   if (dev->hwFunc)
+      dev->hwFunc->irqEnable(dev, 0);
 
    // Release IRQ if allocated.
    if (dev->irq != 0) {
       free_irq(dev->irq, dev);
    }
+
+   // Call card-specific clear function.
+   if (dev->hwFunc)
+      dev->hwFunc->clear(dev);
 
    // Free RX and TX buffers.
    dmaFreeBuffers(&(dev->rxBuffers));

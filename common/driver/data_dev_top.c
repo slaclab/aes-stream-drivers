@@ -475,6 +475,7 @@ struct hardware_functions DataDev_functions = {
    .init         = AxisG2_Init,
    .clear        = AxisG2_Clear,
    .enable       = AxisG2_Enable,
+   .irqEnable    = AxisG2_IrqEnable,
    .retRxBuffer  = AxisG2_RetRxBuffer,
    .sendBuffer   = AxisG2_SendBuffer,
    .command      = DataDev_Command,
