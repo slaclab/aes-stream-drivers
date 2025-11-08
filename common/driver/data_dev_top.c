@@ -213,7 +213,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    // Activate the PCI device
    ret = pci_enable_device(pcidev);
    if (ret) {
-      pr_err("%s: Probe: pci_enable_device() = %i.\n", MOD_NAME, ret);
+      dev_err(&pcidev->dev, "%s: Probe: pci_enable_device() = %i.\n", MOD_NAME, ret);
       probeReturn = ret;  // Return directly with error code
       goto err_pre_en;    // Bail out, but clean up first
    }
@@ -225,9 +225,13 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    // Check if we have a valid base address
    if ( dev->baseAddr == 0 ) {
-      pr_err("%s: failed to get pci base address\n", MOD_NAME);
+      dev_err(&pcidev->dev, "Init: failed to get pci base address\n");
       goto err_post_en;
    }
+
+   // Set basic device attributes
+   dev->pcidev = pcidev;          // PCI device structure
+   dev->device = &(pcidev->dev);  // Device structure
 
    // Map the device's register space for use in the driver
    if ( Dma_MapReg(dev) < 0 ) {
@@ -259,14 +263,13 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    // Check that we actually have an IRQ
    if (dev->irq == 0) {
-      pr_err("%s: No IRQ associated with PCI device\n", MOD_NAME);
+      dev_err(dev->device, "%s: No IRQ associated with PCI device\n", MOD_NAME);
       probeReturn = -EINVAL;
       goto err_post_en;
    }
 
    // Set basic device context
-   dev->pcidev = pcidev;          // PCI device structure
-   dev->device = &(pcidev->dev);  // Device structure
+
    dev->hwFunc = hfunc;           // Hardware function pointer
 
    // Initialize device memory regions
