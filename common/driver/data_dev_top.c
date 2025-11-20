@@ -227,7 +227,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    // Early out if we have an invalid BAR
    if ( dev->baseAddr == 0 ) {
       dev_err(&pcidev->dev, "Init: failed to get pci base address; check your BAR0 assignment!\n");
-      probeReturn = 0; // Allow cards with valid BAR to load
+      probeReturn = 0;  // Allow cards with valid BAR to load
       goto err_post_en;
    }
 
@@ -358,8 +358,7 @@ void DataDev_Remove(struct pci_dev *pcidev) {
          pci_domain_nr(pcidev->bus),
          pcidev->bus->number,
          PCI_SLOT(pcidev->devfn),
-         PCI_FUNC(pcidev->devfn)
-      );
+         PCI_FUNC(pcidev->devfn));
       return;
    }
 
