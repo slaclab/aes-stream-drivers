@@ -222,8 +222,10 @@ int Dma_Init(struct DmaDevice *dev) {
    ssize_t res;
    uint64_t tot;
 
-   // Default debug disable
-   dev->debug = 0;
+   // Note the debug flag set
+   if (dev->debug) {
+      dev_info(dev->device, "Init: Debug logging enabled\n");
+   }
 
    // Allocate device numbers for character device. 1 minor numer starting at 0
    res = alloc_chrdev_region(&(dev->devNum), 0, 1, dev->devName);
