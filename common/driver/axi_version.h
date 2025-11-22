@@ -24,6 +24,9 @@
 #include <dma_common.h>
 #include <AxiVersion.h>
 
+// Dword offset relative to the start of userValues
+static const int AxiVersion_Usr_HardwareType_Offset = 0x9;
+
 /**
  * struct AxiVersion_Reg - AXI Version register space
  * @firmwareVersion: Firmware version number

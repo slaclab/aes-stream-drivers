@@ -30,6 +30,12 @@
 #include <DmaDriver.h>
 #include <dma_buffer.h>
 
+#ifdef __GNUC__
+#define MAYBE_UNUSED __attribute__((unused))
+#else
+#define MAYBE_UNUSED
+#endif
+
 // Maximum number of destination channels
 #define DMA_MAX_DEST (8*DMA_MASK_SIZE)
 
