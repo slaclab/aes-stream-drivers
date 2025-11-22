@@ -130,15 +130,6 @@ static const char* HardwareTypeLookup[] = {
 };
 const int HardwareTypeCount = sizeof(HardwareTypeLookup) / sizeof(HardwareTypeLookup[0]);
 
-static const char* BifurcationTypeLookup[] = {
-   "x16",
-   "x8x8",
-   "x8x4x4",
-   "x4x4x8",
-   "4x4x4x4",
-};
-const int BifurcationTypeCount = sizeof(BifurcationTypeLookup) / sizeof(BifurcationTypeLookup[0]);
-
 /**
  * AxiVersion_Show - Display AXI version information.
  * @s: sequence file pointer to which this function will write.
@@ -154,8 +145,8 @@ const int BifurcationTypeCount = sizeof(BifurcationTypeLookup) / sizeof(Bifurcat
 void AxiVersion_Show(struct seq_file *s, struct DmaDevice *dev, struct AxiVersion *aVer) {
    int32_t x;
    bool gitDirty = true;
-   MAYBE_UNUSED uint32_t htype, bifurcation;
-   MAYBE_UNUSED const char *hwstr, *bistr;
+   MAYBE_UNUSED uint32_t htype, bifurcationIndex;
+   MAYBE_UNUSED const char *hwstr;
 
    seq_printf(s, "---------- Firmware Axi Version -----------\n");
    seq_printf(s, "     Firmware Version : 0x%x\n", aVer->firmwareVersion);
@@ -192,13 +183,14 @@ void AxiVersion_Show(struct seq_file *s, struct DmaDevice *dev, struct AxiVersio
    // Display hardware information (exclusive to PCIe driver)
 #ifdef PCIE_DMA
    htype = aVer->userValues[AxiVersion_Usr_HardwareType_Offset] & 0xFFF;
-   bifurcation = (aVer->userValues[AxiVersion_Usr_HardwareType_Offset] >> 12) & 0xF;
-   if (htype < HardwareTypeCount)
+   bifurcationIndex = (aVer->userValues[AxiVersion_Usr_HardwareType_Offset] >> 12) & 0xF;
+   if (htype < HardwareTypeCount) {
       hwstr = HardwareTypeLookup[htype];
-   if (bifurcation < BifurcationTypeCount)
-      bistr = BifurcationTypeLookup[bifurcation];
-   seq_printf(s, "        Hardware Type : %s (0x%X)\n", hwstr, htype);
-   seq_printf(s, "          Bifurcation : %s\n", bistr);
+   } else {
+      hwstr = HardwareTypeLookup[0];
+   }
+   seq_printf(s, "        Hardware Type : %s (0%.02X)\n", hwstr, htype);
+   seq_printf(s, "    Bifurcation Index : %u\n", bifurcationIndex);
 #endif
 }
 
