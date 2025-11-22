@@ -22,9 +22,11 @@ MAKE_HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 ARCH ?= arm
 
 # Discover the local kernel versions
+ifeq ($(LOC_VERS),)
 LOC_VERS := $(wildcard /lib/modules/*/build)
 LOC_VERS := $(patsubst %/,%,$(dir $(LOC_VERS)))
 LOC_VERS := $(notdir $(LOC_VERS))
+endif
 
 # Define RCE module directories
 RCE_DIRS := /sdf/group/faders/tools/xilinx/rce_linux_kernel/linux-xlnx-v2016.4

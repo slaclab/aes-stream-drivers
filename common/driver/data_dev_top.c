@@ -56,6 +56,7 @@ int cfgBgThold6 = 0;
 int cfgBgThold7 = 0;
 int cfgDevName  = 0;
 int cfgTimeout  = 0xFFFF;
+int cfgDebug    = 0;
 
 // Probe failure global flag used in driver init
 // function to unregister driver
@@ -213,7 +214,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    // Activate the PCI device
    ret = pci_enable_device(pcidev);
    if (ret) {
-      pr_err("%s: Probe: pci_enable_device() = %i.\n", MOD_NAME, ret);
+      dev_err(&pcidev->dev, "%s: Probe: pci_enable_device() = %i.\n", MOD_NAME, ret);
       probeReturn = ret;  // Return directly with error code
       goto err_pre_en;    // Bail out, but clean up first
    }
@@ -223,11 +224,16 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->baseAddr = pci_resource_start(pcidev, 0);
    dev->baseSize = pci_resource_len(pcidev, 0);
 
-   // Check if we have a valid base address
+   // Early out if we have an invalid BAR
    if ( dev->baseAddr == 0 ) {
-      pr_err("%s: failed to get pci base address\n", MOD_NAME);
+      dev_err(&pcidev->dev, "Init: failed to get pci base address; check your BAR0 assignment!\n");
+      probeReturn = 0;  // Allow cards with valid BAR to load
       goto err_post_en;
    }
+
+   // Set basic device attributes
+   dev->pcidev = pcidev;          // PCI device structure
+   dev->device = &(pcidev->dev);  // Device structure
 
    // Map the device's register space for use in the driver
    if ( Dma_MapReg(dev) < 0 ) {
@@ -252,6 +258,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->cfgBgThold[6] = cfgBgThold6;   // Background threshold 6
    dev->cfgBgThold[7] = cfgBgThold7;   // Background threshold 7
    dev->cfgTimeout = cfgTimeout;
+   dev->debug = cfgDebug;
 
 
    // Assign the IRQ number from the pci_dev structure
@@ -259,14 +266,13 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    // Check that we actually have an IRQ
    if (dev->irq == 0) {
-      pr_err("%s: No IRQ associated with PCI device\n", MOD_NAME);
+      dev_err(dev->device, "%s: No IRQ associated with PCI device\n", MOD_NAME);
       probeReturn = -EINVAL;
       goto err_post_en;
    }
 
    // Set basic device context
-   dev->pcidev = pcidev;          // PCI device structure
-   dev->device = &(pcidev->dev);  // Device structure
+
    dev->hwFunc = hfunc;           // Hardware function pointer
 
    // Initialize device memory regions
@@ -344,6 +350,17 @@ void DataDev_Remove(struct pci_dev *pcidev) {
    struct DmaDevice *dev = NULL;
 
    pr_info("%s: Remove: Remove called.\n", MOD_NAME);
+
+   // Skip devices with invalid BAR
+   if (pci_resource_start(pcidev, 0) == 0) {
+      pr_info("%s: Remove: Skipping device %04x:%02x:%02x.%d with invalid BAR0\n",
+         MOD_NAME,
+         pci_domain_nr(pcidev->bus),
+         pcidev->bus->number,
+         PCI_SLOT(pcidev->devfn),
+         PCI_FUNC(pcidev->devfn));
+      return;
+   }
 
    // Look for matching device
    for (x = 0; x < MAX_DMA_DEVICES; x++) {
@@ -533,3 +550,6 @@ MODULE_PARM_DESC(cfgDevName, "Device Name Formating Setting");
 
 module_param(cfgTimeout, int, 0);
 MODULE_PARM_DESC(cfgTimeout, "Internal DMA transfer timeout duration (cycles)");
+
+module_param(cfgDebug, int, 0);
+MODULE_PARM_DESC(cfgDebug, "Enables very verbose debug logging. Use this with caution!");
