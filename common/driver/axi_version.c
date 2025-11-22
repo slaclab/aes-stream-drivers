@@ -189,7 +189,7 @@ void AxiVersion_Show(struct seq_file *s, struct DmaDevice *dev, struct AxiVersio
    } else {
       hwstr = HardwareTypeLookup[0];
    }
-   seq_printf(s, "        Hardware Type : %s (0%.02X)\n", hwstr, htype);
+   seq_printf(s, "        Hardware Type : %s (0x%03X)\n", hwstr, htype);
    seq_printf(s, "    Bifurcation Index : %u\n", bifurcationIndex);
 #endif
 }
