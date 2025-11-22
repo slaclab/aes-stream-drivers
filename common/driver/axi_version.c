@@ -131,8 +131,10 @@ static const char* HardwareTypeLookup[] = {
 const int HardwareTypeCount = sizeof(HardwareTypeLookup) / sizeof(HardwareTypeLookup[0]);
 
 static const char* BifurcationTypeLookup[] = {
-   "None",
-   "8x8",
+   "x16",
+   "x8x8",
+   "x8x4x4",
+   "x4x4x8",
    "4x4x4x4",
 };
 const int BifurcationTypeCount = sizeof(BifurcationTypeLookup) / sizeof(BifurcationTypeLookup[0]);
