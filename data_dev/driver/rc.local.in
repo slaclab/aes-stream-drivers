@@ -27,7 +27,7 @@ mount -a
 
 # Load the SLAC DMA driver
 # define the location of the driver so we know where to get it
-driver_location="/home/eichl008/ldmx/aes-stream-drivers/data_dev/driver"
+driver_location="DRIVER_LOCATION"
 cd "${driver_location}"
 make clean
 make
