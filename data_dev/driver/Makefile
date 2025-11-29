@@ -75,9 +75,14 @@ endif
 obj-m := $(NAME).o
 
 # Default target: build the kernel module
-all:
+all: rc.local
 	@echo "Building with version: $(GITV)"
 	@$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(HOME) modules
+
+# construct a rc.local file for the location of this driver
+rc.local:
+	sed 's|DRIVER_LOCATION|$(HOME)|' rc.local.in > rc.local
+
 
 # Clean target: remove built module and object files
 clean:
