@@ -10,7 +10,7 @@ Common repository for streaming kernel drivers (datadev, gpuDirect, Yocto, etc)
 
 Contains shared kernel and application libraries
 
-#### data_dev/
+#### data\_dev/
 
 Contains driver and application code for TID-AIR generic DAQ PCIe cards, optionally with GPUDirect RDMA support (for use with NVIDIA GPUs)
 
@@ -22,17 +22,21 @@ options datadev cfgTxCount=1024 cfgRxCount=1024 cfgSize=131072 cfgMode=1 cfgCont
 
 Contains top level application include files for all drivers
 
-#### rce_hp_buffers/
+#### rce\_hp\_buffers/
 
 Contains driver that allocates memory blocks for use in a pure firmware dma engine
 
-#### rce_stream/
+#### rce\_stream/
 
 Contains driver and application code for the RCE AXI stream DMA
 
+#### Yocto/
+
+Contains BitBake recipes for the aximemorymap and axistreamdma drivers.
+
 <!--- ########################################################################################### -->
 
-# How to build the non-RCE drivers
+# How to build the data\_dev driver
 
 ```bash
 # Go to the base directory
@@ -44,6 +48,36 @@ $ make driver
 # Build the applications
 $ make app
 ```
+
+## How to load the data\_dev driver
+
+```bash
+# Go to the base directory
+$ cd aes-stream-drivers
+
+# Load the driver for the current kernel
+$ sudo insmod install/$(uname -r)/datadev.ko
+```
+
+<!--- ########################################################################################### -->
+
+# How to use the Yocto recipes
+
+The Yocto recipes can be trivially included in your Yocto project via symlink.
+
+```bash
+$ ln -s $aes_stream_drivers/Yocto/recipes-kernel $myproject/sources/meta-user/recipes-kernel
+```
+
+Make sure to set the following variables in your local.conf:
+```bash
+# Substitute these values with your own desired settings
+DMA_TX_BUFF_COUNT = 128
+DMA_RX_BUFF_COUNT = 128
+DMA_BUFF_SIZE     = 131072
+```
+
+For a practical example of how to integrate these recipes into a Yocto project, see [axi-soc-ultra-plus-core](https://github.com/slaclab/axi-soc-ultra-plus-core).
 
 <!--- ########################################################################################### -->
 

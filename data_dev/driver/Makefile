@@ -55,7 +55,7 @@ endif
 
 # Compiler flags, including path to headers and version definitions
 ccflags-y += -I$(HOME)/src
-ccflags-y += -DDMA_IN_KERNEL=1 -DGITV=\"$(GITV)\"
+ccflags-y += -DDMA_IN_KERNEL=1 -DPCIE_DMA=1 -DGITV=\"$(GITV)\"
 
 ifneq ($(NVIDIA_DRIVERS),)
 ccflags-y += -I$(NVIDIA_DRIVERS)/nvidia -I$(NVIDIA_DRIVERS)/kernel-open/nvidia -DDATA_GPU=1
@@ -75,9 +75,14 @@ endif
 obj-m := $(NAME).o
 
 # Default target: build the kernel module
-all:
+all: rc.local
 	@echo "Building with version: $(GITV)"
 	@$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(HOME) modules
+
+# construct a rc.local file for the location of this driver
+rc.local:
+	sed 's|DRIVER_LOCATION|$(HOME)|' rc.local.in > rc.local
+
 
 # Clean target: remove built module and object files
 clean:
