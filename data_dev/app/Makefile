@@ -21,8 +21,10 @@ CC       := $(CROSS_COMPILE)g++
 DEF      :=
 BIN      := $(HOME)/bin
 OBJ      := $(HOME)/.obj
-CFLAGS   := -O2 -Wall -I$(HOME)/../../include -I$(HOME)/../../common/app_lib
+CFLAGS   := -O2 -Wall -I$(HOME)/../../include -I$(HOME)/../../common/app_lib -fpic --std=c++11
 LFLAGS   := -lpthread
+NVCC     ?= /usr/local/cuda/bin/nvcc
+NVCCFLAGS := -O2 -I$(HOME)/../../include -I$(HOME)/../../common/app_lib --gpu-architecture=compute_100 -lcuda
 
 # Source and Object Directories
 LIB_DIR  := $(HOME)/../../common/app_lib
@@ -32,11 +34,16 @@ LIB_OBJ  := $(patsubst $(LIB_DIR)/%.cpp,$(OBJ)/%.o,$(LIB_SRC))
 
 APP_DIR  := $(HOME)/src
 APP_SRC  := $(wildcard $(APP_DIR)/*.cpp)
-APP_BIN  := $(patsubst $(APP_DIR)/%.cpp,$(BIN)/%,$(APP_SRC))
+APP_BIN  := $(addprefix $(BIN)/,dmaRate dmaWrite setDebug test)
+
+CUDA_BIN := $(addprefix $(BIN)/,rdmaTest)
 
 # Main Targets
 all: $(LIB_OBJ) $(APP_BIN)
 	@echo "Build complete."
+
+# CUDA targets
+cuda: $(LIB_OBJ) $(CUDA_BIN)
 
 # Phony Targets
 .PHONY: all clean nothing_done
@@ -58,6 +65,12 @@ $(BIN)/%: $(APP_DIR)/%.cpp $(LIB_OBJ)
 	@test -d $(BIN) || mkdir -p $(BIN)
 	@echo "Compiling application binary $@"
 	@$(CC) $(CFLAGS) $(DEF) $(LIB_OBJ) -o $@ $< $(LFLAGS)
+
+# Compile Application Binaries
+$(BIN)/rdmaTest: $(APP_DIR)/rdmaTest.cu $(LIB_OBJ)
+	@test -d $(BIN) || mkdir -p $(BIN)
+	@echo "Compiling application binary $@"
+	@$(NVCC) $(NVCCFLAGS) $(DEF) $(LIB_OBJ) -o $@ $< $(LFLAGS)
 
 # Check if anything was done, otherwise print a custom message
 nothing_done:
