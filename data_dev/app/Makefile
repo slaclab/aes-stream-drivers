@@ -34,7 +34,7 @@ LIB_OBJ  := $(patsubst $(LIB_DIR)/%.cpp,$(OBJ)/%.o,$(LIB_SRC))
 
 APP_DIR  := $(HOME)/src
 APP_SRC  := $(wildcard $(APP_DIR)/*.cpp)
-APP_BIN  := $(addprefix $(BIN)/,dmaRate dmaWrite dmaSetDebug test)
+APP_BIN  := $(addprefix $(BIN)/,dmaRate dmaWrite dmaSetDebug dmaLoopTest test)
 
 CUDA_BIN := $(addprefix $(BIN)/,rdmaTest)
 
