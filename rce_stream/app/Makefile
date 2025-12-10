@@ -19,7 +19,7 @@ CC       := g++
 DEF      :=
 BIN      := $(HOME)/bin
 OBJ      := $(HOME)/.obj
-CFLAGS   := -Wall -I$(HOME)/../../common/app_lib -I$(HOME)/../../include/
+CFLAGS   := -Wall -I$(HOME)/../../common/app_lib -I$(HOME)/../../include/ -DDEFAULT_AXI_DEVICE=\"/dev/axi_stream_dma_0\"
 CFLAGS32 := -Wno-format
 LFLAGS   := -lpthread
 

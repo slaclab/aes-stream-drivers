@@ -32,6 +32,10 @@
 using std::cout;
 using std::endl;
 
+#ifndef DEFAULT_AXI_DEVICE
+#define DEFAULT_AXI_DEVICE "/dev/datadev_0"
+#endif
+
 // Version and contact information
 const char *argp_program_version = "setDebug 1.0";
 const char *argp_program_bug_address = "rherbst@slac.stanford.edu";
@@ -43,7 +47,7 @@ struct PrgArgs {
 };
 
 // Default command-line arguments
-static struct PrgArgs DefArgs = { "/dev/datadev_0", 0x00 };
+static struct PrgArgs DefArgs = { DEFAULT_AXI_DEVICE, 0x00 };
 
 // Documentation for arguments
 static char args_doc[] = "debugLevel";
@@ -51,7 +55,7 @@ static char doc[] = "\n   Debug level is either 0 or 1.";
 
 // Option descriptions
 static struct argp_option options[] = {
-   { "path", 'p', "PATH", 0, "Path of datadev device to use. Default=/dev/datadev_0.", 0 },
+   { "path", 'p', "PATH", 0, "Path of datadev device to use. Default=" DEFAULT_AXI_DEVICE ".", 0 },
    { 0 }
 };
 
