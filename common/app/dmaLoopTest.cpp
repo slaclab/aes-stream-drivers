@@ -25,11 +25,11 @@
 #include <time.h>
 #include <string.h>
 #include <stdlib.h>
+#include <inttypes.h>
 #include <argp.h>
 #include <pthread.h>
 #include <iostream>
 #include <cstdio>
-#include <cinttypes>
 
 #include <AxisDriver.h>
 #include <PrbsData.h>
