@@ -21,7 +21,7 @@ CC       := $(CROSS_COMPILE)g++
 DEF      :=
 BIN      := $(HOME)/bin
 OBJ      := $(HOME)/.obj
-CFLAGS   := -O2 -Wall -I$(HOME)/../../include -I$(HOME)/../../common/app_lib -fpic --std=c++11
+CFLAGS   := -O2 -Wall -I$(HOME)/../../include -I$(HOME)/../../common/app_lib -fpic --std=c++11 -DDEFAULT_AXI_DEVICE=\"/dev/datadev_0\"
 LFLAGS   := -lpthread
 NVCC     ?= /usr/local/cuda/bin/nvcc
 NVCCFLAGS := -O2 -I$(HOME)/../../include -I$(HOME)/../../common/app_lib --gpu-architecture=compute_100 -lcuda
@@ -34,7 +34,7 @@ LIB_OBJ  := $(patsubst $(LIB_DIR)/%.cpp,$(OBJ)/%.o,$(LIB_SRC))
 
 APP_DIR  := $(HOME)/src
 APP_SRC  := $(wildcard $(APP_DIR)/*.cpp)
-APP_BIN  := $(addprefix $(BIN)/,dmaRate dmaWrite setDebug test)
+APP_BIN  := $(addprefix $(BIN)/,dmaRate dmaWrite dmaSetDebug dmaLoopTest test)
 
 CUDA_BIN := $(addprefix $(BIN)/,rdmaTest)
 
