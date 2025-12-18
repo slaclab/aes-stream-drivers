@@ -37,7 +37,7 @@
  *
  * Return: 0 on success, -1 on failure to copy data to user space.
  */
-int32_t AxiVersion_Get(struct DmaDevice *dev, void *base, uint64_t arg) {
+int32_t AxiVersion_Get(struct DmaDevice *dev, __iomem void *base, uint64_t arg) {
    struct AxiVersion axiVersion;
    uint64_t ret;
 
@@ -45,12 +45,12 @@ int32_t AxiVersion_Get(struct DmaDevice *dev, void *base, uint64_t arg) {
    AxiVersion_Read(dev, base, &axiVersion);
 
    // Attempt to copy the AXI version information to user space
-   ret = copy_to_user((void *)arg, &axiVersion, sizeof(struct AxiVersion));
+   ret = copy_to_user((__user void *)arg, &axiVersion, sizeof(struct AxiVersion));
    if (ret) {
       // Log a warning if copy to user space fails
       dev_warn(dev->device,
                "AxiVersion_Get: copy_to_user failed. ret=%llu, user=%p kern=%p\n",
-               (unsigned long long)ret, (void *)arg, &axiVersion);
+               (unsigned long long)ret, (__user void *)arg, &axiVersion);
       return -1;
    }
    return 0;
@@ -67,8 +67,8 @@ int32_t AxiVersion_Get(struct DmaDevice *dev, void *base, uint64_t arg) {
  * scratch pad, up time count, feature descriptor value, user-defined values,
  * device ID, git hash, device DNA value, and build string.
  */
-void AxiVersion_Read(struct DmaDevice *dev, void * base, struct AxiVersion *aVer) {
-   struct AxiVersion_Reg *reg = (struct AxiVersion_Reg *)base;
+void AxiVersion_Read(struct DmaDevice *dev, __iomem void * base, struct AxiVersion *aVer) {
+   __iomem struct AxiVersion_Reg *reg = (__iomem struct AxiVersion_Reg *)base;
    uint32_t x;
 
    // Read firmware version, scratch pad, and uptime count
@@ -128,7 +128,7 @@ static const char* HardwareTypeLookup[] = {
    "AbacoPc821Ku115",      // 0x00_00_00_12
    "BittWareXupVv8Vu9p",   // 0x00_00_00_13
 };
-const int HardwareTypeCount = sizeof(HardwareTypeLookup) / sizeof(HardwareTypeLookup[0]);
+static const int HardwareTypeCount = sizeof(HardwareTypeLookup) / sizeof(HardwareTypeLookup[0]);
 
 /**
  * AxiVersion_Show - Display AXI version information.
@@ -202,8 +202,8 @@ void AxiVersion_Show(struct seq_file *s, struct DmaDevice *dev, struct AxiVersio
  * This function sets or clears the user reset bit in the AXI version register based on the
  * provided state. It writes directly to the hardware register to effect this change.
  */
-void AxiVersion_SetUserReset(void *base, bool state) {
-   struct AxiVersion_Reg *reg = (struct AxiVersion_Reg *)base;
+void AxiVersion_SetUserReset(__iomem void *base, bool state) {
+   __iomem struct AxiVersion_Reg *reg = (__iomem struct AxiVersion_Reg *)base;
    uint32_t val;
 
    if (state) {

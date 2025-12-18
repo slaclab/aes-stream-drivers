@@ -90,13 +90,13 @@ struct DmaDevice {
    uint32_t    baseSize;
 
    // Base pointer to memory region
-   uint8_t * base;
+   __iomem uint8_t * base;
 
    // Register pointers, may be the same as reg
-   void * reg;  // hardware specific
+   __iomem void * reg;  // hardware specific
 
    // Direct read/write offset and size
-   uint8_t * rwBase;
+   __iomem uint8_t * rwBase;
    uint32_t  rwSize;
 
    // Configuration
@@ -223,10 +223,10 @@ int Dma_Init(struct DmaDevice *dev);
 void Dma_Clean(struct DmaDevice *dev);
 int Dma_Open(struct inode *inode, struct file *filp);
 int Dma_Release(struct inode *inode, struct file *filp);
-ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos);
-ssize_t Dma_Write(struct file *filp, const char* buffer, size_t count, loff_t* f_pos);
+ssize_t Dma_Read(struct file *filp, __user char *buffer, size_t count, loff_t *f_pos);
+ssize_t Dma_Write(struct file *filp, __user const char *buffer, size_t count, loff_t* f_pos);
 ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg);
-uint32_t Dma_Poll(struct file *filp, poll_table *wait);
+__poll_t Dma_Poll(struct file *filp, poll_table *wait);
 int Dma_Mmap(struct file *filp, struct vm_area_struct *vma);
 int Dma_Fasync(int fd, struct file *filp, int mode);
 int Dma_ProcOpen(struct inode *inode, struct file *file);

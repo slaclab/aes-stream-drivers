@@ -39,24 +39,24 @@
 #endif
 
 // Init Configuration values
-int cfgTxCount  = 1024;
-int cfgRxCount  = 1024;
-int cfgSize     = 0x20000;  // 128kB
-int cfgMode     = BUFF_COHERENT;
-int cfgCont     = 1;
-int cfgIrqHold  = 10000;
-int cfgIrqDis   = 0;
-int cfgBgThold0 = 0;
-int cfgBgThold1 = 0;
-int cfgBgThold2 = 0;
-int cfgBgThold3 = 0;
-int cfgBgThold4 = 0;
-int cfgBgThold5 = 0;
-int cfgBgThold6 = 0;
-int cfgBgThold7 = 0;
-int cfgDevName  = 0;
-int cfgTimeout  = 0xFFFF;
-int cfgDebug    = 0;
+static int cfgTxCount  = 1024;
+static int cfgRxCount  = 1024;
+static int cfgSize     = 0x20000;  // 128kB
+static int cfgMode     = BUFF_COHERENT;
+static int cfgCont     = 1;
+static int cfgIrqHold  = 10000;
+static int cfgIrqDis   = 0;
+static int cfgBgThold0 = 0;
+static int cfgBgThold1 = 0;
+static int cfgBgThold2 = 0;
+static int cfgBgThold3 = 0;
+static int cfgBgThold4 = 0;
+static int cfgBgThold5 = 0;
+static int cfgBgThold6 = 0;
+static int cfgBgThold7 = 0;
+static int cfgDevName  = 0;
+static int cfgTimeout  = 0xFFFF;
+static int cfgDebug    = 0;
 
 // Probe failure global flag used in driver init
 // function to unregister driver
