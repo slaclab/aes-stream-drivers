@@ -47,8 +47,11 @@ void Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
 
    /* Allocate memory for GPU utility data */
    gpuData = (struct GpuData *)kzalloc(sizeof(struct GpuData), GFP_KERNEL);
-   if (!gpuData)
+   if (!gpuData) {
+      dev_err(dev->device, "Gpu_Init: Failed to allocate GpuData space of size %ld bytes\n",
+         (ulong)(sizeof(struct GpuData)));
       return;  // Handle memory allocation failure if necessary
+   }
 
    /* Associate GPU utility data with the device */
    dev->utilData = gpuData;

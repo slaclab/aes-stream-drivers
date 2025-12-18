@@ -83,6 +83,11 @@ size_t dmaAllocBuffers(struct DmaDevice *dev, struct DmaBufferList *list,
    // a single sorted list
    if ( (list->subCount == 1) && ((list->dev->cfgMode & BUFF_STREAM) == 0) ) {
       list->sorted = (struct DmaBuffer **) kzalloc(sizeof(struct DmaBuffer**) * count, GFP_KERNEL);
+      if (!list->sorted) {
+         dev_err(dev->device, "dmaAllocBuffers: Failed to allocate sorted buffer list of %ld bytes\n",
+            (ulong)(sizeof(struct DmaBuffer**) * count));
+         goto cleanup_buffers;
+      }
    }
 
    // Allocate buffers
