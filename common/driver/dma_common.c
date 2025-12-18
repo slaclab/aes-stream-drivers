@@ -616,8 +616,19 @@ ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
 
    rCnt = count / sizeof(struct DmaReadData);
    rd = (struct DmaReadData *)kzalloc(rCnt * sizeof(struct DmaReadData), GFP_KERNEL);
-   buff = (struct DmaBuffer **)kzalloc(rCnt * sizeof(struct DmaBuffer *), GFP_KERNEL);
+   if (!rd) {
+      dev_warn(dev->device, "Read: Failed to allocate DmaReadData block of %ld bytes\n",
+         (ulong)(rCnt * sizeof(struct DmaReadData)));
+      return -ENOMEM;
+   }
 
+   buff = (struct DmaBuffer **)kzalloc(rCnt * sizeof(struct DmaBuffer *), GFP_KERNEL);
+   if (!buff) {
+      dev_warn(dev->device, "Read: Failed to allocate DmaBuffer descriptor block of %ld bytes\n",
+         (ulong)(rCnt * sizeof(struct DmaBuffer*)));
+      kfree(rd);
+      return -ENOMEM;
+   }
    // Copy the read structure from user space
    if ((ret = copy_from_user(rd, buffer, rCnt * sizeof(struct DmaReadData)))) {
       dev_warn(dev->device, "Read: failed to copy struct from user space ret=%llu, user=%p kern=%p\n",
@@ -980,9 +991,20 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
          if ( cnt == 0 ) return 0;
          indexes = kzalloc(cnt * sizeof(uint32_t), GFP_KERNEL);
+         if (!indexes) {
+            dev_warn(dev->device, "Command: Failed to allocate index block of %ld bytes\n",
+               (ulong)(cnt * sizeof(uint32_t)));
+            return -ENOMEM;
+         }
          if (copy_from_user(indexes, (void *)arg, (cnt * sizeof(uint32_t)))) return -1;
 
          buffList = (struct DmaBuffer **)kzalloc(cnt * sizeof(struct DmaBuffer *), GFP_KERNEL);
+         if (!buffList) {
+            dev_warn(dev->device, "Command: Failed to allocate DmaBuffer block of %ld bytes\n",
+               (ulong)(cnt * sizeof(struct DmaBuffer*)));
+            kfree(indexes);
+            return -ENOMEM;
+         }
          bCnt = 0;
 
          for (x=0; x < cnt; x++) {
