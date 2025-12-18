@@ -1028,6 +1028,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
             } else {
                dev_warn(dev->device, "Command: Invalid index posted: %i.\n", indexes[x]);
                kfree(indexes);
+               kfree(buffList);
                return -1;
             }
          }
