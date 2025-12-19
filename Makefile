@@ -50,8 +50,8 @@ driver:
 	@mkdir -p $(MAKE_HOME)/install
 	@$(foreach ver,$(LOC_VERS), \
 		mkdir -p $(MAKE_HOME)/install/$(ver); \
-		make -C $(MAKE_HOME)/data_dev/driver KVER=$(ver) clean; \
-		make -C $(MAKE_HOME)/data_dev/driver KVER=$(ver); \
+		$(MAKE) -C $(MAKE_HOME)/data_dev/driver KVER=$(ver) clean; \
+		$(MAKE) -C $(MAKE_HOME)/data_dev/driver KVER=$(ver); \
 		scp $(MAKE_HOME)/data_dev/driver/*.ko $(MAKE_HOME)/install/$(ver); \
 	)
 

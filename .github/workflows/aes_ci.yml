@@ -75,7 +75,7 @@ jobs:
       
       # Setup for all debian/ubuntu-based images
       - run: |
-          apt-get update && apt-get upgrade -y && apt-get install -y build-essential make bash sed kmod dkms git pahole
+          apt-get update && apt-get upgrade -y && apt-get install -y build-essential make bash sed kmod dkms git pahole sparse
         if: ${{ startsWith(matrix.container, 'ubuntu') || startsWith(matrix.container, 'debian') }}
 
       # Ubuntu 22.04, kernels 5.19, 6.5 and 6.8 (ub24.04 uses kernel 6.8 too)
@@ -95,11 +95,18 @@ jobs:
 
       # RHEL9, frankenstein kernel 5.14
       - run: |
-          dnf update -y && dnf upgrade -y && dnf install -y kernel-devel kernel-modules-core kernel-headers gcc gcc-c++ make sed git elfutils-libelf-devel
+          dnf update -y && dnf upgrade -y
+          dnf install -y kernel-devel kernel-modules-core kernel-headers gcc gcc-c++ make sed git elfutils-libelf-devel
         if: ${{ startsWith(matrix.container, 'rocky') || startsWith(matrix.container, 'centos') }}
 
       - name: Compile Driver
         run: make driver
+
+      # Only run sparse on debian experimental. Older kernel versions seem to trip sparse on their headers, which is
+      # not trivial to fix, unfortunately.
+      - name: Run Sparse
+        run: make driver C=2 CF=-Wsparse-error
+        if: ${{ matrix.container == 'debian:experimental' }}
 
       - name: Compile App
         run: make app
