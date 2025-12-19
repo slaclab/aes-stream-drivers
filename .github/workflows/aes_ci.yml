@@ -90,12 +90,16 @@ jobs:
 
       # RHEL7, kernel 3.10
       - run: |
-          yum update -y && yum install -y kernel-devel kernel-modules kernel-headers gcc gcc-c++ make sed git elfutils-libelf-devel sparse
+          yum update -y && yum install --enablerepo=epel -y kernel-devel kernel-modules kernel-headers gcc gcc-c++ make sed git elfutils-libelf-devel sparse
         if: ${{ matrix.container == 'ghcr.io/jjl772/centos7-vault' }}
 
       # RHEL9, frankenstein kernel 5.14
       - run: |
-          dnf update -y && dnf upgrade -y && dnf install -y kernel-devel kernel-modules-core kernel-headers gcc gcc-c++ make sed git sparse elfutils-libelf-devel sparse
+          dnf update -y && dnf upgrade -y && dnf install -y subscription-manager
+          # Enable epel and crb for sparse
+          subscription-manager repos --enable codeready-builder-for-rhel-9-$(arch)-rpms
+          dnf install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+          dnf install --enablerepo=epel -y kernel-devel kernel-modules-core kernel-headers gcc gcc-c++ make sed git sparse elfutils-libelf-devel sparse
         if: ${{ startsWith(matrix.container, 'rocky') || startsWith(matrix.container, 'centos') }}
 
       - name: Compile Driver & Run Sparse
