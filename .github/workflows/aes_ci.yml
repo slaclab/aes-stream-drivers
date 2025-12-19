@@ -75,7 +75,7 @@ jobs:
       
       # Setup for all debian/ubuntu-based images
       - run: |
-          apt-get update && apt-get upgrade -y && apt-get install -y build-essential make bash sed kmod dkms git pahole
+          apt-get update && apt-get upgrade -y && apt-get install -y build-essential make bash sed kmod dkms git pahole sparse
         if: ${{ startsWith(matrix.container, 'ubuntu') || startsWith(matrix.container, 'debian') }}
 
       # Ubuntu 22.04, kernels 5.19, 6.5 and 6.8 (ub24.04 uses kernel 6.8 too)
@@ -90,16 +90,16 @@ jobs:
 
       # RHEL7, kernel 3.10
       - run: |
-          yum update -y && yum install -y kernel-devel kernel-modules kernel-headers gcc gcc-c++ make sed git elfutils-libelf-devel
+          yum update -y && yum install -y kernel-devel kernel-modules kernel-headers gcc gcc-c++ make sed git elfutils-libelf-devel sparse
         if: ${{ matrix.container == 'ghcr.io/jjl772/centos7-vault' }}
 
       # RHEL9, frankenstein kernel 5.14
       - run: |
-          dnf update -y && dnf upgrade -y && dnf install -y kernel-devel kernel-modules-core kernel-headers gcc gcc-c++ make sed git elfutils-libelf-devel
+          dnf update -y && dnf upgrade -y && dnf install -y kernel-devel kernel-modules-core kernel-headers gcc gcc-c++ make sed git sparse elfutils-libelf-devel sparse
         if: ${{ startsWith(matrix.container, 'rocky') || startsWith(matrix.container, 'centos') }}
 
-      - name: Compile Driver
-        run: make driver
+      - name: Compile Driver & Run Sparse
+        run: make driver C=2 CF=-Wsparse-error
 
       - name: Compile App
         run: make app
