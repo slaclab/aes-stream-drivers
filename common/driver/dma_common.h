@@ -27,6 +27,7 @@
 #include <linux/types.h>
 #include <linux/fs.h>
 #include <linux/interrupt.h>
+#include <linux/version.h>
 #include <DmaDriver.h>
 #include <dma_buffer.h>
 
@@ -42,6 +43,11 @@
 // Forward declarations
 struct hardware_functions;
 struct DmaDesc;
+
+// __poll_t was only added in v4.16. Provide our own typedef for older kernels.
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0)
+typedef uint32_t __poll_t;
+#endif
 
 /**
  * struct DmaDevice - Represents a DMA-capable device.
