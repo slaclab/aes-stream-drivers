@@ -40,7 +40,7 @@ axiStreamWrite: dmaWrite.cpp PrbsData.cpp
 	@echo Building $@...
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
-axiStreamRead: dmaRead.cpp
+axiStreamRead: dmaRead.cpp PrbsData.cpp
 	@echo Building $@...
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
