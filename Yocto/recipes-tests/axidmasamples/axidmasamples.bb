@@ -11,6 +11,7 @@ SRC_URI = "file://Makefile          \
            file://dmaLoopTest.cpp   \
            file://dmaSetDebug.cpp   \
            file://dmaWrite.cpp      \
+           file://dmaRead.cpp       \
            file://PrbsData.cpp      \
            file://PrbsData.h        \
         "

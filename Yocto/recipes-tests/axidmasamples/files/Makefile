@@ -18,7 +18,7 @@ CFLAGS		+= -O2 -g
 CXXFLAGS	+= -O2 -g $(CPPFLAGS)
 LDFLAGS		+= -pthread
 PREFIX		?= /usr/local
-APPS		:= axiStreamLoop axiStreamWrite axiStreamSetDebug
+APPS		:= axiStreamLoop axiStreamWrite axiStreamSetDebug axiStreamRead
 
 all: $(APPS)
 
@@ -47,3 +47,4 @@ axiStreamRead: dmaRead.cpp
 axiStreamSetDebug: dmaSetDebug.cpp
 	@echo Building $@...
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
+
