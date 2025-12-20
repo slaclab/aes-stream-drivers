@@ -104,13 +104,13 @@ int main(int argc, char **argv) {
    ssize_t       ret;
    int64_t       count;
    fd_set        fds;
-   void *        rxData;
+   void *        rxData = NULL;
    uint32_t      maxSize;
    uint32_t      rxDest;
-   uint32_t      rxFlags;
+   uint32_t      rxFlags = 0;
    PrbsData      prbs(32, 4, 1, 2, 6, 31);
    bool          prbRes;
-   void **       dmaBuffers;
+   void **       dmaBuffers = NULL;
    uint32_t      dmaSize;
    uint32_t      dmaCount = 1;
    uint32_t      x;
@@ -204,7 +204,7 @@ int main(int argc, char **argv) {
          rets[0] = int32_t(ret);
       }
 
-      for (int i = 0; i < dmaCount; ++i) {
+      for (uint32_t i = 0; i < dmaCount; ++i) {
          if (rets[i] <= 0) {
             if (rets[i] < 0)
                printf("Read failed: %s (%d)\n", strerror(-rets[i]), rets[i]);
