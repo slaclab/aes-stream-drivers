@@ -130,7 +130,7 @@ inline uint8_t AxisG2_MapReturn(struct DmaDevice * dev, struct AxisG2Return *ret
  * of free buffers. It writes the buffer index and, if enabled, the buffer handle
  * to the device's write FIFOs to mark the buffer as free.
  */
-inline void AxisG2_WriteFree(struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En) {
+inline void AxisG2_WriteFree(struct DmaBuffer *buff, __iomem struct AxisG2Reg *reg, uint32_t desc128En) {
    uint32_t wrData[2];
 
    // Mask the buffer index to fit within the 28-bit field
@@ -169,7 +169,7 @@ inline void AxisG2_WriteFree(struct DmaBuffer *buff, struct AxisG2Reg *reg, uint
  * the appropriate FIFO for transmission based on the descriptor size
  * enabled by the `desc128En` flag.
  */
-inline void AxisG2_WriteTx(struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32_t desc128En) {
+inline void AxisG2_WriteTx(struct DmaBuffer *buff, __iomem struct AxisG2Reg *reg, uint32_t desc128En) {
    uint32_t rdData[4];
    uint32_t dest;
    uint32_t chan;
@@ -226,7 +226,7 @@ inline void AxisG2_WriteTx(struct DmaBuffer *buff, struct AxisG2Reg *reg, uint32
  *
  * Returns: Number of processed items
  */
-uint32_t AxisG2_Process(struct DmaDevice * dev, struct AxisG2Reg *reg, struct AxisG2Data *hwData) {
+uint32_t AxisG2_Process(struct DmaDevice * dev, __iomem struct AxisG2Reg *reg, struct AxisG2Data *hwData) {
    struct DmaDesc *desc;
    struct DmaBuffer *buff;
    struct AxisG2Return ret;
@@ -371,11 +371,11 @@ uint32_t AxisG2_Process(struct DmaDevice * dev, struct AxisG2Reg *reg, struct Ax
  */
 irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
    struct DmaDevice *dev;
-   struct AxisG2Reg *reg;
+   __iomem struct AxisG2Reg *reg;
    struct AxisG2Data *hwData;
 
    dev = (struct DmaDevice *)dev_id;
-   reg = (struct AxisG2Reg *)dev->reg;
+   reg = (__iomem struct AxisG2Reg *)dev->reg;
    hwData = (struct AxisG2Data *)dev->hwData;
 
    // Disable interrupt
@@ -409,10 +409,10 @@ void AxisG2_Init(struct DmaDevice *dev) {
 
    struct DmaBuffer  *buff;
    struct AxisG2Data *hwData;
-   struct AxisG2Reg  *reg;
+   __iomem struct AxisG2Reg  *reg;
 
    // Map device registers for access
-   reg = (struct AxisG2Reg *)dev->reg;
+   reg = (__iomem struct AxisG2Reg *)dev->reg;
 
    // Initialize destination mask to all 1's
    memset(dev->destMask, 0xFF, DMA_MASK_SIZE);
@@ -540,10 +540,10 @@ void AxisG2_Init(struct DmaDevice *dev) {
  * a workqueue if required, based on the device's configuration.
  */
 void AxisG2_Enable(struct DmaDevice *dev) {
-   struct AxisG2Reg  *reg;
+   __iomem struct AxisG2Reg  *reg;
    struct AxisG2Data *hwData;
 
-   reg = (struct AxisG2Reg *)dev->reg;
+   reg = (__iomem struct AxisG2Reg *)dev->reg;
    hwData = (struct AxisG2Data *)dev->hwData;
 
    // Enable the device by setting the enable version and online registers
@@ -592,7 +592,7 @@ void AxisG2_Enable(struct DmaDevice *dev) {
  * This function simply masks interrupts
  */
 void AxisG2_IrqEnable(struct DmaDevice *dev, int en) {
-   struct AxisG2Reg *reg = (struct AxisG2Reg*)dev->reg;
+   __iomem struct AxisG2Reg *reg = (__iomem struct AxisG2Reg*)dev->reg;
    writel(en ? 0x1 : 0x0, &(reg->intEnable));
 }
 
@@ -607,11 +607,11 @@ void AxisG2_IrqEnable(struct DmaDevice *dev, int en) {
  * cleaning up the device.
  */
 void AxisG2_Clear(struct DmaDevice *dev) {
-   struct AxisG2Reg *reg;
+   __iomem struct AxisG2Reg *reg;
    struct AxisG2Data *hwData;
    size_t size;
 
-   reg = (struct AxisG2Reg *)dev->reg;
+   reg = (__iomem struct AxisG2Reg *)dev->reg;
    hwData = (struct AxisG2Data *)dev->hwData;
 
    // Disable interrupts to prevent further device activity.
@@ -674,11 +674,11 @@ void AxisG2_Clear(struct DmaDevice *dev) {
  * in 128-bit descriptor mode.
  */
 void AxisG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count) {
-   struct AxisG2Reg *reg;
+   __iomem struct AxisG2Reg *reg;
    struct AxisG2Data *hwData;
    uint32_t x;
 
-   reg = (struct AxisG2Reg *)dev->reg;
+   reg = (__iomem struct AxisG2Reg *)dev->reg;
    hwData = (struct AxisG2Data *)dev->hwData;
 
    // Prepare for hardware interaction
@@ -728,11 +728,11 @@ void AxisG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t
  */
 int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t count) {
    struct AxisG2Data *hwData;
-   struct AxisG2Reg *reg;
+   __iomem struct AxisG2Reg *reg;
    unsigned long iflags;
    uint32_t x;
 
-   reg = (struct AxisG2Reg *)dev->reg;
+   reg = (__iomem struct AxisG2Reg *)dev->reg;
    hwData = (struct AxisG2Data *)dev->hwData;
 
    // Prepare buffers for hardware transmission
@@ -773,8 +773,8 @@ int32_t AxisG2_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32
  *---------------------------------------------------------------------------
  */
 int32_t AxisG2_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
-   struct AxisG2Reg *reg;
-   reg = (struct AxisG2Reg *)dev->reg;
+   __iomem struct AxisG2Reg *reg;
+   reg = (__iomem struct AxisG2Reg *)dev->reg;
 
    switch (cmd) {
       case AXIS_Read_Ack:
@@ -812,11 +812,11 @@ int32_t AxisG2_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
  * and readability.
  */
 void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
-   struct AxisG2Reg *reg;
+   __iomem struct AxisG2Reg *reg;
    struct AxisG2Data *hwData;
    uint32_t x;
 
-   reg = (struct AxisG2Reg *)dev->reg;
+   reg = (__iomem struct AxisG2Reg *)dev->reg;
    hwData = (struct AxisG2Data *)dev->hwData;
 
    seq_printf(s, "\n");
@@ -861,7 +861,7 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
  *-------------------------------------------------------------------------------
  */
 void AxisG2_WqTask_IrqForce(struct work_struct *work) {
-   struct AxisG2Reg *reg;
+   __iomem struct AxisG2Reg *reg;
    struct AxisG2Data *hwData;
    struct delayed_work *dlyWork;
 
@@ -871,7 +871,7 @@ void AxisG2_WqTask_IrqForce(struct work_struct *work) {
    hwData = container_of(dlyWork, struct AxisG2Data, dlyWork);
 
    // Access device registers
-   reg = (struct AxisG2Reg *)hwData->dev->reg;
+   reg = (__iomem struct AxisG2Reg *)hwData->dev->reg;
 
    // Force an interrupt
    writel(0x1, &(reg->forceInt));
@@ -893,7 +893,7 @@ void AxisG2_WqTask_IrqForce(struct work_struct *work) {
  */
 void AxisG2_WqTask_Poll(struct work_struct *work) {
    uint32_t handleCount;
-   struct AxisG2Reg *reg;
+   __iomem struct AxisG2Reg *reg;
    struct DmaDevice *dev;
    struct AxisG2Data *hwData;
 
@@ -901,7 +901,7 @@ void AxisG2_WqTask_Poll(struct work_struct *work) {
    hwData = container_of(work, struct AxisG2Data, irqWork);
 
    // Retrieve device and register structures
-   reg = (struct AxisG2Reg *)hwData->dev->reg;
+   reg = (__iomem struct AxisG2Reg *)hwData->dev->reg;
    dev = (struct DmaDevice *)hwData->dev;
 
    // Process data and return the number of handled items
@@ -929,7 +929,7 @@ void AxisG2_WqTask_Poll(struct work_struct *work) {
  */
 void AxisG2_WqTask_Service(struct work_struct *work) {
    uint32_t handleCount;
-   struct AxisG2Reg *reg;
+   __iomem struct AxisG2Reg *reg;
    struct DmaDevice *dev;
    struct AxisG2Data *hwData;
 
@@ -937,7 +937,7 @@ void AxisG2_WqTask_Service(struct work_struct *work) {
    hwData = container_of(work, struct AxisG2Data, irqWork);
 
    // Cast device and register pointers from the hardware data
-   reg = (struct AxisG2Reg *)hwData->dev->reg;
+   reg = (__iomem struct AxisG2Reg *)hwData->dev->reg;
    dev = (struct DmaDevice *)hwData->dev;
 
    // Debug information: entering service routine

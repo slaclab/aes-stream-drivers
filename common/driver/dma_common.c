@@ -196,7 +196,7 @@ int Dma_MapReg(struct DmaDevice *dev) {
          return -1;
       }
       dev->reg = dev->base;
-      dev_info(dev->device, "Init: Mapped to 0x%llx.\n", (uint64_t)dev->base);
+      dev_info(dev->device, "Init: Mapped to 0x%p.\n", dev->base);
 
       // Hold memory region
       if (request_mem_region(dev->baseAddr, dev->baseSize, dev->devName) == NULL) {
@@ -593,10 +593,10 @@ int Dma_Release(struct inode *inode, struct file *filp) {
  *
  * Return: The number of read structures on success or an error code on failure.
  */
-ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
+ssize_t Dma_Read(struct file *filp, __user char *buffer, size_t count, loff_t *f_pos) {
    struct DmaBuffer **buff;
    struct DmaReadData *rd;
-   void *dp;
+   __user void *dp;
    uint64_t ret;
    size_t rCnt;
    ssize_t bCnt;
@@ -632,7 +632,7 @@ ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
    // Copy the read structure from user space
    if ((ret = copy_from_user(rd, buffer, rCnt * sizeof(struct DmaReadData)))) {
       dev_warn(dev->device, "Read: failed to copy struct from user space ret=%llu, user=%p kern=%p\n",
-               ret, (void *)buffer, (void *)rd);
+               ret, buffer, rd);
       return -1;
    }
 
@@ -653,12 +653,12 @@ ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
 
       // Convert pointer based on architecture
       if (sizeof(void *) == 4 || rd[x].is32)
-         dp = (void *)(rd[x].data & 0xFFFFFFFF);
+         dp = (__user void *)(rd[x].data & 0xFFFFFFFF);
       else
-         dp = (void *)rd[x].data;
+         dp = (__user void *)rd[x].data;
 
       // Use index if pointer is zero
-      if (dp == 0) {
+      if (dp == NULL) {
           buff[x]->userHas = desc;
       } else {
          // Warn if user buffer is too small
@@ -690,7 +690,7 @@ ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
    // Copy the read structure back to user space
    if ((ret = copy_to_user(buffer, rd, rCnt * sizeof(struct DmaReadData)))) {
       dev_warn(dev->device, "Read: failed to copy struct to user space ret=%llu, user=%p kern=%p\n",
-               ret, (void *)buffer, (void *)&rd);
+               ret, buffer, &rd);
    }
    kfree(rd);
    return bCnt;
@@ -710,10 +710,10 @@ ssize_t Dma_Read(struct file *filp, char *buffer, size_t count, loff_t *f_pos) {
  *
  * Return: Number of bytes written on success, negative error code on failure.
  */
-ssize_t Dma_Write(struct file *filp, const char *buffer, size_t count, loff_t *f_pos) {
+ssize_t Dma_Write(struct file *filp, __user const char *buffer, size_t count, loff_t *f_pos) {
    uint64_t ret;
    ssize_t res;
-   void *dp;
+   __user void *dp;
    struct DmaWriteData wr;
    struct DmaBuffer *buff;
    struct DmaDesc *desc;
@@ -734,7 +734,7 @@ ssize_t Dma_Write(struct file *filp, const char *buffer, size_t count, loff_t *f
    // Copy data structure from user space
    if ((ret = copy_from_user(&wr, buffer, sizeof(struct DmaWriteData)))) {
       dev_warn(dev->device, "Write: failed to copy struct from user space ret=%llu, user=%p kern=%p.\n",
-               ret, (void *)buffer, (void *)&wr);
+               ret, buffer, &wr);
       return -1;
    }
 
@@ -755,13 +755,13 @@ ssize_t Dma_Write(struct file *filp, const char *buffer, size_t count, loff_t *f
 
    // Convert pointer based on architecture or request
    if (sizeof(void *) == 4 || wr.is32) {
-       dp = (void *)(wr.data & 0xFFFFFFFF);
+       dp = (__user void *)(wr.data & 0xFFFFFFFF);
    } else {
-       dp = (void *)wr.data;
+       dp = (__user void *)wr.data;
    }
 
    // Use index if pointer is null
-   if (dp == 0) {
+   if (dp == NULL) {
       if ((buff = dmaGetBuffer(dev, wr.index)) == NULL) {
          dev_warn(dev->device, "Write: Invalid index posted: %i.\n", wr.index);
          return -1;
@@ -981,7 +981,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
       // Attempt to reserve destination
       case DMA_Set_MaskBytes:
-         if ( copy_from_user(newMask, (void *)arg, DMA_MASK_SIZE) ) return -1;
+         if ( copy_from_user(newMask, (__user void *)arg, DMA_MASK_SIZE) ) return -1;
          return Dma_SetMaskBytes(dev, desc, newMask);
          break;
 
@@ -996,7 +996,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
                (ulong)(cnt * sizeof(uint32_t)));
             return -ENOMEM;
          }
-         if (copy_from_user(indexes, (void *)arg, (cnt * sizeof(uint32_t)))) return -1;
+         if (copy_from_user(indexes, (__user void *)arg, (cnt * sizeof(uint32_t)))) return -1;
 
          buffList = (struct DmaBuffer **)kzalloc(cnt * sizeof(struct DmaBuffer *), GFP_KERNEL);
          if (!buffList) {
@@ -1061,7 +1061,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
       // Get GIT Version
       case DMA_Get_GITV:
-         if (copy_to_user((char *)arg, GITV, strnlen(GITV, 32))) {
+         if (copy_to_user((__user char *)arg, GITV, strnlen(GITV, 32))) {
             return -EFAULT;
          }
          return 0;
@@ -1105,11 +1105,11 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
  * queue is not empty, and writability (POLLOUT | POLLWRNORM) if the
  * device's transmit queue is not empty.
  */
-uint32_t Dma_Poll(struct file *filp, poll_table *wait) {
+__poll_t Dma_Poll(struct file *filp, poll_table *wait) {
    struct DmaDesc *desc;
    struct DmaDevice *dev;
 
-   __u32 mask = 0;
+   u32 mask = 0;
 
    desc = (struct DmaDesc *)filp->private_data;
    dev = desc->dev;
@@ -1126,7 +1126,7 @@ uint32_t Dma_Poll(struct file *filp, poll_table *wait) {
    if (dmaQueueNotEmpty(&(dev->tq)))
       mask |= POLLOUT | POLLWRNORM;
 
-   return mask;
+   return (__force __poll_t)mask;
 }
 
 /**
@@ -1541,10 +1541,10 @@ int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg) {
    struct DmaRegisterData rData;
 
    // Attempt to copy register data from user space
-   ret = copy_from_user(&rData, (void *)arg, sizeof(struct DmaRegisterData));
+   ret = copy_from_user(&rData, (__user void *)arg, sizeof(struct DmaRegisterData));
    if (ret) {
       dev_warn(dev->device, "Dma_WriteRegister: copy_from_user failed. ret=%llu, user=%p kern=%p\n",
-               ret, (void *)arg, &rData);
+               ret, (__user void *)arg, &rData);
       return -1;
    }
 
@@ -1577,7 +1577,7 @@ int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg) {
    struct DmaRegisterData rData;
 
    // Attempt to copy DmaRegisterData structure from user space
-   if ((ret = copy_from_user(&rData, (void *)arg, sizeof(struct DmaRegisterData)))) {
+   if ((ret = copy_from_user(&rData, (__user void *)arg, sizeof(struct DmaRegisterData)))) {
       dev_warn(dev->device, "Dma_ReadRegister: copy_from_user failed. ret=%llu, user=%p kern=%p\n", ret, (void *)arg, &rData);
       return -1;
    }
@@ -1592,8 +1592,8 @@ int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg) {
    rData.data = readl(dev->base + rData.address);
 
    // Attempt to copy the updated DmaRegisterData structure back to user space
-   if ((ret = copy_to_user((void *)arg, &rData, sizeof(struct DmaRegisterData)))) {
-      dev_warn(dev->device, "Dma_ReadRegister: copy_to_user failed. ret=%llu, user=%p kern=%p\n", ret, (void *)arg, &rData);
+   if ((ret = copy_to_user((__user void *)arg, &rData, sizeof(struct DmaRegisterData)))) {
+      dev_warn(dev->device, "Dma_ReadRegister: copy_to_user failed. ret=%llu, user=%p kern=%p\n", ret, (__user void *)arg, &rData);
       return -1;
    }
 
