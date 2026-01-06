@@ -112,6 +112,8 @@ int32_t DataDev_Init(void) {
    /* Clear memory for all DMA devices */
    memset(gDmaDevices, 0, sizeof(struct DmaDevice) * MAX_DMA_DEVICES);
 
+   pr_info("%s: aes-stream-drivers %s\n", MOD_NAME, GITV);
+
    pr_info("%s: Init\n", MOD_NAME);
 
    /* Initialize global variables */
