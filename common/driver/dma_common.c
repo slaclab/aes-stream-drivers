@@ -996,7 +996,12 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
                (ulong)(cnt * sizeof(uint32_t)));
             return -ENOMEM;
          }
-         if (copy_from_user(indexes, (__user void *)arg, (cnt * sizeof(uint32_t)))) return -1;
+
+         if (copy_from_user(indexes, (__user void *)arg, (cnt * sizeof(uint32_t)))) {
+            dev_warn(dev->device, "Command: copy_from_user failed\n");
+            kfree(indexes);
+            return -EFAULT;
+         }
 
          buffList = (struct DmaBuffer **)kzalloc(cnt * sizeof(struct DmaBuffer *), GFP_KERNEL);
          if (!buffList) {
