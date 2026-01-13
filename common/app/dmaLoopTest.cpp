@@ -335,7 +335,7 @@ int main(int argc, char **argv) {
    uint          dCount;
    uint          lastRx[DMA_MASK_SIZE] = {};
    uint          lastTx[DMA_MASK_SIZE] = {};
-   double        totRxRate;
+   double        totRxRate = 0, totTxRate = 0;
    uint64_t      totRx;
    uint64_t      totRxFreq;
    uint64_t      totTx;
@@ -443,11 +443,13 @@ int main(int argc, char **argv) {
       printf("\n TxRate:");
 
       totTx = 0;
+      totTxRate = 0;
       for (x=0; x < dCount; x++) {
          double rate = ((double)(txData[x]->count-lastTx[x]) * 8.0 * (double)args.size) / (double)(c_tme-l_tme);
          printf(" %15e (%.2f MB/s)", rate, rate / 1000000);
          lastTx[x] = txData[x]->count;
          totTx    += txData[x]->count;
+         totTxRate += rate;
       }
       printf("\n");
 
@@ -482,7 +484,7 @@ int main(int argc, char **argv) {
       printf("  TotRx: %15" PRIu64 "\n", totRx);
       printf("TotFreq: %15.3f kHz\n", totRxFreq / 1000.);
       if ( !args.prbsDis ) printf(" PrbErr: %15" PRIu64 "\n", totPrb);
-      printf("TotRate: %15e (%.2f MB/s)\n", totRxRate, totRxRate / 1000000.);
+      printf("TotRate: %15e (%.2f MB/s)\n", totRxRate + totTxRate, (totRxRate + totTxRate) / 1000000.);
       l_tme = c_tme;
    }
 
