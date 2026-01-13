@@ -96,8 +96,6 @@ extern "C" void sigintHandler(int sig) {
    please_exit = 1;
 }
 
-static void printResults(int64_t count, uint64_t totalBytes, double elapsed);
-
 int main(int argc, char **argv) {
    uint8_t       mask[DMA_MASK_SIZE];
    int32_t       s;
@@ -244,7 +242,7 @@ int main(int argc, char **argv) {
       // Print updates every so often
       if (count % 2048 == 0 && curTime() - lastUpdate > 2.5) {
          double cur = curTime();
-         printResults(count, totalBytes, cur - startTime);
+         printResults("Rx", count, totalBytes, cur - startTime);
          lastUpdate = cur;
       }
    } while ((args.count == -1 || count < args.count) && !please_exit);
@@ -252,7 +250,7 @@ int main(int argc, char **argv) {
    double elapsed = curTime() - startTime;
 
    // Print final results
-   printResults(count, totalBytes, elapsed);
+   printResults("Rx", count, totalBytes, elapsed);
 
    delete [] indexes;
    delete [] errors;
@@ -267,14 +265,4 @@ int main(int argc, char **argv) {
 
    close(s);
    return 0;
-}
-
-static void printResults(int64_t count, uint64_t totalBytes, double elapsed) {
-   printf("\n");
-   printf("Total Rx Events  : %" PRId64 "\n", count);
-   printf("Total Rx Bytes   : %" PRIu64 " (%.2f GB)\n", totalBytes, double(totalBytes) / 1e9);
-   printf("Rx Rate          : %.2f Hz (%.2f kHz)\n", double(count) / elapsed, double(count) / elapsed / 1024.);
-   printf("Rx Speed         : %.f B/s (%.2f MB/s)\n",
-      double(totalBytes) / elapsed, double(totalBytes) / elapsed / 1e6);
-   printf("Elapsed:         : %.2f seconds\n", elapsed);
 }
