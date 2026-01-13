@@ -42,10 +42,10 @@ static inline double curTime() {
 }
 
 #undef MIN
-#define MIN(x,y) ((x) < (y) ? (x) : (y))
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
 
 #undef MAX
-#define MAX(x,y) ((x) > (y) ? (x) : (y))
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
 
 
-#endif // _APPUTILS_H_
+#endif  // _APPUTILS_H_

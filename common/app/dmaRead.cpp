@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
    uint32_t      x;
    uint64_t      totalBytes = 0;
    char *        tok;
-   char          tBuff[100];
+   char          tBuff[100] = {};
    double        lastUpdate = curTime();
 
    struct PrgArgs args = DefArgs;
@@ -134,7 +134,7 @@ int main(int argc, char **argv) {
    if (args.dest == NULL) {
       memset(mask, 0xFF, DMA_MASK_SIZE);
    } else {
-      strcpy(tBuff, args.dest);
+      strncpy(tBuff, args.dest, sizeof(tBuff)-1);
       tok = strtok(tBuff, ",");
       while ( tok != NULL ) {
          x = strtoul(tok, NULL, 10);
