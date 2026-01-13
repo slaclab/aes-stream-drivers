@@ -476,6 +476,19 @@ int Dma_Open(struct inode *inode, struct file *filp) {
       return -ENOMEM;  // Return an error if allocation fails
    }
 
+   // Allocate scratch data buffers
+   desc->readDataScratch = (struct DmaReadData*)kzalloc(sizeof(struct DmaReadData) * READ_DATA_SCRATCH_CNT, GFP_KERNEL);
+   desc->indexScratch = (uint32_t*)kzalloc(sizeof(uint32_t) * INDEX_SCRATCH_CNT, GFP_KERNEL);
+
+   if (!desc->readDataScratch || !desc->indexScratch) {
+      dev_err(dev->device, "Open: kzalloc for scratch area(s) failed\n");
+      kfree(desc);
+      return -ENOMEM;
+   }
+
+   // Init the mutex
+   mutex_init(&desc->mutex);
+
    memset(desc, 0, sizeof(struct DmaDesc));
    dmaQueueInit(&(desc->q), dev->cfgRxCount);
    desc->async_queue = NULL;
@@ -581,6 +594,100 @@ int Dma_Release(struct inode *inode, struct file *filp) {
 }
 
 /**
+ * Dma_Read_Internal - Read at most NUM_BUFFERS from the file
+ * @filp: File structure, where we will grab private_data from
+ * @buffer: The userspace buffer we want to write data to
+ * @rCnt: The number of buffers to read this iteration. This is not a byte count. Must not be
+ *  greater than NUM_BUFFERS_AT_ONCE
+ * @returns Number of bytes read, or -1 on failure
+ */
+static ssize_t Dma_Read_Internal(struct file *filp, __user char *buffer, size_t rCnt) {
+   __user void *dp;
+   uint64_t ret;
+   //ssize_t bCnt;
+   ssize_t x;
+   struct DmaDesc *desc = (struct DmaDesc *)filp->private_data;
+   struct DmaDevice *dev = desc->dev;
+
+   // Sanity check!
+   if (rCnt > READ_DATA_SCRATCH_CNT) {
+      dev_err(dev->device, "Dma_Read_Internal: Programming error: rCnt > READ_DATA_SCRATCH_CNT (%d)\n",
+         READ_DATA_SCRATCH_CNT);
+      return -1;
+   }
+
+   //struct DmaBuffer* buff[NUM_BUFFERS_AT_ONCE] = {0};
+   struct DmaReadData rd[READ_DATA_SCRATCH_CNT] = {0};
+
+   // Copy the read structure from user space
+   if ((ret = copy_from_user(rd, buffer, rCnt * sizeof(struct DmaReadData)))) {
+      dev_warn(dev->device, "Read: failed to copy struct from user space ret=%llu, user=%p kern=%p\n",
+               ret, buffer, rd);
+      return -1;
+   }
+
+   // Get buffers from the DMA queue
+   //bCnt = dmaQueuePopList(&(desc->q), buff, rCnt);
+
+   for (x = 0; x < rCnt; x++) {
+      // Grab the latest buffer
+      struct DmaBuffer* buff = dmaQueuePop(&desc->q);
+
+      // Report frame error
+      if (buff->error)
+         dev_warn(dev->device, "Read: error encountered 0x%x.\n", buff->error);
+
+      // Copy associated data to the read structure
+      rd[x].dest = buff->dest;
+      rd[x].flags = buff->flags;
+      rd[x].index = buff->index;
+      rd[x].error = buff->error;
+      rd[x].ret = (int32_t)buff->size;
+
+      // Convert pointer based on architecture
+      if (sizeof(void *) == 4 || rd[x].is32)
+         dp = (__user void *)(rd[x].data & 0xFFFFFFFF);
+      else
+         dp = (__user void *)rd[x].data;
+
+      // Use index if pointer is zero
+      if (dp == NULL) {
+         buff->userHas = desc;
+      } else {
+         // Warn if user buffer is too small
+         if (rd[x].size < buff->size) {
+            dev_warn(dev->device, "Read: user buffer is too small. Rx=%i, User=%i.\n",
+                     buff->size, (int32_t)rd[x].size);
+            rd[x].error |= DMA_ERR_MAX;
+            rd[x].ret = -1;
+
+         // Copy data to user space
+         } else if ((ret = copy_to_user(dp, buff->buffAddr, buff->size))) {
+            dev_warn(dev->device, "Read: failed to copy data to user space ret=%llu, user=%p kern=%p size=%u.\n",
+                     ret, dp, buff->buffAddr, buff->size);
+            rd[x].ret = -1;
+         }
+
+         // Return entry to RX queue
+         dev->hwFunc->retRxBuffer(dev, &buff, 1);
+      }
+
+      // Debug information
+      if (dev->debug > 0) {
+         dev_info(dev->device, "Read: Ret=%i, Dest=%i, Flags=0x%.8x, Error=%i.\n",
+                  rd[x].ret, rd[x].dest, rd[x].flags, rd[x].error);
+      }
+   }
+
+   // Copy the read structure back to user space
+   if ((ret = copy_to_user(buffer, rd, rCnt * sizeof(struct DmaReadData)))) {
+      dev_warn(dev->device, "Read: failed to copy struct to user space ret=%llu, user=%p kern=%p\n",
+               ret, buffer, &rd);
+   }
+   return x;
+}
+
+/**
  * Dma_Read - Read data from a DMA buffer
  * @filp: The file pointer associated with the device
  * @buffer: User space buffer to read the data into
@@ -594,105 +701,63 @@ int Dma_Release(struct inode *inode, struct file *filp) {
  * Return: The number of read structures on success or an error code on failure.
  */
 ssize_t Dma_Read(struct file *filp, __user char *buffer, size_t count, loff_t *f_pos) {
-   struct DmaBuffer **buff;
-   struct DmaReadData *rd;
-   __user void *dp;
-   uint64_t ret;
-   size_t rCnt;
-   ssize_t bCnt;
-   ssize_t x;
-   struct DmaDesc *desc;
-   struct DmaDevice *dev;
+   size_t rCnt = 0;
+   size_t rem = 0;
+   ssize_t bCnt = 0;
+   ssize_t ret = 0;
+   struct DmaDesc *desc = (struct DmaDesc *)filp->private_data;
+   struct DmaDevice *dev = desc->dev;
 
-   desc = (struct DmaDesc *)filp->private_data;
-   dev = desc->dev;
+   mutex_lock(&desc->mutex);
 
    // Verify the size of the passed structure
    if ((count % sizeof(struct DmaReadData)) != 0) {
       dev_warn(dev->device, "Read: Called with incorrect size. Got=%li, Exp=%li\n",
                count, sizeof(struct DmaReadData));
+      mutex_unlock(&desc->mutex);
       return -1;
    }
 
+   // Number of buffers to read, in total
    rCnt = count / sizeof(struct DmaReadData);
-   rd = (struct DmaReadData *)kzalloc(rCnt * sizeof(struct DmaReadData), GFP_KERNEL);
-   if (!rd) {
-      dev_warn(dev->device, "Read: Failed to allocate DmaReadData block of %ld bytes\n",
-         (ulong)(rCnt * sizeof(struct DmaReadData)));
-      return -ENOMEM;
+   rem = rCnt;
+
+   // Check that we can actually access the user buffers
+   if (!access_ok(buffer, rCnt * sizeof(struct DmaReadData))) {
+      dev_warn(dev->device, "Read: Unable to access user buffer. buffer=%p, size=%ld\n",
+         buffer, rCnt * sizeof(struct DmaReadData));
+      mutex_unlock(&desc->mutex);
+      return -EFAULT;
    }
 
-   buff = (struct DmaBuffer **)kzalloc(rCnt * sizeof(struct DmaBuffer *), GFP_KERNEL);
-   if (!buff) {
-      dev_warn(dev->device, "Read: Failed to allocate DmaBuffer descriptor block of %ld bytes\n",
-         (ulong)(rCnt * sizeof(struct DmaBuffer*)));
-      kfree(rd);
-      return -ENOMEM;
-   }
-   // Copy the read structure from user space
-   if ((ret = copy_from_user(rd, buffer, rCnt * sizeof(struct DmaReadData)))) {
-      dev_warn(dev->device, "Read: failed to copy struct from user space ret=%llu, user=%p kern=%p\n",
-               ret, buffer, rd);
-      return -1;
-   }
+   // Read at most READ_DATA_SCRATCH_CNT per iteration. Avoids allocations in the driver.
+   for (; rem > 0;) {
+      size_t toRead = MIN(rem, READ_DATA_SCRATCH_CNT);
+      ret = Dma_Read_Internal(filp, buffer, toRead);
 
-   // Get buffers from the DMA queue
-   bCnt = dmaQueuePopList(&(desc->q), buff, rCnt);
-
-   for (x = 0; x < bCnt; x++) {
-      // Report frame error
-      if (buff[x]->error)
-         dev_warn(dev->device, "Read: error encountered 0x%x.\n", buff[x]->error);
-
-      // Copy associated data to the read structure
-      rd[x].dest = buff[x]->dest;
-      rd[x].flags = buff[x]->flags;
-      rd[x].index = buff[x]->index;
-      rd[x].error = buff[x]->error;
-      rd[x].ret = (int32_t)buff[x]->size;
-
-      // Convert pointer based on architecture
-      if (sizeof(void *) == 4 || rd[x].is32)
-         dp = (__user void *)(rd[x].data & 0xFFFFFFFF);
-      else
-         dp = (__user void *)rd[x].data;
-
-      // Use index if pointer is zero
-      if (dp == NULL) {
-          buff[x]->userHas = desc;
-      } else {
-         // Warn if user buffer is too small
-         if (rd[x].size < buff[x]->size) {
-            dev_warn(dev->device, "Read: user buffer is too small. Rx=%i, User=%i.\n",
-                     buff[x]->size, (int32_t)rd[x].size);
-            rd[x].error |= DMA_ERR_MAX;
-            rd[x].ret = -1;
-
-         // Copy data to user space
-         } else if ((ret = copy_to_user(dp, buff[x]->buffAddr, buff[x]->size))) {
-            dev_warn(dev->device, "Read: failed to copy data to user space ret=%llu, user=%p kern=%p size=%u.\n",
-                     ret, dp, buff[x]->buffAddr, buff[x]->size);
-            rd[x].ret = -1;
-         }
-
-         // Return entry to RX queue
-         dev->hwFunc->retRxBuffer(dev, &(buff[x]), 1);
+      // If failed, this will be a partial read. This should only happen in exceptionally rare
+      // circumstances. We've already checked the user buffers earlier with access_ok.
+      if (ret < 0) {
+         dev_warn(dev->device, "Read: Dma_Read_Internal failed. ret=%ld, rem=%ld, rCnt=%ld\n",
+            ret, rem, rCnt);
+         break;
       }
 
-      // Debug information
-      if (dev->debug > 0) {
-         dev_info(dev->device, "Read: Ret=%i, Dest=%i, Flags=0x%.8x, Error=%i.\n",
-                  rd[x].ret, rd[x].dest, rd[x].flags, rd[x].error);
-      }
-   }
-   kfree(buff);
+      bCnt += ret;
 
-   // Copy the read structure back to user space
-   if ((ret = copy_to_user(buffer, rd, rCnt * sizeof(struct DmaReadData)))) {
-      dev_warn(dev->device, "Read: failed to copy struct to user space ret=%llu, user=%p kern=%p\n",
-               ret, buffer, &rd);
+      // Adjust remaining and buffer count
+      if (toRead > rem) {
+         rem = 0; // Paranoia; this should never happen
+      }
+      else {
+         rem -= toRead;
+      }
+
+      // Adjust buffer offset based on what was read
+      buffer += sizeof(struct DmaReadData) * toRead;
    }
-   kfree(rd);
+
+   mutex_unlock(&desc->mutex);
    return bCnt;
 }
 
@@ -755,9 +820,9 @@ ssize_t Dma_Write(struct file *filp, __user const char *buffer, size_t count, lo
 
    // Convert pointer based on architecture or request
    if (sizeof(void *) == 4 || wr.is32) {
-       dp = (__user void *)(wr.data & 0xFFFFFFFF);
+      dp = (__user void *)(wr.data & 0xFFFFFFFF);
    } else {
-       dp = (__user void *)wr.data;
+      dp = (__user void *)wr.data;
    }
 
    // Use index if pointer is null
@@ -801,6 +866,128 @@ ssize_t Dma_Write(struct file *filp, __user const char *buffer, size_t count, lo
 }
 
 /**
+ * Dma_Ret_Indexes - Return indexes to the hardware
+ * @filp: File pointer
+ * @cmd: IOCTL command to execute
+ * @arg: user destination buffer
+ */
+static ssize_t Dma_Ret_Indexes(struct file *filp, uint32_t cmd, __user void* arg) {
+   struct DmaDesc   * desc;
+   struct DmaDevice * dev;
+   struct DmaBuffer * buff;
+   uint32_t cnt = (cmd >> 16) & 0xFFFF;
+
+   desc = (struct DmaDesc *)filp->private_data;
+   dev  = desc->dev;
+
+   // Ensure the buffer is readable
+   if (!access_ok(arg, cnt * sizeof(uint32_t))) {
+      dev_warn(dev->device, "Ret_Indexes: Invalid user buffer provided. buffer=%p, size=%ld\n",
+         arg, cnt * sizeof(uint32_t));
+      return -1;
+   }
+
+   for (int i = 0; i < cnt; i += INDEX_SCRATCH_CNT) {
+      uint32_t indexes[INDEX_SCRATCH_CNT] = {0};
+      struct DmaBuffer* buffList[INDEX_SCRATCH_CNT] = {0};
+
+      // Limit the number to free per iteration
+      const size_t toFree = MIN(INDEX_SCRATCH_CNT, cnt - i);
+
+      // This should really never happen because we already checked with access_ok
+      if (copy_from_user(indexes, arg, (toFree * sizeof(uint32_t)))) {
+         dev_warn(dev->device, "Ret_Indexes: copy_from_user failed. buf=%p, bytes=%ld\n",
+            arg, toFree * sizeof(uint32_t));
+         return -1;
+      }
+
+      uint32_t bCnt = 0;
+
+      for (uint32_t x = 0; x < toFree; x++) {
+         // Attempt to find buffer in RX list
+         if ( (buff = dmaGetBufferList(&(dev->rxBuffers), indexes[x])) != NULL ) {
+            // Only return if owned by current desc
+            if ( buff->userHas == desc ) {
+               buff->userHas = NULL;
+               buffList[bCnt++] = buff;
+            }
+   
+         // Attempt to find in tx list
+         } else if ( (buff = dmaGetBufferList(&(dev->txBuffers), indexes[x])) != NULL ) {
+            // Only return if owned by current desc
+            if ( buff->userHas == desc ) {
+               buff->userHas = NULL;
+   
+               // Return entry to TX queue
+               dmaQueuePush(&(dev->tq), buff);
+            }
+         } else {
+            dev_warn(dev->device, "Command: Invalid index posted: %i.\n", indexes[x]);
+            return -1;
+         }
+      }
+
+      // Return receive buffers
+      dev->hwFunc->retRxBuffer(dev, buffList, bCnt);
+   }
+
+   return 0;
+
+#if 0
+   if ( cnt == 0 ) return 0;
+   indexes = kzalloc(cnt * sizeof(uint32_t), GFP_KERNEL);
+   if (!indexes) {
+      dev_warn(dev->device, "Command: Failed to allocate index block of %ld bytes\n",
+         (ulong)(cnt * sizeof(uint32_t)));
+      return -ENOMEM;
+   }
+   if (copy_from_user(indexes, (__user void *)arg, (cnt * sizeof(uint32_t)))) return -1;
+
+   buffList = (struct DmaBuffer **)kzalloc(cnt * sizeof(struct DmaBuffer *), GFP_KERNEL);
+   if (!buffList) {
+      dev_warn(dev->device, "Command: Failed to allocate DmaBuffer block of %ld bytes\n",
+         (ulong)(cnt * sizeof(struct DmaBuffer*)));
+      kfree(indexes);
+      return -ENOMEM;
+   }
+   bCnt = 0;
+
+   for (x=0; x < cnt; x++) {
+      // Attempt to find buffer in RX list
+      if ( (buff = dmaGetBufferList(&(dev->rxBuffers), indexes[x])) != NULL ) {
+         // Only return if owned by current desc
+         if ( buff->userHas == desc ) {
+            buff->userHas = NULL;
+            buffList[bCnt++] = buff;
+         }
+
+      // Attempt to find in tx list
+      } else if ( (buff = dmaGetBufferList(&(dev->txBuffers), indexes[x])) != NULL ) {
+         // Only return if owned by current desc
+         if ( buff->userHas == desc ) {
+            buff->userHas = NULL;
+
+            // Return entry to TX queue
+            dmaQueuePush(&(dev->tq), buff);
+         }
+      } else {
+         dev_warn(dev->device, "Command: Invalid index posted: %i.\n", indexes[x]);
+         kfree(indexes);
+         kfree(buffList);
+         return -1;
+      }
+   }
+
+   // Return receive buffers
+   dev->hwFunc->retRxBuffer(dev, buffList, bCnt);
+
+   kfree(buffList);
+   kfree(indexes);
+   return 0;
+#endif
+}
+
+/**
  * Dma_Ioctl - Perform commands on DMA device
  * @filp: pointer to the file structure
  * @cmd: command to execute
@@ -819,17 +1006,13 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
    struct DmaDesc   * desc;
    struct DmaDevice * dev;
    struct DmaBuffer * buff;
-   struct DmaBuffer ** buffList;
 
    uint32_t   x;
-   uint32_t   cnt;
-   uint32_t   bCnt;
    uint32_t   userCnt;
    uint32_t   hwCnt;
    uint32_t   hwQCnt;
    uint32_t   qCnt;
    uint32_t   miss;
-   uint32_t * indexes;
 
    desc = (struct DmaDesc *)filp->private_data;
    dev  = desc->dev;
@@ -987,63 +1170,7 @@ ssize_t Dma_Ioctl(struct file *filp, uint32_t cmd, unsigned long arg) {
 
       // Return buffer index
       case DMA_Ret_Index:
-         cnt = (cmd >> 16) & 0xFFFF;
-
-         if ( cnt == 0 ) return 0;
-         indexes = kzalloc(cnt * sizeof(uint32_t), GFP_KERNEL);
-         if (!indexes) {
-            dev_warn(dev->device, "Command: Failed to allocate index block of %ld bytes\n",
-               (ulong)(cnt * sizeof(uint32_t)));
-            return -ENOMEM;
-         }
-
-         if (copy_from_user(indexes, (__user void *)arg, (cnt * sizeof(uint32_t)))) {
-            dev_warn(dev->device, "Command: copy_from_user failed\n");
-            kfree(indexes);
-            return -EFAULT;
-         }
-
-         buffList = (struct DmaBuffer **)kzalloc(cnt * sizeof(struct DmaBuffer *), GFP_KERNEL);
-         if (!buffList) {
-            dev_warn(dev->device, "Command: Failed to allocate DmaBuffer block of %ld bytes\n",
-               (ulong)(cnt * sizeof(struct DmaBuffer*)));
-            kfree(indexes);
-            return -ENOMEM;
-         }
-         bCnt = 0;
-
-         for (x=0; x < cnt; x++) {
-            // Attempt to find buffer in RX list
-            if ( (buff = dmaGetBufferList(&(dev->rxBuffers), indexes[x])) != NULL ) {
-               // Only return if owned by current desc
-               if ( buff->userHas == desc ) {
-                  buff->userHas = NULL;
-                  buffList[bCnt++] = buff;
-               }
-
-            // Attempt to find in tx list
-            } else if ( (buff = dmaGetBufferList(&(dev->txBuffers), indexes[x])) != NULL ) {
-               // Only return if owned by current desc
-               if ( buff->userHas == desc ) {
-                  buff->userHas = NULL;
-
-                  // Return entry to TX queue
-                  dmaQueuePush(&(dev->tq), buff);
-               }
-            } else {
-               dev_warn(dev->device, "Command: Invalid index posted: %i.\n", indexes[x]);
-               kfree(indexes);
-               kfree(buffList);
-               return -1;
-            }
-         }
-
-         // Return receive buffers
-         dev->hwFunc->retRxBuffer(dev, buffList, bCnt);
-
-         kfree(buffList);
-         kfree(indexes);
-         return 0;
+         return Dma_Ret_Indexes(filp, cmd, (__user void*)arg);
          break;
 
       // Request a write buffer index
