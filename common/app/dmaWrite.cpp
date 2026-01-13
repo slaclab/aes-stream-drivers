@@ -23,12 +23,14 @@
 #include <fcntl.h>
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <argp.h>
 #include <iostream>
 #include <cstdio>
 
 #include <DmaDriver.h>
 #include <PrbsData.h>
+#include <AppUtils.h>
 
 using std::cout;
 using std::endl;
@@ -45,13 +47,13 @@ struct PrgArgs {
    const char *path;
    uint32_t    dest;
    uint32_t    size;
-   uint32_t    count;
+   long        count;
    uint32_t    prbsDis;
    uint32_t    idxEn;
 };
 
 // Default program arguments
-static struct PrgArgs DefArgs = { DEFAULT_AXI_DEVICE, 0, 1000, 1, 0, 0 };
+static struct PrgArgs DefArgs = { DEFAULT_AXI_DEVICE, 0, 1000, -1, 0, 0 };
 
 // Documentation for arguments
 static char args_doc[] = "dest";
@@ -62,7 +64,7 @@ static struct argp_option options[] = {
    { "path",    'p', "PATH",   0, "Path of datadev device to use. Default=" DEFAULT_AXI_DEVICE ".", 0 },
    { "prbsdis", 'd', 0,        0, "Disable PRBS generation.", 0 },
    { "size",    's', "SIZE",   0, "Size of data to generate. Default=1000", 0 },
-   { "count",   'c', "COUNT",  0, "Number of frames to generate. Default=1", 0 },
+   { "count",   'c', "COUNT",  0, "Number of frames to generate, if -1, run forever. Default=-1", 0 },
    { "indexen", 'i', 0,        0, "Use index based transmit buffers.", 0 },
    { 0 }
 };
@@ -96,6 +98,11 @@ error_t parseArgs(int key, char *arg, struct argp_state *state) {
 // Definition of the argp structure to parse command line arguments
 static struct argp argp = { options, parseArgs, args_doc, doc };
 
+static bool please_exit = false;
+extern "C" void sigintHandler(int sig) {
+   please_exit = 1;
+}
+
 int main(int argc, char **argv) {
    int32_t s;
    ssize_t ret;
@@ -108,8 +115,9 @@ int main(int argc, char **argv) {
    uint32_t dmaCount;
    int32_t dmaIndex = -1;
    bool prbValid;
-   struct timeval startTime, endTime, diffTime, timeout;
+   struct timeval timeout;
    struct PrgArgs args;
+   uint64_t totalBytes = 0;
 
    // Initialize program arguments with default values
    memcpy(&args, &DefArgs, sizeof(struct PrgArgs));
@@ -138,7 +146,11 @@ int main(int argc, char **argv) {
 
    prbValid = false;
    count = 0;
-   gettimeofday(&startTime, NULL);
+
+   double start = curTime();
+   double lastUpdate = curTime();
+
+   signal(SIGINT, sigintHandler);
 
    do {
       // Setup file descriptor set for select call
@@ -178,26 +190,29 @@ int main(int argc, char **argv) {
          if (ret > 0) {
             prbValid = false;
             count++;
+            totalBytes += args.size;
+         }
+
+         // Print stats every so often
+         if (count % 2048 == 0 && curTime() - lastUpdate >= 2.5) {
+            const double cur = curTime();
+            printResults("Tx", count, totalBytes, cur - start);
+            lastUpdate = cur;
          }
       }
-   } while (count < args.count);
+   } while ((args.count == -1 || count < args.count) && !please_exit);
 
-   gettimeofday(&endTime, NULL);
+   double duration = curTime() - start;
 
    // Clean up allocated resources
    if (args.idxEn) {
-       dmaUnMapDma(s, dmaBuffers);
+      dmaUnMapDma(s, dmaBuffers);
    } else {
-       free(txData);
+      free(txData);
    }
 
-   // Calculate and print write operation statistics
-   timersub(&endTime, &startTime, &diffTime);
-   float duration = (float)diffTime.tv_sec + (float)diffTime.tv_usec / 1000000.0f;
-   float rate = float(count) / duration;
-   float period = 1.0f / rate;
-
-   printf("Write %i events in %f seconds, rate = %f Hz, period = %f seconds\n", count, duration, rate, period);
+   // Final stats update
+   printResults("Tx", count, totalBytes, duration);
 
    close(s);
    return 0;
