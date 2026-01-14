@@ -48,12 +48,12 @@ struct PrgArgs {
    uint32_t    dest;
    uint32_t    size;
    long        count;
-   uint32_t    prbsDis;
+   uint32_t    prbsEn;
    uint32_t    idxEn;
 };
 
 // Default program arguments
-static struct PrgArgs DefArgs = { DEFAULT_AXI_DEVICE, 0, 1000, -1, 0, 0 };
+static struct PrgArgs DefArgs = { DEFAULT_AXI_DEVICE, 0, 1000, -1, 1, 0 };
 
 // Documentation for arguments
 static char args_doc[] = "dest";
@@ -62,7 +62,7 @@ static char doc[] = "Dest is passed as an integer.";
 // Options structure
 static struct argp_option options[] = {
    { "path",    'p', "PATH",   0, "Path of datadev device to use. Default=" DEFAULT_AXI_DEVICE ".", 0 },
-   { "prbsdis", 'd', 0,        0, "Disable PRBS generation.", 0 },
+   { "prbsen",  'e', 0,        0, "Enable PRBS generation.", 0 },
    { "size",    's', "SIZE",   0, "Size of data to generate. Default=1000", 0 },
    { "count",   'c', "COUNT",  0, "Number of frames to generate, if -1, run forever. Default=-1", 0 },
    { "indexen", 'i', 0,        0, "Use index based transmit buffers.", 0 },
@@ -75,7 +75,7 @@ error_t parseArgs(int key, char *arg, struct argp_state *state) {
 
    switch (key) {
       case 'p': args->path = arg; break;
-      case 'd': args->prbsDis = 1; break;
+      case 'e': args->prbsEn = 1; break;
       case 's': args->size = strtol(arg, NULL, 10); break;
       case 'c': args->count = strtol(arg, NULL, 10); break;
       case 'i': args->idxEn = 1; break;
@@ -164,7 +164,7 @@ int main(int argc, char **argv) {
       // Wait for socket or file descriptor to be ready for writing
       ret = select(s + 1, NULL, &fds, NULL, &timeout);
       if (ret <= 0) {
-         printf("Write timeout or error\n");
+         perror("select");
       } else {
          // If using DMA, get next buffer index
          if (args.idxEn) {
@@ -174,7 +174,7 @@ int main(int argc, char **argv) {
          }
 
          // Generate and write data if PRBS is enabled and data is not yet valid
-         if (args.prbsDis == 0 && !prbValid) {
+         if (args.prbsEn && !prbValid) {
             prbs.genData(txData, args.size);
             prbValid = true;
          }
