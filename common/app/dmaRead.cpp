@@ -45,7 +45,7 @@ const  char * argp_program_bug_address = "rherbst@slac.stanford.edu";
 struct PrgArgs {
    const char * path;
    const char * dest;
-   uint32_t     prbsDis;
+   uint32_t     prbsEn;
    uint32_t     idxEn;
    uint32_t     rawEn;
    bool         dumpHdr;
@@ -54,7 +54,7 @@ struct PrgArgs {
    int64_t      count;
 };
 
-static struct PrgArgs DefArgs = { DEFAULT_AXI_DEVICE, NULL, 1, 0x0, 0, false, false, false, -1 };
+static struct PrgArgs DefArgs = { DEFAULT_AXI_DEVICE, NULL, 0, 0x0, 0, false, false, false, -1 };
 
 static char   args_doc[] = "";
 static char   doc[]      = "";
@@ -62,7 +62,7 @@ static char   doc[]      = "";
 static struct argp_option options[] = {
    { "path",    'p', "PATH",   0, "Path of pgpcard device to use. Default=" DEFAULT_AXI_DEVICE ".", 0},
    { "dest",    'm', "LIST",   0, "Comma seperated list of destinations.", 0},
-   { "prbsdis", 'd', 0,        0, "Enable PRBS checking.", 0},
+   { "prbsen",  'e', 0,        0, "Enable PRBS checking.", 0},
    { "indexen", 'i', 0,        0, "Use index based receive buffers.", 0},
    { "rawEn",   'r', "COUNT",  0, "Show raw data up to count.", 0},
    { "dumpHdr", 'b', 0,        0, "Decode and dump transaction header.", 0},
@@ -78,7 +78,7 @@ error_t parseArgs(int key,  char *arg, struct argp_state *state) {
    switch (key) {
       case 'p': args->path = arg; break;
       case 'm': args->dest = arg; break;
-      case 'd': args->prbsDis = 0; break;
+      case 'e': args->prbsEn = 1; break;
       case 'i': args->idxEn = 1; break;
       case 'r': args->rawEn = strtol(arg, NULL, 10); break;
       case 'b': args->dumpHdr = true; break;
@@ -221,18 +221,18 @@ int main(int argc, char **argv) {
          // Dump data for debugging purposes
          if (args.rawEn) {
             printf("Raw Data: ");
-            dumpBytes(rxData, MIN(args.rawEn, count));
+            dumpBytes(rxData, MIN(args.rawEn, rets[i]));
          }
 
          // Validate PBRS data
-         if (args.prbsDis == 0) {
+         if (args.prbsEn) {
             prbRes = prbs.processData(rxData, rets[i]);
          }
 
          // Dump header if requested
          if (args.dumpHdr) {
-            printf("Read ret=%li, Dest=%i, Fuser=0x%.2x, Luser=0x%.2x, prbs=%i, count=%" PRId64 "\n",
-               ret, rxDest, axisGetFuser(rxFlags), axisGetLuser(rxFlags), prbRes, count);
+            printf("Read ret=%li, Dest=%i, Fuser=0x%.2x, Luser=0x%.2x, prbs=%i, size=%d\n",
+               ret, rxDest, axisGetFuser(rxFlags), axisGetLuser(rxFlags), prbRes, rets[i]);
          }
       }
 
