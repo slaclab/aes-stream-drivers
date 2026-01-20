@@ -31,9 +31,9 @@
 #include <linux/signal.h>
 #include <linux/pci.h>
 #include <axis_gen2.h>
+#include <GpuAsync.h>
 
 #ifdef DATA_GPU
-#include <GpuAsync.h>
 #include <GpuAsyncRegs.h>
 #include <gpu_async.h>
 #endif
@@ -407,17 +407,22 @@ void DataDev_Remove(struct pci_dev *pcidev) {
  */
 int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    switch (cmd) {
-#ifdef DATA_GPU
       // GPU Commands
       // Handles adding or removing Nvidia memory based on the command specified.
       case GPU_Add_Nvidia_Memory:
       case GPU_Rem_Nvidia_Memory:
       case GPU_Set_Write_Enable:
+#ifdef DATA_GPU
          return dev->gpuEn ? Gpu_Command(dev, cmd, arg) : -ENOTSUPP;
-      case GPU_Is_Gpu_Async_Supp:
-         return dev->gpuEn ? 1 : 0;
+#else
+         return -ENOTSUPP;
 #endif
-
+      case GPU_Is_Gpu_Async_Supp:
+#ifdef DATA_GPU
+         return dev->gpuEn ? 1 : 0;
+#else
+         return 0;
+#endif
       case AVER_Get:
          // AXI Version Read
          return AxiVersion_Get(dev, dev->base + AVER_OFF, arg);
