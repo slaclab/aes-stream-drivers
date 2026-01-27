@@ -6,11 +6,13 @@ LIC_FILES_CHKSUM = "file://${COMMON_LICENSE_DIR}/BSD-3-Clause;md5=550794465ba0ec
 SRC_URI = "file://Makefile          \
            file://AxisDriver.h      \
            file://AxiVersion.h      \
+           file://AppUtils.h        \
            file://DmaDriver.h       \
            file://DataDriver.h      \
            file://dmaLoopTest.cpp   \
            file://dmaSetDebug.cpp   \
            file://dmaWrite.cpp      \
+           file://dmaRead.cpp       \
            file://PrbsData.cpp      \
            file://PrbsData.h        \
         "
@@ -28,4 +30,5 @@ do_install() {
 
 FILES:${PN} += "/usr/local/bin/axiStreamLoop"
 FILES:${PN} += "/usr/local/bin/axiStreamWrite"
+FILES:${PN} += "/usr/local/bin/axiStreamRead"
 FILES:${PN} += "/usr/local/bin/axiStreamSetDebug"
