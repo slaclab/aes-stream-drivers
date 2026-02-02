@@ -51,6 +51,8 @@ typedef uint32_t __poll_t;
 
 #undef MIN
 #define MIN(_x, _y) ((_x) < (_y) ? (_x) : (_y))
+#undef MAX
+#define MAX(_x, _y) ((_x) > (_y) ? (_x) : (_y))
 
 /**
  * struct DmaDevice - Represents a DMA-capable device.
@@ -161,12 +163,6 @@ struct DmaDevice {
    struct DmaQueue tq;
 };
 
-// 4096 indexes in the scratch buffer
-#define INDEX_SCRATCH_CNT 4096
-
-// 1024 DmaReadData in the scratch buffer
-#define READ_DATA_SCRATCH_CNT 1024
-
 /**
  * struct DmaDesc - DMA descriptor for a device.
  * @destMask: Destination mask for DMA transfers.
@@ -193,6 +189,12 @@ struct DmaDesc {
    // Scratch data buffers for ioctl and read operations
    uint32_t* indexScratch;
    struct DmaReadData* readDataScratch;
+   struct DmaBuffer** buffListScratch;
+
+   // Number of elements in both of the scratch buffers
+   uint32_t readScratchCount;
+   uint32_t indexScratchCount;
+   uint32_t buffListScratchCount;
 
    // Operation guard
    struct mutex mutex;
