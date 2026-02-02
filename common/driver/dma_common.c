@@ -477,10 +477,16 @@ int Dma_Open(struct inode *inode, struct file *filp) {
    }
 
    // Allocate scratch data buffers
-   desc->readDataScratch = (struct DmaReadData*)kzalloc(sizeof(struct DmaReadData) * READ_DATA_SCRATCH_CNT, GFP_KERNEL);
-   desc->indexScratch = (uint32_t*)kzalloc(sizeof(uint32_t) * INDEX_SCRATCH_CNT, GFP_KERNEL);
+   desc->readScratchCount = dev->cfgRxCount;
+   desc->readDataScratch = (struct DmaReadData*)kzalloc(sizeof(struct DmaReadData) * desc->readScratchCount, GFP_KERNEL);
 
-   if (!desc->readDataScratch || !desc->indexScratch) {
+   desc->indexScratchCount = MAX(dev->cfgRxCount, dev->cfgTxCount);
+   desc->indexScratch = (uint32_t*)kzalloc(sizeof(uint32_t) * desc->indexScratchCount, GFP_KERNEL);
+
+   desc->buffListScratchCount = MAX(dev->cfgRxCount, dev->cfgTxCount);
+   desc->buffListScratch = (struct DmaBuffer**)kzalloc(sizeof(struct DmaBuffer*) * desc->buffListScratchCount, GFP_KERNEL);
+
+   if (!desc->readDataScratch || !desc->indexScratch || !desc->buffListScratch) {
       dev_err(dev->device, "Open: kzalloc for scratch area(s) failed\n");
       kfree(desc);
       return -ENOMEM;
@@ -610,14 +616,16 @@ static ssize_t Dma_Read_Internal(struct file *filp, __user char *buffer, size_t 
    struct DmaDevice *dev = desc->dev;
 
    // Sanity check!
-   if (rCnt > READ_DATA_SCRATCH_CNT) {
-      dev_err(dev->device, "Dma_Read_Internal: Programming error: rCnt > READ_DATA_SCRATCH_CNT (%d)\n",
-         READ_DATA_SCRATCH_CNT);
+   if (rCnt > desc->readScratchCount) {
+      dev_err(dev->device, "Dma_Read_Internal: Programming error: rCnt > desc->readScratchCount (%d)\n",
+         desc->readScratchCount);
       return -1;
    }
 
    //struct DmaBuffer* buff[NUM_BUFFERS_AT_ONCE] = {0};
-   struct DmaReadData rd[READ_DATA_SCRATCH_CNT] = {0};
+   //struct DmaReadData rd[READ_DATA_SCRATCH_CNT] = {0};
+
+   struct DmaReadData* rd = desc->readDataScratch;
 
    // Copy the read structure from user space
    if ((ret = copy_from_user(rd, buffer, rCnt * sizeof(struct DmaReadData)))) {
@@ -732,7 +740,7 @@ ssize_t Dma_Read(struct file *filp, __user char *buffer, size_t count, loff_t *f
 
    // Read at most READ_DATA_SCRATCH_CNT per iteration. Avoids allocations in the driver.
    for (; rem > 0;) {
-      size_t toRead = MIN(rem, READ_DATA_SCRATCH_CNT);
+      size_t toRead = MIN(rem, desc->readScratchCount);
       ret = Dma_Read_Internal(filp, buffer, toRead);
 
       // If failed, this will be a partial read. This should only happen in exceptionally rare
@@ -887,17 +895,17 @@ static ssize_t Dma_Ret_Indexes(struct file *filp, uint32_t cmd, __user void* arg
       return -1;
    }
 
-   for (int i = 0; i < cnt; i += INDEX_SCRATCH_CNT) {
-      uint32_t indexes[INDEX_SCRATCH_CNT] = {0};
-      struct DmaBuffer* buffList[INDEX_SCRATCH_CNT] = {0};
+   mutex_lock(&desc->mutex);
 
+   for (uint32_t i = 0; i < cnt; i += desc->indexScratchCount) {
       // Limit the number to free per iteration
-      const size_t toFree = MIN(INDEX_SCRATCH_CNT, cnt - i);
+      const size_t toFree = MIN(desc->indexScratchCount, cnt - i);
 
       // This should really never happen because we already checked with access_ok
-      if (copy_from_user(indexes, arg, (toFree * sizeof(uint32_t)))) {
+      if (copy_from_user(desc->indexScratch, arg, (toFree * sizeof(uint32_t)))) {
          dev_warn(dev->device, "Ret_Indexes: copy_from_user failed. buf=%p, bytes=%ld\n",
             arg, toFree * sizeof(uint32_t));
+         mutex_unlock(&desc->mutex);
          return -1;
       }
 
@@ -905,15 +913,15 @@ static ssize_t Dma_Ret_Indexes(struct file *filp, uint32_t cmd, __user void* arg
 
       for (uint32_t x = 0; x < toFree; x++) {
          // Attempt to find buffer in RX list
-         if ( (buff = dmaGetBufferList(&(dev->rxBuffers), indexes[x])) != NULL ) {
+         if ( (buff = dmaGetBufferList(&(dev->rxBuffers), desc->indexScratch[x])) != NULL ) {
             // Only return if owned by current desc
             if ( buff->userHas == desc ) {
                buff->userHas = NULL;
-               buffList[bCnt++] = buff;
+               desc->buffListScratch[bCnt++] = buff;
             }
    
          // Attempt to find in tx list
-         } else if ( (buff = dmaGetBufferList(&(dev->txBuffers), indexes[x])) != NULL ) {
+         } else if ( (buff = dmaGetBufferList(&(dev->txBuffers), desc->indexScratch[x])) != NULL ) {
             // Only return if owned by current desc
             if ( buff->userHas == desc ) {
                buff->userHas = NULL;
@@ -922,15 +930,21 @@ static ssize_t Dma_Ret_Indexes(struct file *filp, uint32_t cmd, __user void* arg
                dmaQueuePush(&(dev->tq), buff);
             }
          } else {
-            dev_warn(dev->device, "Command: Invalid index posted: %i.\n", indexes[x]);
+            dev_warn(dev->device, "Command: Invalid index posted: %i.\n", desc->indexScratch[x]);
+            mutex_unlock(&desc->mutex);
             return -1;
          }
       }
 
       // Return receive buffers
-      dev->hwFunc->retRxBuffer(dev, buffList, bCnt);
+      dev->hwFunc->retRxBuffer(dev, desc->buffListScratch, bCnt);
+      
+      // Clear these for subsequent operations, just in case.
+      memset(desc->buffListScratch, 0, sizeof(struct DmaBuffer*) * desc->buffListScratchCount);
+      memset(desc->indexScratch, 0, sizeof(uint32_t) * desc->indexScratchCount);
    }
 
+   mutex_unlock(&desc->mutex);
    return 0;
 
 #if 0
