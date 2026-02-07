@@ -191,9 +191,13 @@ struct DmaDesc {
    struct DmaReadData* readDataScratch;
    struct DmaBuffer** buffListScratch;
 
-   // Number of elements in both of the scratch buffers
+   // Number of elements in the read scratch buffer. Corresponds to cfgRxCount
    uint32_t readScratchCount;
+   
+   // Number of elements in the index scratch buffer. max(cfgTxCount, cfgRxCount)
    uint32_t indexScratchCount;
+   
+   // Number of elements in the buff list scratch buffer. max(cfgTxCount, cfgRxCount)
    uint32_t buffListScratchCount;
 
    // Operation guard
