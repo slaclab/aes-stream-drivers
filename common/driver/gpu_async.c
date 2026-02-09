@@ -362,8 +362,8 @@ void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
    if (version >= 2)  // Added in V2
       seq_printf(s, "AXI Write Timeout Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiWriteTimeoutCnt));
    if (version >= 3) {  // Added in V3
-      seq_printf(s, "Min Write Buffers    : %u\n", readgpuAsyncReg(data->base, &GpuAsyncReg_MinWriteBuffer));
-      seq_printf(s, "Min Read Buffers     : %u\n", readgpuAsyncReg(data->base, &GpuAsyncReg_MinReadBuffer));
+      seq_printf(s, "Min Write Buffers    : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_MinWriteBuffer));
+      seq_printf(s, "Min Read Buffers     : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_MinReadBuffer));
    }
    seq_printf(s, "   AXI Read Error Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiReadErrorCnt));
 
