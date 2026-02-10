@@ -30,7 +30,16 @@ else
     echo "Error: Unsupported Linux distribution." >&2
     exit 1
 fi
+
+# Dumb fallback...
+if [ -z "${CC}" ]; then
+    CC="gcc"
+    echo "WARNING: Unable to determine GCC version. Using $CC"
+fi
+
 echo "CC: $CC"
+
+
 
 # Define Nvidia path
 output=$(find /usr -name nv-p2p.h 2>/dev/null)
