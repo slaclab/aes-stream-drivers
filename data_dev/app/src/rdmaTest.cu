@@ -29,6 +29,7 @@
 #include <algorithm>
 
 #include "DmaDriver.h"
+#include "AppUtils.h"
 #include "GpuAsyncRegs.h"
 #include "GpuAsync.h"
 
@@ -84,7 +85,7 @@ int main(int argc, char** argv) {
 
     int opt, buffs = 1, size = 0x10000;
     std::string dev = "/dev/datadev_0";
-    while ((opt = getopt(argc, argv, "d:i:vhf:x:c:b:")) != -1) {
+    while ((opt = getopt(argc, argv, "d:i:vhf:x:c:b:s:")) != -1) {
         switch (opt) {
         case 'd':
             dev = optarg;
@@ -183,10 +184,14 @@ int main(int argc, char** argv) {
     uint8_t* buffers[buffs] = {0};
     for (int i = 0; i < buffs; ++i)
         assertOk(cudaMalloc(&buffers[i], size));
-    
+
     // Add the buffers to the FPGA
     for (int i = 0; i < buffs; ++i) {
         if (gpuAddNvidiaMemory(fd, 1, (uint64_t)buffers[i], size) < 0) {
+            fprintf(stderr, "gpuAddNvidiaMemory failed\n");
+            return -1;
+        }
+        if (gpuAddNvidiaMemory(fd, 0, (uint64_t)buffers[i], size) < 0) {
             fprintf(stderr, "gpuAddNvidiaMemory failed\n");
             return -1;
         }
@@ -231,8 +236,12 @@ void runSimpleLoop(CUstream stream, uint8_t* regs, int bufCnt, uint8_t** buffs) 
 
     uint8_t* tmpbuf = new uint8_t[s_dumpBytes ? s_dumpBytes : 1];
 
+    float avgGpuLatency = 0, avgWrLatency = 0, avgTotLatency = 0;
+
     int curBuff = 0;
     while (s_cnt == -1 || s_cnt-- > 0) {
+        AxiWrDesc64_t hdr;
+
         // Clean handshake area
         assertOk(cuStreamWriteValue32(stream, (CUdeviceptr)buffs[curBuff] + 4, 0, 0));
 
@@ -242,22 +251,37 @@ void runSimpleLoop(CUstream stream, uint8_t* regs, int bufCnt, uint8_t** buffs) 
         // Wait on handshake space for data
         assertOk(cuStreamWaitValue32(stream, (CUdeviceptr)buffs[curBuff] + 4, 1, CU_STREAM_WAIT_VALUE_GEQ));
 
+        // Download header data immediately
+        assertOk(cudaMemcpyAsync(&hdr, buffs[curBuff], sizeof(hdr), cudaMemcpyDeviceToHost, stream));
+
+        // Trigger immediate write from GPA -> FPGA. This uses the same buffer that was written to the GPU
+        assertOk(cuStreamWriteValue32(stream, devRegs + GPU_ASYNC_REG_REMOTE_READ_DETECT_OFFSET(curBuff), 1, 0));
+
         cuStreamSynchronize(stream);
 
-        // Unpack AXI transaction header
-        AxiWrDesc64_t hdr;
-        assertOk(cudaMemcpy(&hdr, buffs[curBuff], sizeof(hdr), cudaMemcpyDeviceToHost));
+        // Grab latency measurements
+        const uint32_t gpuLatency = *reinterpret_cast<uint32_t*>(regs + GPU_ASYNC_REG_LATENCY_GPU_OFFSET(curBuff));
+        const uint32_t totLatency = *reinterpret_cast<uint32_t*>(regs + GPU_ASYNC_REG_LATENCY_TOTAL_OFFSET(curBuff));
+        const uint32_t wrLatency = *reinterpret_cast<uint32_t*>(regs + GPU_ASYNC_REG_LATENCY_WRITE_OFFSET(curBuff));
+
+        // Update averages
+        avgGpuLatency = updateAverage<float>(avgGpuLatency, gpuLatency, totalEvents);
+        avgTotLatency = updateAverage<float>(avgTotLatency, totLatency, totalEvents);
+        avgWrLatency = updateAverage<float>(avgWrLatency, wrLatency, totalEvents);
 
         // Dump header data when requested
         if (s_verbose > 1) {
             printf(
-                "hdr{size=%d, firstUser=%d, lastUser=%d, cont=%d, overflow=%d, result=%d}\n",
+                "hdr{size=%d, firstUser=%d, lastUser=%d, cont=%d, overflow=%d, result=%d} latency {wr=%u, gpu=%u, tot=%u}\n",
                 hdr.size,
                 hdr.firstUser(),
                 hdr.lastUser(),
                 hdr.cont(),
                 hdr.overflow(),
-                hdr.result()
+                hdr.result(),
+                wrLatency,
+                gpuLatency,
+                wrLatency
             );
         }
 
@@ -298,10 +322,13 @@ void runSimpleLoop(CUstream stream, uint8_t* regs, int bufCnt, uint8_t** buffs) 
         // Status updates every 1024 events
         if (totalEvents % 1024 == 0) {
             printf(
-                "%-4lu events, %-4lu invalid events, %.2f MiB transferred\n",
+                "%-4lu events, %-4lu invalid events, %.2f MiB transferred. avgWrLatency=%d, avgGpuLatency=%d, avgTotLatency=%d \n",
                 totalEvents,
                 invalidEvents,
-                double(totalRecv) / (1024. * 1024.)
+                double(totalRecv) / (1024. * 1024.),
+                int32_t(avgWrLatency),
+                int32_t(avgGpuLatency),
+                int32_t(avgTotLatency)
             );
         }
     }
