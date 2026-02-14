@@ -69,8 +69,7 @@ static inline void printResults(const char* which, int64_t count, uint64_t total
  * @brief Calculate average
  */
 template<typename T>
-static inline T updateAverage(const T& current, const T& newval, uint32_t samples)
-{
+static inline T updateAverage(const T& current, const T& newval, uint32_t samples) {
    return (current * samples + newval) / (samples + 1);
 }
 
