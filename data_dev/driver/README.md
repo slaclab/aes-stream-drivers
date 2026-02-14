@@ -29,7 +29,7 @@ See section 5.
 
 ## System Configuration
 
-Disable the Xserver and nvidia-persistenced to prevent rmmod due to Module XXX is in use by: YYY
+Disable the Xserver and nvidia-persistenced to prevent rmmod failure due to `Module XXX is in use by: YYY` error.
 because the Nvidia driver gets loaded by default at startup
 
 https://forums.developer.nvidia.com/t/cant-install-new-driver-cannot-unload-module/63639
@@ -41,7 +41,7 @@ $ sudo systemctl disable sddm    # For SDDM
 $ sudo systemctl disable nvidia-persistenced
 ```
 
-Install the nvidia 575 drivers and the cuda 12.9 toolkit:
+Install the nvidia 590 drivers and the cuda 13.1 toolkit:
 
 ```bash
 $ wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb
@@ -50,9 +50,11 @@ $ sudo /usr/sbin/rmmod datadev; sudo /usr/sbin/rmmod nvidia-drm; sudo /usr/sbin/
 $ sudo apt update
 $ sudo apt-get purge nvidia-* -y
 $ sudo apt autoremove -y
-$ sudo apt install cuda-toolkit-12-9 nvidia-kernel-source-575-open libnvidia-compute-575 nvidia-firmware-575 -y
+$ sudo apt install cuda-toolkit-13-1 nvidia-kernel-source-590-open libnvidia-compute-590 cuda-compat-13-1 nvidia-firmware
 $ sudo reboot
 ```
+
+WARNING: Make sure to review the package install list, as the NVIDIA drivers may pull in a low-latency kernel image.
 
 Next, Add `iommu=off nouveau.modeset=0 rd.driver.blacklist=nouveau` GRUB_CMDLINE_LINUX:
 
