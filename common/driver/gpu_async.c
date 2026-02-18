@@ -26,6 +26,9 @@
 #include <linux/slab.h>
 #include <nv-p2p.h>
 
+/* Update this when you add support for a new GpuAsyncCore version! */
+#define DATAGPU_MAX_VERSION 3
+
 /**
  * Gpu_Init - Initialize GPU with given offset
  * @dev: pointer to the DmaDevice structure
@@ -39,7 +42,15 @@ void Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
    struct GpuData *gpuData;
 
    uint8_t* gpuBase = dev->base + offset;
-   dev->gpuEn = !!readGpuAsyncReg(gpuBase, &GpuAsyncReg_Version);
+   uint8_t version = readGpuAsyncReg(gpuBase, &GpuAsyncReg_Version);
+   dev->gpuEn = !!version;
+
+   /* warn on unsupported version */
+   if (version > DATAGPU_MAX_VERSION) {
+      dev_err(dev->device, "Gpu_Init: Unsupported GpuAsyncCore version: %d. Max supported is version %d\n",
+            version, DATAGPU_MAX_VERSION);
+      dev->gpuEn = 0;
+   }
 
    /* GPU not enabled, avoid allocating GPU data */
    if (!dev->gpuEn)
@@ -175,7 +186,6 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
 
       if (ret != 0) {
          dev_warn(dev->device, "Gpu_AddNvidia: error mapping page tables ret=%i\n", ret);
-
       } else {
          // Determine how much memory is contiguous
          mapSize = 0;
@@ -183,7 +193,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
             if (buffer->dmaMapping->dma_addresses[0] + mapSize == buffer->dmaMapping->dma_addresses[x]) {
                mapSize += GPU_BOUND_SIZE;
             } else {
-                break;
+               break;
             }
          }
 
