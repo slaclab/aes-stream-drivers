@@ -43,7 +43,7 @@ static void assertOk(cudaError_t err);
 static void assertOk(CUresult err);
 static void showHelp();
 
-void runSimpleLoop(CUstream stream, uint8_t* regs, int bufCnt, uint8_t** buffs);
+void runSimpleLoop(CUstream stream, uint8_t* regs, int bufCnt, uint8_t** buffs, uint8_t** readBuffs);
 
 /**
  * 64-bit AXI write descriptor
@@ -84,8 +84,9 @@ int main(int argc, char** argv) {
     }
 
     int opt, buffs = 1, size = 0x10000;
+    bool fpgaRead = false;
     std::string dev = "/dev/datadev_0";
-    while ((opt = getopt(argc, argv, "d:i:vhf:x:c:b:s:")) != -1) {
+    while ((opt = getopt(argc, argv, "d:i:vhf:x:c:b:s:r")) != -1) {
         switch (opt) {
         case 'd':
             dev = optarg;
@@ -107,6 +108,9 @@ int main(int argc, char** argv) {
             break;
         case 'c':
             s_cnt = str2int(optarg);
+            break;
+        case 'r':
+            fpgaRead = true;
             break;
         case 'h':
             showHelp();
@@ -184,6 +188,11 @@ int main(int argc, char** argv) {
     uint8_t* buffers[buffs] = {0};
     for (int i = 0; i < buffs; ++i)
         assertOk(cudaMalloc(&buffers[i], size));
+    uint8_t* readBuffers[buffs] = {0};
+    if (fpgaRead) {
+        for (int i = 0; i < buffs; ++i)
+            assertOk(cudaMalloc(&readBuffers[i], size));
+    }
 
     // Add the buffers to the FPGA
     for (int i = 0; i < buffs; ++i) {
@@ -191,7 +200,7 @@ int main(int argc, char** argv) {
             fprintf(stderr, "gpuAddNvidiaMemory failed\n");
             return -1;
         }
-        if (gpuAddNvidiaMemory(fd, 0, (uint64_t)buffers[i], size) < 0) {
+        if (gpuAddNvidiaMemory(fd, 0, (uint64_t)readBuffers[i], size) < 0) {
             fprintf(stderr, "gpuAddNvidiaMemory failed\n");
             return -1;
         }
@@ -201,7 +210,7 @@ int main(int argc, char** argv) {
     CUstream stream;
     assertOk(cudaStreamCreate(&stream));
 
-    runSimpleLoop(stream, (uint8_t*)regs, buffs, buffers);
+    runSimpleLoop(stream, (uint8_t*)regs, buffs, buffers, readBuffers);
 
     // Kill off stream
     cudaStreamDestroy(stream);
@@ -227,7 +236,7 @@ int main(int argc, char** argv) {
  * Run a simple test receiving data from the FPGA, optionally decoding the header or
  * dumping event data to file.
  */
-void runSimpleLoop(CUstream stream, uint8_t* regs, int bufCnt, uint8_t** buffs) {
+void runSimpleLoop(CUstream stream, uint8_t* regs, int bufCnt, uint8_t** buffs, uint8_t** readBuffs) {
     CUdeviceptr devRegs;
     assertOk(cuMemHostGetDevicePointer(&devRegs, regs, 0));
 
@@ -254,10 +263,25 @@ void runSimpleLoop(CUstream stream, uint8_t* regs, int bufCnt, uint8_t** buffs) 
         // Download header data immediately
         assertOk(cudaMemcpyAsync(&hdr, buffs[curBuff], sizeof(hdr), cudaMemcpyDeviceToHost, stream));
 
-        // Trigger immediate write from GPA -> FPGA. This uses the same buffer that was written to the GPU
-        assertOk(cuStreamWriteValue32(stream, devRegs + GPU_ASYNC_REG_REMOTE_READ_DETECT_OFFSET(curBuff), 1, 0));
+        // Read path (GPU -> FPGA)
+        if (readBuffs && *readBuffs) {
+            // Sync so header data becomes available to the host
+            cuStreamSynchronize(stream);
+
+            // Copy data we received from the FPGA to dedicated read buffers
+            assertOk(cudaMemcpyAsync(readBuffs[curBuff], buffs[curBuff], hdr.size, cudaMemcpyDeviceToDevice));
+
+            // Trigger immediate write from GPU -> FPGA. This uses the same buffer that was written to the GPU
+            assertOk(cuStreamWriteValue32(stream, devRegs + GPU_ASYNC_REG_REMOTE_READ_SIZE_OFFSET(curBuff), hdr.size, 0));
+        }
 
         cuStreamSynchronize(stream);
+
+        // Hack for GPU -> FPGA, especially on one buffer.
+        // We must wait for the transaction to complete before triggering a new one, otherwise the firmware can enter an undefined state.
+        if (readBuffs && *readBuffs) {
+            usleep(100); // 100us should be enough...
+        }
 
         // Grab latency measurements
         const uint32_t gpuLatency = *reinterpret_cast<uint32_t*>(regs + GPU_ASYNC_REG_LATENCY_GPU_OFFSET(curBuff));
@@ -357,5 +381,6 @@ static void showHelp() {
     printf("  -f FILE      : Dump the first event received to this file\n");
     printf("  -x NUM       : Dump the first NUM bytes of the payload to stdout\n");
     printf("  -c CNT       : Number of events to receive before exiting\n");
+    printf("  -r           : Enable GPU -> FPGA transactions (remote reads)\n");
     printf("  -v           : Increase verbosity. May be passed multiple times. -vv will enable dumping of DMA headers\n");
 }
