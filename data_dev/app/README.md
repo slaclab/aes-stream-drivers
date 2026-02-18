@@ -32,3 +32,36 @@ $ bin/dmaRate --count=100000
 ```
 
 Note: Do NOT turn on the debugging via (setDebug).  It will cause the interrupt handler to generate more interrupts and reduce performance
+
+# How to run the rdmaTest application
+
+`rdmaTest` performs GPUDirect RDMA I/O between an FPGA and the NVIDIA GPU installed on a system.
+
+## Compiling rdmaTest
+
+CUDA must be installed in /usr/local/cuda for the Makefile to work. If you have a different CUDA installation
+path, set `NVCC=/path/to/your/cuda/bin/nvcc` when running `make`.
+```bash
+$ cd aes-stream-drivers/data_dev/app
+$ make cuda
+```
+
+## Running
+
+First, either configure your firmware to generate frames (via PrbsTx), or send frames using `dmaWrite`.
+
+To run rdmaTest with a buffer size of 128k:
+```bash
+$ sudo ./bin/rdmaTest -s 0x20000
+```
+
+To run rdmaTest over 10, 128KB events, dumping the header of each:
+```bash
+$ sudo ./bin/rdmaTest -s 0x20000 -c 10 -vv
+```
+
+To send data from the GPU back to the FPGA, add `-r`. This will introduce some delay to the application,
+but latency measurements are still accurate.
+```bash
+$ sudo ./bin/rdmaTest -s 0x20000 -r
+```
