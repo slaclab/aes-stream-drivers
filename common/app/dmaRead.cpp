@@ -221,7 +221,7 @@ int main(int argc, char **argv) {
          // Dump data for debugging purposes
          if (args.rawEn) {
             printf("Raw Data: ");
-            dumpBytes(rxData, MIN(args.rawEn, rets[i]));
+            dumpBytes(rxData, MIN((int32_t)args.rawEn, rets[i]));
          }
 
          // Validate PBRS data

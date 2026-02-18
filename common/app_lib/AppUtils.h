@@ -65,6 +65,13 @@ static inline void printResults(const char* which, int64_t count, uint64_t total
    printf("Elapsed:         : %.2f seconds\n", elapsed);
 }
 
+/**
+ * @brief Calculate average
+ */
+template<typename T>
+static inline T updateAverage(const T& current, const T& newval, uint32_t samples) {
+   return (current * samples + newval) / (samples + 1);
+}
 
 #undef MIN
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
