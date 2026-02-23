@@ -72,6 +72,7 @@ void Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
    gpuData->writeBuffers.count = 0;
    gpuData->readBuffers.count = 0;
    gpuData->offset = offset;
+   gpuData->version = version;
 }
 
 /**
@@ -101,6 +102,11 @@ int32_t Gpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
       // Set write enable flag
       case GPU_Set_Write_Enable:
          return Gpu_SetWriteEn(dev, arg);
+         break;
+
+      // Get the async core version
+      case GPU_Get_Gpu_Async_Ver:
+         return Gpu_GetVersion(dev);
          break;
 
       default:
@@ -344,6 +350,18 @@ int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg) {
 }
 
 /**
+ * Gpu_GetVersion - Get the version of GpuAsyncCore
+ * @dev: Pointer to the DmaDevice structure
+ * Return: the version, or 0 if not supported/disabled
+ */
+uint32_t Gpu_GetVersion(struct DmaDevice *dev) {
+   struct GpuData* data = (struct GpuData *)dev->utilData;
+   if (data)
+      return data->version;
+   return 0;
+}
+
+/**
  * Gpu_Show - Show information about DataGpu internal state
  * @s: Sequence file pointer to write to
  * @dev: Device to read from
@@ -352,7 +370,6 @@ void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
    u32 i;
    struct GpuData* data = (struct GpuData*)dev->utilData;
 
-   const u32 version = readGpuAsyncReg(data->base, &GpuAsyncReg_Version);
    const u32 readBuffCnt = readGpuAsyncReg(data->base, &GpuAsyncReg_ReadCount)+1;
    const u32 writeBuffCnt = readGpuAsyncReg(data->base, &GpuAsyncReg_WriteCount)+1;
    const u32 writeEnable = readGpuAsyncReg(data->base, &GpuAsyncReg_WriteEnable);
@@ -360,7 +377,7 @@ void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
 
    seq_printf(s, "\n---------------- DataGPU State ----------------\n");
    seq_printf(s, "    GpuAsyncCore Offset : 0x%X\n", data->offset);
-   seq_printf(s, "   GpuAsyncCore Version : %d\n", version);
+   seq_printf(s, "   GpuAsyncCore Version : %d\n", data->version);
    seq_printf(s, "            Max Buffers : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_MaxBuffers));
    seq_printf(s, "     Write Buffer Count : %u\n", writeBuffCnt);
    seq_printf(s, "           Write Enable : %u\n", writeEnable);
@@ -369,9 +386,9 @@ void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
    seq_printf(s, "         RX Frame Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_RxFrameCnt));
    seq_printf(s, "         TX Frame Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_TxFrameCnt));
    seq_printf(s, "  AXI Write Error Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiWriteErrorCnt));
-   if (version >= 2)  // Added in V2
+   if (data->version >= 2)  // Added in V2
       seq_printf(s, "AXI Write Timeout Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiWriteTimeoutCnt));
-   if (version >= 3) {  // Added in V3
+   if (data->version >= 3) {  // Added in V3
       seq_printf(s, "Min Write Buffers    : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_MinWriteBuffer));
       seq_printf(s, "Min Read Buffers     : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_MinReadBuffer));
    }

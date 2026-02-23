@@ -412,6 +412,7 @@ int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
       case GPU_Add_Nvidia_Memory:
       case GPU_Rem_Nvidia_Memory:
       case GPU_Set_Write_Enable:
+      case GPU_Get_Gpu_Async_Ver:
 #ifdef DATA_GPU
          return dev->gpuEn ? Gpu_Command(dev, cmd, arg) : -ENOTSUPP;
 #else

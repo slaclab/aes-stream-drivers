@@ -93,6 +93,7 @@ struct GpuBuffers {
 struct GpuData {
    uint8_t * base;
    uint32_t offset;
+   uint32_t version;
    struct GpuBuffers writeBuffers;
    struct GpuBuffers readBuffers;
 };
@@ -105,6 +106,6 @@ int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg);
 void Gpu_FreeNvidia(void * data);
 int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg);
 void Gpu_Show(struct seq_file *s, struct DmaDevice *dev);
-
+uint32_t Gpu_GetVersion(struct DmaDevice *dev);
 
 #endif  // __GPU_ASYNC_2_H__
