@@ -32,6 +32,7 @@
 #include "AppUtils.h"
 #include "GpuAsyncRegs.h"
 #include "GpuAsync.h"
+#include "GpuAsyncUser.h"
 
 static int s_verbose = 0;
 static int s_dumpToFile = 0;
@@ -43,7 +44,7 @@ static void assertOk(cudaError_t err);
 static void assertOk(CUresult err);
 static void showHelp();
 
-void runSimpleLoop(CUstream stream, uint8_t* regs, int bufCnt, uint8_t** buffs, uint8_t** readBuffs);
+void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t** buffs, uint8_t** readBuffs);
 
 /**
  * 64-bit AXI write descriptor
@@ -165,6 +166,12 @@ int main(int argc, char** argv) {
         return -1;
     }
 
+    // Force read support off if we're on v3 or below
+    if (fpgaRead && gpuGetGpuAsyncVersion(fd) < 4) {
+        printf("GPU -> FPGA transfers are not supported on GpuAsyncCore V3 or below\n");
+        fpgaRead = false;
+    }
+
     // Create a new context
     if ((ret = cuCtxCreate(&ctx, NULL, CU_CTX_SCHED_SPIN, computeDevice)) != CUDA_SUCCESS) {
         fprintf(stderr, "Failed to create cuda context (%i)\n", ret);
@@ -183,15 +190,26 @@ int main(int argc, char** argv) {
         fprintf(stderr, "cuMemHostRegister failed: %d. You may have to run the application as root\n", ret);
         return -1;
     }
-    
+
+    // Init a register object
+    GpuAsyncCoreRegs coreRegs(regs);
+
+    const uint32_t dmaHeaderSize = coreRegs.dmaDataBytes();
+
     // Allocate buffer space on the device
-    uint8_t* buffers[buffs] = {0};
+    uint8_t* buffers[buffs];
+    memset(buffers, 0, buffs * sizeof(uint8_t*));
     for (int i = 0; i < buffs; ++i)
         assertOk(cudaMalloc(&buffers[i], size));
-    uint8_t* readBuffers[buffs] = {0};
+
+    // Allocate read buffers
+    uint8_t* readBuffers[buffs];
+    memset(readBuffers, 0, buffs * sizeof(uint8_t*));
     if (fpgaRead) {
-        for (int i = 0; i < buffs; ++i)
-            assertOk(cudaMalloc(&readBuffers[i], size));
+        for (int i = 0; i < buffs; ++i) {
+            // Size must always be 64k aligned, but we should be able to rely on CUDA to do that for us.
+            assertOk(cudaMalloc(&readBuffers[i], size + dmaHeaderSize));
+        }
     }
 
     // Add the buffers to the FPGA
@@ -200,17 +218,27 @@ int main(int argc, char** argv) {
             fprintf(stderr, "gpuAddNvidiaMemory failed\n");
             return -1;
         }
+
+        if (s_verbose)
+            printf("Added write buffer at addr 0x%p\n", buffers[i]);
+
+        if (!readBuffers[i])
+            continue;
+
         if (gpuAddNvidiaMemory(fd, 0, (uint64_t)readBuffers[i], size) < 0) {
             fprintf(stderr, "gpuAddNvidiaMemory failed\n");
             return -1;
         }
+
+        if (s_verbose)
+            printf("Added read buffer at addr 0x%p\n", readBuffers[i]);
     }
 
     // Create a stream to use
     CUstream stream;
     assertOk(cudaStreamCreate(&stream));
 
-    runSimpleLoop(stream, (uint8_t*)regs, buffs, buffers, readBuffers);
+    runSimpleLoop(stream, coreRegs, buffs, buffers, readBuffers);
 
     // Kill off stream
     cudaStreamDestroy(stream);
@@ -236,9 +264,9 @@ int main(int argc, char** argv) {
  * Run a simple test receiving data from the FPGA, optionally decoding the header or
  * dumping event data to file.
  */
-void runSimpleLoop(CUstream stream, uint8_t* regs, int bufCnt, uint8_t** buffs, uint8_t** readBuffs) {
+void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t** buffs, uint8_t** readBuffs) {
     CUdeviceptr devRegs;
-    assertOk(cuMemHostGetDevicePointer(&devRegs, regs, 0));
+    assertOk(cuMemHostGetDevicePointer(&devRegs, (void*)regs.registers(), 0));
 
     uint64_t totalRecv = 0;
     uint64_t totalEvents = 0, invalidEvents = 0;
@@ -246,6 +274,8 @@ void runSimpleLoop(CUstream stream, uint8_t* regs, int bufCnt, uint8_t** buffs, 
     uint8_t* tmpbuf = new uint8_t[s_dumpBytes ? s_dumpBytes : 1];
 
     float avgGpuLatency = 0, avgWrLatency = 0, avgTotLatency = 0;
+
+    const uint32_t version = readGpuAsyncReg(regs.registers(), &GpuAsyncReg_Version);
 
     int curBuff = 0;
     while (s_cnt == -1 || s_cnt-- > 0) {
@@ -255,7 +285,7 @@ void runSimpleLoop(CUstream stream, uint8_t* regs, int bufCnt, uint8_t** buffs, 
         assertOk(cuStreamWriteValue32(stream, (CUdeviceptr)buffs[curBuff] + 4, 0, 0));
 
         // Indicate that we're ready for new data
-        assertOk(cuStreamWriteValue32(stream, devRegs + GPU_ASYNC_REG_WRITE_DETECT_OFFSET(curBuff), 1, 0));
+        assertOk(cuStreamWriteValue32(stream, devRegs + regs.writeDetectOffset(curBuff), 1, 0));
 
         // Wait on handshake space for data
         assertOk(cuStreamWaitValue32(stream, (CUdeviceptr)buffs[curBuff] + 4, 1, CU_STREAM_WAIT_VALUE_GEQ));
@@ -269,24 +299,24 @@ void runSimpleLoop(CUstream stream, uint8_t* regs, int bufCnt, uint8_t** buffs, 
             cuStreamSynchronize(stream);
 
             // Copy data we received from the FPGA to dedicated read buffers
-            assertOk(cudaMemcpyAsync(readBuffs[curBuff], buffs[curBuff], hdr.size, cudaMemcpyDeviceToDevice));
+            assertOk(cudaMemcpyAsync(readBuffs[curBuff] + regs.dmaDataBytes(), buffs[curBuff], hdr.size, cudaMemcpyDeviceToDevice));
+
+            // Clear doorbell register
+            assertOk(cuStreamWriteValue32(stream, (CUdeviceptr)readBuffs[curBuff], 0, 0));
 
             // Trigger immediate write from GPU -> FPGA. This uses the same buffer that was written to the GPU
-            assertOk(cuStreamWriteValue32(stream, devRegs + GPU_ASYNC_REG_REMOTE_READ_SIZE_OFFSET(curBuff), hdr.size, 0));
+            assertOk(cuStreamWriteValue32(stream, devRegs + regs.remoteReadSizeOffset(curBuff), hdr.size, 0));
+            
+            // Wait for the transfer to complete
+            assertOk(cuStreamWaitValue32(stream, (CUdeviceptr)readBuffs[curBuff] + 4, 1, CU_STREAM_WAIT_VALUE_GEQ));
         }
 
         cuStreamSynchronize(stream);
 
-        // Hack for GPU -> FPGA, especially on one buffer.
-        // We must wait for the transaction to complete before triggering a new one, otherwise the firmware can enter an undefined state.
-        if (readBuffs && *readBuffs) {
-            usleep(100); // 100us should be enough...
-        }
-
         // Grab latency measurements
-        const uint32_t gpuLatency = *reinterpret_cast<uint32_t*>(regs + GPU_ASYNC_REG_LATENCY_GPU_OFFSET(curBuff));
-        const uint32_t totLatency = *reinterpret_cast<uint32_t*>(regs + GPU_ASYNC_REG_LATENCY_TOTAL_OFFSET(curBuff));
-        const uint32_t wrLatency = *reinterpret_cast<uint32_t*>(regs + GPU_ASYNC_REG_LATENCY_WRITE_OFFSET(curBuff));
+        const uint32_t gpuLatency = regs.gpuLatency(curBuff);
+        const uint32_t totLatency = regs.totalLatency(curBuff);
+        const uint32_t wrLatency = regs.writeLatency(curBuff);
 
         // Update averages
         avgGpuLatency = updateAverage<float>(avgGpuLatency, gpuLatency, totalEvents);
