@@ -620,6 +620,7 @@ ssize_t Dma_Read(struct file *filp, __user char *buffer, size_t count, loff_t *f
    __user void *dp = NULL;
    struct DmaDesc *desc = (struct DmaDesc *)filp->private_data;
    struct DmaDevice *dev = desc->dev;
+   struct DmaReadData *rd = NULL;
 
    mutex_lock(&desc->mutex);
 
@@ -644,14 +645,18 @@ ssize_t Dma_Read(struct file *filp, __user char *buffer, size_t count, loff_t *f
    }
 
    // Check that we can actually access the user buffers
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0)
+   if (!access_ok(buffer, rCnt * sizeof(struct DmaReadData), VERIFY_WRITE)) {
+#else
    if (!access_ok(buffer, rCnt * sizeof(struct DmaReadData))) {
+#endif
       dev_warn(dev->device, "Read: Unable to access user buffer. buffer=%p, size=%ld\n",
          buffer, rCnt * sizeof(struct DmaReadData));
       mutex_unlock(&desc->mutex);
       return -EFAULT;
    }
 
-   struct DmaReadData* rd = desc->readDataScratch;
+   rd = desc->readDataScratch;
 
    // Copy the read structure from user space
    if ((copied = copy_from_user(rd, buffer, rCnt * sizeof(struct DmaReadData)))) {
@@ -839,12 +844,18 @@ static ssize_t Dma_Ret_Indexes(struct file *filp, uint32_t cmd, __user void* arg
    struct DmaDevice * dev;
    struct DmaBuffer * buff;
    uint32_t cnt = (cmd >> 16) & 0xFFFF;
+   uint32_t x = 0;
+   uint32_t bCnt = 0;
 
    desc = (struct DmaDesc *)filp->private_data;
    dev  = desc->dev;
 
    // Ensure the buffer is readable
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0)
+   if (!access_ok(arg, cnt * sizeof(uint32_t), VERIFY_READ)) {
+#else
    if (!access_ok(arg, cnt * sizeof(uint32_t))) {
+#endif
       dev_warn(dev->device, "Ret_Indexes: Invalid user buffer provided. buffer=%p, size=%ld\n",
          arg, cnt * sizeof(uint32_t));
       return -EFAULT;
@@ -867,9 +878,8 @@ static ssize_t Dma_Ret_Indexes(struct file *filp, uint32_t cmd, __user void* arg
       return -1;
    }
 
-   uint32_t bCnt = 0;
-
-   for (uint32_t x = 0; x < cnt; x++) {
+   bCnt = 0;
+   for (x = 0; x < cnt; x++) {
       // Attempt to find buffer in RX list
       if ( (buff = dmaGetBufferList(&(dev->rxBuffers), desc->indexScratch[x])) != NULL ) {
          // Only return if owned by current desc
