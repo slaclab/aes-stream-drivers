@@ -242,7 +242,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
          if (buffer->write) {
             // Bit of a hack to catch V4+ API misuses. Since v4 has only one maxSize register, it needs to match for all buffers
             minSize = readGpuAsyncReg(data->base, &GpuAsyncReg_RemoteWriteMaxSizeV4);
-            if (minSize > 0 && minSize != mapSize) {
+            if (minSize > 1 && minSize != mapSize) {
                dev_warn(dev->device, "Gpu_AddNvidia: mapSize=%zu does not match last configured mapSize of %zu. Write buffers must all be identically sized\n",
                   minSize, mapSize);
                return -EINVAL;
@@ -263,7 +263,6 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
                writel(mapSize, data->base + GPU_ASYNC_REG_WRITE_BASE_V1 + data->writeBuffers.count * 16ULL + 0x8);
             }
             else {
-               dev_warn(dev->device, "put map size: %lu\n", mapSize);
                writeGpuAsyncReg(data->base, &GpuAsyncReg_RemoteWriteMaxSizeV4, mapSize);
             }
             data->writeBuffers.count++;
