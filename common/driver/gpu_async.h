@@ -94,6 +94,7 @@ struct GpuData {
    uint8_t * base;
    uint32_t offset;
    int32_t version;
+   uint32_t maxBuffers;
    struct GpuBuffers writeBuffers;
    struct GpuBuffers readBuffers;
 };

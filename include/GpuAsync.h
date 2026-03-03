@@ -33,6 +33,7 @@
 #define GPU_Set_Write_Enable  0x8004   // Set Write Enable Flag
 #define GPU_Is_Gpu_Async_Supp 0x8005   // Check if GPU Async is supported by firmware
 #define GPU_Get_Gpu_Async_Ver 0x8006   // Get the GpuAsyncCore version
+#define GPU_Get_Max_Buffers   0x8007   // Get the max number of DMA buffers
 
 /**
  * struct GpuNvidiaData - Represents NVIDIA GPU memory data.
@@ -124,6 +125,17 @@ static inline bool gpuIsGpuAsyncSupported(int32_t fd) {
  */
 static inline uint32_t gpuGetGpuAsyncVersion(int32_t fd) {
    return ioctl(fd, GPU_Get_Gpu_Async_Ver);
+}
+
+/**
+ * gpuGetMaxBuffers - Get the max number of DMA buffers
+ * @fd: File descriptor for the device
+ *
+ * Return: Returns the number of DMA buffers available for use.
+ * Returns -ENOTSUPP if the driver was compiled without GPUAsync support.
+ */
+static inline uint32_t gpuGetMaxBuffers(int32_t fd) {
+   return ioctl(fd, GPU_GetGPU_Get_Max_Buffers);
 }
 
 #endif  // !DMA_IN_KERNEL

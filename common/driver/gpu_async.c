@@ -73,6 +73,13 @@ void Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
    gpuData->readBuffers.count = 0;
    gpuData->offset = offset;
    gpuData->version = version;
+
+   if (version < 4) {
+      gpuData->maxBuffers = readGpuAsyncReg(gpuData->base, &GpuAsyncReg_MaxBuffersV1);
+   }
+   else {
+      gpuData->maxBuffers = readGpuAsyncReg(gpuData->base, &GpuAsyncReg_MaxBuffersV4);
+   }
    
    dev_info(dev->device, "Gpu_Init: Configured for GpuAsyncCore version %d\n", version);
 }
@@ -90,31 +97,32 @@ void Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
  * Return: 0 on success, -1 on error.
  */
 int32_t Gpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
+   struct GpuData* data = dev->utilData;
+
    switch (cmd) {
       // Add NVIDIA Memory
       case GPU_Add_Nvidia_Memory:
          return Gpu_AddNvidia(dev, arg);
-         break;
 
       // Remove NVIDIA Memory
       case GPU_Rem_Nvidia_Memory:
          return Gpu_RemNvidia(dev, arg);
-         break;
 
       // Set write enable flag
       case GPU_Set_Write_Enable:
          return Gpu_SetWriteEn(dev, arg);
-         break;
 
       // Get the async core version
       case GPU_Get_Gpu_Async_Ver:
          return Gpu_GetVersion(dev);
-         break;
+
+      // Get the max number of buffers
+      case GPU_Get_Max_Buffers:
+         return (int32_t)data->maxBuffers;
 
       default:
          dev_warn(dev->device, "Command: Invalid command=%u\n", cmd);
          return -1;
-         break;
    }
 }
 
@@ -137,7 +145,6 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
    size_t  mapSize;
    uint32_t offset = 0;
    size_t  minSize = 0;
-   uint32_t maxBuffs = 0;
 
    struct GpuData   * data;
    struct GpuBuffer * buffer;
@@ -159,24 +166,17 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
       return -EINVAL;
    }
    
-   if (data->version < 4) {
-      maxBuffs = readGpuAsyncReg(data->base, &GpuAsyncReg_MaxBuffersV1);
-   }
-   else {
-      maxBuffs = readGpuAsyncReg(data->base, &GpuAsyncReg_MaxBuffersV4);
-   }
-   
    // Set buffer pointers based on the operation mode (write/read)
    if (dat.write) {
-      if (data->writeBuffers.count >= maxBuffs) {
-         dev_warn(dev->device, "Gpu_AddNvidia: Too many write buffers: max %u\n", maxBuffs);
+      if (data->writeBuffers.count >= data->maxBuffers) {
+         dev_warn(dev->device, "Gpu_AddNvidia: Too many write buffers: max %u\n", data->maxBuffers);
          return -EINVAL;
       }
       buffer = &(data->writeBuffers.list[data->writeBuffers.count]);
    }
    else {
-      if (data->readBuffers.count >= maxBuffs) {
-         dev_warn(dev->device, "Gpu_AddNvidia: Too many read buffers: max %u\n", maxBuffs);
+      if (data->readBuffers.count >= data->maxBuffers) {
+         dev_warn(dev->device, "Gpu_AddNvidia: Too many read buffers: max %u\n", data->maxBuffers);
          return -EINVAL;
       }
       buffer = &(data->readBuffers.list[data->readBuffers.count]);
@@ -482,8 +482,8 @@ void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
    if (data->version >= 2)  // Added in V2
       seq_printf(s, "AXI Write Timeout Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiWriteTimeoutCnt));
    if (data->version >= 3) {  // Added in V3
-      seq_printf(s, "   Min Write Buffers : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_MinWriteBuffer));
-      seq_printf(s, "    Min Read Buffers : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_MinReadBuffer));
+      seq_printf(s, "      Min Write Buffers : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_MinWriteBuffer));
+      seq_printf(s, "       Min Read Buffers : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_MinReadBuffer));
    }
    seq_printf(s, "   AXI Read Error Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiReadErrorCnt));
 
