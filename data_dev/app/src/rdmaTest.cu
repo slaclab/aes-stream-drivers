@@ -271,6 +271,7 @@ void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t*
 
     uint64_t totalRecv = 0;
     uint64_t totalEvents = 0, invalidEvents = 0;
+    int curBuff = 0;
 
     uint8_t* tmpbuf = new uint8_t[s_dumpBytes ? s_dumpBytes : 1];
 
@@ -285,15 +286,21 @@ void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t*
         }
     }
 
-    int curBuff = 0;
+    // Clear all handshake areas for the buffers
+    for (int i = 0; i < bufCnt; ++i) {
+        assertOk(cuStreamWriteValue32(stream, (CUdeviceptr)buffs[i] + 4, 0, 0));
+        // does not seem to make a difference
+        //cuStreamWriteValue32(stream, devRegs + regs.writeDetectOffset(i), 1, 0);
+    }
+
+    // Kick off transaction with first buffer
+    cuStreamWriteValue32(stream, devRegs + regs.writeDetectOffset(curBuff), 1, 0);
+
     while (s_cnt == -1 || s_cnt-- > 0) {
         AxiWrDesc64_t hdr;
 
-        // Clear handshake area
-        assertOk(cuStreamWriteValue32(stream, (CUdeviceptr)buffs[curBuff] + 4, 0, 0));
-
         // Indicate that we're ready for new data
-        assertOk(cuStreamWriteValue32(stream, devRegs + regs.writeDetectOffset(curBuff), 1, 0));
+        //assertOk(cuStreamWriteValue32(stream, devRegs + regs.writeDetectOffset(curBuff), 1, 0));
 
         // Wait on handshake space for data
         assertOk(cuStreamWaitValue32(stream, (CUdeviceptr)buffs[curBuff] + 4, 1, CU_STREAM_WAIT_VALUE_GEQ));
@@ -301,6 +308,12 @@ void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t*
         // Download header data immediately
         assertOk(cudaMemcpyAsync(&hdr, buffs[curBuff], sizeof(hdr), cudaMemcpyDeviceToHost, stream));
 
+        // Clear handshake space
+        assertOk(cuStreamWriteValue32(stream, (CUdeviceptr)buffs[curBuff] + 4, 0, 0));
+
+        // Tell the FPGA that we're done with the buffer
+        assertOk(cuStreamWriteValue32(stream, devRegs + regs.writeDetectOffset(curBuff), 1, 0));
+        
         // Read path (GPU -> FPGA)
         if (readBuffs && *readBuffs) {
             // Sync so header data becomes available to the host
