@@ -129,11 +129,6 @@ int main(int argc, char** argv) {
             break;
         }
     }
-    
-    if (buffs > 4) {
-        fprintf(stderr, "Max buffers exceeded\n");
-        return -1;
-    }
 
     CUcontext ctx;
     CUdevice computeDevice;
@@ -158,11 +153,17 @@ int main(int argc, char** argv) {
         perror("open");
         return -1;
     }
-    
+
     // Check for GPUDirect support
     if (!gpuIsGpuAsyncSupported(fd)) {
         printf("Firmware or driver does not support GPUAsync!\n");
         close(fd);
+        return -1;
+    }
+
+    // Validate buffer count
+    if (buffs > gpuGetMaxBuffers(fd)) {
+        fprintf(stderr, "Too many buffers requested: %d > %d\n", buffs, gpuGetMaxBuffers(fd));
         return -1;
     }
 
@@ -220,7 +221,7 @@ int main(int argc, char** argv) {
         }
 
         if (s_verbose)
-            printf("Added write buffer at addr 0x%p\n", buffers[i]);
+            printf("Added write buffer at addr %p\n", buffers[i]);
 
         if (!readBuffers[i])
             continue;
@@ -277,11 +278,18 @@ void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t*
 
     const uint32_t version = readGpuAsyncReg(regs.registers(), &GpuAsyncReg_Version);
 
+    // Initialization pass: write 0x1 to all read doorbell registers
+    if (readBuffs && *readBuffs) {
+        for (int i = 0; i < bufCnt; ++i) {
+            assertOk(cuStreamWriteValue32(stream, (CUdeviceptr)readBuffs[i], 1, 0));
+        }
+    }
+
     int curBuff = 0;
     while (s_cnt == -1 || s_cnt-- > 0) {
         AxiWrDesc64_t hdr;
 
-        // Clean handshake area
+        // Clear handshake area
         assertOk(cuStreamWriteValue32(stream, (CUdeviceptr)buffs[curBuff] + 4, 0, 0));
 
         // Indicate that we're ready for new data
