@@ -43,7 +43,7 @@ static inline uint32_t readGpuAsyncReg(const volatile void* baseptr, const struc
 }
 
 static inline void writeGpuAsyncReg(volatile void* baseptr, const struct GpuAsyncRegister* reg, uint32_t value) {
-   volatile uint32_t* regp = (volatile uint32_t*)(volatile uint8_t*)(baseptr + reg->offset);
+   volatile uint32_t* regp = (volatile uint32_t*)(((volatile uint8_t*)baseptr) + reg->offset);
 #ifdef DMA_IN_KERNEL
    writel((readl(regp) & ~reg->bitMask) | ((value << reg->bitOffset) & reg->bitMask), regp);
 #else
