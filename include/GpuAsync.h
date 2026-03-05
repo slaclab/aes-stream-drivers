@@ -135,7 +135,7 @@ static inline uint32_t gpuGetGpuAsyncVersion(int32_t fd) {
  * Returns -ENOTSUPP if the driver was compiled without GPUAsync support.
  */
 static inline uint32_t gpuGetMaxBuffers(int32_t fd) {
-   return ioctl(fd, GPU_GetGPU_Get_Max_Buffers);
+   return ioctl(fd, GPU_Get_Max_Buffers);
 }
 
 #endif  // !DMA_IN_KERNEL
