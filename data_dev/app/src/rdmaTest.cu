@@ -297,9 +297,7 @@ void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t*
 
     // Configure the buffer counts on the FPGA side
     regs.setWriteCount(bufCnt-1);
-    if (loopback) {
-        regs.setReadCount(bufCnt-1);
-    }
+    regs.setReadCount(bufCnt-1);
 
     // Iterate through the RX/TX buffers
     for (int i = 0; i < bufCnt; ++i) {
@@ -357,7 +355,7 @@ void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t*
             assertOk(cuStreamWriteValue32(stream, devRegs + regs.remoteReadSizeOffset(curBuff), hdr.size, 0));
         }
 
-        // After the rxData->txData copy, return the write buffer back to the FPGA side (A.K.A. "FPGA's free list")
+        // After the rxData->txData copy, return the buffer index back to the FPGA side (A.K.A. "FPGA's free list")
         assertOk(cuStreamWriteValue32(stream, devRegs + regs.freeListOffset(curBuff), 1, 0));
 
         // Grab latency measurements
