@@ -87,7 +87,7 @@ int main(int argc, char** argv) {
     int opt, bufCnt = 1024, size = 0x100000;
     bool loopback = false;
     std::string dev = "/dev/datadev_0";
-    while ((opt = getopt(argc, argv, "d:i:vhf:x:c:b:s:r")) != -1) {
+    while ((opt = getopt(argc, argv, "d:i:vhf:x:c:b:s:l")) != -1) {
         switch (opt) {
         case 'd':
             dev = optarg;
@@ -288,7 +288,6 @@ void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t*
     uint64_t totalRecv = 0;
     uint64_t totalEvents = 0, invalidEvents = 0;
     int curBuff = 0;
-    float avgGpuLatency = 0, avgWrLatency = 0, avgTotLatency = 0;
     uint8_t* tmpbuf = new uint8_t[s_dumpBytes ? s_dumpBytes : 1];
 
     // Stop the FPGA side
@@ -327,9 +326,6 @@ void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t*
         // Wait on handshake space on the GPU side (A.K.A. "GPU's doorbell")
         assertOk(cuStreamWaitValue32(stream, (CUdeviceptr)rxBuffs[curBuff] + 4, 1, CU_STREAM_WAIT_VALUE_GEQ));
 
-        // Clear handshake space on the GPU side (A.K.A. "GPU's doorbell")
-        assertOk(cuStreamWriteValue32(stream, (CUdeviceptr)rxBuffs[curBuff] + 4, 0, 0));
-
         // Download header data immediately
         assertOk(cudaMemcpyAsync(&hdr, rxBuffs[curBuff], sizeof(hdr), cudaMemcpyDeviceToHost, stream));
 
@@ -355,32 +351,22 @@ void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t*
             assertOk(cuStreamWriteValue32(stream, devRegs + regs.remoteReadSizeOffset(curBuff), hdr.size, 0));
         }
 
+        // Clear handshake space on the GPU side (A.K.A. "GPU's doorbell")
+        assertOk(cuStreamWriteValue32(stream, (CUdeviceptr)rxBuffs[curBuff] + 4, 0, 0));
+
         // After the rxData->txData copy, return the buffer index back to the FPGA side (A.K.A. "FPGA's free list")
         assertOk(cuStreamWriteValue32(stream, devRegs + regs.freeListOffset(curBuff), 1, 0));
-
-        // Grab latency measurements
-        const uint32_t gpuLatency = regs.gpuLatency(curBuff);
-        const uint32_t totLatency = regs.totalLatency(curBuff);
-        const uint32_t wrLatency = regs.writeLatency(curBuff);
-
-        // Update averages
-        avgGpuLatency = updateAverage<float>(avgGpuLatency, gpuLatency, totalEvents);
-        avgTotLatency = updateAverage<float>(avgTotLatency, totLatency, totalEvents);
-        avgWrLatency = updateAverage<float>(avgWrLatency, wrLatency, totalEvents);
 
         // Dump header data when requested
         if (s_verbose > 1) {
             printf(
-                "hdr{size=%d, firstUser=%d, lastUser=%d, cont=%d, overflow=%d, result=%d} latency {wr=%u, gpu=%u, tot=%u}\n",
+                "hdr{size=%d, firstUser=%d, lastUser=%d, cont=%d, overflow=%d, result=%d}\n",
                 hdr.size,
                 hdr.firstUser(),
                 hdr.lastUser(),
                 hdr.cont(),
                 hdr.overflow(),
-                hdr.result(),
-                wrLatency,
-                gpuLatency,
-                wrLatency
+                hdr.result()
             );
         }
 
@@ -411,25 +397,24 @@ void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t*
         }
 
         totalEvents++;
-        totalRecv += hdr.size;
+        totalRecv += (uint64_t)hdr.size;
 
         // Round-robin to the next buffer
         curBuff++;
-        if (curBuff >= bufCnt)
+        if (curBuff >= bufCnt) {
             curBuff = 0;
+        }
 
-        // Status updates every 1024 events
-        if (totalEvents % 1024 == 0) {
+        // Status updates every 65536 events
+        if (totalEvents % 65536 == 0) {
             printf(
-                "%-4lu events, %-4lu invalid events, %.2f MiB transferred. avgWrLatency=%d, avgGpuLatency=%d, avgTotLatency=%d \n",
+                "%-4lu events, %-4lu invalid events, %.2f GiB transferred\n",
                 totalEvents,
                 invalidEvents,
-                double(totalRecv) / (1024. * 1024.),
-                int32_t(avgWrLatency),
-                int32_t(avgGpuLatency),
-                int32_t(avgTotLatency)
+                double(totalRecv)/1.0E+9
             );
         }
+
     }
 
 }
