@@ -27,6 +27,9 @@
 // Offset of AxiPcieGpuAsyncCore. Must match the value within the firmware
 #define GPU_ASYNC_CORE_OFFSET     0x00028000
 
+// Size of AxiPcieGpuAsyncCore. Must match the value within the firmware
+#define GPU_ASYNC_CORE_SIZE       0x00008000 // 0x0003_0000 - 0x0002_8000
+
 struct GpuAsyncRegister {
    uint32_t offset;
    uint32_t bitOffset;
