@@ -84,7 +84,7 @@ int main(int argc, char** argv) {
         return -1;
     }
 
-    int opt, bufCnt = 1, size = 0x10000;
+    int opt, bufCnt = 1024, size = 0x100000;
     bool loopback = false;
     std::string dev = "/dev/datadev_0";
     while ((opt = getopt(argc, argv, "d:i:vhf:x:c:b:s:r")) != -1) {
@@ -110,7 +110,7 @@ int main(int argc, char** argv) {
         case 'c':
             s_cnt = str2int(optarg);
             break;
-        case 'r':
+        case 'l':
             loopback = true;
             break;
         case 'h':
@@ -291,6 +291,10 @@ void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t*
     float avgGpuLatency = 0, avgWrLatency = 0, avgTotLatency = 0;
     uint8_t* tmpbuf = new uint8_t[s_dumpBytes ? s_dumpBytes : 1];
 
+    // Stop the FPGA side
+    regs.setWriteEnable(0);
+    regs.setReadEnable(0);
+
     // Configure the buffer counts on the FPGA side
     regs.setWriteCount(bufCnt-1);
     if (loopback) {
@@ -312,7 +316,7 @@ void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t*
         }
     }
 
-    // Start FPGA
+    // Stop the FPGA side
     regs.setWriteEnable(1);
     if (loopback) {
         regs.setReadEnable(1);
@@ -322,35 +326,35 @@ void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t*
     while (s_cnt == -1 || s_cnt-- > 0) {
         AxiWrDesc64_t hdr;
 
-        // Wait on handshake space for data
+        // Wait on handshake space on the GPU side
         assertOk(cuStreamWaitValue32(stream, (CUdeviceptr)rxBuffs[curBuff] + 4, 1, CU_STREAM_WAIT_VALUE_GEQ));
 
         // Download header data immediately
         assertOk(cudaMemcpyAsync(&hdr, rxBuffs[curBuff], sizeof(hdr), cudaMemcpyDeviceToHost, stream));
 
-        // Clear handshake space
+        // Clear handshake space on the GPU side
         assertOk(cuStreamWriteValue32(stream, (CUdeviceptr)rxBuffs[curBuff] + 4, 0, 0));
 
-        // Tell the FPGA that we're done with the buffer
+        // Return the write buffer back to the FPGA side
         assertOk(cuStreamWriteValue32(stream, devRegs + regs.freeListOffset(curBuff), 1, 0));
+
+        // Sync so header data becomes available to the host
+        cuStreamSynchronize(stream);
 
         // TX path (GPU -> FPGA)
         if (loopback) {
 
-            // Sync so header data becomes available to the host
-            cuStreamSynchronize(stream);
+            // Wait for the FPGA to return the free list back to GPU
+            assertOk(cuStreamWaitValue32(stream, (CUdeviceptr)txBuffs[curBuff], 1, CU_STREAM_WAIT_VALUE_GEQ));
 
-            // Copy data we received from the FPGA to dedicated read buffers
-            assertOk(cudaMemcpyAsync(txBuffs[curBuff] + regs.dmaDataBytes(), rxBuffs[curBuff], hdr.size, cudaMemcpyDeviceToDevice));
+            // Copy data rxData to the txData buffer
+            assertOk(cudaMemcpyAsync(txBuffs[curBuff] + regs.dmaDataBytes(), rxBuffs[curBuff] + regs.dmaDataBytes(), hdr.size, cudaMemcpyDeviceToDevice));
 
-            // Clear doorbell register
+            // Clear doorbell register on the GPU side
             assertOk(cuStreamWriteValue32(stream, (CUdeviceptr)txBuffs[curBuff], 0, 0));
 
-            // Trigger immediate write from GPU -> FPGA. This uses the same buffer that was written to the GPU
+            // Trigger the FPGA to read the txBuffers from the GPU
             assertOk(cuStreamWriteValue32(stream, devRegs + regs.remoteReadSizeOffset(curBuff), hdr.size, 0));
-
-            // Wait for the transfer to complete
-            assertOk(cuStreamWaitValue32(stream, (CUdeviceptr)txBuffs[curBuff] + 4, 1, CU_STREAM_WAIT_VALUE_GEQ));
         }
 
         cuStreamSynchronize(stream);
@@ -429,12 +433,6 @@ void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t*
         }
     }
 
-    // // Disable the FPGA side
-    // regs.setWriteEnable(0);
-    // if (loopback) {
-        // regs.setReadEnable(0);
-    // }
-
 }
 
 static void assertOk(cudaError_t err) {
@@ -460,6 +458,6 @@ static void showHelp() {
     printf("  -f FILE      : Dump the first event received to this file\n");
     printf("  -x NUM       : Dump the first NUM bytes of the payload to stdout\n");
     printf("  -c CNT       : Number of events to receive before exiting\n");
-    printf("  -r           : Enable GPU -> FPGA transactions (remote reads)\n");
+    printf("  -l           : Enable loopback mode: FPGA -> GPU -> FPGA transactions\n");
     printf("  -v           : Increase verbosity. May be passed multiple times. -vv will enable dumping of DMA headers\n");
 }
