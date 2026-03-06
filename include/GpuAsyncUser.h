@@ -29,13 +29,13 @@
 /**
  * @brief Thin wrapper around the C API and definitions in GpuAsyncRegs.h
  * The lifetime of this object must be within the lifetime of the memory mapped registers provided in the constructor.
- * 
+ *
  * Code calling into this object to retrieve register values does not need to be aware of the offsets or GpuAsyncCore version.
  */
 class GpuAsyncCoreRegs {
 public:
    GpuAsyncCoreRegs() = delete;
-   
+
    /**
     * @brief regs Pointer to the memory mapped GpuAsyncCore registers.
     */
@@ -59,7 +59,7 @@ public:
    inline uint32_t readReg(uint32_t offset) const {
       return *(uint32_t*)(regs_ + offset);
    }
-   
+
    inline void writeReg(const GpuAsyncRegister& reg, uint32_t value) {
       writeGpuAsyncReg(regs_, &reg, value);
    }
@@ -67,7 +67,7 @@ public:
    inline void writeReg(uint32_t offset, uint32_t value) {
       *(uint32_t*)(regs_ + offset) = value;
    }
-   
+
    /**
     * @brief Returns the version of GpuAsyncCore this firmware is running
     */
@@ -83,7 +83,7 @@ public:
    uint32_t arCache() const {
       return readReg(GpuAsyncReg_ArCache);
    }
-   
+
    uint32_t awCache() const {
       return readReg(GpuAsyncReg_AwCache);
    }
@@ -146,7 +146,7 @@ public:
    inline uint32_t axiReadErrorCount() const {
       return readReg(GpuAsyncReg_AxiReadErrorCnt);
    }
-   
+
    inline uint32_t axiWriteErrorVal() const {
       return readReg(GpuAsyncReg_AxiWriteErrorVal);
    }
@@ -158,7 +158,7 @@ public:
    inline uint32_t axiWriteTimeoutCount() const {
       return readReg(GpuAsyncReg_AxiWriteTimeoutCnt);
    }
-   
+
    inline uint32_t axisDeMuxSelect() const {
       return readReg(GpuAsyncReg_AxisDeMuxSelect);
    }
@@ -222,7 +222,7 @@ public:
          return readReg(GpuAsyncReg_WrLatencyV4);
       }
    }
-   
+
    /**
     * @brief Gets the remote write max size, used for FPGA -> GPU transfers
     * @param buffer The buffer to set the remote size for. Ignored in version >= 4
@@ -259,7 +259,7 @@ public:
          return;
       }
    }
-   
+
    /**
     * @brief Sets the remote write address for the specified buffer. Used for FPGA -> GPU transfers
     * @param buffer The buffer index. Must be < 16 for V1, and < 1024 for V4
@@ -268,7 +268,7 @@ public:
    inline void setRemoteWriteAddress(uint32_t buffer, uint64_t addr) {
       uint32_t l = uint32_t(addr & 0xFFFFFFFF);
       uint32_t h = uint32_t((addr >> 32) & 0xFFFFFFFF);
-      
+
       switch (versionSwitch()) {
       case 0:
          return;
@@ -307,21 +307,21 @@ public:
          break;
       }
    }
-   
+
    /**
-    * @brief Triggers a remote write from FPGA -> GPU.
+    * @brief Arms free list buffer for remote write from FPGA -> GPU.
     * @see triggerRemoteWriteOffset() for something usable with CUDA
     * @param buffer Buffer index to trigger.
     */
-   inline void triggerRemoteWrite(uint32_t buffer) {
-      writeReg(writeDetectOffset(buffer), 1);
+   inline void returnFreeListIndex(uint32_t buffer) {
+      writeReg(freeListOffset(buffer), 1);
    }
-   
+
    /**
-    * @brief Returns the offset of the write detect register from the start of the GpuAsyncCore registers
+    * @brief Returns the offset of the free list register from the start of the GpuAsyncCore registers
     * @param buffer The buffer index.
     */
-   inline uint32_t writeDetectOffset(uint32_t buffer) const {
+   inline uint32_t freeListOffset(uint32_t buffer) const {
       switch (versionSwitch()) {
       case 0:  // Leaving this to return same as V1 for now
       case 1:
@@ -331,7 +331,7 @@ public:
          return GPU_ASYNC_REG_WRITE_DETECT_OFFSET_V4(buffer);
       }
    }
-   
+
    /**
     * @brief Returns the offset of the remote read size register from the start of the GpuAsyncCore registers.
     * This is usable in CUDA kernels.
@@ -347,14 +347,14 @@ public:
          return GPU_ASYNC_REG_REMOTE_READ_SIZE_OFFSET_V4(buffer);
       }
    }
-   
+
    /**
     * @brief Get the remote read size for the specified buffer
     */
    inline uint32_t remoteReadSize(uint32_t buffer) const {
       return readReg(remoteReadSizeOffset(buffer));
    }
-   
+
    /**
     * @brief Set the remote read size for the buffer
     * @param buffer Buffer index
@@ -363,7 +363,7 @@ public:
    inline void setRemoteReadSize(uint32_t buffer, uint32_t size) {
       return writeReg(remoteReadSizeOffset(buffer), size);
    }
-   
+
 protected:
 
    // Squash version into [0, 1, 4] to make switches cleaner
@@ -392,7 +392,7 @@ protected:
          return readReg(v4);
       }
    }
-   
+
    void writeRegV1V4(const GpuAsyncRegister& v1, const GpuAsyncRegister& v4, uint32_t val) {
       switch (versionSwitch()) {
       case 0:
