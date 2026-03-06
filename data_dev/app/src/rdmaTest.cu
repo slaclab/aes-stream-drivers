@@ -338,13 +338,13 @@ void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t*
             // Wait for the FPGA to return the free list back to GPU
             assertOk(cuStreamWaitValue32(stream, (CUdeviceptr)txBuffs[curBuff], 1, CU_STREAM_WAIT_VALUE_GEQ));
 
-            // Remove from free list on the GPU side  (A.K.A. "GPU's free list")
-            assertOk(cuStreamWriteValue32(stream, (CUdeviceptr)txBuffs[curBuff], 0, 0));
-
             // Copy data rxData to the txData buffer for this loopback mode (instead the dmaDataBytes() offsets on both the rxBuffer and txbuffer for the copy)
             assertOk(cudaMemcpyAsync(txBuffs[curBuff] + regs.dmaDataBytes(), rxBuffs[curBuff] + regs.dmaDataBytes(), hdr.size, cudaMemcpyDeviceToDevice));
 
-            // SYNC the stream so the copied data is completed before triggering the FPGA's doorbell
+            // Remove from free list on the GPU side  (A.K.A. "GPU's free list")
+            assertOk(cuStreamWriteValue32(stream, (CUdeviceptr)txBuffs[curBuff], 0, 0));
+
+            // SYNC the stream for the data copy and GPU side free list update before trigginer the FPGA's doorbell
             cuStreamSynchronize(stream);
 
             // Trigger the FPGA to read the txBuffers from the GPU (A.K.A. "FPGA's doorbell")
