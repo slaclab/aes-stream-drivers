@@ -108,7 +108,7 @@ size_t dmaAllocBuffers(struct DmaDevice *dev, struct DmaBufferList *list,
       // Coherent buffer, map dma coherent buffers
       if ( list->dev->cfgMode & BUFF_COHERENT ) {
          buff->buffAddr =
-            dma_alloc_coherent(list->dev->device, list->dev->cfgSize, &(buff->buffHandle), GFP_DMA | GFP_KERNEL);
+            dma_alloc_coherent(list->dev->device, list->dev->cfgSize, &(buff->buffHandle), GFP_KERNEL);
 
       // Streaming buffer type, standard kernel memory
       } else if ( list->dev->cfgMode & BUFF_STREAM ) {
