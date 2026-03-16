@@ -80,7 +80,7 @@ void Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
    else {
       gpuData->maxBuffers = readGpuAsyncReg(gpuData->base, &GpuAsyncReg_MaxBuffersV4);
    }
-   
+
    dev_info(dev->device, "Gpu_Init: Configured for GpuAsyncCore version %d\n", version);
 }
 
@@ -165,7 +165,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
          dat.size, GPU_BOUND_SIZE);
       return -EINVAL;
    }
-   
+
    // Set buffer pointers based on the operation mode (write/read)
    if (dat.write) {
       if (data->writeBuffers.count >= data->maxBuffers) {
@@ -247,7 +247,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
                   minSize, mapSize);
                return -EINVAL;
             }
-            
+
             // Compute version specific offsets
             if (data->version < 4) {
                offset = GPU_ASYNC_REG_WRITE_BASE_V1 + data->writeBuffers.count * 16;
@@ -274,7 +274,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
             else {
                offset = GPU_ASYNC_REG_READ_BASE_V4 + data->readBuffers.count * 8;
             }
-            
+
             writel(dma_address & 0xFFFFFFFF, data->base + offset);
             writel((dma_address >> 32) & 0xFFFFFFFF, data->base + offset + 0x4);
             data->readBuffers.count++;
@@ -357,7 +357,7 @@ int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
 
       dev_warn(dev->device, "Gpu_RemNvidia: unmapped read memory with address=0x%llx\n", buffer->address);
    }
-   
+
    // Clear out remote write size register
    if (data->version >= 4) {
       writeGpuAsyncReg(data->base, &GpuAsyncReg_RemoteWriteMaxSizeV4, 0);
@@ -420,7 +420,7 @@ int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg) {
    else {
       offset = GPU_ASYNC_REG_WRITE_DETECT_BASE_V4 + idx * 4;
    }
-   
+
    writel(0x1, data->base + offset);
 
    return 0;
