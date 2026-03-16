@@ -28,7 +28,7 @@
 #define GPU_ASYNC_CORE_OFFSET     0x00028000
 
 // Size of AxiPcieGpuAsyncCore. Must match the value within the firmware
-#define GPU_ASYNC_CORE_SIZE       0x00008000 // 0x0003_0000 - 0x0002_8000
+#define GPU_ASYNC_CORE_SIZE       0x00008000  // 0x0003_0000 - 0x0002_8000
 
 struct GpuAsyncRegister {
    uint32_t offset;
@@ -67,7 +67,7 @@ GPU_ASYNC_DEF_REG(MaxBuffersV4,   0x0, 0, 0x7FF);
 GPU_ASYNC_DEF_REG(ArCache,      0x4, 0,  0xFF);
 GPU_ASYNC_DEF_REG(AwCache,      0x4, 8,  0xFF00);
 GPU_ASYNC_DEF_REG(DmaDataBytes, 0x4, 16, 0xFF0000);
-GPU_ASYNC_DEF_REG(MaxBuffersV1, 0x4, 24, 0x1F000000); // V1 Configuration
+GPU_ASYNC_DEF_REG(MaxBuffersV1, 0x4, 24, 0x1F000000);  // V1 Configuration
 
 // V1 Configuration
 GPU_ASYNC_DEF_REG(WriteCountV1,   0x8, 0,  0xFF);

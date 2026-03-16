@@ -39,9 +39,8 @@ public:
    /**
     * @brief regs Pointer to the memory mapped GpuAsyncCore registers.
     */
-   GpuAsyncCoreRegs(volatile void* regs) :
-      regs_((volatile uint8_t*)regs)
-   {
+   explicit GpuAsyncCoreRegs(volatile void* regs) :
+      regs_((volatile uint8_t*)regs) {
       this->version_ = readReg(GpuAsyncReg_Version);
    }
 
@@ -365,7 +364,6 @@ public:
    }
 
 protected:
-
    // Squash version into [0, 1, 4] to make switches cleaner
    inline uint32_t versionSwitch() const {
       switch (version_) {
@@ -384,7 +382,7 @@ protected:
    uint32_t readRegV1V4(const GpuAsyncRegister& v1, const GpuAsyncRegister& v4) const {
       switch (versionSwitch()) {
       case 0:
-         return 0; // Unsupported
+         return 0;  // Unsupported
       case 1:
          return readReg(v1);
       case 4:
@@ -396,7 +394,7 @@ protected:
    void writeRegV1V4(const GpuAsyncRegister& v1, const GpuAsyncRegister& v4, uint32_t val) {
       switch (versionSwitch()) {
       case 0:
-         return; // Unsupported
+         return;  // Unsupported
       case 1:
          return writeReg(v1, val);
       case 4:
@@ -411,4 +409,4 @@ protected:
 
 #endif
 
-#endif // _GPU_ASYNC_USER_H_
+#endif  // _GPU_ASYNC_USER_H_

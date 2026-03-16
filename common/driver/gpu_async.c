@@ -76,8 +76,7 @@ void Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
 
    if (version < 4) {
       gpuData->maxBuffers = readGpuAsyncReg(gpuData->base, &GpuAsyncReg_MaxBuffersV1);
-   }
-   else {
+   } else {
       gpuData->maxBuffers = readGpuAsyncReg(gpuData->base, &GpuAsyncReg_MaxBuffersV4);
    }
 
@@ -173,8 +172,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
          return -EINVAL;
       }
       buffer = &(data->writeBuffers.list[data->writeBuffers.count]);
-   }
-   else {
+   } else {
       if (data->readBuffers.count >= data->maxBuffers) {
          dev_warn(dev->device, "Gpu_AddNvidia: Too many read buffers: max %u\n", data->maxBuffers);
          return -EINVAL;
@@ -251,8 +249,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
             // Compute version specific offsets
             if (data->version < 4) {
                offset = GPU_ASYNC_REG_WRITE_BASE_V1 + data->writeBuffers.count * 16;
-            }
-            else {
+            } else {
                offset = GPU_ASYNC_REG_WRITE_BASE_V4 + data->writeBuffers.count * 8;
             }
 
@@ -261,8 +258,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
 
             if (data->version < 4) {
                writel(mapSize, data->base + GPU_ASYNC_REG_WRITE_BASE_V1 + data->writeBuffers.count * 16ULL + 0x8);
-            }
-            else {
+            } else {
                writeGpuAsyncReg(data->base, &GpuAsyncReg_RemoteWriteMaxSizeV4, mapSize);
             }
             data->writeBuffers.count++;
@@ -270,8 +266,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
             // Compute version specific offsets
             if (data->version < 4) {
                offset = GPU_ASYNC_REG_READ_BASE_V1 + data->readBuffers.count * 16;
-            }
-            else {
+            } else {
                offset = GPU_ASYNC_REG_READ_BASE_V4 + data->readBuffers.count * 8;
             }
 
@@ -291,8 +286,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
       if (data->version < 4) {
          x |= 0x00000100;  // Set write-enable bit
          x |= (data->writeBuffers.count-1);  // Set the 0-based write buffer count
-      }
-      else {
+      } else {
          x |= 1 << 15;  // Set write-enable bit
          x |= (data->writeBuffers.count-1) & 0x7FFF;  // Set the 0-based write buffer count
       }
@@ -302,8 +296,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
       if (data->version < 4) {
          x |= 0x01000000;  // Set read-enable bit
          x |= (data->readBuffers.count-1) << 16;  // Set the 0-based read buffer count
-      }
-      else {
+      } else {
          x |= 1 << 31;  // Set read-enable bit
          x |= (data->readBuffers.count-1) << 16;  // Set the 0-based read buffer count
       }
@@ -416,8 +409,7 @@ int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg) {
 
    if (data->version < 4) {
       offset = GPU_ASYNC_REG_WRITE_DETECT_BASE_V1 + idx * 4;
-   }
-   else {
+   } else {
       offset = GPU_ASYNC_REG_WRITE_DETECT_BASE_V4 + idx * 4;
    }
 
@@ -459,8 +451,7 @@ void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
       writeEnable = readGpuAsyncReg(data->base, &GpuAsyncReg_WriteEnableV1);
       readEnable = readGpuAsyncReg(data->base, &GpuAsyncReg_ReadEnableV1);
       maxBuffers = readGpuAsyncReg(data->base, &GpuAsyncReg_MaxBuffersV1);
-   }
-   else {
+   } else {
       readBuffCnt = readGpuAsyncReg(data->base, &GpuAsyncReg_ReadCountV4)+1;
       writeBuffCnt = readGpuAsyncReg(data->base, &GpuAsyncReg_WriteCountV4)+1;
       writeEnable = readGpuAsyncReg(data->base, &GpuAsyncReg_WriteEnableV4);
@@ -493,8 +484,7 @@ void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
          wal = readl(data->base + GPU_ASYNC_REG_WRITE_ADDR_L_OFFSET_V1(i));
          wah = readl(data->base + GPU_ASYNC_REG_WRITE_ADDR_H_OFFSET_V1(i));
          ws = readl(data->base + GPU_ASYNC_REG_WRITE_SIZE_OFFSET_V1(i));
-      }
-      else {
+      } else {
          wal = readl(data->base + GPU_ASYNC_REG_WRITE_ADDR_L_OFFSET_V4(i));
          wah = readl(data->base + GPU_ASYNC_REG_WRITE_ADDR_H_OFFSET_V4(i));
          ws = readGpuAsyncReg(data->base, &GpuAsyncReg_RemoteWriteMaxSizeV4);
@@ -511,8 +501,7 @@ void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
          ral = readl(data->base + GPU_ASYNC_REG_READ_ADDR_L_OFFSET_V1(i));
          rah = readl(data->base + GPU_ASYNC_REG_READ_ADDR_H_OFFSET_V1(i));
          rs = readl(data->base + GPU_ASYNC_REG_REMOTE_READ_SIZE_OFFSET_V1(i));
-      }
-      else {
+      } else {
          ral = readl(data->base + GPU_ASYNC_REG_READ_ADDR_L_OFFSET_V4(i));
          rah = readl(data->base + GPU_ASYNC_REG_READ_ADDR_H_OFFSET_V4(i));
          rs = readl(data->base + GPU_ASYNC_REG_REMOTE_READ_SIZE_OFFSET_V4(i));
