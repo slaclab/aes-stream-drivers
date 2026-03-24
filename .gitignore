@@ -15,3 +15,8 @@
 
 compile_commands.json
 .cache/
+
+# AI Agents
+.vscode/
+.cursor/
+.claude/
