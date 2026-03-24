@@ -47,7 +47,7 @@
 /**
  * MAX_GPU_BUFFERS - Maximum number of GPU buffers allowed
  */
-#define MAX_GPU_BUFFERS   16
+#define MAX_GPU_BUFFERS   1024
 
 /**
  * struct GpuBuffer - Represents a single GPU buffer
@@ -62,8 +62,8 @@
  */
 struct GpuBuffer {
    uint32_t write;
-   uint64_t address;
    uint32_t size;
+   uint64_t address;
    nvidia_p2p_page_table_t *pageTable;
    struct nvidia_p2p_dma_mapping *dmaMapping;
 };
@@ -93,6 +93,8 @@ struct GpuBuffers {
 struct GpuData {
    uint8_t * base;
    uint32_t offset;
+   int32_t version;
+   uint32_t maxBuffers;
    struct GpuBuffers writeBuffers;
    struct GpuBuffers readBuffers;
 };
@@ -105,6 +107,6 @@ int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg);
 void Gpu_FreeNvidia(void * data);
 int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg);
 void Gpu_Show(struct seq_file *s, struct DmaDevice *dev);
-
+int32_t Gpu_GetVersion(struct DmaDevice *dev);
 
 #endif  // __GPU_ASYNC_2_H__

@@ -21,10 +21,10 @@ CC       := $(CROSS_COMPILE)g++
 DEF      :=
 BIN      := $(HOME)/bin
 OBJ      := $(HOME)/.obj
-CFLAGS   := -O2 -Wall -I$(HOME)/../../include -I$(HOME)/../../common/app_lib -fpic --std=c++11 -DDEFAULT_AXI_DEVICE=\"/dev/datadev_0\"
+CFLAGS   := -O2 -g -Wall -I$(HOME)/../../include -I$(HOME)/../../common/app_lib -fpic --std=c++11 -DDEFAULT_AXI_DEVICE=\"/dev/datadev_0\"
 LFLAGS   := -lpthread
 NVCC     ?= /usr/local/cuda/bin/nvcc
-NVCCFLAGS := -O2 -I$(HOME)/../../include -I$(HOME)/../../common/app_lib --gpu-architecture=compute_100 -lcuda
+NVCCFLAGS := -O2 -g -I$(HOME)/../../include -I$(HOME)/../../common/app_lib --gpu-architecture=compute_100 -lcuda
 
 # Source and Object Directories
 LIB_DIR  := $(HOME)/../../common/app_lib

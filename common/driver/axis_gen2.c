@@ -446,14 +446,14 @@ void AxisG2_Init(struct DmaDevice *dev) {
    // Allocate DMA buffers based on configuration mode
    if (dev->cfgMode & AXIS2_RING_ACP) {
       // Allocate read and write buffers in contiguous physical memory
-      hwData->readAddr   = kzalloc(size, GFP_DMA | GFP_KERNEL);
+      hwData->readAddr   = kzalloc(size, GFP_KERNEL);
       hwData->readHandle = virt_to_phys(hwData->readAddr);
-      hwData->writeAddr   = kzalloc(size, GFP_DMA | GFP_KERNEL);
+      hwData->writeAddr   = kzalloc(size, GFP_KERNEL);
       hwData->writeHandle = virt_to_phys(hwData->writeAddr);
    } else {
       // Allocate coherent DMA buffers for read and write operations
-      hwData->readAddr = dma_alloc_coherent(dev->device, size, &(hwData->readHandle), GFP_DMA | GFP_KERNEL);
-      hwData->writeAddr = dma_alloc_coherent(dev->device, size, &(hwData->writeHandle), GFP_DMA | GFP_KERNEL);
+      hwData->readAddr = dma_alloc_coherent(dev->device, size, &(hwData->readHandle), GFP_KERNEL);
+      hwData->writeAddr = dma_alloc_coherent(dev->device, size, &(hwData->writeHandle), GFP_KERNEL);
    }
 
    // Log buffer addresses
