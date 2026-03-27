@@ -1,167 +1,238 @@
-# Testing Strategy
+# Testing Patterns
 
-**Analysis Date:** 2026-03-25
+**Analysis Date:** 2026-03-26
 
 ## Test Framework
 
-**Runner:** None detected - No formal test framework (pytest, Google Test, etc.)
+**Runner:** None — no automated test framework (no pytest, Google Test, Catch2, KUnit, etc.)
 
-**Assertion Library:** None - Manual assertions via `printf` and return codes
+**Assertion Library:** None — correctness is verified by visual inspection of printed output and comparison of expected vs actual data patterns (PRBS integrity checks).
 
 **Run Commands:**
-- No automated test commands defined in Makefile
-- Applications serve as functional tests
+```bash
+# Build driver and apps together
+make driver      # builds kernel module for all installed kernel versions
+make app         # builds all userspace test applications
+
+# Run rate test (requires loaded driver and hardware)
+cd data_dev/app && make
+bin/dmaRate --count=100000        # terminal 1: reads and measures throughput
+bin/dmaWrite 0 --count=1000000    # terminal 2: sends data
+```
 
 ## Test File Organization
 
-**Location:**
-- Test applications co-located with source code
-- `common/app/` - Test applications (e.g., `dmaRead.cpp`, `dmaWrite.cpp`, `dmaLoopTest.cpp`)
-- `data_dev/app/src/` - Data device test applications (e.g., `test.cpp`, `dmaRate.cpp`)
-- `rce_stream/app/`, `rce_memmap/` - RCE module tests
+There are no dedicated unit test files. "Tests" are functional application programs compiled as standalone binaries and run manually against real hardware.
 
-**Naming:**
-- Test files named descriptively: `dmaRead.cpp`, `dmaWrite.cpp`, `dmaLoopTest.cpp`
-- Some use `test.cpp` in subdirectories
-
-**Structure:**
+**Application test source:**
 ```
-common/app/           # Core DMA test apps
-├── dmaRead.cpp       # DMA read testing
-├── dmaWrite.cpp      # DMA write testing
-├── dmaSetDebug.cpp   # Debug level testing
-└── dmaLoopTest.cpp   # Bidirectional loopback test
+common/app/
+  dmaRead.cpp       # Reads DMA frames, validates PRBS, prints stats
+  dmaWrite.cpp      # Writes DMA frames with configurable dest/flags/size
+  dmaLoopTest.cpp   # Multi-threaded write+read loop test with PRBS checking
+  dmaSetDebug.cpp   # Enables kernel debug logging via ioctl
 
-data_dev/app/src/     # Data device tests
-├── test.cpp          # Basic functionality tests
-└── dmaRate.cpp       # Rate testing with threads
+common/app_lib/
+  PrbsData.cpp      # PRBS generator/checker (shared library for test apps)
+  PrbsData.h
+  AppUtils.h        # Shared arg parsing and utility helpers
 
-rce_stream/app/       # RCE stream tests (Makefile-based)
-rce_memmap/app/       # RCE memory map tests
+data_dev/app/src/
+  test.cpp          # Minimal write benchmark (10,000 DMA writes, measures time)
+  dmaRate.cpp       # Sustained read throughput measurement with latency stats
+  rdmaTest.cu       # GPUDirect RDMA test (CUDA, requires NVIDIA hardware)
 ```
 
 ## Test Structure
 
-**Suite Organization:**
+### Application Design Pattern
+
+All test applications follow the same structure:
+
 ```cpp
-// Example from common/app/dmaRead.cpp
-int main(int argc, char **argv) {
-   // Parse arguments
-   argp_parse(&argp, argc, argv, 0, 0, &args);
+// 1. Parse args with argp
+struct PrgArgs { ... };
+static struct PrgArgs DefArgs = { "/dev/datadev_0", ... };
+static struct argp_option options[] = { ... };
+error_t parseArgs(int key, char *arg, struct argp_state *state) { ... }
+static struct argp argp = {options, parseArgs, args_doc, doc};
 
-   // Open device
-   s = open(args.path, O_RDWR);
+// 2. Open device
+int32_t s = open("/dev/datadev_0", O_RDWR);
 
-   // Setup buffers (malloc or dmaMapDma)
+// 3. Configure via ioctl (set mask, get buffer count, etc.)
+dmaSetMaskBytes(s, mask);
 
-   // Run test loop
-   do {
-      // Perform operation (read/write)
-      // Validate results
-      // Update counters
-   } while (count < args.count);
-
-   // Cleanup
-   close(s);
-   return 0;
+// 4. Run operation loop
+while (...) {
+    dmaWrite(s, data, size, dest, flags);  // or dmaRead, dmaReadBulk, etc.
 }
+
+// 5. Print results / check PRBS integrity
+// 6. close(s)
 ```
 
-**Patterns:**
-- **Setup:** `open()` device, allocate buffers
-- **Execution:** Loop with performance measurements
-- **Teardown:** `close()` device, free buffers
-- **Assertions:** Manual checks via return values, PRBS validation
-- **PRBS Validation:** `PrbsData` class processes data for integrity checks
+### PRBS Integrity Checking
 
-## Mocking
+`common/app_lib/PrbsData.cpp` implements a configurable LFSR-based PRBS (Pseudo-Random Binary Sequence) generator. Test apps (`dmaRead`, `dmaLoopTest`) call `prbs.processData(buffer, size)` on received frames to verify data integrity end-to-end. A mismatch indicates data corruption.
 
-**Framework:** None - Direct hardware interaction
+The writer side generates frames with `prbs.genData(buffer, size)` before transmitting.
 
-**Patterns:**
-- No mocking framework used
-- Hardware abstraction via driver interfaces
-- Test applications communicate directly with hardware via `/dev/datadev_*` devices
+### Rate / Throughput Testing
 
-**What to Mock:**
-- Not applicable - tests require actual hardware
+`data_dev/app/src/dmaRate.cpp` and the loop test in `common/app/dmaLoopTest.cpp` measure:
+- Frames per second
+- Bandwidth (bytes/sec)
+- Read latency (microseconds)
+- Return latency (microseconds)
 
-**What NOT to Mock:**
-- Not applicable - all tests are integration/e2e style
+Results are printed as a formatted table to stdout. Pass/fail is manual inspection — no assertions or exit codes for performance thresholds.
 
-## Fixtures and Factories
+### Thread-Based Load Testing
 
-**Test Data:**
-```cpp
-// PRBS test data generation
-PrbsData prbs(32, 4, 1, 2, 6, 31);  // Configuration for generator
-prbs.genData(data, size);           // Generate test pattern
-prbs.processData(data, size);       // Verify received data
+`dmaLoopTest.cpp` spawns configurable numbers of write and read `pthread` threads to simulate concurrent multi-channel usage. Thread count and destination are command-line configurable.
+
+## How to Test
+
+### Step 1: Build
+
+```bash
+# On the target machine with the hardware installed
+cd /path/to/aes-stream-drivers
+make driver    # compiles datadev.ko
+make app       # compiles test binaries
 ```
 
-**Location:**
-- Test data generated on-the-fly via PRBS (Pseudo-Random Bit Sequence)
-- No static fixture files
+### Step 2: Load the Driver
 
-## Coverage
+```bash
+# Insert the kernel module
+sudo insmod data_dev/driver/datadev.ko
 
-**Requirements:** None enforced
+# Verify device nodes created
+ls /dev/datadev_*
 
-**View Coverage:**
-- No coverage tools integrated
-
-## Test Types
-
-**Unit Tests:**
-- None detected - No isolated unit tests for individual functions
-
-**Integration Tests:**
-- **DMA Operations:** `dmaRead.cpp`, `dmaWrite.cpp`
-- **Loopback Tests:** `dmaLoopTest.cpp` - Creates bidirectional read/write threads
-- **Rate Testing:** `data_dev/app/src/dmaRate.cpp` - Multi-threaded performance testing
-- **GPU Integration:** `data_dev/app/src/rdmaTest.cu` - CUDA-based GPU testing
-
-**E2E Tests:**
-- All applications serve as E2E tests
-- Test entire driver stack from user space to hardware
-
-## Common Patterns
-
-**Async Testing:**
-```cpp
-// Polling with select() for readiness
-fd_set fds;
-struct timeval timeout;
-FD_ZERO(&fds);
-FD_SET(s, &fds);
-timeout.tv_sec = 2;
-timeout.tv_usec = 0;
-ret = select(s+1, &fds, NULL, NULL, &timeout);
+# Check kernel log for init messages
+dmesg | tail -20
 ```
 
-**Error Testing:**
-```cpp
-// Check return values
-if ((s = open(args.path, O_RDWR)) < 0) {
-   printf("Error opening %s\n", args.path);
-   return 1;
-}
-if ((rxData = malloc(maxSize)) == NULL) {
-   printf("Failed to allocate rxData!\n");
-   return 0;
-}
+### Step 3: Run Functional Tests
+
+**Basic write test:**
+```bash
+# data_dev/app
+bin/test        # writes 10,000 frames, prints elapsed time and rate
 ```
 
-**Performance Testing:**
-```cpp
-// Time-based measurements
-gettimeofday(&startTime, NULL);
-// ... operations ...
-gettimeofday(&endTime, NULL);
-timersub(&endTime, &startTime, &diffTime);
-rate = (float)count / duration;
+**Throughput test (two terminals):**
+```bash
+# Terminal 1
+bin/dmaRate --count=100000
+
+# Terminal 2
+bin/dmaWrite 0 --count=1000000
 ```
+
+**Loop test with PRBS checking:**
+```bash
+common/app/dmaLoopTest --path=/dev/datadev_0 --dest=0 --size=10000
+```
+
+**Read test with PRBS validation:**
+```bash
+common/app/dmaRead --path=/dev/datadev_0 --dest=0 --prbsen
+```
+
+**GPU RDMA test (requires NVIDIA hardware and CUDA):**
+```bash
+cd data_dev/app && make cuda
+sudo bin/rdmaTest -s 0x20000 -c 10 -vv
+```
+
+### Step 4: Inspect /proc Entry
+
+Each device creates a `/proc/<devName>` entry with driver statistics:
+
+```bash
+cat /proc/datadev_0    # shows buffer counts, queue depths, hardware state
+```
+
+### Step 5: Debug Logging
+
+Enable verbose kernel logging at runtime:
+
+```bash
+common/app/dmaSetDebug --path=/dev/datadev_0 --set=1
+dmesg -w    # watch kernel log for per-frame debug output
+```
+
+**Note from README:** Do not leave debug enabled during performance tests — it causes IRQ handler overhead that significantly degrades throughput.
+
+## CI/CD Pipeline
+
+Pipeline defined in `.github/workflows/aes_ci.yml`, runs on every push.
+
+### Jobs
+
+**`test_and_document`** (ubuntu-24.04):
+- Installs Python 3.12 and pip dependencies (`pip_requirements.txt`)
+- Checks for trailing whitespace and tabs in `*.c`, `*.cpp`, `*.h`, `*.sh`, `*.py`
+- Runs `cpplint` on all C/C++ source files
+
+**`build`** (matrix across 5 containers):
+
+| Container | Kernel(s) Tested |
+|-----------|-----------------|
+| `ubuntu:22.04` | 5.19, 6.5, 6.8 |
+| `ubuntu:24.04` | 6.8 |
+| `rockylinux:9` | 5.14 (RHEL9) |
+| `debian:experimental` | Latest released |
+| `ghcr.io/jjl772/centos7-vault` | 3.10 (RHEL7) |
+
+Each build job:
+1. Installs kernel headers for target distro
+2. Compiles kernel module: `make driver`
+3. Compiles userspace apps: `make app`
+4. `debian:experimental` also runs:
+   - `sparse` (`make driver C=2 CF=-Wsparse-error`)
+   - `clang-tidy` via `bear -- make driver app` + `scripts/filter-clangdb.py` + `scripts/run-clang-tidy.py`
+
+**`gen_release`**: Auto-generates GitHub releases (depends on `test_and_document`).
+
+**`generate_dkms`**: Builds and uploads a DKMS tarball on tagged commits.
+
+### What CI Does NOT Test
+
+- No kernel module load/unload testing in CI (no hardware, no `insmod`)
+- No functional DMA transfer tests in CI
+- No PRBS data integrity checks in CI
+- No concurrent access or stress tests in CI
+- No GPU/RDMA path tested in CI
+- Driver correctness is validated only by manual hardware testing
+
+## Coverage Gaps
+
+**No automated kernel-level tests:**
+The driver has no KUnit tests, no kselftest integration, and no mock-hardware test shims. All correctness verification requires actual FPGA/PCIe hardware.
+
+**No regression tests for ioctl interface:**
+The userspace ioctl API (`DmaDriver.h` command codes) is not covered by any automated test. Breaking changes would only surface during manual testing.
+
+**No concurrency stress tests in CI:**
+Multi-descriptor opens, simultaneous read/write from multiple processes, and mask collision scenarios are only exercised by `dmaLoopTest` which requires hardware.
+
+**No error-injection tests:**
+Buffer exhaustion, IRQ storms, DMA errors, and driver removal under load are not tested in any automated way.
+
+**No 32-bit addressing path test:**
+The `is32` field in `DmaWriteData` and corresponding pointer truncation in `Dma_Read` has no automated test coverage.
+
+**GPU async path:**
+`gpu_async.c` and the `rdmaTest.cu` application are only compiled when `NVIDIA_DRIVERS` is set, and CI does not exercise this path at all.
+
+**RCE stream / rce_memmap / rce_hp_buffers:**
+These subdrivers (`rce_stream/`, `rce_memmap/`, `rce_hp_buffers/`) have no app-level tests and are not built or tested in CI.
 
 ---
 
-*Testing analysis: 2026-03-25*
+*Testing analysis: 2026-03-26*

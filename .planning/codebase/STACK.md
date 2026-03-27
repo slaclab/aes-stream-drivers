@@ -1,114 +1,130 @@
 # Technology Stack
 
-**Analysis Date:** 2026-03-25
+**Analysis Date:** 2026-03-26
 
 ## Languages
 
 **Primary:**
-- C [Kernel space] - Used for all Linux kernel drivers (datadev, rce_stream, rce_memmap, rce_hp_buffers)
-- C++ [User space] - Used for application code (dmaRead, dmaWrite, dmaLoopTest, dmaRate, test)
+- C (C99/C11) - All Linux kernel driver code: `common/driver/`, `rce_stream/driver/src/`, `rce_memmap/driver/src/`, `rce_hp_buffers/driver/src/`, `Yocto/recipes-kernel/*/files/`
+- C++ (C++11) - All userspace application code: `data_dev/app/src/`, `rce_stream/app/`, `common/app/`, `common/app_lib/`
 
 **Secondary:**
-- Shell [Build scripts] - Makefiles and build/load scripts
-- Python [Utilities] - run-clang-tidy.py, filter-clangdb.py, uploadTag.py
-- BitBake [Yocto recipes] - Recipe files for Yocto build system
+- CUDA (`.cu`) - GPU test application: `data_dev/app/src/rdmaTest.cu`
+- Python 3.12 - Utility scripts: `scripts/run-clang-tidy.py`, `scripts/filter-clangdb.py`, `scripts/uploadTag.py`
+- Bash - Build and load scripts: `data_dev/driver/comp_and_load_drivers.sh`, `data_dev/driver/build-nvidia.sh`, `data_dev/scripts/load_datadev.sh`
+- BitBake - Yocto recipes: `Yocto/recipes-kernel/`, `Yocto/recipes-tests/`
 
 ## Runtime
 
 **Environment:**
-- Linux Kernel - Driver runtime environment
-- User space Linux - Application runtime environment
+- Linux kernel space - All driver modules (`.ko` files)
+- Linux userspace - Application binaries
 
-**Kernel Versions:**
-- Support for multiple kernel versions via build system discovery
-- Kernel version detection via `/lib/modules/*/build`
+**Kernel Version Support:**
+- Minimum: 3.10 (RHEL7/CentOS7; `KERNEL_VERSION(3, 10, 0)` compatibility guards present)
+- Tested range: 3.10, 5.14 (RHEL9 frankenstein), 5.15, 5.19, 6.5, 6.8, plus latest Debian experimental
+- RHEL/Rocky Linux 9 backport handling: `RHEL_RELEASE_VERSION` macros for 9.3/9.4 backports
+- Key compatibility boundaries in `common/driver/dma_common.c`:
+  - `< 4.16`: custom `__poll_t` typedef
+  - `>= 5.6.0`: `proc_ops` struct (vs legacy `file_operations` for procfs)
+  - `>= 6.4.0` / RHEL 9.4: `class_create()` signature change
 
-**Build System:**
-- GNU Make - Primary build system
-- Cross-compile support for ARM/RCE targets
+**Package Manager:**
+- None (kernel module; no package manager for driver itself)
+- Python pip for CI tooling: `pip_requirements.txt` (`pygithub`, `cpplint`)
 
 ## Frameworks
 
 **Core:**
-- Linux Kernel Driver Framework
-  - Character device driver model
-  - DMA subsystem (dma_alloc_coherent, dma_free_coherent)
-  - PCI/PCIe subsystem (for PCIe cards)
-  - Platform driver framework (for RCE devices)
-  - Memory mapping (ioremap, iounmap)
+- Linux Kernel Module Framework
+  - `linux/module.h`, `linux/moduleparam.h` - Module lifecycle and parameter handling
+  - Character device model - `cdev_init()`, `cdev_add()`, `alloc_chrdev_region()`
+  - PCI subsystem - `pci_register_driver()`, `pci_enable_device()`, `pci_request_regions()`
+  - DMA mapping API - `dma_alloc_coherent()`, `dma_map_single()`, kernel 5.15+ `dma_alloc_pages()`
+  - Interrupt handling - `request_irq()`, `free_irq()`
+  - Workqueue - `linux/workqueue.h`, `struct work_struct`, `struct delayed_work`
+  - Wait queue - `wait_queue_head_t` for blocking read/poll
+  - Spinlock - `spinlock_t` for IRQ-safe buffer queue operations
+  - Proc filesystem - `linux/proc_fs.h`, `linux/seq_file.h` for `/proc/datadev_*`
+  - Memory-mapped I/O - `ioremap()`, `iounmap()`, `request_mem_region()`
 
 **Testing:**
-- PRBS (Pseudo-Random Binary Sequence) - `common/app_lib/PrbsData.cpp` for data integrity testing
-- DMA loopback testing - `common/app/dmaLoopTest.cpp`
+- PRBS (Pseudo-Random Binary Sequence) data integrity: `common/app_lib/PrbsData.cpp`, `common/app_lib/PrbsData.h`
+- DMA loopback: `common/app/dmaLoopTest.cpp`
+- RDMA GPU test: `data_dev/app/src/rdmaTest.cu` (requires CUDA)
 
 **Build/Dev:**
-- Make - Build system with targets: `app`, `driver`, `rce`
-- clang-tidy - Static analysis with custom config (`.clang-tidy`)
-- clangd - Language server support (`.clangd`)
+- GNU Make - Primary build system; targets: `app`, `driver`, `rce`
+- DKMS - Dynamic Kernel Module Support: `data_dev/driver/dkms.conf`, `data_dev/driver/dkms-gpu.conf`
+- clang-tidy - Static analysis: `.clang-tidy` (`bugprone-*`, `performance-*`)
+- clangd - Language server: `.clangd`
+- cpplint - C/C++ style linter: `CPPLINT.cfg` (line length 250, several checks disabled for kernel code)
+- bear - Compilation database generator (used with `bear -- make driver app` in CI)
+- sparse - Kernel static checker (`C=2 CF=-Wsparse-error`, Debian experimental only)
 
 ## Key Dependencies
 
 **Critical:**
-- Linux Kernel Headers - Required for all kernel modules
-- DMA subsystem APIs - Core driver functionality
+- Linux kernel headers - Required for all kernel modules; resolved from `/lib/modules/$(KVER)/build`
+- `nv-p2p.h` (NVIDIA P2P API) - Required for GPU build; found under `/usr/src/nvidia-*` or `/usr/src/nvidia-open-*`
 
-**GPU Support:**
-- NVIDIA kernel drivers - For GPUDirect RDMA support
-  - `nv-p2p.h` - NVIDIA Peer-to-Peer API
-  - `nvidia_p2p_get_pages()`, `nvidia_p2p_dma_map_pages()` - Memory pinning and mapping
+**GPU/RDMA (optional, enabled by `NVIDIA_DRIVERS` build variable):**
+- NVIDIA open kernel driver source tree - Provides `nv-p2p.h`, `nvidia_p2p_get_pages()`, `nvidia_p2p_dma_map_pages()`, `nvidia_p2p_dma_unmap_pages()`
+- Module.symvers from NVIDIA driver - Linked via `KBUILD_EXTRA_SYMBOLS`
 
-**Infrastructure:**
--.argp - Argument parsing in user-space applications
-- `linux/module.h` - Kernel module infrastructure
-- `linux/dma-mapping.h` - DMA buffer management
+**Userspace Applications:**
+- `libpthread` - Linked via `-lpthread` in `data_dev/app/Makefile`
+- CUDA toolkit (`nvcc` at `/usr/local/cuda/bin/nvcc`) - For `rdmaTest.cu` only
+- CUDA compute capability: `--gpu-architecture=compute_100` in `data_dev/app/Makefile`
 
-**Yocto Dependencies:**
-- bitbake - Build tool
-- OpenEmbedded class `module.bbclass` - Kernel module packaging
+**CI Python:**
+- `pygithub` - Tag/release upload: `scripts/uploadTag.py`
+- `cpplint` - C/C++ linting in CI pipeline
 
 ## Configuration
 
-**Environment:**
-- Kernel version discovery from `/lib/modules/*/build`
-- Architecture detection via `uname -m`
-- Cross-compile toolchain for ARM/RCE targets
-- Xilinx Vivado tools for RCE builds (`/sdf/group/faders/tools/xilinx/`)
+**Build-Time:**
+- `KVER` - Target kernel version (defaults to `uname -r`)
+- `ARCH` - Target architecture (defaults to `uname -m`; `arm` for RCE cross-builds)
+- `CROSS_COMPILE` - Cross-compiler prefix (e.g., `arm-xilinx-linux-gnueabi-` for RCE)
+- `NVIDIA_DRIVERS` - Path to NVIDIA driver source; enables `DATA_GPU=1` and `gpu_async.o` compilation
+- `GITV` - Version string from `git describe --tags`; embedded as `GITV` in driver
+- Compile flags: `-DDMA_IN_KERNEL=1 -DPCIE_DMA=1` always set for `datadev`
 
-**Build Config:**
-- `KVER` - Target kernel version
-- `ARCH` - Target architecture (arm, x86_64)
-- `CROSS_COMPILE` - Cross-compiler prefix (e.g., `arm-xilinx-linux-gnueabi-`)
-- `NVIDIA_DRIVERS` - Path to NVIDIA driver source tree
-
-**Key configs required:**
-- DMA buffer counts (TX/RX) - Configurable at module load time
-- Buffer size configuration
-- Buffer mode (coherent, streaming, ARM ACP)
-- IRQ holdoff and timeout settings
+**Module Load-Time Parameters (`/etc/modprobe.d/datadev.conf`):**
+- `cfgTxCount` - TX buffer count (default: 1024)
+- `cfgRxCount` - RX buffer count (default: 1024)
+- `cfgSize` - Buffer size in bytes (default: `0x20000` = 131072)
+- `cfgMode` - Buffer mode: `BUFF_COHERENT=0x1`, `BUFF_STREAM=0x2`, `BUFF_ARM_ACP=0x4`
+- `cfgCont` - Continuous mode (default: 1)
+- `cfgIrqHold` - IRQ holdoff cycles (default: 10000)
+- `cfgIrqDis` - Disable IRQ (default: 0)
+- `cfgBgThold0`-`cfgBgThold7` - Background threshold array (default: all 0)
+- `cfgTimeout` - DMA timeout value (default: `0xFFFF`)
+- `cfgDevName` - Device name index (default: 0)
+- `cfgDebug` - Debug logging (default: 0)
 
 ## Platform Requirements
 
 **Development:**
-- Linux host with kernel headers
-- GCC compiler
-- Make build system
-- For ARM/RCE: Xilinx cross-compiler toolchain
+- Linux host with kernel headers installed
+- GCC (version matching kernel build; detected from `/proc/version` in `comp_and_load_drivers.sh`)
+- GNU Make
+- For RCE/ARM: Xilinx cross-compiler toolchain (`arm-xilinx-linux-gnueabi-`) and Vivado 2016.4
 
-**Production:**
-- Target platforms:
-  - x86_64 servers with PCIe cards (TID-AIR, GPCC, etc.)
-  - ARM64 RCE (Remote Computer Element) platforms
-  - NVIDIA GPU systems (for GPUDirect RDMA)
-- Linux kernel 3.10+ (with kernel version-specific compatibility checks)
+**Production Targets:**
+- x86_64 Linux servers with SLAC PCIe cards (PCI vendor `0x1a4a`, device `0x2030`)
+- NVIDIA GPU servers with GPUDirect RDMA (optional)
+- ARM RCE platforms (Xilinx Zynq-based; kernel `linux-xlnx-v2016.4`)
+- Yocto-based embedded Linux (AXI SoC Ultra+ platforms)
 
-**Hardware Targets:**
-- TID-AIR generic DAQ PCIe cards
-- Xilinx-based PCIe cards (Alveo U50, U200, U250, U280, U55C, etc.)
-- KCU105, KC705, VCU128, Varium C1100
-- Abaco PC821 Ku085, Ku115
-- BittWare XUP-VV8, XUP-VV8U9P, XUP-VV8U13P
-- RCE platforms with AXI stream DMA hardware
+**Supported Distros (CI-verified):**
+- Ubuntu 22.04 (kernels 5.19, 6.5, 6.8)
+- Ubuntu 24.04 (kernel 6.8)
+- Debian experimental (latest kernel)
+- Rocky Linux 9 (kernel 5.14)
+- CentOS 7 (kernel 3.10; via `ghcr.io/jjl772/centos7-vault`)
 
 ---
 
-*Stack analysis: 2026-03-25*
+*Stack analysis: 2026-03-26*
