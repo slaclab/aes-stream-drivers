@@ -25,3 +25,4 @@ CLAUDE.md
 # Sphinx and Doxygen generated output
 docs/_build/
 docs/_doxygen/
+_doxygen/
