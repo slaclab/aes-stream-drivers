@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.abspath('.'))
 
 # -- Project information -----------------------------------------------------
 project = 'aes-stream-drivers'
-copyright = '2024, SLAC National Accelerator Laboratory'
+copyright = '2026, SLAC National Accelerator Laboratory'
 author = 'SLAC AES Group'
 
 # Version: CI sets DOCS_VERSION to the git tag (e.g. "v3.2.1")
