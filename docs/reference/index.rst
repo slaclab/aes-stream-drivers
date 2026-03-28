@@ -8,9 +8,9 @@ with precision and completeness.
 .. toctree::
    :maxdepth: 1
 
+   dma-api
+   axis-api
+   ioctl-table
+   module-parameters
+   device-nodes
    dma-legacy
-
-.. note::
-
-   Full API reference (generated from Doxygen comments via Breathe) is
-   planned for Phase 2 of this documentation project.

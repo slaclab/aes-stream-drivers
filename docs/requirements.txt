@@ -1,6 +1,6 @@
 # Sphinx documentation dependencies
-# Verified against: https://pypi.org/project/sphinx/ (7.x stable)
-sphinx==7.4.7
-sphinx-rtd-theme==2.0.0
-breathe==4.35.0
+# Verified working: sphinx 8.1.3, breathe 4.36.0, sphinx-rtd-theme 3.0.2
+sphinx==8.1.3
+sphinx-rtd-theme==3.0.2
+breathe==4.36.0
 sphinx-copybutton==0.5.2
