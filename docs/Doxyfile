@@ -1,0 +1,72 @@
+# Doxyfile for aes-stream-drivers
+# Run from the docs/ directory: doxygen Doxyfile
+# Output: _doxygen/xml/ (consumed by Breathe/Sphinx)
+
+#---------------------------------------------------------------------------
+# Project
+#---------------------------------------------------------------------------
+PROJECT_NAME           = "aes-stream-drivers"
+PROJECT_NUMBER         =
+PROJECT_BRIEF          = "SLAC AES Stream Drivers — User Space API"
+
+#---------------------------------------------------------------------------
+# Input
+#---------------------------------------------------------------------------
+INPUT                  = ../include/
+RECURSIVE              = YES
+FILE_PATTERNS          = *.h *.c
+EXTENSION_MAPPING      = h=C c=C
+
+#---------------------------------------------------------------------------
+# Output: XML only (Breathe consumes this; no HTML site from Doxygen)
+#---------------------------------------------------------------------------
+OUTPUT_DIRECTORY       = _doxygen
+GENERATE_HTML          = NO
+GENERATE_LATEX         = NO
+GENERATE_XML           = YES
+XML_OUTPUT             = xml
+XML_PROGRAMLISTING     = NO
+
+#---------------------------------------------------------------------------
+# Comment extraction
+#---------------------------------------------------------------------------
+JAVADOC_AUTOBRIEF      = YES
+QT_AUTOBRIEF           = NO
+AUTOLINK_SUPPORT       = YES
+
+#---------------------------------------------------------------------------
+# C/kernel specifics
+#---------------------------------------------------------------------------
+OPTIMIZE_OUTPUT_FOR_C  = YES
+TYPEDEF_HIDES_STRUCT   = NO
+EXTRACT_ALL            = NO
+EXTRACT_STATIC         = YES
+EXTRACT_ANON_NSPACES   = NO
+
+#---------------------------------------------------------------------------
+# Macro handling
+# NOTE: DMA_IN_KERNEL is intentionally NOT listed here.
+# The userspace API (dmaWrite, dmaRead, etc.) lives inside
+# #ifndef DMA_IN_KERNEL blocks. Leaving it undefined makes those
+# functions visible to Doxygen.
+#---------------------------------------------------------------------------
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = NO
+PREDEFINED             = __attribute__(x)= \
+                         __user= \
+                         __iomem= \
+                         __must_check=
+
+#---------------------------------------------------------------------------
+# Noise reduction
+#---------------------------------------------------------------------------
+STRIP_CODE_COMMENTS    = NO
+SOURCE_BROWSER         = NO
+INLINE_SOURCES         = NO
+REFERENCES_RELATION    = NO
+GENERATE_TODOLIST      = NO
+GENERATE_BUGLIST       = NO
+QUIET                  = YES
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = NO
