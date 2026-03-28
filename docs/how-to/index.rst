@@ -13,3 +13,4 @@ accomplish and provide the steps to get there.
    dkms-install
    gpudirect-setup
    multi-channel
+   github-pages-setup
