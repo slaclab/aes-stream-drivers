@@ -21,3 +21,10 @@ compile_commands.json
 .claude/
 .planning/
 CLAUDE.md
+
+# GSD planning docs
+.planning/
+
+# Sphinx and Doxygen generated output
+docs/_build/
+docs/_doxygen/
