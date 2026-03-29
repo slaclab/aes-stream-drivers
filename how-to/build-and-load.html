@@ -1,0 +1,436 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Build and Load the Driver &mdash; aes-stream-drivers 7.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=4b9d3a76"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=4be73c2b"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Cross-Compile for RCE (ARM/Zynq)" href="cross-compile-rce.html" />
+    <link rel="prev" title="How-to Guides" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            aes-stream-drivers
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/index.html">Tutorials</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/first-transfer.html">Your First Data Transfer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-1-detect-the-hardware">Step 1 — Detect the Hardware</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-2-build-the-driver-and-utilities">Step 2 — Build the Driver and Utilities</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-3-load-the-driver">Step 3 — Load the Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-4-inspect-the-proc-interface">Step 4 — Inspect the /proc Interface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-5-run-the-loopback-test">Step 5 — Run the Loopback Test</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-6-unload-the-driver">Step 6 — Unload the Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/gpudirect-first.html">Your First GPUDirect Transfer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-1-disable-the-display-manager">Step 1 — Disable the Display Manager</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-2-install-nvidia-open-kernel-modules">Step 2 — Install NVIDIA Open Kernel Modules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-3-configure-grub">Step 3 — Configure GRUB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-4-build-and-load-all-drivers">Step 4 — Build and Load All Drivers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-5-verify-gpudirect-support">Step 5 — Verify GPUDirect Support</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-6-run-rdmatest">Step 6 — Run rdmaTest</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">How-to Guides</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Build and Load the Driver</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#build-the-driver">Build the Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#load-the-driver">Load the Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#configure-persistent-loading-modprobe-d">Configure Persistent Loading (modprobe.d)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#unload-the-driver">Unload the Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#parameter-reference">Parameter Reference</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="cross-compile-rce.html">Cross-Compile for RCE (ARM/Zynq)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="cross-compile-rce.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cross-compile-rce.html#build-at-slac-shortcut">Build at SLAC (Shortcut)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="cross-compile-rce.html#build-outside-slac">Build Outside SLAC</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="cross-compile-rce.html#arm-zynq-target">ARM/Zynq Target</a></li>
+<li class="toctree-l4"><a class="reference internal" href="cross-compile-rce.html#x86-buildroot-target">x86 Buildroot Target</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="cross-compile-rce.html#output-location">Output Location</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="yocto-integration.html">Integrate into a Yocto Project</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="yocto-integration.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="yocto-integration.html#step-1-create-or-identify-your-layer">Step 1 — Create or Identify Your Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="yocto-integration.html#step-2-copy-the-recipe">Step 2 — Copy the Recipe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="yocto-integration.html#step-3-enable-the-module-in-your-build">Step 3 — Enable the Module in Your Build</a></li>
+<li class="toctree-l3"><a class="reference internal" href="yocto-integration.html#step-4-set-buffer-parameters">Step 4 — Set Buffer Parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="yocto-integration.html#step-5-add-the-device-tree-node">Step 5 — Add the Device Tree Node</a></li>
+<li class="toctree-l3"><a class="reference internal" href="yocto-integration.html#step-6-build">Step 6 — Build</a></li>
+<li class="toctree-l3"><a class="reference internal" href="yocto-integration.html#aximemorymap-variant">aximemorymap Variant</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="dkms-install.html">Install via DKMS</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="dkms-install.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dkms-install.html#step-1-copy-sources-to-the-dkms-tree">Step 1 — Copy Sources to the DKMS Tree</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dkms-install.html#step-2-set-the-package-version">Step 2 — Set the Package Version</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dkms-install.html#step-3-add-build-and-install">Step 3 — Add, Build, and Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dkms-install.html#verify">Verify</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dkms-install.html#gpu-variant">GPU Variant</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="gpudirect-setup.html">Set Up GPUDirect RDMA</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="gpudirect-setup.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="gpudirect-setup.html#step-1-disable-display-manager-services">Step 1 — Disable Display Manager Services</a></li>
+<li class="toctree-l3"><a class="reference internal" href="gpudirect-setup.html#step-2-remove-existing-nvidia-drivers">Step 2 — Remove Existing NVIDIA Drivers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="gpudirect-setup.html#step-3-install-nvidia-open-kernel-modules">Step 3 — Install NVIDIA Open Kernel Modules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="gpudirect-setup.html#step-4-configure-grub">Step 4 — Configure GRUB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="gpudirect-setup.html#step-5-build-and-load-both-drivers">Step 5 — Build and Load Both Drivers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="gpudirect-setup.html#verify">Verify</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="multi-channel.html">Route Multiple DMA Channels</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="multi-channel.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="multi-channel.html#subscribe-to-a-single-channel">Subscribe to a Single Channel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="multi-channel.html#subscribe-to-multiple-channels">Subscribe to Multiple Channels</a></li>
+<li class="toctree-l3"><a class="reference internal" href="multi-channel.html#send-to-a-specific-channel">Send to a Specific Channel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="multi-channel.html#receive-and-return-buffers">Receive and Return Buffers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="multi-channel.html#multiple-clients-on-one-device">Multiple Clients on One Device</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="github-pages-setup.html">Enable GitHub Pages (One-Time Setup)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="github-pages-setup.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="github-pages-setup.html#steps">Steps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="github-pages-setup.html#verification">Verification</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../reference/dma-api.html">DMA Driver API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_VERSION"><code class="docutils literal notranslate"><span class="pre">DMA_VERSION</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_ERR_FIFO"><code class="docutils literal notranslate"><span class="pre">DMA_ERR_FIFO</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_ERR_LEN"><code class="docutils literal notranslate"><span class="pre">DMA_ERR_LEN</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_ERR_MAX"><code class="docutils literal notranslate"><span class="pre">DMA_ERR_MAX</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_ERR_BUS"><code class="docutils literal notranslate"><span class="pre">DMA_ERR_BUS</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_Buff_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_Buff_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_Buff_Size"><code class="docutils literal notranslate"><span class="pre">DMA_Get_Buff_Size</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Set_Debug"><code class="docutils literal notranslate"><span class="pre">DMA_Set_Debug</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Set_Mask"><code class="docutils literal notranslate"><span class="pre">DMA_Set_Mask</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Ret_Index"><code class="docutils literal notranslate"><span class="pre">DMA_Ret_Index</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_Index"><code class="docutils literal notranslate"><span class="pre">DMA_Get_Index</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Read_Ready"><code class="docutils literal notranslate"><span class="pre">DMA_Read_Ready</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Set_MaskBytes"><code class="docutils literal notranslate"><span class="pre">DMA_Set_MaskBytes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_Version"><code class="docutils literal notranslate"><span class="pre">DMA_Get_Version</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Write_Register"><code class="docutils literal notranslate"><span class="pre">DMA_Write_Register</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Read_Register"><code class="docutils literal notranslate"><span class="pre">DMA_Read_Register</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_RxBuff_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuff_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_TxBuff_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuff_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_TxBuffinUser_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuffinUser_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_TxBuffinHW_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuffinHW_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_TxBuffinPreHWQ_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuffinPreHWQ_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_TxBuffinSWQ_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuffinSWQ_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_TxBuffMiss_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuffMiss_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_RxBuffinUser_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuffinUser_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_RxBuffinHW_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuffinHW_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_RxBuffinPreHWQ_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuffinPreHWQ_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_RxBuffinSWQ_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuffinSWQ_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_RxBuffMiss_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuffMiss_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_GITV"><code class="docutils literal notranslate"><span class="pre">DMA_Get_GITV</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_MASK_SIZE"><code class="docutils literal notranslate"><span class="pre">DMA_MASK_SIZE</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaWrite"><code class="docutils literal notranslate"><span class="pre">dmaWrite()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaWriteIndex"><code class="docutils literal notranslate"><span class="pre">dmaWriteIndex()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaWriteVector"><code class="docutils literal notranslate"><span class="pre">dmaWriteVector()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaWriteIndexVector"><code class="docutils literal notranslate"><span class="pre">dmaWriteIndexVector()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaRead"><code class="docutils literal notranslate"><span class="pre">dmaRead()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaReadIndex"><code class="docutils literal notranslate"><span class="pre">dmaReadIndex()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaReadBulkIndex"><code class="docutils literal notranslate"><span class="pre">dmaReadBulkIndex()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaRetIndex"><code class="docutils literal notranslate"><span class="pre">dmaRetIndex()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaRetIndexes"><code class="docutils literal notranslate"><span class="pre">dmaRetIndexes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetIndex"><code class="docutils literal notranslate"><span class="pre">dmaGetIndex()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaReadReady"><code class="docutils literal notranslate"><span class="pre">dmaReadReady()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetRxBuffCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetRxBuffinUserCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffinUserCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetRxBuffinHwCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffinHwCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetRxBuffinPreHwQCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffinPreHwQCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetRxBuffinSwQCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffinSwQCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetRxBuffMissCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffMissCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetTxBuffCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetTxBuffinUserCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffinUserCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetTxBuffinHwCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffinHwCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetTxBuffinPreHwQCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffinPreHwQCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetTxBuffinSwQCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffinSwQCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetTxBuffMissCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffMissCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetBuffSize"><code class="docutils literal notranslate"><span class="pre">dmaGetBuffSize()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetBuffCount"><code class="docutils literal notranslate"><span class="pre">dmaGetBuffCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaMapDma"><code class="docutils literal notranslate"><span class="pre">dmaMapDma()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaUnMapDma"><code class="docutils literal notranslate"><span class="pre">dmaUnMapDma()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaSetDebug"><code class="docutils literal notranslate"><span class="pre">dmaSetDebug()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaAssignHandler"><code class="docutils literal notranslate"><span class="pre">dmaAssignHandler()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaSetMask"><code class="docutils literal notranslate"><span class="pre">dmaSetMask()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaInitMaskBytes"><code class="docutils literal notranslate"><span class="pre">dmaInitMaskBytes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaAddMaskBytes"><code class="docutils literal notranslate"><span class="pre">dmaAddMaskBytes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaSetMaskBytes"><code class="docutils literal notranslate"><span class="pre">dmaSetMaskBytes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaCheckVersion"><code class="docutils literal notranslate"><span class="pre">dmaCheckVersion()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetApiVersion"><code class="docutils literal notranslate"><span class="pre">dmaGetApiVersion()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaWriteRegister"><code class="docutils literal notranslate"><span class="pre">dmaWriteRegister()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaReadRegister"><code class="docutils literal notranslate"><span class="pre">dmaReadRegister()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaMapRegister"><code class="docutils literal notranslate"><span class="pre">dmaMapRegister()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaUnMapRegister"><code class="docutils literal notranslate"><span class="pre">dmaUnMapRegister()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DmaWriteData"><code class="docutils literal notranslate"><span class="pre">DmaWriteData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaWriteData.data"><code class="docutils literal notranslate"><span class="pre">data</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaWriteData.dest"><code class="docutils literal notranslate"><span class="pre">dest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaWriteData.flags"><code class="docutils literal notranslate"><span class="pre">flags</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaWriteData.index"><code class="docutils literal notranslate"><span class="pre">index</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaWriteData.size"><code class="docutils literal notranslate"><span class="pre">size</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaWriteData.is32"><code class="docutils literal notranslate"><span class="pre">is32</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaWriteData.pad"><code class="docutils literal notranslate"><span class="pre">pad</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DmaReadData"><code class="docutils literal notranslate"><span class="pre">DmaReadData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaReadData.data"><code class="docutils literal notranslate"><span class="pre">data</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaReadData.dest"><code class="docutils literal notranslate"><span class="pre">dest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaReadData.flags"><code class="docutils literal notranslate"><span class="pre">flags</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaReadData.index"><code class="docutils literal notranslate"><span class="pre">index</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaReadData.error"><code class="docutils literal notranslate"><span class="pre">error</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaReadData.size"><code class="docutils literal notranslate"><span class="pre">size</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaReadData.is32"><code class="docutils literal notranslate"><span class="pre">is32</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaReadData.ret"><code class="docutils literal notranslate"><span class="pre">ret</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DmaRegisterData"><code class="docutils literal notranslate"><span class="pre">DmaRegisterData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaRegisterData.address"><code class="docutils literal notranslate"><span class="pre">address</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaRegisterData.data"><code class="docutils literal notranslate"><span class="pre">data</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/axis-api.html">AXIS Driver API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reference/axis-api.html#c.AXIS_Read_Ack"><code class="docutils literal notranslate"><span class="pre">AXIS_Read_Ack</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/axis-api.html#c.AXIS_Write_ReqMissed"><code class="docutils literal notranslate"><span class="pre">AXIS_Write_ReqMissed</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/axis-api.html#c.axisSetFlags"><code class="docutils literal notranslate"><span class="pre">axisSetFlags()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/axis-api.html#c.axisGetFuser"><code class="docutils literal notranslate"><span class="pre">axisGetFuser()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/axis-api.html#c.axisGetLuser"><code class="docutils literal notranslate"><span class="pre">axisGetLuser()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/axis-api.html#c.axisGetCont"><code class="docutils literal notranslate"><span class="pre">axisGetCont()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/axis-api.html#c.axisReadAck"><code class="docutils literal notranslate"><span class="pre">axisReadAck()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/axis-api.html#c.axisWriteReqMissed"><code class="docutils literal notranslate"><span class="pre">axisWriteReqMissed()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/ioctl-table.html">Ioctl Command Code Reference</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reference/ioctl-table.html#dmadriver-h-commands">DmaDriver.h Commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/ioctl-table.html#axisdriver-h-commands">AxisDriver.h Commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/ioctl-table.html#axiversion-h-commands">AxiVersion.h Commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/ioctl-table.html#gpuasync-h-commands">GpuAsync.h Commands</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/module-parameters.html">Module Parameters — datadev</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/device-nodes.html">Device Nodes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reference/device-nodes.html#dev-character-devices">/dev/ — Character Devices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/device-nodes.html#proc-diagnostic-interface">/proc/ — Diagnostic Interface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/device-nodes.html#multi-device-systems">Multi-Device Systems</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/dma-legacy.html">User Space DMA API</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../explanation/index.html">Explanation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../explanation/architecture.html">Driver Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/architecture.html#the-hardware-abstraction-vtable">The Hardware Abstraction Vtable</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/architecture.html#component-relationships">Component Relationships</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/architecture.html#pcie-bar0-memory-map">PCIe BAR0 Memory Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/architecture.html#pci-device-identification">PCI Device Identification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/architecture.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../explanation/dma-modes.html">DMA Buffer Modes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/dma-modes.html#the-three-buffer-modes">The Three Buffer Modes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/dma-modes.html#why-cfgmode-4-is-rejected-for-data-dev">Why cfgMode=4 Is Rejected for data_dev</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/dma-modes.html#buffer-pool-pre-allocation">Buffer Pool Pre-Allocation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/dma-modes.html#buffer-state-machine">Buffer State Machine</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/dma-modes.html#zero-copy-data-path">Zero-Copy Data Path</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/dma-modes.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../explanation/axi-stream-protocol.html">AXI Stream Protocol</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/axi-stream-protocol.html#frame-boundaries-and-tlast">Frame Boundaries and TLAST</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/axi-stream-protocol.html#the-flags-field-fuser-luser-and-cont">The Flags Field: fuser, luser, and cont</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/axi-stream-protocol.html#channel-routing-via-tdest">Channel Routing via TDEST</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/axi-stream-protocol.html#axisg2-engine-overview">AxisG2 Engine Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/axi-stream-protocol.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../explanation/kernel-compatibility.html">Kernel Compatibility</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/kernel-compatibility.html#how-the-guards-work">How the Guards Work</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/kernel-compatibility.html#compatibility-matrix">Compatibility Matrix</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/kernel-compatibility.html#rhel-backport-detection">RHEL Backport Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/kernel-compatibility.html#minimum-and-maximum-tested-kernels">Minimum and Maximum Tested Kernels</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/kernel-compatibility.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">aes-stream-drivers</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">How-to Guides</a></li>
+      <li class="breadcrumb-item active">Build and Load the Driver</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/slaclab/aes-stream-drivers/blob/main/docs/how-to/build-and-load.rst" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="build-and-load-the-driver">
+<h1>Build and Load the Driver<a class="headerlink" href="#build-and-load-the-driver" title="Link to this heading"></a></h1>
+<p>This guide covers building the datadev kernel module for your running kernel,
+loading it with insmod, and configuring automatic loading on boot.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This guide applies to the <strong>data_dev</strong> (PCIe/x86) driver. For RCE/ARM
+cross-compilation, see <a class="reference internal" href="cross-compile-rce.html"><span class="doc">Cross-Compile for RCE (ARM/Zynq)</span></a>.</p>
+</div>
+<section id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>linux-headers-<span class="k">$(</span>uname<span class="w"> </span>-r<span class="k">)</span><span class="w"> </span>build-essential<span class="w"> </span>git
+</pre></div>
+</div>
+</section>
+<section id="build-the-driver">
+<h2>Build the Driver<a class="headerlink" href="#build-the-driver" title="Link to this heading"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/slaclab/aes-stream-drivers.git
+<span class="nb">cd</span><span class="w"> </span>aes-stream-drivers
+make<span class="w"> </span>driver
+make<span class="w"> </span>app
+</pre></div>
+</div>
+<p>Output: <code class="docutils literal notranslate"><span class="pre">install/$(uname</span> <span class="pre">-r)/datadev.ko</span></code> and userspace tools under
+<code class="docutils literal notranslate"><span class="pre">install/bin/</span></code>.</p>
+</section>
+<section id="load-the-driver">
+<h2>Load the Driver<a class="headerlink" href="#load-the-driver" title="Link to this heading"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>insmod<span class="w"> </span>install/<span class="k">$(</span>uname<span class="w"> </span>-r<span class="k">)</span>/datadev.ko<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="nv">cfgTxCount</span><span class="o">=</span><span class="m">1024</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="nv">cfgRxCount</span><span class="o">=</span><span class="m">1024</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="nv">cfgSize</span><span class="o">=</span><span class="m">131072</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="nv">cfgMode</span><span class="o">=</span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span><span class="nv">cfgCont</span><span class="o">=</span><span class="m">1</span>
+</pre></div>
+</div>
+<p>Verify the driver loaded successfully:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>lsmod<span class="w"> </span><span class="p">|</span><span class="w"> </span>grep<span class="w"> </span>datadev
+ls<span class="w"> </span>/dev/datadev_*
+cat<span class="w"> </span>/proc/datadev_0
+</pre></div>
+</div>
+</section>
+<section id="configure-persistent-loading-modprobe-d">
+<h2>Configure Persistent Loading (modprobe.d)<a class="headerlink" href="#configure-persistent-loading-modprobe-d" title="Link to this heading"></a></h2>
+<p>To load the driver automatically at boot with the same parameters, copy the
+provided configuration file:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>cp<span class="w"> </span>data_dev/driver/datadev.conf<span class="w"> </span>/etc/modprobe.d/datadev.conf
+</pre></div>
+</div>
+<p>The file sets the following options (edit to match your hardware):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>options datadev cfgTxCount=1024 cfgRxCount=1024 cfgSize=131072 cfgMode=1 cfgCont=1
+</pre></div>
+</div>
+<p>Then load the driver via modprobe:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>modprobe<span class="w"> </span>datadev
+</pre></div>
+</div>
+</section>
+<section id="unload-the-driver">
+<h2>Unload the Driver<a class="headerlink" href="#unload-the-driver" title="Link to this heading"></a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>rmmod<span class="w"> </span>datadev
+</pre></div>
+</div>
+</section>
+<section id="parameter-reference">
+<h2>Parameter Reference<a class="headerlink" href="#parameter-reference" title="Link to this heading"></a></h2>
+<p>For all available module parameters with defaults and valid ranges, see
+<a class="reference internal" href="../reference/module-parameters.html"><span class="doc">Module Parameters — datadev</span></a>.</p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="How-to Guides" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="cross-compile-rce.html" class="btn btn-neutral float-right" title="Cross-Compile for RCE (ARM/Zynq)" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, SLAC National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

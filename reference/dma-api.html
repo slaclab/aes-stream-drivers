@@ -1,0 +1,1463 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DMA Driver API &mdash; aes-stream-drivers 7.0.1 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=4b9d3a76"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=4be73c2b"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="AXIS Driver API" href="axis-api.html" />
+    <link rel="prev" title="Reference" href="index.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            aes-stream-drivers
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/index.html">Tutorials</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/first-transfer.html">Your First Data Transfer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-1-detect-the-hardware">Step 1 — Detect the Hardware</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-2-build-the-driver-and-utilities">Step 2 — Build the Driver and Utilities</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-3-load-the-driver">Step 3 — Load the Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-4-inspect-the-proc-interface">Step 4 — Inspect the /proc Interface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-5-run-the-loopback-test">Step 5 — Run the Loopback Test</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-6-unload-the-driver">Step 6 — Unload the Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/gpudirect-first.html">Your First GPUDirect Transfer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-1-disable-the-display-manager">Step 1 — Disable the Display Manager</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-2-install-nvidia-open-kernel-modules">Step 2 — Install NVIDIA Open Kernel Modules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-3-configure-grub">Step 3 — Configure GRUB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-4-build-and-load-all-drivers">Step 4 — Build and Load All Drivers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-5-verify-gpudirect-support">Step 5 — Verify GPUDirect Support</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-6-run-rdmatest">Step 6 — Run rdmaTest</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../how-to/index.html">How-to Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../how-to/build-and-load.html">Build and Load the Driver</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/build-and-load.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/build-and-load.html#build-the-driver">Build the Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/build-and-load.html#load-the-driver">Load the Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/build-and-load.html#configure-persistent-loading-modprobe-d">Configure Persistent Loading (modprobe.d)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/build-and-load.html#unload-the-driver">Unload the Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/build-and-load.html#parameter-reference">Parameter Reference</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how-to/cross-compile-rce.html">Cross-Compile for RCE (ARM/Zynq)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/cross-compile-rce.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/cross-compile-rce.html#build-at-slac-shortcut">Build at SLAC (Shortcut)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/cross-compile-rce.html#build-outside-slac">Build Outside SLAC</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/cross-compile-rce.html#arm-zynq-target">ARM/Zynq Target</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/cross-compile-rce.html#x86-buildroot-target">x86 Buildroot Target</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/cross-compile-rce.html#output-location">Output Location</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how-to/yocto-integration.html">Integrate into a Yocto Project</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#step-1-create-or-identify-your-layer">Step 1 — Create or Identify Your Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#step-2-copy-the-recipe">Step 2 — Copy the Recipe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#step-3-enable-the-module-in-your-build">Step 3 — Enable the Module in Your Build</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#step-4-set-buffer-parameters">Step 4 — Set Buffer Parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#step-5-add-the-device-tree-node">Step 5 — Add the Device Tree Node</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#step-6-build">Step 6 — Build</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#aximemorymap-variant">aximemorymap Variant</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how-to/dkms-install.html">Install via DKMS</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/dkms-install.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/dkms-install.html#step-1-copy-sources-to-the-dkms-tree">Step 1 — Copy Sources to the DKMS Tree</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/dkms-install.html#step-2-set-the-package-version">Step 2 — Set the Package Version</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/dkms-install.html#step-3-add-build-and-install">Step 3 — Add, Build, and Install</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/dkms-install.html#verify">Verify</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/dkms-install.html#gpu-variant">GPU Variant</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how-to/gpudirect-setup.html">Set Up GPUDirect RDMA</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#step-1-disable-display-manager-services">Step 1 — Disable Display Manager Services</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#step-2-remove-existing-nvidia-drivers">Step 2 — Remove Existing NVIDIA Drivers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#step-3-install-nvidia-open-kernel-modules">Step 3 — Install NVIDIA Open Kernel Modules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#step-4-configure-grub">Step 4 — Configure GRUB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#step-5-build-and-load-both-drivers">Step 5 — Build and Load Both Drivers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#verify">Verify</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how-to/multi-channel.html">Route Multiple DMA Channels</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/multi-channel.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/multi-channel.html#subscribe-to-a-single-channel">Subscribe to a Single Channel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/multi-channel.html#subscribe-to-multiple-channels">Subscribe to Multiple Channels</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/multi-channel.html#send-to-a-specific-channel">Send to a Specific Channel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/multi-channel.html#receive-and-return-buffers">Receive and Return Buffers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/multi-channel.html#multiple-clients-on-one-device">Multiple Clients on One Device</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how-to/github-pages-setup.html">Enable GitHub Pages (One-Time Setup)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/github-pages-setup.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/github-pages-setup.html#steps">Steps</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/github-pages-setup.html#verification">Verification</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="current reference internal" href="#">DMA Driver API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_VERSION"><code class="docutils literal notranslate"><span class="pre">DMA_VERSION</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_ERR_FIFO"><code class="docutils literal notranslate"><span class="pre">DMA_ERR_FIFO</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_ERR_LEN"><code class="docutils literal notranslate"><span class="pre">DMA_ERR_LEN</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_ERR_MAX"><code class="docutils literal notranslate"><span class="pre">DMA_ERR_MAX</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_ERR_BUS"><code class="docutils literal notranslate"><span class="pre">DMA_ERR_BUS</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Get_Buff_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_Buff_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Get_Buff_Size"><code class="docutils literal notranslate"><span class="pre">DMA_Get_Buff_Size</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Set_Debug"><code class="docutils literal notranslate"><span class="pre">DMA_Set_Debug</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Set_Mask"><code class="docutils literal notranslate"><span class="pre">DMA_Set_Mask</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Ret_Index"><code class="docutils literal notranslate"><span class="pre">DMA_Ret_Index</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Get_Index"><code class="docutils literal notranslate"><span class="pre">DMA_Get_Index</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Read_Ready"><code class="docutils literal notranslate"><span class="pre">DMA_Read_Ready</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Set_MaskBytes"><code class="docutils literal notranslate"><span class="pre">DMA_Set_MaskBytes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Get_Version"><code class="docutils literal notranslate"><span class="pre">DMA_Get_Version</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Write_Register"><code class="docutils literal notranslate"><span class="pre">DMA_Write_Register</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Read_Register"><code class="docutils literal notranslate"><span class="pre">DMA_Read_Register</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Get_RxBuff_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuff_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Get_TxBuff_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuff_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Get_TxBuffinUser_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuffinUser_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Get_TxBuffinHW_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuffinHW_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Get_TxBuffinPreHWQ_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuffinPreHWQ_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Get_TxBuffinSWQ_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuffinSWQ_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Get_TxBuffMiss_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuffMiss_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Get_RxBuffinUser_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuffinUser_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Get_RxBuffinHW_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuffinHW_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Get_RxBuffinPreHWQ_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuffinPreHWQ_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Get_RxBuffinSWQ_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuffinSWQ_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Get_RxBuffMiss_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuffMiss_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_Get_GITV"><code class="docutils literal notranslate"><span class="pre">DMA_Get_GITV</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DMA_MASK_SIZE"><code class="docutils literal notranslate"><span class="pre">DMA_MASK_SIZE</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaWrite"><code class="docutils literal notranslate"><span class="pre">dmaWrite()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaWriteIndex"><code class="docutils literal notranslate"><span class="pre">dmaWriteIndex()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaWriteVector"><code class="docutils literal notranslate"><span class="pre">dmaWriteVector()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaWriteIndexVector"><code class="docutils literal notranslate"><span class="pre">dmaWriteIndexVector()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaRead"><code class="docutils literal notranslate"><span class="pre">dmaRead()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaReadIndex"><code class="docutils literal notranslate"><span class="pre">dmaReadIndex()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaReadBulkIndex"><code class="docutils literal notranslate"><span class="pre">dmaReadBulkIndex()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaRetIndex"><code class="docutils literal notranslate"><span class="pre">dmaRetIndex()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaRetIndexes"><code class="docutils literal notranslate"><span class="pre">dmaRetIndexes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaGetIndex"><code class="docutils literal notranslate"><span class="pre">dmaGetIndex()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaReadReady"><code class="docutils literal notranslate"><span class="pre">dmaReadReady()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaGetRxBuffCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaGetRxBuffinUserCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffinUserCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaGetRxBuffinHwCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffinHwCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaGetRxBuffinPreHwQCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffinPreHwQCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaGetRxBuffinSwQCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffinSwQCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaGetRxBuffMissCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffMissCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaGetTxBuffCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaGetTxBuffinUserCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffinUserCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaGetTxBuffinHwCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffinHwCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaGetTxBuffinPreHwQCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffinPreHwQCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaGetTxBuffinSwQCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffinSwQCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaGetTxBuffMissCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffMissCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaGetBuffSize"><code class="docutils literal notranslate"><span class="pre">dmaGetBuffSize()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaGetBuffCount"><code class="docutils literal notranslate"><span class="pre">dmaGetBuffCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaMapDma"><code class="docutils literal notranslate"><span class="pre">dmaMapDma()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaUnMapDma"><code class="docutils literal notranslate"><span class="pre">dmaUnMapDma()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaSetDebug"><code class="docutils literal notranslate"><span class="pre">dmaSetDebug()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaAssignHandler"><code class="docutils literal notranslate"><span class="pre">dmaAssignHandler()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaSetMask"><code class="docutils literal notranslate"><span class="pre">dmaSetMask()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaInitMaskBytes"><code class="docutils literal notranslate"><span class="pre">dmaInitMaskBytes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaAddMaskBytes"><code class="docutils literal notranslate"><span class="pre">dmaAddMaskBytes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaSetMaskBytes"><code class="docutils literal notranslate"><span class="pre">dmaSetMaskBytes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaCheckVersion"><code class="docutils literal notranslate"><span class="pre">dmaCheckVersion()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaGetApiVersion"><code class="docutils literal notranslate"><span class="pre">dmaGetApiVersion()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaWriteRegister"><code class="docutils literal notranslate"><span class="pre">dmaWriteRegister()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaReadRegister"><code class="docutils literal notranslate"><span class="pre">dmaReadRegister()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaMapRegister"><code class="docutils literal notranslate"><span class="pre">dmaMapRegister()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.dmaUnMapRegister"><code class="docutils literal notranslate"><span class="pre">dmaUnMapRegister()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DmaWriteData"><code class="docutils literal notranslate"><span class="pre">DmaWriteData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#c.DmaWriteData.data"><code class="docutils literal notranslate"><span class="pre">data</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.DmaWriteData.dest"><code class="docutils literal notranslate"><span class="pre">dest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.DmaWriteData.flags"><code class="docutils literal notranslate"><span class="pre">flags</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.DmaWriteData.index"><code class="docutils literal notranslate"><span class="pre">index</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.DmaWriteData.size"><code class="docutils literal notranslate"><span class="pre">size</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.DmaWriteData.is32"><code class="docutils literal notranslate"><span class="pre">is32</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.DmaWriteData.pad"><code class="docutils literal notranslate"><span class="pre">pad</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DmaReadData"><code class="docutils literal notranslate"><span class="pre">DmaReadData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#c.DmaReadData.data"><code class="docutils literal notranslate"><span class="pre">data</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.DmaReadData.dest"><code class="docutils literal notranslate"><span class="pre">dest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.DmaReadData.flags"><code class="docutils literal notranslate"><span class="pre">flags</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.DmaReadData.index"><code class="docutils literal notranslate"><span class="pre">index</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.DmaReadData.error"><code class="docutils literal notranslate"><span class="pre">error</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.DmaReadData.size"><code class="docutils literal notranslate"><span class="pre">size</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.DmaReadData.is32"><code class="docutils literal notranslate"><span class="pre">is32</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.DmaReadData.ret"><code class="docutils literal notranslate"><span class="pre">ret</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#c.DmaRegisterData"><code class="docutils literal notranslate"><span class="pre">DmaRegisterData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#c.DmaRegisterData.address"><code class="docutils literal notranslate"><span class="pre">address</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.DmaRegisterData.data"><code class="docutils literal notranslate"><span class="pre">data</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="axis-api.html">AXIS Driver API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="axis-api.html#c.AXIS_Read_Ack"><code class="docutils literal notranslate"><span class="pre">AXIS_Read_Ack</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="axis-api.html#c.AXIS_Write_ReqMissed"><code class="docutils literal notranslate"><span class="pre">AXIS_Write_ReqMissed</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="axis-api.html#c.axisSetFlags"><code class="docutils literal notranslate"><span class="pre">axisSetFlags()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="axis-api.html#c.axisGetFuser"><code class="docutils literal notranslate"><span class="pre">axisGetFuser()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="axis-api.html#c.axisGetLuser"><code class="docutils literal notranslate"><span class="pre">axisGetLuser()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="axis-api.html#c.axisGetCont"><code class="docutils literal notranslate"><span class="pre">axisGetCont()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="axis-api.html#c.axisReadAck"><code class="docutils literal notranslate"><span class="pre">axisReadAck()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="axis-api.html#c.axisWriteReqMissed"><code class="docutils literal notranslate"><span class="pre">axisWriteReqMissed()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ioctl-table.html">Ioctl Command Code Reference</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ioctl-table.html#dmadriver-h-commands">DmaDriver.h Commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ioctl-table.html#axisdriver-h-commands">AxisDriver.h Commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ioctl-table.html#axiversion-h-commands">AxiVersion.h Commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ioctl-table.html#gpuasync-h-commands">GpuAsync.h Commands</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="module-parameters.html">Module Parameters — datadev</a></li>
+<li class="toctree-l2"><a class="reference internal" href="device-nodes.html">Device Nodes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="device-nodes.html#dev-character-devices">/dev/ — Character Devices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="device-nodes.html#proc-diagnostic-interface">/proc/ — Diagnostic Interface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="device-nodes.html#multi-device-systems">Multi-Device Systems</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="dma-legacy.html">User Space DMA API</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../explanation/index.html">Explanation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../explanation/architecture.html">Driver Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/architecture.html#the-hardware-abstraction-vtable">The Hardware Abstraction Vtable</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/architecture.html#component-relationships">Component Relationships</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/architecture.html#pcie-bar0-memory-map">PCIe BAR0 Memory Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/architecture.html#pci-device-identification">PCI Device Identification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/architecture.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../explanation/dma-modes.html">DMA Buffer Modes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/dma-modes.html#the-three-buffer-modes">The Three Buffer Modes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/dma-modes.html#why-cfgmode-4-is-rejected-for-data-dev">Why cfgMode=4 Is Rejected for data_dev</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/dma-modes.html#buffer-pool-pre-allocation">Buffer Pool Pre-Allocation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/dma-modes.html#buffer-state-machine">Buffer State Machine</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/dma-modes.html#zero-copy-data-path">Zero-Copy Data Path</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/dma-modes.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../explanation/axi-stream-protocol.html">AXI Stream Protocol</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/axi-stream-protocol.html#frame-boundaries-and-tlast">Frame Boundaries and TLAST</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/axi-stream-protocol.html#the-flags-field-fuser-luser-and-cont">The Flags Field: fuser, luser, and cont</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/axi-stream-protocol.html#channel-routing-via-tdest">Channel Routing via TDEST</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/axi-stream-protocol.html#axisg2-engine-overview">AxisG2 Engine Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/axi-stream-protocol.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../explanation/kernel-compatibility.html">Kernel Compatibility</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/kernel-compatibility.html#how-the-guards-work">How the Guards Work</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/kernel-compatibility.html#compatibility-matrix">Compatibility Matrix</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/kernel-compatibility.html#rhel-backport-detection">RHEL Backport Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/kernel-compatibility.html#minimum-and-maximum-tested-kernels">Minimum and Maximum Tested Kernels</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/kernel-compatibility.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">aes-stream-drivers</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Reference</a></li>
+      <li class="breadcrumb-item active">DMA Driver API</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/slaclab/aes-stream-drivers/blob/main/docs/reference/dma-api.rst" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="dma-driver-api">
+<h1>DMA Driver API<a class="headerlink" href="#dma-driver-api" title="Link to this heading"></a></h1>
+<p>Complete C API reference for the DMA driver, extracted from
+<code class="docutils literal notranslate"><span class="pre">include/DmaDriver.h</span></code> via Doxygen and rendered by Breathe.</p>
+<p>Includes all public structs (<code class="docutils literal notranslate"><span class="pre">DmaWriteData</span></code>, <code class="docutils literal notranslate"><span class="pre">DmaReadData</span></code>,
+<code class="docutils literal notranslate"><span class="pre">DmaRegisterData</span></code>), ioctl command code macros, and the full set of
+userspace inline helper functions such as <code class="docutils literal notranslate"><span class="pre">dmaWrite</span></code>, <code class="docutils literal notranslate"><span class="pre">dmaRead</span></code>,
+<code class="docutils literal notranslate"><span class="pre">dmaMapDma</span></code>, and <code class="docutils literal notranslate"><span class="pre">dmaUnMapDma</span></code>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>All helper functions are <code class="docutils literal notranslate"><span class="pre">static</span> <span class="pre">inline</span></code> and are compiled directly
+into the calling application. They are not shared library symbols.</p>
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-defines">Defines</p>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_VERSION">
+<span class="target" id="DmaDriver_8h_1ac016efd4c92730f338793aafe70c4f33"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_VERSION</span></span></span><a class="headerlink" href="#c.DMA_VERSION" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_ERR_FIFO">
+<span class="target" id="DmaDriver_8h_1af8fbde8c48698d978cf55bfb331b319d"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_ERR_FIFO</span></span></span><a class="headerlink" href="#c.DMA_ERR_FIFO" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_ERR_LEN">
+<span class="target" id="DmaDriver_8h_1a1fabb39fed6139adb98b9e976430eb8b"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_ERR_LEN</span></span></span><a class="headerlink" href="#c.DMA_ERR_LEN" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_ERR_MAX">
+<span class="target" id="DmaDriver_8h_1a5547b2a22513fc65ba5493c3c8553c25"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_ERR_MAX</span></span></span><a class="headerlink" href="#c.DMA_ERR_MAX" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_ERR_BUS">
+<span class="target" id="DmaDriver_8h_1a6a4e8cd632d35cd8f2c77da874786053"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_ERR_BUS</span></span></span><a class="headerlink" href="#c.DMA_ERR_BUS" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Get_Buff_Count">
+<span class="target" id="DmaDriver_8h_1a2f3ab68e37a66a8bfbee511d722bc833"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Get_Buff_Count</span></span></span><a class="headerlink" href="#c.DMA_Get_Buff_Count" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: get the total number of DMA buffers in the pool. </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Get_Buff_Size">
+<span class="target" id="DmaDriver_8h_1a202ad0447ecaa6358e239020ada1c471"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Get_Buff_Size</span></span></span><a class="headerlink" href="#c.DMA_Get_Buff_Size" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: get the size in bytes of each DMA buffer. </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Set_Debug">
+<span class="target" id="DmaDriver_8h_1a17f0d17cbf276724514a21bbe4b7ac85"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Set_Debug</span></span></span><a class="headerlink" href="#c.DMA_Set_Debug" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: set the kernel debug verbosity level (0 = off). </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Set_Mask">
+<span class="target" id="DmaDriver_8h_1a68b983281ede8a5c0163e951213013e6"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Set_Mask</span></span></span><a class="headerlink" href="#c.DMA_Set_Mask" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: set the 32-bit destination channel mask (convenience wrapper for single-mask use). </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Ret_Index">
+<span class="target" id="DmaDriver_8h_1a6900d5b9ad955f0310f3f21fe36f430e"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Ret_Index</span></span></span><a class="headerlink" href="#c.DMA_Ret_Index" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: return one or more buffer indices to the DMA free pool. </p>
+<p>The upper 16 bits of the command encode the count: cmd = DMA_Ret_Index | ((count &lt;&lt; 16) &amp; 0xFFFF0000). </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Get_Index">
+<span class="target" id="DmaDriver_8h_1a1800155037eb3bfe74244daed56c3445"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Get_Index</span></span></span><a class="headerlink" href="#c.DMA_Get_Index" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: get the index of the next available write buffer. </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Read_Ready">
+<span class="target" id="DmaDriver_8h_1afc04a4cba59140f5b74dd916702b4c72"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Read_Ready</span></span></span><a class="headerlink" href="#c.DMA_Read_Ready" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: check whether a receive frame is pending (returns 1 if data ready). </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Set_MaskBytes">
+<span class="target" id="DmaDriver_8h_1a72697e08d6a20eec058566152b1a70af"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Set_MaskBytes</span></span></span><a class="headerlink" href="#c.DMA_Set_MaskBytes" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: set the destination channel mask using a 512-byte bitmap (DMA_MASK_SIZE bytes). </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Get_Version">
+<span class="target" id="DmaDriver_8h_1a888e03df403e5bb541bc29b0ee896803"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Get_Version</span></span></span><a class="headerlink" href="#c.DMA_Get_Version" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: get the driver API version integer; compare to DMA_VERSION for compatibility. </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Write_Register">
+<span class="target" id="DmaDriver_8h_1a380ec8c28855d92b765980690d270c5f"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Write_Register</span></span></span><a class="headerlink" href="#c.DMA_Write_Register" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: write a 32-bit value to a device BAR register; argument is struct DmaRegisterData*. </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Read_Register">
+<span class="target" id="DmaDriver_8h_1affc5ed3bd37dc3c9ca27bfba9dd134cf"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Read_Register</span></span></span><a class="headerlink" href="#c.DMA_Read_Register" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: read a 32-bit value from a device BAR register; argument is struct DmaRegisterData*. </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Get_RxBuff_Count">
+<span class="target" id="DmaDriver_8h_1a3ea544e208d9cd7789c80434f5cc7e4e"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Get_RxBuff_Count</span></span></span><a class="headerlink" href="#c.DMA_Get_RxBuff_Count" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: get the total number of receive DMA buffers in the pool. </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Get_TxBuff_Count">
+<span class="target" id="DmaDriver_8h_1a5febeaaff4b0aae4ae9da2acb3306559"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Get_TxBuff_Count</span></span></span><a class="headerlink" href="#c.DMA_Get_TxBuff_Count" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: get the total number of transmit DMA buffers in the pool. </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Get_TxBuffinUser_Count">
+<span class="target" id="DmaDriver_8h_1a4c7473e214b79f11d1eb958e89f1bbad"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Get_TxBuffinUser_Count</span></span></span><a class="headerlink" href="#c.DMA_Get_TxBuffinUser_Count" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: get the count of TX buffers currently held in user space. </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Get_TxBuffinHW_Count">
+<span class="target" id="DmaDriver_8h_1a5d1295f5004a81b21a7ea3d93fd2d9ad"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Get_TxBuffinHW_Count</span></span></span><a class="headerlink" href="#c.DMA_Get_TxBuffinHW_Count" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: get the count of TX buffers currently submitted to hardware. </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Get_TxBuffinPreHWQ_Count">
+<span class="target" id="DmaDriver_8h_1abcd0e8eb6f0a99046436febc3f467d2b"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Get_TxBuffinPreHWQ_Count</span></span></span><a class="headerlink" href="#c.DMA_Get_TxBuffinPreHWQ_Count" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: get the count of TX buffers in the pre-hardware queue. </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Get_TxBuffinSWQ_Count">
+<span class="target" id="DmaDriver_8h_1ae09eef96d966393e651dbcbbffdce7e3"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Get_TxBuffinSWQ_Count</span></span></span><a class="headerlink" href="#c.DMA_Get_TxBuffinSWQ_Count" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: get the count of TX buffers in the software queue. </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Get_TxBuffMiss_Count">
+<span class="target" id="DmaDriver_8h_1a6ea630aad920d765d6f16935bf7b33b4"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Get_TxBuffMiss_Count</span></span></span><a class="headerlink" href="#c.DMA_Get_TxBuffMiss_Count" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: get the TX buffer allocation miss count (buffers requested but unavailable). </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Get_RxBuffinUser_Count">
+<span class="target" id="DmaDriver_8h_1aa8008232c587cce580915ef53778efd6"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Get_RxBuffinUser_Count</span></span></span><a class="headerlink" href="#c.DMA_Get_RxBuffinUser_Count" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: get the count of RX buffers currently held in user space. </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Get_RxBuffinHW_Count">
+<span class="target" id="DmaDriver_8h_1a6a67675cbf9cb65d75de47895f56131b"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Get_RxBuffinHW_Count</span></span></span><a class="headerlink" href="#c.DMA_Get_RxBuffinHW_Count" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: get the count of RX buffers currently submitted to hardware. </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Get_RxBuffinPreHWQ_Count">
+<span class="target" id="DmaDriver_8h_1a57e927b562633559adfa6cf6e01e0064"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Get_RxBuffinPreHWQ_Count</span></span></span><a class="headerlink" href="#c.DMA_Get_RxBuffinPreHWQ_Count" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: get the count of RX buffers in the pre-hardware queue. </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Get_RxBuffinSWQ_Count">
+<span class="target" id="DmaDriver_8h_1ad3482903601bd451f4510c739016869a"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Get_RxBuffinSWQ_Count</span></span></span><a class="headerlink" href="#c.DMA_Get_RxBuffinSWQ_Count" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: get the count of RX buffers in the software queue. </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Get_RxBuffMiss_Count">
+<span class="target" id="DmaDriver_8h_1ae5525e8412910efcc75ddd65308005d9"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Get_RxBuffMiss_Count</span></span></span><a class="headerlink" href="#c.DMA_Get_RxBuffMiss_Count" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: get the RX buffer allocation miss count (buffers requested but unavailable). </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_Get_GITV">
+<span class="target" id="DmaDriver_8h_1a20ea3687e573ddca953514b80b1a6b7a"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_Get_GITV</span></span></span><a class="headerlink" href="#c.DMA_Get_GITV" title="Link to this definition"></a><br /></dt>
+<dd><p>ioctl command code: get the driver git version string into a caller-supplied char[32] buffer. </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.DMA_MASK_SIZE">
+<span class="target" id="DmaDriver_8h_1a784881c5ca3eb26228dcaf3a3acddbc8"></span><span class="sig-name descname"><span class="n"><span class="pre">DMA_MASK_SIZE</span></span></span><a class="headerlink" href="#c.DMA_MASK_SIZE" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-functions">Functions</p>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaWrite">
+<span class="target" id="DmaDriver_8h_1afd00d744425224fe62b0420b80aa3ba0"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaWrite</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">buf</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">dest</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaWrite" title="Link to this definition"></a><br /></dt>
+<dd><p>Writes data to a DMA channel. </p>
+<p>This function writes a single frame of data to a DMA channel, specified by the file descriptor <code class="docutils literal notranslate"><span class="pre">fd</span></code>. The data to be written is pointed to by <code class="docutils literal notranslate"><span class="pre">buf</span></code>, with a specified size of <code class="docutils literal notranslate"><span class="pre">size</span></code>. Additional parameters include flags (<code class="docutils literal notranslate"><span class="pre">flags</span></code>) and a destination address (<code class="docutils literal notranslate"><span class="pre">dest</span></code>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for the DMA device. </p></li>
+<li><p><strong>buf</strong> – Pointer to the data buffer. </p></li>
+<li><p><strong>size</strong> – Size of the data to write. </p></li>
+<li><p><strong>flags</strong> – Flags for the write operation. </p></li>
+<li><p><strong>dest</strong> – Destination address for the write. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Number of bytes written, or a negative error code on failure. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaWriteIndex">
+<span class="target" id="DmaDriver_8h_1a4ab7cd970280ee290d4ce0937b7ac49f"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaWriteIndex</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">index</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">flags</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">dest</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaWriteIndex" title="Link to this definition"></a><br /></dt>
+<dd><p>Writes data to a DMA channel using an index. </p>
+<p>Similar to dmaWrite, but uses an index (<code class="docutils literal notranslate"><span class="pre">index</span></code>) to specify the data buffer instead of a direct pointer. This is useful for memory-mapped I/O operations where data buffers are identified by indexes.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for the DMA device. </p></li>
+<li><p><strong>index</strong> – Index of the data buffer. </p></li>
+<li><p><strong>size</strong> – Size of the data to write. </p></li>
+<li><p><strong>flags</strong> – Flags for the write operation. </p></li>
+<li><p><strong>dest</strong> – Destination address for the write. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Number of bytes written, or a negative error code on failure. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaWriteVector">
+<span class="target" id="DmaDriver_8h_1ab4fc7d1625925486d71681c96b7e04eb"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaWriteVector</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">iovec</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">iov</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">iovlen</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">begFlags</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">midFlags</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">endFlags</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">dest</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaWriteVector" title="Link to this definition"></a><br /></dt>
+<dd><p>Writes an array of data frames to a DMA channel. </p>
+<p>This function writes multiple data frames to a DMA channel, where each frame is specified by an iovec structure in the array pointed to by <code class="docutils literal notranslate"><span class="pre">iov</span></code>. The number of frames to write is specified by <code class="docutils literal notranslate"><span class="pre">iovlen</span></code>. Flags for the beginning, middle, and end of the data stream are specified by <code class="docutils literal notranslate"><span class="pre">begFlags</span></code>, <code class="docutils literal notranslate"><span class="pre">midFlags</span></code>, and <code class="docutils literal notranslate"><span class="pre">endFlags</span></code>, respectively. The destination address for the write operation is specified by <code class="docutils literal notranslate"><span class="pre">dest</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for the DMA device. </p></li>
+<li><p><strong>iov</strong> – Pointer to the array of iovec structures. </p></li>
+<li><p><strong>iovlen</strong> – Number of elements in the iov array. </p></li>
+<li><p><strong>begFlags</strong> – Flags for the beginning of the data stream. </p></li>
+<li><p><strong>midFlags</strong> – Flags for the middle of the data stream. </p></li>
+<li><p><strong>endFlags</strong> – Flags for the end of the data stream. </p></li>
+<li><p><strong>dest</strong> – Destination address for the write. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Total number of bytes written, or a negative error code on failure. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaWriteIndexVector">
+<span class="target" id="DmaDriver_8h_1ac002d0b270e9e29b310a74c356c36f48"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaWriteIndexVector</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="n"><span class="pre">iovec</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">iov</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">iovlen</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">begFlags</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">midFlags</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">endFlags</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">dest</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaWriteIndexVector" title="Link to this definition"></a><br /></dt>
+<dd><p>Write Frame, memory mapped from iovector. </p>
+<p>This function writes a frame to a device, using DMA, where the frame data is described by an array of iovec structures.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for DMA operation. </p></li>
+<li><p><strong>iov</strong> – Pointer to array of iovec structures. </p></li>
+<li><p><strong>iovlen</strong> – Length of the iov array. </p></li>
+<li><p><strong>begFlags</strong> – Flags to use for the beginning of the DMA transaction. </p></li>
+<li><p><strong>midFlags</strong> – Flags to use for the middle of the DMA transaction. </p></li>
+<li><p><strong>endFlags</strong> – Flags to use for the end of the DMA transaction. </p></li>
+<li><p><strong>dest</strong> – Destination address for the DMA write. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Total number of bytes written, or negative on failure. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaRead">
+<span class="target" id="DmaDriver_8h_1aed8ef1cb23df5358891c1b5c522aed08"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaRead</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">buf</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n"><span class="pre">maxSize</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">flags</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">error</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dest</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaRead" title="Link to this definition"></a><br /></dt>
+<dd><p>Receive Frame. </p>
+<p>This function reads a frame from a device using DMA.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for DMA operation. </p></li>
+<li><p><strong>buf</strong> – Buffer to store received data. </p></li>
+<li><p><strong>maxSize</strong> – Maximum size to read. </p></li>
+<li><p><strong>flags</strong> – Pointer to store flags after reading. </p></li>
+<li><p><strong>error</strong> – Pointer to store error code if any. </p></li>
+<li><p><strong>dest</strong> – Pointer to store destination address. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Size of the data received, or negative on failure. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaReadIndex">
+<span class="target" id="DmaDriver_8h_1aa38b4096d85e7daeb03be1a1f10722ca"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaReadIndex</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">index</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">flags</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">error</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dest</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaReadIndex" title="Link to this definition"></a><br /></dt>
+<dd><p>Receive Frame, access memory mapped buffer. </p>
+<p>This function reads a frame from a device using DMA, specifically accessing the memory-mapped buffer and retrieves the index of the received data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for DMA operation. </p></li>
+<li><p><strong>index</strong> – Pointer to store the index of the received data. </p></li>
+<li><p><strong>flags</strong> – Pointer to store flags after reading. </p></li>
+<li><p><strong>error</strong> – Pointer to store error code if any. </p></li>
+<li><p><strong>dest</strong> – Pointer to store destination address. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Size of the data received, or negative on failure. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaReadBulkIndex">
+<span class="target" id="DmaDriver_8h_1a73a6e25f2c2c92a173d6cdc8fb1a8889"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaReadBulkIndex</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">count</span></span>, <span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ret</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">index</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">flags</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">error</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">dest</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaReadBulkIndex" title="Link to this definition"></a><br /></dt>
+<dd><p>Receive frame and access memory-mapped buffer. </p>
+<p>This function reads bulk data from a DMA channel and extracts the metadata associated with each read operation, including return values, indices, flags, error codes, and destination addresses.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to read from. </p></li>
+<li><p><strong>count</strong> – Number of elements in the buffers. </p></li>
+<li><p><strong>ret</strong> – Pointer to store the return values. </p></li>
+<li><p><strong>index</strong> – Buffer to store the indices of the DMA read operations. </p></li>
+<li><p><strong>flags</strong> – Buffer to store flags of the DMA read operations. </p></li>
+<li><p><strong>error</strong> – Buffer to store error codes of the DMA read operations. </p></li>
+<li><p><strong>dest</strong> – Buffer to store destination addresses of the DMA read operations. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The number of bytes read. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaRetIndex">
+<span class="target" id="DmaDriver_8h_1aa8a8f2711417f22fba6e923022376f77"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaRetIndex</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">index</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaRetIndex" title="Link to this definition"></a><br /></dt>
+<dd><p>Post an index back to the DMA. </p>
+<p>This function posts a single index back to the DMA, indicating that the buffer associated with this index can be reused.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+<li><p><strong>index</strong> – Index to be returned. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Result of the IOCTL operation. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaRetIndexes">
+<span class="target" id="DmaDriver_8h_1afffccddbaae11c0e1928d5081c40f9cc"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaRetIndexes</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">count</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">indexes</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaRetIndexes" title="Link to this definition"></a><br /></dt>
+<dd><p>Post multiple indices back to the DMA. </p>
+<p>This function posts multiple indices back to the DMA, indicating that the buffers associated with these indices can be reused.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+<li><p><strong>count</strong> – Number of indices to be returned. </p></li>
+<li><p><strong>indexes</strong> – Array of indices to be returned. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Result of the IOCTL operation. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaGetIndex">
+<span class="target" id="DmaDriver_8h_1a9efb18ee76f1eef8678b1f3cad90caaf"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaGetIndex</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaGetIndex" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the current write buffer index. </p>
+<p>This function retrieves the current index for writing to the DMA buffer.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The current write buffer index. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaReadReady">
+<span class="target" id="DmaDriver_8h_1ad5f5aca8748793542a18c31b9083a083"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaReadReady</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaReadReady" title="Link to this definition"></a><br /></dt>
+<dd><p>Check if read is ready. </p>
+<p>This function checks if the DMA is ready for reading.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Result of the IOCTL operation, indicating read readiness. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaGetRxBuffCount">
+<span class="target" id="DmaDriver_8h_1a9c4708a832dc002df969b27681b605dd"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaGetRxBuffCount</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaGetRxBuffCount" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the receive buffer count. </p>
+<p>This function retrieves the count of receive buffers available.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The count of receive buffers. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaGetRxBuffinUserCount">
+<span class="target" id="DmaDriver_8h_1a87d5a0c2f03b0bf0322adad500371164"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaGetRxBuffinUserCount</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaGetRxBuffinUserCount" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the receive buffer count in user. </p>
+<p>This function retrieves the count of receive buffers in user.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The count of receive buffers in user </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaGetRxBuffinHwCount">
+<span class="target" id="DmaDriver_8h_1a2f0d00e0a6ac3d2d28ac40d1cc825a04"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaGetRxBuffinHwCount</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaGetRxBuffinHwCount" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the receive buffer count in hardware. </p>
+<p>This function retrieves the count of receive buffers in hardware.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The count of receive buffers in hardware </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaGetRxBuffinPreHwQCount">
+<span class="target" id="DmaDriver_8h_1aa4e1a166277b389fb2fa075259427bc4"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaGetRxBuffinPreHwQCount</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaGetRxBuffinPreHwQCount" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the receive buffer count in pre-hardware queue. </p>
+<p>This function retrieves the count of receive buffers in pre-hardware queue</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The count of receive buffers in pre-hardware queue </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaGetRxBuffinSwQCount">
+<span class="target" id="DmaDriver_8h_1a9b518eceb82550599d35eeead411740e"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaGetRxBuffinSwQCount</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaGetRxBuffinSwQCount" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the receive buffer count in software queue. </p>
+<p>This function retrieves the count of receive buffers in software queue</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The count of receive buffers in software queue </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaGetRxBuffMissCount">
+<span class="target" id="DmaDriver_8h_1afd370ceaae9b2c75227ac2e6f36293b5"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaGetRxBuffMissCount</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaGetRxBuffMissCount" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the receive buffer missing count. </p>
+<p>This function retrieves the count of receive buffer missing</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The count of receive buffers missing </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaGetTxBuffCount">
+<span class="target" id="DmaDriver_8h_1a2d2139564df199d02420e9bbc5285b80"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaGetTxBuffCount</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaGetTxBuffCount" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the transmit buffer count. </p>
+<p>This function retrieves the count of transmit buffers available.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The count of transmit buffers. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaGetTxBuffinUserCount">
+<span class="target" id="DmaDriver_8h_1af0e766084a50d9796ff49b9ebd075576"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaGetTxBuffinUserCount</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaGetTxBuffinUserCount" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the transmit buffer count in user. </p>
+<p>This function retrieves the count of transmit buffers in user.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The count of transmit buffers in user </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaGetTxBuffinHwCount">
+<span class="target" id="DmaDriver_8h_1a9aba036d15d728067ba70105e4247d21"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaGetTxBuffinHwCount</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaGetTxBuffinHwCount" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the transmit buffer count in hardware. </p>
+<p>This function retrieves the count of transmit buffers in hardware.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The count of transmit buffers in hardware </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaGetTxBuffinPreHwQCount">
+<span class="target" id="DmaDriver_8h_1a2bb3d24fd272d3dc3acff740073bcd66"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaGetTxBuffinPreHwQCount</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaGetTxBuffinPreHwQCount" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the transmit buffer count in pre-hardware queue. </p>
+<p>This function retrieves the count of transmit buffers in pre-hardware queue</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The count of transmit buffers in pre-hardware queue </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaGetTxBuffinSwQCount">
+<span class="target" id="DmaDriver_8h_1ad3fa136271b38c2c05e50623cd68c858"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaGetTxBuffinSwQCount</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaGetTxBuffinSwQCount" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the transmit buffer count in software queue. </p>
+<p>This function retrieves the count of transmit buffers in software queue</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The count of transmit buffers in software queue </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaGetTxBuffMissCount">
+<span class="target" id="DmaDriver_8h_1a2d26c4c4a612eff5fcd6bd4a4eb139e5"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaGetTxBuffMissCount</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaGetTxBuffMissCount" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the transmit buffer missing count. </p>
+<p>This function retrieves the count of transmit buffer missing</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The count of transmit buffers missing </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaGetBuffSize">
+<span class="target" id="DmaDriver_8h_1a9aff3927628e140feb6201a2c326fc75"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaGetBuffSize</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaGetBuffSize" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the buffer size. </p>
+<p>This function retrieves the size of DMA buffers.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The size of DMA buffers. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaGetBuffCount">
+<span class="target" id="DmaDriver_8h_1ad6309e12287b909990e9ca44f3c980fb"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaGetBuffCount</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaGetBuffCount" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the buffer count. </p>
+<p>This function retrieves the count of DMA buffers.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The count of DMA buffers. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c">
+<span class="target" id="DmaDriver_8h_1a14fdbcf4e4a0b7b53f02be517da5a8c3"></span><span class="sig-name descname"><span class="pre">static</span> <span class="pre">inline</span> <span class="pre">std::string</span> <span class="pre">dmaGetGitVersion</span> <span class="pre">(int32_t</span> <span class="pre">fd)</span></span></dt>
+<dd><p>Get the DMA Driver’s Git Version. </p>
+<p>This function retrieves the DMA Driver’s Git Version string</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The DMA Driver’s Git Version string </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaMapDma">
+<span class="target" id="DmaDriver_8h_1adac2b1ea5af329cc064417eb79fb647d"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">dmaMapDma</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">count</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaMapDma" title="Link to this definition"></a><br /></dt>
+<dd><p>Map user space to DMA buffers. </p>
+<p>This function maps DMA buffers into user space, allowing direct access.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+<li><p><strong>count</strong> – Pointer to store the count of buffers. </p></li>
+<li><p><strong>size</strong> – Pointer to store the size of each buffer. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Pointer to an array of pointers to the mapped buffers, or NULL on failure. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaUnMapDma">
+<span class="target" id="DmaDriver_8h_1adcf3ea759d1130e72bb621c08cca2629"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaUnMapDma</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">buffer</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaUnMapDma" title="Link to this definition"></a><br /></dt>
+<dd><p>Unmap user space from DMA buffers. </p>
+<p>This function unmaps DMA buffers from user space, releasing the resources.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor to use. </p></li>
+<li><p><strong>buffer</strong> – Array of pointers to the mapped buffers. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>0 on success. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaSetDebug">
+<span class="target" id="DmaDriver_8h_1abdb2590fb0ec582c6697f14d1c9e01e4"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaSetDebug</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">level</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaSetDebug" title="Link to this definition"></a><br /></dt>
+<dd><p>Set debugging level for DMA operations. </p>
+<p>This function sets the specified debugging level for DMA operations using an IOCTL command.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for the DMA device. </p></li>
+<li><p><strong>level</strong> – Debugging level to be set. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Result from the IOCTL call. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaAssignHandler">
+<span class="target" id="DmaDriver_8h_1abe985c96e62c9e3f7cbaea2e2fffe588"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaAssignHandler</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">(</span></span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">handler</span></span><span class="p"><span class="pre">)</span></span><span class="p"><span class="pre">(</span></span><span class="n"><span class="pre">int32_t</span></span><span class="p"><span class="pre">)</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaAssignHandler" title="Link to this definition"></a><br /></dt>
+<dd><p>Assign a signal handler for asynchronous DMA operations. </p>
+<p>This function sets up a signal action structure to handle SIGIO signals with the specified handler function. It also sets the file descriptor to receive signals for asynchronous I/O.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for the DMA device. </p></li>
+<li><p><strong>handler</strong> – Function pointer to the signal handler. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaSetMask">
+<span class="target" id="DmaDriver_8h_1a00050427095a8a97a16628167a9b8411"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaSetMask</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">mask</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaSetMask" title="Link to this definition"></a><br /></dt>
+<dd><p>Set DMA mask. </p>
+<p>Sets a DMA mask using an IOCTL command.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for the DMA device. </p></li>
+<li><p><strong>mask</strong> – DMA mask to be set. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Result from the IOCTL call. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaInitMaskBytes">
+<span class="target" id="DmaDriver_8h_1a6792bef0631a653d5a1799d05e55e7f8"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaInitMaskBytes</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint8_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mask</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaInitMaskBytes" title="Link to this definition"></a><br /></dt>
+<dd><p>Initialize DMA mask byte array. </p>
+<p>Initializes the DMA mask byte array to zeros.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mask</strong> – Pointer to the DMA mask byte array. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaAddMaskBytes">
+<span class="target" id="DmaDriver_8h_1a6b90f7249599dd58daa55b03a828f9f9"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaAddMaskBytes</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint8_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mask</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">dest</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaAddMaskBytes" title="Link to this definition"></a><br /></dt>
+<dd><p>Add a destination to the DMA mask byte array. </p>
+<p>Adds a destination to the DMA mask byte array by setting the appropriate bit based on the destination index.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>mask</strong> – Pointer to the DMA mask byte array. </p></li>
+<li><p><strong>dest</strong> – Destination index to set in the mask. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaSetMaskBytes">
+<span class="target" id="DmaDriver_8h_1a7d2f1097e838652d7a6a50435706fb80"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaSetMaskBytes</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="n"><span class="pre">uint8_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">mask</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaSetMaskBytes" title="Link to this definition"></a><br /></dt>
+<dd><p>Set mask byte array to the driver. </p>
+<p>Sets the DMA mask byte array using an IOCTL command.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for the DMA device. </p></li>
+<li><p><strong>mask</strong> – Pointer to the DMA mask byte array. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Result from the IOCTL call. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaCheckVersion">
+<span class="target" id="DmaDriver_8h_1ad91e3706780af90a1d36dcea618cbb4c"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaCheckVersion</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaCheckVersion" title="Link to this definition"></a><br /></dt>
+<dd><p>Check API version of the DMA driver. </p>
+<p>Checks the API version of the DMA driver to ensure compatibility.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for the DMA device. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>0 if the version matches, -1 otherwise. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaGetApiVersion">
+<span class="target" id="DmaDriver_8h_1a47fe0d2db3bb1933b63ee286785b22e8"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaGetApiVersion</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaGetApiVersion" title="Link to this definition"></a><br /></dt>
+<dd><p>Get API version of the DMA driver. </p>
+<p>Get the API version of the DMA driver</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for the DMA device. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The API version of the DMA driver </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaWriteRegister">
+<span class="target" id="DmaDriver_8h_1a5d4d77ca9ee0862c4365c50c10bfc5bd"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaWriteRegister</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n"><span class="pre">address</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">data</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaWriteRegister" title="Link to this definition"></a><br /></dt>
+<dd><p>Write to a DMA register. </p>
+<p>Writes data to a specified register address using an IOCTL command.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for the DMA device. </p></li>
+<li><p><strong>address</strong> – Register address. </p></li>
+<li><p><strong>data</strong> – Data to write. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Result from the IOCTL call. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaReadRegister">
+<span class="target" id="DmaDriver_8h_1a53607a4b463d807f21c99c325cd9c10b"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaReadRegister</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n"><span class="pre">address</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">data</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaReadRegister" title="Link to this definition"></a><br /></dt>
+<dd><p>Read a value from a DMA register. </p>
+<p>This function reads a 32-bit value from a specified DMA register address. The read value is stored in the location pointed to by <code class="docutils literal notranslate"><span class="pre">data</span></code> if <code class="docutils literal notranslate"><span class="pre">data</span></code> is not NULL.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for the DMA device. </p></li>
+<li><p><strong>address</strong> – The address of the register to be read. </p></li>
+<li><p><strong>data</strong> – Pointer to store the read data. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The result of the ioctl operation, indicating success or failure. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaMapRegister">
+<span class="target" id="DmaDriver_8h_1a8ce28b70a186f7550b33caee058883cc"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">dmaMapRegister</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="n"><span class="pre">off_t</span></span><span class="w"> </span><span class="n"><span class="pre">offset</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaMapRegister" title="Link to this definition"></a><br /></dt>
+<dd><p>Map a DMA register space to user space. </p>
+<p>This function calculates an internal offset based on the buffer size and count obtained from the DMA device. It then attempts to map a region of memory into the user space corresponding to this calculated offset plus the specified <code class="docutils literal notranslate"><span class="pre">offset</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for the DMA device. </p></li>
+<li><p><strong>offset</strong> – Offset from the start of the register space to be mapped. </p></li>
+<li><p><strong>size</strong> – Size of the memory region to map. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A pointer to the mapped memory region in user space, or MAP_FAILED on failure. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.dmaUnMapRegister">
+<span class="target" id="DmaDriver_8h_1a757fc122a413915c87e9e38aa21b5369"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaUnMapRegister</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n"><span class="pre">ptr</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.dmaUnMapRegister" title="Link to this definition"></a><br /></dt>
+<dd><p>Unmap a DMA register space from user space. </p>
+<p>This function unmaps a previously mapped region of memory from the user space. The <code class="docutils literal notranslate"><span class="pre">fd</span></code> parameter is not used but is included for symmetry with the dmaMapRegister function.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for the DMA device. (Unused in this function, but kept for symmetry with map function) </p></li>
+<li><p><strong>ptr</strong> – Pointer to the start of the mapped memory region. </p></li>
+<li><p><strong>size</strong> – Size of the memory region to unmap. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Always returns 0 indicating success. </p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.DmaWriteData">
+<span class="target" id="structDmaWriteData"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DmaWriteData</span></span></span><a class="headerlink" href="#c.DmaWriteData" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;DmaDriver.h&gt;</em></div>
+<p>Structure representing a DMA write operation. </p>
+<p>This structure is used to initiate a DMA write operation. It contains information about the data to be written, the destination, and various control flags.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Param data<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Physical address of the data to be written. </p>
+</dd>
+<dt class="field-even">Param dest<span class="colon">:</span></dt>
+<dd class="field-even"><p>Destination address within the device. </p>
+</dd>
+<dt class="field-odd">Param flags<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Flags to control the write operation. </p>
+</dd>
+<dt class="field-even">Param index<span class="colon">:</span></dt>
+<dd class="field-even"><p>Index of the buffer to be used for the write operation. </p>
+</dd>
+<dt class="field-odd">Param size<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Size of the data to be written. </p>
+</dd>
+<dt class="field-even">Param is32<span class="colon">:</span></dt>
+<dd class="field-even"><p>Flag indicating whether the system uses 32-bit addressing. </p>
+</dd>
+<dt class="field-odd">Param pad<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Padding to align the structure to 64 bits. </p>
+</dd>
+</dl>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="c var">
+<dt class="sig sig-object c" id="c.DmaWriteData.data">
+<span class="target" id="structDmaWriteData_1a9f57e6a05e407ddf392ab4174c744e10"></span><span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">data</span></span></span><a class="headerlink" href="#c.DmaWriteData.data" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c var">
+<dt class="sig sig-object c" id="c.DmaWriteData.dest">
+<span class="target" id="structDmaWriteData_1ae251e9222bd752bf6de297c7cfb729b5"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dest</span></span></span><a class="headerlink" href="#c.DmaWriteData.dest" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c var">
+<dt class="sig sig-object c" id="c.DmaWriteData.flags">
+<span class="target" id="structDmaWriteData_1aca468ab95d99b3aefd9c552b08df7a2a"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">flags</span></span></span><a class="headerlink" href="#c.DmaWriteData.flags" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c var">
+<dt class="sig sig-object c" id="c.DmaWriteData.index">
+<span class="target" id="structDmaWriteData_1aaa897b0165287263ec00e152a9311c88"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">index</span></span></span><a class="headerlink" href="#c.DmaWriteData.index" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c var">
+<dt class="sig sig-object c" id="c.DmaWriteData.size">
+<span class="target" id="structDmaWriteData_1a26b28bdc8f1da01d873c2297b6655d15"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">size</span></span></span><a class="headerlink" href="#c.DmaWriteData.size" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c var">
+<dt class="sig sig-object c" id="c.DmaWriteData.is32">
+<span class="target" id="structDmaWriteData_1a8e9774e1b90df054564ed7a99722559b"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">is32</span></span></span><a class="headerlink" href="#c.DmaWriteData.is32" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c var">
+<dt class="sig sig-object c" id="c.DmaWriteData.pad">
+<span class="target" id="structDmaWriteData_1a6a0b4f564bb87031e62115dfe8031f5d"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">pad</span></span></span><a class="headerlink" href="#c.DmaWriteData.pad" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.DmaReadData">
+<span class="target" id="structDmaReadData"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DmaReadData</span></span></span><a class="headerlink" href="#c.DmaReadData" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;DmaDriver.h&gt;</em></div>
+<p>Structure representing a DMA read operation. </p>
+<p>This structure is used to initiate a DMA read operation. It contains information about where to store the read data, the source of the data, and various control flags.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Param data<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Physical address where the read data will be stored. </p>
+</dd>
+<dt class="field-even">Param dest<span class="colon">:</span></dt>
+<dd class="field-even"><p>Source address within the device. </p>
+</dd>
+<dt class="field-odd">Param flags<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Flags to control the read operation. </p>
+</dd>
+<dt class="field-even">Param index<span class="colon">:</span></dt>
+<dd class="field-even"><p>Index of the buffer to be used for the read operation. </p>
+</dd>
+<dt class="field-odd">Param error<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Error code returned by the read operation. </p>
+</dd>
+<dt class="field-even">Param size<span class="colon">:</span></dt>
+<dd class="field-even"><p>Size of the data to be read. </p>
+</dd>
+<dt class="field-odd">Param is32<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Flag indicating whether the system uses 32-bit addressing. </p>
+</dd>
+<dt class="field-even">Param ret<span class="colon">:</span></dt>
+<dd class="field-even"><p>The return value of the read operation, typically the size of the data read. </p>
+</dd>
+</dl>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="c var">
+<dt class="sig sig-object c" id="c.DmaReadData.data">
+<span class="target" id="structDmaReadData_1a6a16a00391e2c16f616d036f1827e216"></span><span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">data</span></span></span><a class="headerlink" href="#c.DmaReadData.data" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c var">
+<dt class="sig sig-object c" id="c.DmaReadData.dest">
+<span class="target" id="structDmaReadData_1a980d88a39f4d557a88ed0c3466344d0b"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dest</span></span></span><a class="headerlink" href="#c.DmaReadData.dest" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c var">
+<dt class="sig sig-object c" id="c.DmaReadData.flags">
+<span class="target" id="structDmaReadData_1a53f11dacc807b6536eae13e72de25ca1"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">flags</span></span></span><a class="headerlink" href="#c.DmaReadData.flags" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c var">
+<dt class="sig sig-object c" id="c.DmaReadData.index">
+<span class="target" id="structDmaReadData_1a32d79a66e220cc7f8421c0e045c31f6b"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">index</span></span></span><a class="headerlink" href="#c.DmaReadData.index" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c var">
+<dt class="sig sig-object c" id="c.DmaReadData.error">
+<span class="target" id="structDmaReadData_1a08f2e6ec00655bfc8710dccd54617268"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">error</span></span></span><a class="headerlink" href="#c.DmaReadData.error" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c var">
+<dt class="sig sig-object c" id="c.DmaReadData.size">
+<span class="target" id="structDmaReadData_1a6251f657463df6bd6c6a17842d76ce6d"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">size</span></span></span><a class="headerlink" href="#c.DmaReadData.size" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c var">
+<dt class="sig sig-object c" id="c.DmaReadData.is32">
+<span class="target" id="structDmaReadData_1a68a10719a2c1b90f4e353c29e70381f0"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">is32</span></span></span><a class="headerlink" href="#c.DmaReadData.is32" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c var">
+<dt class="sig sig-object c" id="c.DmaReadData.ret">
+<span class="target" id="structDmaReadData_1a96e4e54d353a6617a184abb041910e22"></span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">ret</span></span></span><a class="headerlink" href="#c.DmaReadData.ret" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.DmaRegisterData">
+<span class="target" id="structDmaRegisterData"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DmaRegisterData</span></span></span><a class="headerlink" href="#c.DmaRegisterData" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;DmaDriver.h&gt;</em></div>
+<p>Register data structure. </p>
+<p>This structure holds the data necessary to perform a register write operation within a DMA context.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Param address<span class="colon">:</span></dt>
+<dd class="field-odd"><p>Memory address. </p>
+</dd>
+<dt class="field-even">Param data<span class="colon">:</span></dt>
+<dd class="field-even"><p>Data to be written. </p>
+</dd>
+</dl>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="c var">
+<dt class="sig sig-object c" id="c.DmaRegisterData.address">
+<span class="target" id="structDmaRegisterData_1a20a8692e7ab6f5b5fdeb8f09e58c5dab"></span><span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">address</span></span></span><a class="headerlink" href="#c.DmaRegisterData.address" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c var">
+<dt class="sig sig-object c" id="c.DmaRegisterData.data">
+<span class="target" id="structDmaRegisterData_1a4bb51c7f258e9e30b20a04ef04a9870a"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">data</span></span></span><a class="headerlink" href="#c.DmaRegisterData.data" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="index.html" class="btn btn-neutral float-left" title="Reference" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="axis-api.html" class="btn btn-neutral float-right" title="AXIS Driver API" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, SLAC National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
