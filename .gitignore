@@ -21,3 +21,8 @@ compile_commands.json
 .claude/
 .planning/
 CLAUDE.md
+
+# Sphinx and Doxygen generated output
+docs/_build/
+docs/_doxygen/
+_doxygen/

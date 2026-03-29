@@ -1,6 +1,6 @@
 # aes-stream-drivers
 
-[DOE Code](https://www.osti.gov/doecode/biblio/8043)
+**[Documentation](https://slaclab.github.io/aes-stream-drivers)** | [DOE Code](https://www.osti.gov/doecode/biblio/8043)
 
 Common repository for streaming kernel drivers (datadev, gpuDirect, Yocto, etc)
 
