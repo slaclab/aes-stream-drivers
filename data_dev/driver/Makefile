@@ -82,6 +82,7 @@ all: rc.local
 # construct a rc.local file for the location of this driver
 rc.local:
 	sed 's|DRIVER_LOCATION|$(HOME)|' rc.local.in > rc.local
+	chmod +x rc.local
 
 
 # Clean target: remove built module and object files
