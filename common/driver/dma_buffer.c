@@ -127,10 +127,9 @@ size_t dmaAllocBuffers(struct DmaDevice *dev, struct DmaBufferList *list,
             dev_err(list->dev->device, "dmaAllocBuffers(BUFF_STREAM): kmalloc Memory allocation failed\n");
          }
 #else
-         buff->buffAddr = dma_alloc_pages(list->dev->device, list->dev->cfgSize, &buff->buffHandle, direction, GFP_KERNEL);
-         // Check for mapping error
+         buff->buffAddr = dma_alloc_noncoherent(list->dev->device, list->dev->cfgSize, &buff->buffHandle, direction, GFP_KERNEL);
          if (buff->buffAddr == NULL) {
-            dev_err(dev->device, "dmaAllocBuffers(BUFF_STREAM): dma_alloc_pages failed\n");
+            dev_err(dev->device, "dmaAllocBuffers(BUFF_STREAM): dma_alloc_noncoherent failed\n");
          }
 #endif
 
@@ -204,15 +203,26 @@ void dmaFreeBuffersList(struct DmaBufferList *list) {
                               list->indexed[sl][sli]->buffHandle);
          }
 
-         // Unmap streaming buffer
+         // Unmap and free streaming buffer
          if (list->dev->cfgMode & BUFF_STREAM) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
             dma_unmap_single(list->dev->device,
                              list->indexed[sl][sli]->buffHandle,
                              list->dev->cfgSize, list->direction);
+#else
+            dma_free_noncoherent(list->dev->device, list->dev->cfgSize,
+                                 list->indexed[sl][sli]->buffAddr,
+                                 list->indexed[sl][sli]->buffHandle,
+                                 list->direction);
+#endif
          }
 
-         // Free buffer for streaming type or ARM ACP
+         // Free buffer for streaming type (pre-5.15 only) or ARM ACP
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0)
          if ((list->dev->cfgMode & BUFF_STREAM) || (list->dev->cfgMode & BUFF_ARM_ACP)) {
+#else
+         if (list->dev->cfgMode & BUFF_ARM_ACP) {
+#endif
             kfree(list->indexed[sl][sli]->buffAddr);
          }
       }
