@@ -26,3 +26,7 @@ CLAUDE.md
 docs/_build/
 docs/_doxygen/
 _doxygen/
+
+# DKMS build staging areas
+.dkms-*
+*.tar.gz
