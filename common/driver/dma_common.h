@@ -31,6 +31,10 @@
 #include <DmaDriver.h>
 #include <dma_buffer.h>
 
+#ifndef RHEL_RELEASE_VERSION
+#define RHEL_RELEASE_VERSION(...) 0
+#endif
+
 #ifdef __GNUC__
 #define MAYBE_UNUSED __attribute__((unused))
 #else

@@ -29,10 +29,6 @@
 #include <linux/version.h>
 #include <linux/slab.h>
 
-#ifndef RHEL_RELEASE_VERSION
-#define RHEL_RELEASE_VERSION(...) 0
-#endif
-
 /**
  * struct DmaFunctions - Define interface routines for DMA operations
  * @owner:          Pointer to the module owner of this structure
