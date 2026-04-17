@@ -285,7 +285,7 @@ int Rce_Probe(struct platform_device *pdev) {
    if ((dev->cfgMode & BUFF_ARM_ACP) || (dev->cfgMode & AXIS2_RING_ACP)) {
       // Set DMA operations to coherent if supported
       set_dma_ops(&pdev->dev, &arm_coherent_dma_ops);
-      pr_info("%s: Probe: Set COHERENT DMA =%i\n", dev->device, dev->cfgMode);
+      pr_info("%s: Probe: Set COHERENT DMA =%i\n", MOD_NAME, dev->cfgMode);
    }
 #endif
 #endif
