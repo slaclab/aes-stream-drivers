@@ -146,7 +146,11 @@ struct class *gCl;
  *
  * Returns NULL always.
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 4))
+char *Dma_DevNode(const struct device *dev, umode_t *mode) {
+#else
 char *Dma_DevNode(struct device *dev, umode_t *mode) {
+#endif
    if (mode != NULL) {
       *mode = 0666;
    }
@@ -260,7 +264,7 @@ int Dma_Init(struct DmaDevice *dev) {
          goto cleanup_cdev_add;
       }
 
-      gCl->devnode = (void *)Dma_DevNode;
+      gCl->devnode = Dma_DevNode;
    }
 
    // Attempt to create the device
