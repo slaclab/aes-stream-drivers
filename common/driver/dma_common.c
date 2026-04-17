@@ -189,7 +189,7 @@ int Dma_MapReg(struct DmaDevice *dev) {
    if (dev->base == NULL) {
       dev_info(dev->device, "Init: Mapping Register space 0x%llx with size 0x%x.\n", (uint64_t)dev->baseAddr, dev->baseSize);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
       dev->base = ioremap(dev->baseAddr, dev->baseSize);
 #else
       dev->base = ioremap_nocache(dev->baseAddr, dev->baseSize);
