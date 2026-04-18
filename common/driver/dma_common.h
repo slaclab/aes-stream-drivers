@@ -31,6 +31,10 @@
 #include <DmaDriver.h>
 #include <dma_buffer.h>
 
+#ifndef RHEL_RELEASE_VERSION
+#define RHEL_RELEASE_VERSION(...) 0
+#endif
+
 #ifdef __GNUC__
 #define MAYBE_UNUSED __attribute__((unused))
 #else
@@ -223,7 +227,11 @@ extern struct class * gCl;
 extern struct file_operations DmaFunctions;
 
 // Function prototypes
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 4))
+char *Dma_DevNode(const struct device *dev, umode_t *mode);
+#else
 char *Dma_DevNode(struct device *dev, umode_t *mode);
+#endif
 int Dma_MapReg(struct DmaDevice *dev);
 int Dma_Init(struct DmaDevice *dev);
 void Dma_Clean(struct DmaDevice *dev);

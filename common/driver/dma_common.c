@@ -29,10 +29,6 @@
 #include <linux/version.h>
 #include <linux/slab.h>
 
-#ifndef RHEL_RELEASE_VERSION
-#define RHEL_RELEASE_VERSION(...) 0
-#endif
-
 /**
  * struct DmaFunctions - Define interface routines for DMA operations
  * @owner:          Pointer to the module owner of this structure
@@ -146,7 +142,11 @@ struct class *gCl;
  *
  * Returns NULL always.
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 4))
+char *Dma_DevNode(const struct device *dev, umode_t *mode) {
+#else
 char *Dma_DevNode(struct device *dev, umode_t *mode) {
+#endif
    if (mode != NULL) {
       *mode = 0666;
    }
@@ -185,7 +185,7 @@ int Dma_MapReg(struct DmaDevice *dev) {
    if (dev->base == NULL) {
       dev_info(dev->device, "Init: Mapping Register space 0x%llx with size 0x%x.\n", (uint64_t)dev->baseAddr, dev->baseSize);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)
       dev->base = ioremap(dev->baseAddr, dev->baseSize);
 #else
       dev->base = ioremap_nocache(dev->baseAddr, dev->baseSize);
@@ -260,7 +260,7 @@ int Dma_Init(struct DmaDevice *dev) {
          goto cleanup_cdev_add;
       }
 
-      gCl->devnode = (void *)Dma_DevNode;
+      gCl->devnode = Dma_DevNode;
    }
 
    // Attempt to create the device
