@@ -3,14 +3,17 @@
 set -o nounset
 set -o errexit
 
-# remove old driver
-/sbin/rmmod -s datadev
+if /sbin/lsmod | grep -q datadev; then
+  echo "remove old driver"
+  /sbin/rmmod -s datadev
+fi
 
-# add new driver
+echo "add new driver"
 # this is the line that needs to be tuned to the parameters of your machine
 # additionally, since we reference datadev.ko from the current directory,
 # we need to run this script from the directory that has datadev.ko
 /sbin/insmod ./datadev.ko cfgSize=0x50000 cfgRxCount=256
 
+echo "allow everyone to see driver status"
 # give appropriate permissions
 chmod 666 /proc/datadev*

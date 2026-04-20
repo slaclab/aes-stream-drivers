@@ -82,9 +82,47 @@ all: rc.local
 # construct a rc.local file for the location of this driver
 rc.local:
 	sed 's|DRIVER_LOCATION|$(HOME)|' rc.local.in > rc.local
+	chmod +x rc.local
 
 
 # Clean target: remove built module and object files
 clean:
 	@$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(HOME) clean
 	@rm -f $(OBJS)
+
+define dkms_configure
+	rm -f $(1)
+	cp -r .dkms-common $(1)
+	cp -vL $(3) $(1)
+	cp -vL rc.local.in $(1)
+	echo "PACKAGE_VERSION=$(GITV)"	 					>> $(1)/$(3)
+	echo "echo $(2)" 									>> $(1)/datadev_load.conf
+	echo "#!/bin/bash" 									 > $(1)/install.sh
+	echo "dkms add -m $(2) -v $(GITV)" 					>> $(1)/install.sh
+	echo "dkms build -m $(2) -v $(GITV) -a $(ARCH)"	 	>> $(1)/install.sh
+	echo "dkms install -m $(2) -v $(GITV) -a $(ARCH)" 	>> $(1)/install.sh
+	echo "scp $(2)_load.conf /etc/modules-load.d" 		>> $(1)/install.sh
+	echo "modprobe $(2)" 								>> $(1)/install.sh
+	chmod a+rx $(1)/install.sh
+	tar -czf $@ --exclude=*.o --transform 's%$(1)%$(2)-$(GITV)%g' $(1)
+endef
+
+# Create a common dkms staging directory
+.dkms-common:
+	mkdir -p .dkms-common
+	mkdir -p .dkms-common/src
+	cp -rLv src/* .dkms-common/src/
+	cp -L Makefile .dkms-common/
+	cp -L datadev.conf .dkms-common/
+
+# Datadev dkms
+datadev-$(GITV).tar.gz: .dkms-common
+	$(call dkms_configure,.dkms-datadev,datadev,dkms.conf)
+
+# Datadev (GPU) dkms
+datadev-gpu-$(GITV).tar.gz: .dkms-common
+	$(call dkms_configure,.dkms-datadev-gpu,datadev-gpu,dkms-gpu.conf build-nvidia.sh)
+
+dkms: datadev-$(GITV).tar.gz datadev-gpu-$(GITV).tar.gz 
+
+.PHONY: dkms

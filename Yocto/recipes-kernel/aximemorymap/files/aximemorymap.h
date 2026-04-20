@@ -70,11 +70,15 @@ struct MapDevice {
    struct MemMap *maps;
 };
 
+#ifndef RHEL_RELEASE_VERSION
+#define RHEL_RELEASE_VERSION(...) 0
+#endif
+
 // Function prototypes for device operations.
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
-char *Map_DevNode(struct device *dev, umode_t *mode);
-#else
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 4))
 char *Map_DevNode(const struct device *dev, umode_t *mode);
+#else
+char *Map_DevNode(struct device *dev, umode_t *mode);
 #endif
 int Map_Init(void);
 void Map_Exit(void);
