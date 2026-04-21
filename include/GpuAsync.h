@@ -110,20 +110,28 @@ static inline ssize_t gpuSetWriteEn(int32_t fd, uint32_t idx) {
  * gpuIsGpuAsyncSupported - Check if the firmware supports GPU Async
  * @fd: File descriptor for the device
  *
- * Return: 1 if the firmware and driver supports GPU Async, 0 if it doesn't.
+ * Return: true if the firmware and driver support GPU Async, false otherwise
+ * (including the case where the ioctl itself fails, e.g., the kernel driver
+ * was compiled without GPU Async support and the syscall returns -1 with
+ * errno=ENOTTY or errno=ENOTSUPP). Callers should treat a false return as
+ * "not supported" without attempting any further GPU Async ioctls.
  */
 static inline bool gpuIsGpuAsyncSupported(int32_t fd) {
-   return ioctl(fd, GPU_Is_Gpu_Async_Supp);
+   return ioctl(fd, GPU_Is_Gpu_Async_Supp) > 0;
 }
 
 /**
  * gpuGetGpuAsyncVersion - Get the version of GpuAsyncCore in the firmware
  * @fd: File descriptor for the device
  *
- * Return: Returns the version of GpuAsyncCore, or 0 if not supported.
- * Returns -ENOTSUPP if the driver was compiled without GPUAsync support.
+ * Return: On success, returns the version of GpuAsyncCore (>= 0). On failure,
+ * returns -1 with errno set to indicate the cause (for example, errno=ENOTSUPP
+ * or errno=ENOTTY if the driver was compiled without GPUAsync support, or
+ * another ioctl error). Callers must explicitly check for a negative return
+ * before using the value; the return type is signed so the failure case is
+ * representable without wraparound.
  */
-static inline uint32_t gpuGetGpuAsyncVersion(int32_t fd) {
+static inline ssize_t gpuGetGpuAsyncVersion(int32_t fd) {
    return ioctl(fd, GPU_Get_Gpu_Async_Ver);
 }
 
@@ -131,10 +139,14 @@ static inline uint32_t gpuGetGpuAsyncVersion(int32_t fd) {
  * gpuGetMaxBuffers - Get the max number of DMA buffers
  * @fd: File descriptor for the device
  *
- * Return: Returns the number of DMA buffers available for use.
- * Returns -ENOTSUPP if the driver was compiled without GPUAsync support.
+ * Return: On success, returns the number of DMA buffers available for use
+ * (>= 0). On failure, returns -1 with errno set to indicate the cause (for
+ * example, errno=ENOTSUPP or errno=ENOTTY if the driver was compiled without
+ * GPUAsync support, or another ioctl error). Callers must explicitly check
+ * for a negative return before using the value; the return type is signed so
+ * the failure case is representable without wraparound.
  */
-static inline uint32_t gpuGetMaxBuffers(int32_t fd) {
+static inline ssize_t gpuGetMaxBuffers(int32_t fd) {
    return ioctl(fd, GPU_Get_Max_Buffers);
 }
 

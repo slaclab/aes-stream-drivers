@@ -20,13 +20,14 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
-#include <string>
 #include <fcntl.h>
 #include <unistd.h>
+
+#include <algorithm>
+#include <fstream>
 #include <string>
 #include <thread>
-#include <fstream>
-#include <algorithm>
+#include <vector>
 
 #include "DmaDriver.h"
 #include "AppUtils.h"
@@ -44,7 +45,7 @@ static void assertOk(cudaError_t err);
 static void assertOk(CUresult err);
 static void showHelp();
 
-void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t** rxBuffs, uint8_t** txBuffs, bool loopback);
+void runSimpleLoop(GpuAsyncContext* ctx);
 
 /**
  * 64-bit AXI write descriptor
@@ -72,16 +73,27 @@ int str2int(const char* s) {
 }
 
 int main(int argc, char** argv) {
-    int index = 0, ret = 0;
-    if ((ret = cuInit(0)) != CUDA_SUCCESS) {
-        fprintf(stderr, "cuInit failed (%i)\n", ret);
-        return -1;
+    int index = 0;
+    {
+        CUresult cr = cuInit(0);
+        if (cr != CUDA_SUCCESS) {
+            const char *en = NULL, *es = NULL;
+            cuGetErrorName(cr, &en);
+            cuGetErrorString(cr, &es);
+            fprintf(stderr, "cuInit failed: %s (%s)\n",
+                    en ? en : "?", es ? es : "?");
+            return 1;
+        }
     }
 
     int devCount;
-    if ((ret = cudaGetDeviceCount(&devCount)) != cudaSuccess) {
-        fprintf(stderr, "cudaGetDeviceCount: %s (%i)\n", cudaGetErrorString((cudaError_t)ret), ret);
-        return -1;
+    {
+        cudaError_t cr = cudaGetDeviceCount(&devCount);
+        if (cr != cudaSuccess) {
+            fprintf(stderr, "cudaGetDeviceCount failed: %s (%s)\n",
+                    cudaGetErrorName(cr), cudaGetErrorString(cr));
+            return 1;
+        }
     }
 
     int opt, bufCnt = 1024, size = 0x100000;
@@ -130,149 +142,17 @@ int main(int argc, char** argv) {
         }
     }
 
-    CUcontext ctx;
-    CUdevice computeDevice;
-
-    // Attempt to get the user specified device
-    if (cuDeviceGet(&computeDevice, index) != CUDA_SUCCESS) {
-        fprintf(stderr, "Failed to get cuda device with index %i\n", index);
-        return -1;
+    GpuAsyncContext gpuCtx;
+    memset(&gpuCtx, 0, sizeof(gpuCtx));
+    gpuCtx.fd = -1;
+    if (gpuAsyncInit(&gpuCtx, dev.c_str(), index, bufCnt, size, loopback ? 1 : 0) < 0) {
+        return 1;
     }
-
-    // Ensure stream mem ops are available
-    int pi;
-    cuDeviceGetAttribute(&pi, CU_DEVICE_ATTRIBUTE_CAN_USE_STREAM_MEM_OPS_V1, computeDevice);
-    if (pi != 1) {
-        fprintf(stderr, "Device %d cannot use Stream mem ops!\n", index);
-        return -1;
-    }
-
-    // Open the DMA device
-    int fd = open(dev.c_str(), O_RDWR);
-    if (fd < 0) {
-        perror("open");
-        return -1;
-    }
-
-    // Check for GPUDirect support
-    if (!gpuIsGpuAsyncSupported(fd)) {
-        printf("Firmware or driver does not support GPUAsync!\n");
-        close(fd);
-        return -1;
-    }
-
-    // Validate buffer count
-    if (bufCnt > gpuGetMaxBuffers(fd)) {
-        fprintf(stderr, "Too many buffers requested: %d > %d\n", bufCnt, gpuGetMaxBuffers(fd));
-        return -1;
-    }
-
-    // Force read support off if we're on v3 or below
-    if (loopback && gpuGetGpuAsyncVersion(fd) < 4) {
-        printf("GPU -> FPGA transfers are not supported on GpuAsyncCore V3 or below\n");
-        loopback = false;
-    }
-
-    // Create a new context
-    if ((ret = cuCtxCreate(&ctx, NULL, CU_CTX_SCHED_SPIN, computeDevice)) != CUDA_SUCCESS) {
-        fprintf(stderr, "Failed to create cuda context (%i)\n", ret);
-        return -1;
-    }
-
-    // Map device control registers to the host
-    void* regs = dmaMapRegister(fd, GPU_ASYNC_CORE_OFFSET, GPU_ASYNC_CORE_SIZE);
-    if (!regs) {
-        fprintf(stderr, "Failed to map FPGA registers\n");
-        return -1;
-    }
-
-    // Map the registers into the CUDA address space to allow the GPU to access them
-    if ((ret = cuMemHostRegister(regs, GPU_ASYNC_CORE_SIZE, CU_MEMHOSTREGISTER_IOMEMORY | CU_MEMHOSTREGISTER_DEVICEMAP)) != CUDA_SUCCESS) {
-        fprintf(stderr, "cuMemHostRegister failed: %d. You may have to run the application as root\n", ret);
-        return -1;
-    }
-
-    // Init a register object
-    GpuAsyncCoreRegs coreRegs(regs);
-
-    // Get the DMA_AXI_CONFIG_G.DATA_BYTES_C from FPGA
-    const uint32_t dmaHeaderSize = coreRegs.dmaDataBytes();
-
-    // Configure max. FPGA->GPU buffer on the FPGA side
-    coreRegs.setRemoteWriteMaxSize(0, size);
-
-    // Allocate RX buffers (FPGA->GPU)
-    uint8_t* rxBuffers[bufCnt];
-    memset(rxBuffers, 0, bufCnt * sizeof(uint8_t*));
-    for (int i = 0; i < bufCnt; ++i) {
-        assertOk(cudaMalloc(&rxBuffers[i], size + dmaHeaderSize));
-    }
-
-    // Allocate TX buffers (GPU->FPGA)
-    uint8_t* txBuffers[bufCnt];
-    memset(txBuffers, 0, bufCnt * sizeof(uint8_t*));
-    if (loopback) {
-        for (int i = 0; i < bufCnt; ++i) {
-            // Size must always be 64k aligned, but we should be able to rely on CUDA to do that for us.
-            assertOk(cudaMalloc(&txBuffers[i], size + dmaHeaderSize));
-        }
-    }
-
-    // Iterate through the RX/TX buffers
-    for (int i = 0; i < bufCnt; ++i) {
-
-        // Map the GPU RX buffers into the FPGA registers
-        if (gpuAddNvidiaMemory(fd, 1, (uint64_t)rxBuffers[i], size) < 0) {
-            fprintf(stderr, "gpuAddNvidiaMemory failed\n");
-            return -1;
-        }
-
-        if (s_verbose)
-            printf("Added write buffer at addr %p\n", rxBuffers[i]);
-
-        if (!txBuffers[i])
-            continue;
-
-        // Map the GPU TX buffers into the FPGA registers
-        if (gpuAddNvidiaMemory(fd, 0, (uint64_t)txBuffers[i], size) < 0) {
-            fprintf(stderr, "gpuAddNvidiaMemory failed\n");
-            return -1;
-        }
-
-        if (s_verbose)
-            printf("Added read buffer at addr 0x%p\n", txBuffers[i]);
-    }
-
-    // Create a stream to use
-    CUstream stream;
-    assertOk(cudaStreamCreate(&stream));
 
     // Run the primary function routine
-    runSimpleLoop(stream, coreRegs, bufCnt, rxBuffers, txBuffers, loopback);
+    runSimpleLoop(&gpuCtx);
 
-    // Kill off stream
-    cudaStreamDestroy(stream);
-
-    // Remove all GPU buffers from FPGA
-    gpuRemNvidiaMemory(fd);
-
-    // Free all buffers
-    for (int i = 0; i < bufCnt; ++i) {
-        cudaFree(rxBuffers[i]);
-        if (loopback) {
-            cudaFree(txBuffers[i]);
-        }
-    }
-
-    // Unmap FPGA mem
-    cuMemHostUnregister(regs);
-    dmaUnMapRegister(fd, regs, GPU_ASYNC_CORE_SIZE);
-    close(fd);
-
-    // Destory the context
-    cuCtxDestroy(ctx);
-
-    // Return without error
+    gpuAsyncCleanup(&gpuCtx);
     return 0;
 }
 
@@ -280,87 +160,77 @@ int main(int argc, char** argv) {
  * Run a simple test receiving data from the FPGA, optionally decoding the header or
  * dumping event data to file.
  */
-void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t** rxBuffs, uint8_t** txBuffs, bool loopback) {
-    CUdeviceptr devRegs;
-    assertOk(cuMemHostGetDevicePointer(&devRegs, (void*)regs.registers(), 0));
-
+void runSimpleLoop(GpuAsyncContext* ctx) {
     // Create and init variables
     uint64_t totalRecv = 0;
     uint64_t totalEvents = 0, invalidEvents = 0;
     int curBuff = 0;
-    uint8_t* tmpbuf = new uint8_t[s_dumpBytes ? s_dumpBytes : 1];
-
-    // Stop the FPGA side
-    regs.setWriteEnable(0);
-    regs.setReadEnable(0);
-
-    // Configure the buffer counts on the FPGA side
-    regs.setWriteCount(bufCnt-1);
-    regs.setReadCount(bufCnt-1);
-
-    // Iterate through the RX/TX buffers
-    for (int i = 0; i < bufCnt; ++i) {
-
-        // Arm the free list on the FPGA side (A.K.A. "FPGA's free list")
-        assertOk(cuStreamWriteValue32(stream, devRegs + regs.freeListOffset(i), 1, 0));
-
-        // Clear handshake space on the GPU side (A.K.A. "GPU's doorbell")
-        assertOk(cuStreamWriteValue32(stream, (CUdeviceptr)rxBuffs[i] + 4, 0, 0));
-
-        if (loopback) {
-            // Arm the free list on the GPU side (A.K.A. "GPU's free list")
-            assertOk(cuStreamWriteValue32(stream, (CUdeviceptr)txBuffs[i], 1, 0));
-        }
-    }
-
-    // Stop the FPGA side
-    regs.setWriteEnable(1);
-    if (loopback) {
-        regs.setReadEnable(1);
-    }
+    const size_t dumpBytes = (s_dumpBytes > 0) ? static_cast<size_t>(s_dumpBytes) : 0U;
+    std::vector<uint8_t> tmpbuf(dumpBytes);
 
     // Enter the processing loop
     while (s_cnt == -1 || s_cnt-- > 0) {
         AxiWrDesc64_t hdr;
 
         // Wait on handshake space on the GPU side (A.K.A. "GPU's doorbell")
-        assertOk(cuStreamWaitValue32(stream, (CUdeviceptr)rxBuffs[curBuff] + 4, 1, CU_STREAM_WAIT_VALUE_GEQ));
+        assertOk(cuStreamWaitValue32(ctx->cuStream, (CUdeviceptr)ctx->rxBuffers[curBuff] + 4, 1, CU_STREAM_WAIT_VALUE_GEQ));
 
         // Download header data immediately
-        assertOk(cudaMemcpyAsync(&hdr, rxBuffs[curBuff], sizeof(hdr), cudaMemcpyDeviceToHost, stream));
+        assertOk(cudaMemcpyAsync(&hdr, ctx->rxBuffers[curBuff], sizeof(hdr), cudaMemcpyDeviceToHost, ctx->cuStream));
 
-        // SYNC the stream so header data becomes available to the host
-        cuStreamSynchronize(stream);
+        // SYNC the stream so header data becomes available to the host.
+        // Check the return value: a failed sync would leave `hdr` undefined
+        // and race the subsequent doorbell writes.
+        assertOk(cuStreamSynchronize(ctx->cuStream));
 
         // TX path (GPU -> FPGA)
-        if (loopback) {
+        if (ctx->loopback) {
+            // Validate hdr.size before issuing the rx->tx device copy.
+            // The copy destination is txBuffers[curBuff] + dmaHeaderSize inside a
+            // bufSize+dmaHeaderSize allocation, so the safe upper bound is bufSize.
+            // A corrupt descriptor with hdr.size > bufSize would overrun the tx
+            // buffer; hdr.size == 0 would trigger a zero-byte copy and a nonsense
+            // remoteReadSize doorbell. Drop the loopback for this event in either
+            // case; the outer rx doorbell clear / rx free-list refill still run so
+            // the FPGA rx pipeline stays alive.
+            const uint32_t maxPayload = static_cast<uint32_t>(ctx->bufSize);
+            if (hdr.size == 0 || hdr.size > maxPayload) {
+                fprintf(stderr,
+                        "Dropping loopback: invalid hdr.size=%u (expected 1..%u)\n",
+                        hdr.size, maxPayload);
+                invalidEvents++;
+            } else {
+                // Wait for the FPGA to return the free list back to GPU
+                assertOk(cuStreamWaitValue32(ctx->cuStream, (CUdeviceptr)ctx->txBuffers[curBuff], 1, CU_STREAM_WAIT_VALUE_GEQ));
 
-            // Wait for the FPGA to return the free list back to GPU
-            assertOk(cuStreamWaitValue32(stream, (CUdeviceptr)txBuffs[curBuff], 1, CU_STREAM_WAIT_VALUE_GEQ));
+                // Copy rxData to the txData buffer for this loopback mode at
+                // the dmaDataBytes() payload offset. Use the cached
+                // ctx->dmaHeaderSize (populated once at init) instead of
+                // re-reading the FPGA register every event.
+                assertOk(cudaMemcpyAsync(ctx->txBuffers[curBuff] + ctx->dmaHeaderSize, ctx->rxBuffers[curBuff] + ctx->dmaHeaderSize, hdr.size, cudaMemcpyDeviceToDevice, ctx->cuStream));
 
-            // Copy data rxData to the txData buffer for this loopback mode (instead the dmaDataBytes() offsets on both the rxBuffer and txbuffer for the copy)
-            assertOk(cudaMemcpyAsync(txBuffs[curBuff] + regs.dmaDataBytes(), rxBuffs[curBuff] + regs.dmaDataBytes(), hdr.size, cudaMemcpyDeviceToDevice));
+                // Remove from free list on the GPU side  (A.K.A. "GPU's free list")
+                assertOk(cuStreamWriteValue32(ctx->cuStream, (CUdeviceptr)ctx->txBuffers[curBuff], 0, 0));
 
-            // Remove from free list on the GPU side  (A.K.A. "GPU's free list")
-            assertOk(cuStreamWriteValue32(stream, (CUdeviceptr)txBuffs[curBuff], 0, 0));
+                // SYNC the stream for the data copy and GPU side free list update before trigginer the FPGA's doorbell
+                assertOk(cuStreamSynchronize(ctx->cuStream));
 
-            // SYNC the stream for the data copy and GPU side free list update before trigginer the FPGA's doorbell
-            cuStreamSynchronize(stream);
-
-            // Trigger the FPGA to read the txBuffers from the GPU (A.K.A. "FPGA's doorbell")
-            assertOk(cuStreamWriteValue32(stream, devRegs + regs.remoteReadSizeOffset(curBuff), hdr.size, 0));
+                // Trigger the FPGA to read the txBuffers from the GPU (A.K.A. "FPGA's doorbell")
+                assertOk(cuStreamWriteValue32(ctx->cuStream, ctx->devRegs + gpuAsyncRegs(ctx)->remoteReadSizeOffset(curBuff), hdr.size, 0));
+            }
         }
 
         // Clear handshake space on the GPU side (A.K.A. "GPU's doorbell")
-        assertOk(cuStreamWriteValue32(stream, (CUdeviceptr)rxBuffs[curBuff] + 4, 0, 0));
+        assertOk(cuStreamWriteValue32(ctx->cuStream, (CUdeviceptr)ctx->rxBuffers[curBuff] + 4, 0, 0));
 
         // After the rxData->txData copy, return the buffer index back to the FPGA side (A.K.A. "FPGA's free list")
-        assertOk(cuStreamWriteValue32(stream, devRegs + regs.freeListOffset(curBuff), 1, 0));
+        assertOk(cuStreamWriteValue32(ctx->cuStream, ctx->devRegs + gpuAsyncRegs(ctx)->freeListOffset(curBuff), 1, 0));
 
-        // Dump header data when requested
+        // Dump header data when requested. hdr.size and the bit-field
+        // accessors all return uint32_t, so use %u not %d.
         if (s_verbose > 1) {
             printf(
-                "hdr{size=%d, firstUser=%d, lastUser=%d, cont=%d, overflow=%d, result=%d}\n",
+                "hdr{size=%u, firstUser=%u, lastUser=%u, cont=%u, overflow=%u, result=%u}\n",
                 hdr.size,
                 hdr.firstUser(),
                 hdr.lastUser(),
@@ -370,12 +240,19 @@ void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t*
             );
         }
 
-        // Dump first N bytes when requested
-        if (s_dumpBytes) {
-            size_t count = std::min((uint32_t)s_dumpBytes, hdr.size);
-            assertOk(cudaMemcpy(tmpbuf, rxBuffs[curBuff], count, cudaMemcpyDeviceToHost));
+        // Dump first N bytes when requested. Clamp the copy size to the
+        // actual per-buffer cudaMalloc allocation (bufSize + dmaHeaderSize) so
+        // that a corrupt hdr.size combined with a large user-supplied -x cannot
+        // trigger an out-of-bounds device-to-host copy.
+        if (dumpBytes != 0U) {
+            const size_t maxCount = static_cast<size_t>(ctx->bufSize) +
+                                    static_cast<size_t>(ctx->dmaHeaderSize);
+            size_t count = std::min(std::min(static_cast<size_t>(hdr.size),
+                                             dumpBytes),
+                                    maxCount);
+            assertOk(cudaMemcpy(tmpbuf.data(), ctx->rxBuffers[curBuff], count, cudaMemcpyDeviceToHost));
 
-            for (int i = 0; i < count; ++i) {
+            for (size_t i = 0; i < count; ++i) {
                 printf("%02X ", tmpbuf[i]);
                 if (i && (i+1) % 32 == 0)
                     printf("\n");
@@ -385,15 +262,28 @@ void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t*
 
         // Dump first event to file
         if (!s_dumpFile.empty() && !s_dumpToFile) {
-            std::ofstream file;
-            file.open(s_dumpFile.c_str(), std::ios::binary | std::ios::out);
-            if (file.good()) {
-                file.write((char*)tmpbuf, hdr.size);
-                fprintf(stderr, "Dumped event data to %s\n", s_dumpFile.c_str());
+            // Compute the per-buffer allocation bound in size_t to match the
+            // -x dump path above and avoid a latent uint32_t wraparound when
+            // bufSize + dmaHeaderSize approaches 2^32.
+            const size_t maxBytes = static_cast<size_t>(ctx->bufSize) +
+                                    static_cast<size_t>(ctx->dmaHeaderSize);
+            if (hdr.size == 0 || hdr.size > maxBytes) {
+                fprintf(stderr,
+                        "Skipping dump: invalid hdr.size=%u (expected 1..%zu)\n",
+                        hdr.size, maxBytes);
+            } else {
+                std::vector<uint8_t> filebuf(hdr.size);
+                assertOk(cudaMemcpy(filebuf.data(), ctx->rxBuffers[curBuff], hdr.size, cudaMemcpyDeviceToHost));
+                std::ofstream file;
+                file.open(s_dumpFile.c_str(), std::ios::binary | std::ios::out);
+                if (file.good()) {
+                    file.write((char*)filebuf.data(), hdr.size);
+                    fprintf(stderr, "Dumped event data to %s\n", s_dumpFile.c_str());
+                }
+                else
+                    fprintf(stderr, "Failed to dump event data to %s\n", s_dumpFile.c_str());
+                s_dumpToFile = 1;
             }
-            else
-                fprintf(stderr, "Failed to dump event data to %s\n", s_dumpFile.c_str());
-            s_dumpToFile = 1;
         }
 
         totalEvents++;
@@ -401,7 +291,7 @@ void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t*
 
         // Round-robin to the next buffer
         curBuff++;
-        if (curBuff >= bufCnt) {
+        if (curBuff >= ctx->bufCnt) {
             curBuff = 0;
         }
 
@@ -421,14 +311,19 @@ void runSimpleLoop(CUstream stream, GpuAsyncCoreRegs& regs, int bufCnt, uint8_t*
 
 static void assertOk(cudaError_t err) {
     if (err != cudaSuccess) {
-        printf("Function failed: %s (%i)\n", cudaGetErrorString(err), err);
+        fprintf(stderr, "CUDA runtime API call failed: %s (%s)\n",
+                cudaGetErrorName(err), cudaGetErrorString(err));
         abort();
     }
 }
 
 static void assertOk(CUresult err) {
     if (err != CUDA_SUCCESS) {
-        printf("Function failed: %i\n", err);
+        const char *en = NULL, *es = NULL;
+        cuGetErrorName(err, &en);
+        cuGetErrorString(err, &es);
+        fprintf(stderr, "CUDA driver API call failed: %s (%s)\n",
+                en ? en : "?", es ? es : "?");
         abort();
     }
 }

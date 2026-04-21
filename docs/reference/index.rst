@@ -10,6 +10,7 @@ with precision and completeness.
 
    dma-api
    axis-api
+   gpu-async-api
    ioctl-table
    module-parameters
    device-nodes
