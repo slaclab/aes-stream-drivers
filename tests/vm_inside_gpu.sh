@@ -23,13 +23,15 @@
 # the Phase 4 GPU ioctl + /proc tests in addition to the Phase 3 suite.
 #
 # Responsibilities:
-#   1. Load datadev_emulator.ko (built on the host)
-#   2. Load nvidia_p2p_stub.ko (built on the host)  -- NEW vs vm_inside.sh
+#   1. Load nvidia_p2p_stub.ko (built on the host)  -- must come first, the
+#      emulator's module_init calls emu_gpu_register_drain_cb eagerly
+#   2. Load datadev_emulator.ko (built on the host)
 #   3. Load datadev.ko (GPU build: built with NVIDIA_DRIVERS=$HOST/emulator/gpu_stub)
 #   4. Wait for /dev/datadev_0 and /proc/datadev_0
 #   5. Confirm "Configured for GpuAsyncCore version 4" in dmesg
 #   6. Run tests/run_tests.sh with GPU_ENABLED=1 (Phase 3 + Phase 4 cases)
-#   7. Unload in reverse order: datadev -> nvidia_p2p_stub -> datadev_emulator
+#   7. Unload in reverse load order:
+#      datadev -> datadev_emulator -> nvidia_p2p_stub
 #   8. Check dmesg for oops/panic/BUG
 #
 # Mirrors the module-load sequence from the build_and_test_gpu CI job so
@@ -43,6 +45,16 @@ set -uo pipefail
 HOST=/mnt/host
 TIMEOUT_SEC=30
 EXIT_CODE=0
+
+echo "=== VM-GPU: Loading nvidia_p2p_stub ==="
+# Must load before datadev_emulator: the emulator's module_init calls
+# emu_gpu_register_drain_cb eagerly, so the stub's exported symbols must
+# already be resolvable. Mirrors scripts/ci/load-modules-gpu.sh.
+insmod "$HOST/emulator/gpu_stub/nvidia_p2p_stub.ko" || {
+   echo "FAIL: insmod nvidia_p2p_stub (was it built? 'make -C emulator/gpu_stub' on host)"
+   exit 1
+}
+echo "  nvidia_p2p_stub loaded"
 
 echo "=== VM-GPU: Loading emulator module ==="
 insmod "$HOST/emulator/driver/datadev_emulator.ko" || {
@@ -64,13 +76,6 @@ if ! dmesg | grep -q "BAR0 GPU Async V4 initialized"; then
    exit 1
 fi
 echo "  GPU Async V4 registers initialized"
-
-echo "=== VM-GPU: Loading nvidia_p2p_stub ==="
-insmod "$HOST/emulator/gpu_stub/nvidia_p2p_stub.ko" || {
-   echo "FAIL: insmod nvidia_p2p_stub (was it built? 'make -C emulator/gpu_stub' on host)"
-   exit 1
-}
-echo "  nvidia_p2p_stub loaded"
 
 echo "=== VM-GPU: Loading datadev (GPU build) ==="
 insmod "$HOST/data_dev/driver/datadev.ko" cfgDebug=1 || {
@@ -123,10 +128,14 @@ CUSTOM_SIZE=65536 \
    bash "$HOST/tests/test_params.sh" || EXIT_CODE=$?
 
 echo "=== VM-GPU: Unloading modules ==="
+# Reverse load order: the emulator holds a reference on the stub via the
+# registered drain callback, so nvidia_p2p_stub must come off last.
+# Matches scripts/ci/unload-modules-gpu.sh.
 rmmod datadev 2>/dev/null || true
 sleep 1
-rmmod nvidia_p2p_stub 2>/dev/null || true
 rmmod datadev_emulator 2>/dev/null || true
+sleep 1
+rmmod nvidia_p2p_stub 2>/dev/null || true
 
 echo "=== VM-GPU: Checking dmesg for errors ==="
 if dmesg | grep -iE 'oops|panic|BUG:'; then

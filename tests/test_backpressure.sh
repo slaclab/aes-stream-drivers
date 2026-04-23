@@ -24,6 +24,7 @@
 #   DEV          Device path (default: /dev/datadev_0)
 #   APP_BIN      Binary directory (default: data_dev/app/bin)
 #   DATADEV_KO   Path to datadev.ko (default: data_dev/driver/datadev.ko)
+#   SIZE         dmaLoopTest frame size (default: 32768)
 #   TIMEOUT_SEC  Module init timeout (default: 15)
 # ----------------------------------------------------------------------------
 
@@ -32,6 +33,7 @@ set -uo pipefail
 DEV="${DEV:-/dev/datadev_0}"
 APP_BIN="${APP_BIN:-data_dev/app/bin}"
 DATADEV_KO="${DATADEV_KO:-data_dev/driver/datadev.ko}"
+SIZE="${SIZE:-32768}"
 TIMEOUT_SEC="${TIMEOUT_SEC:-15}"
 INSMOD_TIMEOUT_SEC="${INSMOD_TIMEOUT_SEC:-120}"
 
@@ -87,10 +89,11 @@ $SUDO chmod 666 "$DEV"
 sleep 2
 
 # Run dmaLoopTest with 32768-byte frames; let it run until timeout (rc=124 ok).
+# Exit code is intentionally not captured — PRBS mismatch and dmesg checks
+# below are the real failure signals; timeout rc=124 is expected here.
 TMPFILE=$(mktemp)
 trap "rm -f \$TMPFILE" EXIT
-timeout 30 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$SIZE" > "$TMPFILE" 2>&1
-LOOP_RC=$?
+timeout 30 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$SIZE" > "$TMPFILE" 2>&1 || true
 
 # PRBS integrity check.
 if grep -q "Prbs mismatch" "$TMPFILE"; then

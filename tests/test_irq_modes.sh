@@ -25,6 +25,7 @@
 #   DEV          Device path (default: /dev/datadev_0)
 #   APP_BIN      Binary directory (default: data_dev/app/bin)
 #   DATADEV_KO   Path to datadev.ko (default: data_dev/driver/datadev.ko)
+#   SIZE         dmaLoopTest frame size (default: 32768)
 #   TIMEOUT_SEC  Module init timeout (default: 15)
 # ----------------------------------------------------------------------------
 
@@ -33,6 +34,7 @@ set -uo pipefail
 DEV="${DEV:-/dev/datadev_0}"
 APP_BIN="${APP_BIN:-data_dev/app/bin}"
 DATADEV_KO="${DATADEV_KO:-data_dev/driver/datadev.ko}"
+SIZE="${SIZE:-32768}"
 TIMEOUT_SEC="${TIMEOUT_SEC:-15}"
 INSMOD_TIMEOUT_SEC="${INSMOD_TIMEOUT_SEC:-120}"
 

@@ -124,6 +124,13 @@ static inline bool gpuIsGpuAsyncSupported(int32_t fd) {
  *
  * @return The version of GpuAsyncCore, or 0 if not supported.  Returns
  *         -ENOTSUPP if the driver was compiled without GPUAsync support.
+ *
+ * @note The return type is @c uint32_t to preserve the legacy public ABI
+ *       of this header.  The underlying ioctl() may return a negative
+ *       errno (e.g. @c -ENOTSUPP); callers that need to distinguish an
+ *       error from a valid version must cast the return to @c int32_t
+ *       before comparison.  Do not change the return type: downstream
+ *       consumers build against this signature.
  */
 static inline uint32_t gpuGetGpuAsyncVersion(int32_t fd) {
    return ioctl(fd, GPU_Get_Gpu_Async_Ver);
@@ -136,6 +143,10 @@ static inline uint32_t gpuGetGpuAsyncVersion(int32_t fd) {
  *
  * @return The number of DMA buffers available for use.  Returns -ENOTSUPP
  *         if the driver was compiled without GPUAsync support.
+ *
+ * @note Same signed/unsigned caveat as gpuGetGpuAsyncVersion() — the
+ *       @c uint32_t return is a legacy ABI constraint; cast to
+ *       @c int32_t at the call site to detect negative errnos.
  */
 static inline uint32_t gpuGetMaxBuffers(int32_t fd) {
    return ioctl(fd, GPU_Get_Max_Buffers);
