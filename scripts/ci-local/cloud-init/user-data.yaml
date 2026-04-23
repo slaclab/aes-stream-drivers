@@ -1,0 +1,80 @@
+#cloud-config
+# scripts/ci-local/cloud-init/user-data.yaml
+#
+# Text-in-git cloud-init. Committed to the repository as the
+# reproducible first-boot customization for the aes-ci parity VM.
+#
+# Sentinel @@SSH_PUBKEY@@ is replaced by scripts/ci-local/provision_vm.sh
+# via `sed "s|@@SSH_PUBKEY@@|$PUBKEY|"` before cloud-localds wraps this file
+# into a NoCloud seed ISO.
+#
+# Installs linux-image-azure + Azure family packages, sets GRUB default
+# to the new kernel, and reboots. After reboot `uname -r` contains `azure`.
+# Installs docker-ce 28.x+ via the upstream get.docker.com script (which
+# pulls from download.docker.com apt repo), NOT distro docker.io.
+# Enables kernel.sysrq=1 via /etc/sysctl.d/99-aes-ci-sysrq.conf so
+# virsh send-key KEY_LEFTALT KEY_SYSRQ KEY_T can trigger a task dump later.
+
+users:
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - "@@SSH_PUBKEY@@"
+
+package_update: true
+package_upgrade: false   # avoid pulling in mid-cycle kernel updates on first boot
+packages:
+  - linux-image-azure
+  - linux-headers-azure
+  - linux-tools-azure
+  - linux-cloud-tools-azure
+  - qemu-guest-agent
+  - ca-certificates
+  - curl
+  - gnupg
+
+write_files:
+  - path: /etc/sysctl.d/99-aes-ci-sysrq.conf
+    content: |
+      # Magic sysrq fully enabled for hang diagnosis
+      kernel.sysrq = 1
+    permissions: "0644"
+  - path: /etc/fstab
+    append: true
+    content: |
+      # Virtiofs mount for aes-stream-drivers repo.
+      # nofail: don't abort guest boot if virtiofsd isn't ready at first
+      # mount attempt; the runcmd below retries and subsequent reboots
+      # pick it up cleanly.
+      aes-stream-drivers /mnt/aes-stream-drivers virtiofs rw,nofail 0 0
+
+runcmd:
+  # Boot into Azure kernel next time; add cma=128M so the DMA coherent
+  # allocator has a CMA region (the 6.17 Azure kernel routes
+  # dma_alloc_coherent through CMA for virtual PCI devices).
+  # Cloud images override GRUB_CMDLINE_LINUX_DEFAULT in /etc/default/grub.d/,
+  # so we patch there instead of /etc/default/grub.
+  - [ sh, -c, 'for f in /etc/default/grub.d/*.cfg; do sed -i "s/GRUB_CMDLINE_LINUX_DEFAULT=\"/GRUB_CMDLINE_LINUX_DEFAULT=\"cma=128M /" "$f" 2>/dev/null; done' ]
+  - [ sh, -c, 'grub-set-default 0 && update-grub' ]
+  - systemctl enable --now qemu-guest-agent
+  - sysctl --system
+
+  # Docker 28.x+ from upstream; get.docker.com pipeline == download.docker.com
+  - [ sh, -c, 'curl -fsSL https://get.docker.com | sh' ]
+  - usermod -aG docker ubuntu
+
+  # Virtiofs mount — create mount point + best-effort
+  # first-boot mount. fstab's nofail covers the case where virtiofsd
+  # isn't ready; reboot (power_state below) brings it up cleanly.
+  - [ sh, -c, 'mkdir -p /mnt/aes-stream-drivers' ]
+  - [ sh, -c, 'mount /mnt/aes-stream-drivers || echo "virtiofs mount will come up on reboot"' ]
+
+  # Final marker — presence of this file signals cloud-init has finished
+  # everything meaningful; provision_vm.sh polls for it via qemu-guest-agent.
+  - [ sh, -c, 'touch /var/lib/aes-ci-cloud-init-done' ]
+
+power_state:
+  mode: reboot
+  timeout: 60
+  condition: True

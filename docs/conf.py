@@ -34,7 +34,7 @@ breathe_projects = {
     'aes-stream-drivers': '_doxygen/xml',
 }
 breathe_default_project = 'aes-stream-drivers'
-breathe_domain_by_extension = {'h': 'c', 'c': 'c'}
+breathe_domain_by_extension = {'h': 'cpp', 'c': 'c'}
 breathe_default_members = ('members', 'undoc-members')
 
 # -- sphinx-copybutton configuration -----------------------------------------
@@ -64,4 +64,4 @@ html_context = {
     'source_suffix': '.rst',
 }
 
-html_static_path = ['_static']
+html_static_path = []

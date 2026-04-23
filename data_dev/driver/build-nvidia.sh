@@ -29,8 +29,18 @@ if [ -z "$VERSION" ] || [ -z "$SRCTREE" ]; then
     exit 1
 fi
 
-# Determine the NVIDIA module version installed for this kernel
-NVIDIA_VER=$(dkms status nvidia -k $VERSION | tr '/' '-' | awk -F, '{ print $1 }')
+# Determine the NVIDIA module version installed for this kernel.
+# On CI/emulator systems the real NVIDIA driver is absent, so `dkms status
+# nvidia` returns empty.  Skip the NVIDIA rebuild in that case: DKMS then
+# builds datadev-gpu with NVIDIA_DRIVERS unset, which exercises the
+# tarball/install path without a hard NVIDIA dependency.
+NVIDIA_VER=$(dkms status nvidia -k "$VERSION" 2>/dev/null | tr '/' '-' | awk -F, '{ print $1 }')
+
+if [ -z "$NVIDIA_VER" ] || [ ! -d "$SRCTREE/$NVIDIA_VER" ]; then
+    echo "--> No NVIDIA DKMS module found for kernel $VERSION; skipping NVIDIA symbol rebuild."
+    : > Makefile.local
+    exit 0
+fi
 
 # Generate a local Makefile that contains the configuration
 echo "NVIDIA_DRIVERS=$SRCTREE/$NVIDIA_VER" > Makefile.local

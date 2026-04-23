@@ -22,7 +22,10 @@ GCC  := $(COMP)gcc
 TEST := $(shell which $(GCC) 2> /dev/null)
 
 ifndef GITV
-	GITT := $(shell cd $(HOME); git describe --tags)
+	GITT := $(shell cd $(HOME); git describe --tags 2>/dev/null)
+	ifeq ($(GITT),)
+		GITT := $(shell cd $(HOME); git rev-parse --short HEAD 2>/dev/null)
+	endif
 	GITD := $(shell cd $(HOME); git status --short -uno | wc -l)
 	GITV := $(if $(filter $(GITD),0),$(GITT),$(GITT)-dirty)
 endif

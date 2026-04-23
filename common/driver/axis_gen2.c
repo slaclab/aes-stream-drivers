@@ -331,7 +331,11 @@ uint32_t AxisG2_Process(struct DmaDevice * dev, __iomem struct AxisG2Reg *reg, s
              dmaRxBufferIrq(desc, buff);
          }
       } else {
-          dev_warn(dev->device, "Process: Failed to locate RX buffer index %i.\n", ret.index);
+          // Rate-limited: during rmmod-under-load this can fire per-descriptor
+          // as buffers are torn down concurrently.  An unrate-limited dev_warn
+          // under maskLock can saturate the console path and deadlock against
+          // Dma_Release which also needs maskLock.
+          dev_warn_ratelimited(dev->device, "Process: Failed to locate RX buffer index %i.\n", ret.index);
       }
 
       // Update write index
@@ -632,6 +636,17 @@ void AxisG2_Clear(struct DmaDevice *dev) {
    // Disable RX and TX to stop data transfers.
    writel(0x0, &(reg->enableVer));
    writel(0x0, &(reg->online));
+
+   // Zero the ring base-address registers BEFORE freeing the DMA
+   // buffers.  Downstream emulator/monitor implementations keep a
+   // cached pointer to the ring addresses; if these regs still hold
+   // the soon-to-be-freed physical addresses when the emulator next
+   // re-captures on fifoReset, it can write into pages the allocator
+   // has already handed to someone else.
+   writel(0x0, &(reg->rdBaseAddrLow));
+   writel(0x0, &(reg->rdBaseAddrHigh));
+   writel(0x0, &(reg->wrBaseAddrLow));
+   writel(0x0, &(reg->wrBaseAddrHigh));
 
    // Clear FIFOs to reset the device's internal state.
    writel(0x1, &(reg->fifoReset));

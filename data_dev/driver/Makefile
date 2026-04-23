@@ -25,8 +25,8 @@ endif
 HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 # Kernel version and architecture for the build
-KVER := $(shell uname -r)
-ARCH := $(shell uname -m)
+KVER ?= $(shell uname -r)
+ARCH ?= $(shell uname -m)
 
 # Cross-compile prefix, if any
 CROSS_COMPILE :=
@@ -48,7 +48,13 @@ endif
 
 # Automatically determine the git version
 ifndef GITV
-    GITT := $(shell cd $(HOME); git describe --tags)
+    GITT := $(shell cd $(HOME); git describe --tags 2>/dev/null)
+    ifeq ($(GITT),)
+        GITT := $(shell cd $(HOME); git rev-parse --short HEAD 2>/dev/null)
+    endif
+    ifeq ($(GITT),)
+        GITT := emulator
+    endif
     GITD := $(shell cd $(HOME); git status --short -uno | wc -l)
     GITV := $(if $(filter $(GITD),0),$(GITT),$(GITT)-dirty)
 endif
@@ -91,38 +97,51 @@ clean:
 	@rm -f $(OBJS)
 
 define dkms_configure
-	rm -f $(1)
-	cp -r .dkms-common $(1)
-	cp -vL $(3) $(1)
-	cp -vL rc.local.in $(1)
-	echo "PACKAGE_VERSION=$(GITV)"	 					>> $(1)/$(3)
-	echo "echo $(2)" 									>> $(1)/datadev_load.conf
-	echo "#!/bin/bash" 									 > $(1)/install.sh
-	echo "dkms add -m $(2) -v $(GITV)" 					>> $(1)/install.sh
-	echo "dkms build -m $(2) -v $(GITV) -a $(ARCH)"	 	>> $(1)/install.sh
-	echo "dkms install -m $(2) -v $(GITV) -a $(ARCH)" 	>> $(1)/install.sh
-	echo "scp $(2)_load.conf /etc/modules-load.d" 		>> $(1)/install.sh
-	echo "modprobe $(2)" 								>> $(1)/install.sh
-	chmod a+rx $(1)/install.sh
-	tar -czf $@ --exclude=*.o --transform 's%$(1)%$(2)-$(GITV)%g' $(1)
+	rm -rf $(1)
+	mkdir -p $(1)/dkms_main_tree
+	mkdir -p $(1)/dkms_source_tree
+	echo "2.0.0" > $(1)/dkms_main_tree/dkms_dbversion
+	cp -r .dkms-common/. $(1)/dkms_source_tree/
+	cp -vL $(3) $(1)/dkms_source_tree/dkms.conf
+	$(if $(4),cp -vL $(4) $(1)/dkms_source_tree/)
+	cp -vL rc.local.in $(1)/dkms_source_tree/
+	echo "PACKAGE_VERSION=$(GITV)"	 					>> $(1)/dkms_source_tree/dkms.conf
+	echo "echo $(2)" 									>> $(1)/dkms_source_tree/datadev_load.conf
+	echo "#!/bin/bash" 									 > $(1)/dkms_source_tree/install.sh
+	echo "dkms add -m $(2) -v $(GITV)" 					>> $(1)/dkms_source_tree/install.sh
+	echo "dkms build -m $(2) -v $(GITV) -a $(ARCH)"	 	>> $(1)/dkms_source_tree/install.sh
+	echo "dkms install -m $(2) -v $(GITV) -a $(ARCH)" 	>> $(1)/dkms_source_tree/install.sh
+	echo "scp $(2)_load.conf /etc/modules-load.d" 		>> $(1)/dkms_source_tree/install.sh
+	echo "modprobe $(2)" 								>> $(1)/dkms_source_tree/install.sh
+	chmod a+rx $(1)/dkms_source_tree/install.sh
+	tar -czf $@ --exclude=*.o -C $(1) dkms_main_tree dkms_source_tree
 endef
 
-# Create a common dkms staging directory
+# Create a common dkms staging directory.  Force a fresh rebuild on every
+# `make dkms` invocation so a stale/corrupt .dkms-common (e.g. leftover NFS
+# silly-renames from an interrupted container) cannot poison the tarball
+# contents.  The directory is a PHONY target, so make always runs the recipe.
+.PHONY: .dkms-common
 .dkms-common:
-	mkdir -p .dkms-common
+	rm -rf .dkms-common
 	mkdir -p .dkms-common/src
 	cp -rLv src/* .dkms-common/src/
 	cp -L Makefile .dkms-common/
 	cp -L datadev.conf .dkms-common/
 
-# Datadev dkms
-datadev-$(GITV).tar.gz: .dkms-common
+# Datadev CPU dkms
+# DKMS 2.8 (ubuntu:22.04) requires the native mktarball layout at the
+# archive root: dkms_main_tree/dkms_dbversion + dkms_source_tree/dkms.conf.
+# DKMS 3.x is lenient (falls back to `find -name dkms.conf`), which is why
+# the earlier <PACKAGE_NAME>-<VERSION>/ layout worked everywhere except
+# ubuntu:22.04.  This layout is accepted by both DKMS 2.x and 3.x.
+datadev-dkms-$(GITV).tar.gz: .dkms-common
 	$(call dkms_configure,.dkms-datadev,datadev,dkms.conf)
 
-# Datadev (GPU) dkms
-datadev-gpu-$(GITV).tar.gz: .dkms-common
-	$(call dkms_configure,.dkms-datadev-gpu,datadev-gpu,dkms-gpu.conf build-nvidia.sh)
+# Datadev GPU dkms -- matches PACKAGE_NAME=datadev-gpu-dkms in dkms-gpu.conf.
+datadev-gpu-dkms-$(GITV).tar.gz: .dkms-common
+	$(call dkms_configure,.dkms-datadev-gpu,datadev-gpu,dkms-gpu.conf,build-nvidia.sh)
 
-dkms: datadev-$(GITV).tar.gz datadev-gpu-$(GITV).tar.gz 
+dkms: datadev-dkms-$(GITV).tar.gz datadev-gpu-dkms-$(GITV).tar.gz
 
 .PHONY: dkms

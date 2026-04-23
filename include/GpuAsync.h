@@ -36,35 +36,33 @@
 #define GPU_Get_Max_Buffers   0x8007   // Get the max number of DMA buffers
 
 /**
- * struct GpuNvidiaData - Represents NVIDIA GPU memory data.
- * @write: Write permission flag (non-zero for write access).
- * @address: GPU memory address.
- * @size: Size of the memory region in bytes.
+ * @brief Represents NVIDIA GPU memory data.
  *
  * This structure is used for managing memory regions in NVIDIA GPUs,
  * specifically for adding or removing access to these regions.
  **/
 struct GpuNvidiaData {
-   uint32_t write;    // Write permission flag
-   uint64_t address;  // GPU memory address
-   uint32_t size;     // Size of the memory region
+   uint32_t write;    /**< Write permission flag (non-zero for write access). */
+   uint64_t address;  /**< GPU memory address. */
+   uint32_t size;     /**< Size of the memory region in bytes. */
 };
 
 #ifndef DMA_IN_KERNEL
 
 /**
- * gpuAddNvidiaMemory - Adds a NVIDIA GPU memory region.
- * @fd: File descriptor for the device.
- * @write: Write access flag (1 for write access, 0 for read-only).
- * @address: Memory address of the GPU region to add.
- * @size: Size of the memory region to add. This must be a multiple of 64kb
+ * @brief Adds a NVIDIA GPU memory region.
  *
  * This function adds a specified memory region to the NVIDIA GPU, allowing
  * for the region to be accessed as specified by the write flag.
  *
- * Return: On success, returns the result of the ioctl call. On failure,
- * returns a negative error code. Returns -ENOTSUPP if the firmware does not
- * support GPUDirect.
+ * @param fd       File descriptor for the device.
+ * @param write    Write access flag (1 for write access, 0 for read-only).
+ * @param address  Memory address of the GPU region to add.
+ * @param size     Size of the memory region to add.  Must be a multiple of 64 KB.
+ *
+ * @return On success, returns the result of the ioctl call.  On failure,
+ *         returns a negative error code.  Returns -ENOTSUPP if the firmware
+ *         does not support GPUDirect.
  **/
 static inline ssize_t gpuAddNvidiaMemory(int32_t fd, uint32_t write, uint64_t address, uint32_t size) {
    struct GpuNvidiaData dat;
@@ -77,29 +75,31 @@ static inline ssize_t gpuAddNvidiaMemory(int32_t fd, uint32_t write, uint64_t ad
 }
 
 /**
- * gpuRemNvidiaMemory - Removes a NVIDIA GPU memory region.
- * @fd: File descriptor for the device.
+ * @brief Removes a NVIDIA GPU memory region.
  *
  * This function removes a previously added memory region from the NVIDIA GPU,
  * ceasing its accessibility.
  *
- * Return: On success, returns the result of the ioctl call. On failure,
- * returns a negative error code. Returns -ENOTSUPP if the firmware does not
- * support GPUDirect.
+ * @param fd File descriptor for the device.
+ *
+ * @return On success, returns the result of the ioctl call.  On failure,
+ *         returns a negative error code.  Returns -ENOTSUPP if the firmware
+ *         does not support GPUDirect.
  **/
 static inline ssize_t gpuRemNvidiaMemory(int32_t fd) {
    return(ioctl(fd, GPU_Rem_Nvidia_Memory, 0));
 }
 
 /**
- * gpuSetWriteEn - Set write enable for buffer
- * @dev: pointer to the DMA device structure
- * @arg: user space argument pointing to buffer index
+ * @brief Set write enable for buffer.
  *
  * This function enables a DMA buffer for DMA operations.
  *
- * Return: 0 on success, negative error code on failure.
- * Returns -ENOTSUPP if the firmware does not support GPUDirect.
+ * @param fd  File descriptor for the device.
+ * @param idx Buffer index to enable.
+ *
+ * @return 0 on success, negative error code on failure.  Returns -ENOTSUPP
+ *         if the firmware does not support GPUDirect.
  */
 static inline ssize_t gpuSetWriteEn(int32_t fd, uint32_t idx) {
    uint32_t lidx = idx;
@@ -107,32 +107,35 @@ static inline ssize_t gpuSetWriteEn(int32_t fd, uint32_t idx) {
 }
 
 /**
- * gpuIsGpuAsyncSupported - Check if the firmware supports GPU Async
- * @fd: File descriptor for the device
+ * @brief Check if the firmware supports GPU Async.
  *
- * Return: 1 if the firmware and driver supports GPU Async, 0 if it doesn't.
+ * @param fd File descriptor for the device.
+ *
+ * @return 1 if the firmware and driver support GPU Async, 0 otherwise.
  */
 static inline bool gpuIsGpuAsyncSupported(int32_t fd) {
    return ioctl(fd, GPU_Is_Gpu_Async_Supp);
 }
 
 /**
- * gpuGetGpuAsyncVersion - Get the version of GpuAsyncCore in the firmware
- * @fd: File descriptor for the device
+ * @brief Get the version of GpuAsyncCore in the firmware.
  *
- * Return: Returns the version of GpuAsyncCore, or 0 if not supported.
- * Returns -ENOTSUPP if the driver was compiled without GPUAsync support.
+ * @param fd File descriptor for the device.
+ *
+ * @return The version of GpuAsyncCore, or 0 if not supported.  Returns
+ *         -ENOTSUPP if the driver was compiled without GPUAsync support.
  */
 static inline uint32_t gpuGetGpuAsyncVersion(int32_t fd) {
    return ioctl(fd, GPU_Get_Gpu_Async_Ver);
 }
 
 /**
- * gpuGetMaxBuffers - Get the max number of DMA buffers
- * @fd: File descriptor for the device
+ * @brief Get the maximum number of DMA buffers.
  *
- * Return: Returns the number of DMA buffers available for use.
- * Returns -ENOTSUPP if the driver was compiled without GPUAsync support.
+ * @param fd File descriptor for the device.
+ *
+ * @return The number of DMA buffers available for use.  Returns -ENOTSUPP
+ *         if the driver was compiled without GPUAsync support.
  */
 static inline uint32_t gpuGetMaxBuffers(int32_t fd) {
    return ioctl(fd, GPU_Get_Max_Buffers);
