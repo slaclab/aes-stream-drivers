@@ -116,7 +116,11 @@ elif ! $SUDO rmmod datadev_emulator 2>&1; then
 elif ! $SUDO rmmod nvidia_p2p_stub 2>&1; then
   echo_fail "SC4.c: rmmod nvidia_p2p_stub failed"
 else
-  if $SUDO dmesg | tail -n +$DMESG_PRE | grep -qE "Module in use|EWOULDBLOCK"; then
+  # tail -n +N is 1-indexed and inclusive, so +DMESG_PRE would re-include the
+  # last pre-rmmod line. Start at DMESG_PRE+1 to scan only messages emitted
+  # during the rmmod sequence; mirrors test-cpu.sh's DMESG_DELTA extraction
+  # and prevents unrelated boundary lines from tripping the grep.
+  if $SUDO dmesg | tail -n "+$((DMESG_PRE + 1))" | grep -qE "Module in use|EWOULDBLOCK"; then
     echo_fail "SC4.d: 'Module in use' / EWOULDBLOCK in dmesg during rmmod sequence"
   else
     echo_pass "SC4"

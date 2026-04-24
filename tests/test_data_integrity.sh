@@ -28,7 +28,10 @@ set -uo pipefail
 
 DEV="${DEV:-/dev/datadev_0}"
 APP_BIN="${APP_BIN:-data_dev/app/bin}"
-MIN_TRANSFERS=100
+# Honor the MIN_TRANSFERS env-var contract documented in the header comment
+# above so standalone runs can tighten or relax the pass threshold without
+# editing the script (run_tests.sh does not set this).
+MIN_TRANSFERS="${MIN_TRANSFERS:-100}"
 SIZE="${SIZE:-10000}"
 TMPFILE=$(mktemp)
 trap "rm -f $TMPFILE" EXIT
