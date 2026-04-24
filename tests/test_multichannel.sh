@@ -40,7 +40,9 @@ DEV="${DEV:-/dev/datadev_0}"
 APP_BIN="${APP_BIN:-data_dev/app/bin}"
 DURATION="${DURATION:-15}"
 SIZE="${SIZE:-10000}"
-OUT="/tmp/multichannel_output.txt"
+# mktemp + trap so parallel invocations don't clobber each other.
+OUT=$(mktemp -t multichannel_output.XXXXXX)
+trap 'rm -f "$OUT"' EXIT
 
 DESTS="0,7,8"
 NUM_DESTS=3

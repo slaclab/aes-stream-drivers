@@ -45,7 +45,9 @@ fi
 EXPECTED_BUFF_COUNT="${EXPECTED_BUFF_COUNT:-1024}"
 EXPECTED_BUFF_SIZE="${EXPECTED_BUFF_SIZE:-131072}"
 PROC="/proc/datadev_${DEV_IDX}"
-OUT="/tmp/proc_output.txt"
+# mktemp + trap so parallel invocations don't clobber each other.
+OUT=$(mktemp -t proc_output.XXXXXX)
+trap 'rm -f "$OUT"' EXIT
 
 echo "=== /proc/datadev_${DEV_IDX} interface test ==="
 echo "PROC=$PROC"

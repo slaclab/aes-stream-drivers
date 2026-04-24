@@ -47,7 +47,9 @@ if grep -q "Prbs mismatch" "$TMPFILE"; then
    exit 1
 fi
 
-TX_COUNT=$(grep "TxCount:" "$TMPFILE" | tail -1 | grep -oP 'TxCount:\s*\K[0-9]+')
+# awk extraction avoids grep -oP (PCRE): GNU grep has it, but musl/BusyBox
+# builds don't, and -P failed silently on some distro minimal images.
+TX_COUNT=$(grep "TxCount:" "$TMPFILE" | tail -1 | awk -F: '{gsub(/[^0-9]/,"",$2); print $2}')
 if [ -z "$TX_COUNT" ]; then
    echo "FAIL: No TxCount found in output"
    dump_log
