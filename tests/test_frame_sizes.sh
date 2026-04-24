@@ -78,6 +78,16 @@ run_size_test() {
       return 1
    fi
 
+   # dmaLoopTest also exits 0 when open() of $DEV fails ("Error opening
+   # device" from runWrite/runRead). $rc alone can't catch that path,
+   # so guard it explicitly.
+   if grep -q "Error opening device" "$out"; then
+      echo "FAIL: Error opening device at size=$sz"
+      grep "Error opening device" "$out" | head -5
+      rm -f "$out"
+      return 1
+   fi
+
    rm -f "$out"
    return 0
 }

@@ -32,7 +32,9 @@ APP_BIN="${APP_BIN:-data_dev/app/bin}"
 SIZE="${SIZE:-10000}"
 DURATION=5
 OUT=$(mktemp)
-trap "rm -f \$OUT" EXIT
+# Single quotes defer $OUT expansion to trap-fire time; inner double
+# quotes protect against whitespace/glob chars if $TMPDIR is ever unusual.
+trap 'rm -f "$OUT"' EXIT
 
 echo "=== Index-based (zero-copy) loopback test ==="
 echo "DEV=$DEV SIZE=$SIZE DURATION=${DURATION}s"

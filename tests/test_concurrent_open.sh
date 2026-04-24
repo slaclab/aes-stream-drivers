@@ -46,7 +46,9 @@ sleep 1
 
 OUT_D0=$(mktemp)
 OUT_D1=$(mktemp)
-trap "rm -f \$OUT_D0 \$OUT_D1" EXIT
+# Single quotes defer expansion until trap-fire; inner double quotes protect
+# against whitespace/glob chars if $TMPDIR is ever unusual.
+trap 'rm -f "$OUT_D0" "$OUT_D1"' EXIT
 
 dump_log() { echo "--- begin $1 ---"; cat "$1"; echo "--- end $1 ---"; }
 
@@ -68,9 +70,9 @@ if [ "$RC_D0" -ne 124 ] && [ "$RC_D0" -ne 0 ]; then
    echo "FAIL: dmaLoopTest dest=0 exited $RC_D0"
    dump_log "$OUT_D0"
    FAILED=$((FAILED + 1))
-elif grep -q "Prbs mismatch\|Read Error\|Write Error" "$OUT_D0"; then
+elif grep -qE "Prbs mismatch|Read Error|Write Error|Error opening device" "$OUT_D0"; then
    echo "FAIL: dmaLoopTest dest=0 had errors"
-   grep "Prbs mismatch\|Read Error\|Write Error" "$OUT_D0" | head -5
+   grep -E "Prbs mismatch|Read Error|Write Error|Error opening device" "$OUT_D0" | head -5
    FAILED=$((FAILED + 1))
 fi
 
@@ -79,9 +81,9 @@ if [ "$RC_D1" -ne 124 ] && [ "$RC_D1" -ne 0 ]; then
    echo "FAIL: dmaLoopTest dest=1 exited $RC_D1"
    dump_log "$OUT_D1"
    FAILED=$((FAILED + 1))
-elif grep -q "Prbs mismatch\|Read Error\|Write Error" "$OUT_D1"; then
+elif grep -qE "Prbs mismatch|Read Error|Write Error|Error opening device" "$OUT_D1"; then
    echo "FAIL: dmaLoopTest dest=1 had errors"
-   grep "Prbs mismatch\|Read Error\|Write Error" "$OUT_D1" | head -5
+   grep -E "Prbs mismatch|Read Error|Write Error|Error opening device" "$OUT_D1" | head -5
    FAILED=$((FAILED + 1))
 fi
 

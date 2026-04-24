@@ -42,7 +42,9 @@ timeout 1 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$SIZE" > /dev/null 2>&1 || t
 sleep 1
 
 OUT=$(mktemp)
-trap "rm -f \$OUT" EXIT
+# Single quotes defer $OUT expansion to trap-fire time; inner double
+# quotes protect against whitespace/glob chars if $TMPDIR is ever unusual.
+trap 'rm -f "$OUT"' EXIT
 
 "$APP_BIN/dmaSmallFrameTest" -p "$DEV" -c "$COUNT" -n 1 -x 4 > "$OUT" 2>&1
 RC=$?

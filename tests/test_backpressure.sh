@@ -92,7 +92,9 @@ sleep 2
 # Exit code is intentionally not captured — PRBS mismatch and dmesg checks
 # below are the real failure signals; timeout rc=124 is expected here.
 TMPFILE=$(mktemp)
-trap "rm -f \$TMPFILE" EXIT
+# Single quotes defer $TMPFILE expansion to trap-fire time; inner double
+# quotes protect against whitespace/glob chars if $TMPDIR is ever unusual.
+trap 'rm -f "$TMPFILE"' EXIT
 timeout 30 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$SIZE" > "$TMPFILE" 2>&1 || true
 
 # dmaLoopTest returns 0 even when a worker hit Read Error / Write Error /
