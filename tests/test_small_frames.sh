@@ -11,6 +11,7 @@
 # Environment variables:
 #   DEV       Device path (default: /dev/datadev_0)
 #   APP_BIN   Binary directory (default: data_dev/app/bin)
+#   SIZE      Drain frame size (default: 32768; run_tests.sh exports one)
 # -----------------------------------------------------------------------------
 # This file is part of the aes_stream_drivers package. It is subject to the
 # license terms in the LICENSE.txt file found in the top-level directory of
@@ -25,10 +26,20 @@ set -uo pipefail
 
 DEV="${DEV:-/dev/datadev_0}"
 APP_BIN="${APP_BIN:-data_dev/app/bin}"
+SIZE="${SIZE:-32768}"
 COUNT=100
 
 echo "=== Small-frame DMA loopback (1-4 bytes, random payload) ==="
 echo "DEV=$DEV COUNT=$COUNT"
+
+# Drain stale frames from previous tests (e.g. test_frame_sizes leaves
+# 12/4096/32768/65536-byte frames on dest 0). dmaSmallFrameTest does
+# write-read-memcmp sequentially, so any leftover RX frame with size
+# outside 1..4 would make its first dmaRead return an unexpected length
+# and fail the run. Matches the drain pattern in test_frame_sizes.sh /
+# test_tuser_sweep.sh / test_concurrent_open.sh.
+timeout 1 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$SIZE" > /dev/null 2>&1 || true
+sleep 1
 
 OUT=$(mktemp)
 trap "rm -f \$OUT" EXIT

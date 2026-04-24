@@ -106,13 +106,13 @@ define dkms_configure
 	$(if $(4),cp -vL $(4) $(1)/dkms_source_tree/)
 	cp -vL rc.local.in $(1)/dkms_source_tree/
 	echo "PACKAGE_VERSION=$(GITV)"	 					>> $(1)/dkms_source_tree/dkms.conf
-	echo "echo $(2)" 									>> $(1)/dkms_source_tree/$(2)_load.conf
+	echo "$(NAME)" 										>> $(1)/dkms_source_tree/$(2)_load.conf
 	echo "#!/bin/bash" 									 > $(1)/dkms_source_tree/install.sh
 	echo "dkms add -m $(2) -v $(GITV)" 					>> $(1)/dkms_source_tree/install.sh
 	echo "dkms build -m $(2) -v $(GITV) -a $(ARCH)"	 	>> $(1)/dkms_source_tree/install.sh
 	echo "dkms install -m $(2) -v $(GITV) -a $(ARCH)" 	>> $(1)/dkms_source_tree/install.sh
 	echo "cp $(2)_load.conf /etc/modules-load.d" 		>> $(1)/dkms_source_tree/install.sh
-	echo "modprobe $(2)" 								>> $(1)/dkms_source_tree/install.sh
+	echo "modprobe $(NAME)" 							>> $(1)/dkms_source_tree/install.sh
 	chmod a+rx $(1)/dkms_source_tree/install.sh
 	tar -czf $@ --exclude=*.o -C $(1) dkms_main_tree dkms_source_tree
 endef
