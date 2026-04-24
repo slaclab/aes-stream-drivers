@@ -45,6 +45,17 @@ dump_log() { echo "--- begin dmaLoopTest output ---"; cat "$TMPFILE"; echo "--- 
 
 timeout 60 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$SIZE" > "$TMPFILE" 2>&1
 
+# dmaLoopTest returns 0 even when a worker thread hit an unrecoverable
+# error: runWrite/runRead just flip running=false and the main loop exits
+# cleanly (see data_dev/app/src/dmaLoopTest.cpp). These three grep guards
+# catch the cases where TxCount alone can't distinguish pass from fail.
+if grep -qE "Read Error|Write Error|Error opening device" "$TMPFILE"; then
+   echo "FAIL: dmaLoopTest worker thread reported an error"
+   grep -E "Read Error|Write Error|Error opening device" "$TMPFILE" | head -5
+   dump_log
+   exit 1
+fi
+
 if grep -q "Prbs mismatch" "$TMPFILE"; then
    echo "FAIL: PRBS data mismatch detected"
    grep "Prbs mismatch" "$TMPFILE" | head -5

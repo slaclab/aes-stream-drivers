@@ -64,15 +64,19 @@ if [ "$RC" -ne 124 ] && [ "$RC" -ne 0 ]; then
 fi
 
 # Cross-contamination guard: dmaLoopTest prints "Read Error" when a reader
-# receives data from a different destination than it expected.
-if grep -q "Read Error" "$OUT"; then
-   echo "FAIL: Read Error detected (cross-contamination between dests)"
-   grep "Read Error" "$OUT" | head -5
+# receives data from a different destination than it expected.  Same combined
+# grep also catches Write Error and Error opening device — dmaLoopTest exits
+# 0 even when a worker thread hits one of those (see runWrite/runRead in
+# data_dev/app/src/dmaLoopTest.cpp), so $RC alone can't distinguish pass
+# from fail.
+if grep -qE "Read Error|Write Error|Error opening device" "$OUT"; then
+   echo "FAIL: dmaLoopTest worker thread reported an error"
+   grep -E "Read Error|Write Error|Error opening device" "$OUT" | head -5
    dump_log
    exit 1
 fi
 
-# Also guard against PRBS mismatches or errors opening the device.
+# Also guard against PRBS mismatches.
 if grep -q "Prbs mismatch" "$OUT"; then
    echo "FAIL: PRBS mismatch detected"
    grep "Prbs mismatch" "$OUT" | head -5

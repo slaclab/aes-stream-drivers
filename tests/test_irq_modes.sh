@@ -103,6 +103,26 @@ run_irq_cycle() {
    local TMPFILE
    TMPFILE=$(mktemp)
    timeout 30 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$SIZE" > "$TMPFILE" 2>&1
+   local LOOP_RC=$?
+
+   # Sanity-check the dmaLoopTest exit code: 0 (clean exit) and 124
+   # (timeout killed it) are both "no fatal error"; anything else means
+   # the process itself crashed before a grep-able error string made it
+   # to stdout.
+   if [ "$LOOP_RC" -ne 0 ] && [ "$LOOP_RC" -ne 124 ]; then
+      echo "[FAIL] irq_modes $label -- dmaLoopTest exited $LOOP_RC"
+      CYCLE_FAIL=1
+   fi
+
+   # dmaLoopTest returns 0 even when a worker thread hit Read Error /
+   # Write Error / Error opening device (see runWrite/runRead in
+   # data_dev/app/src/dmaLoopTest.cpp), so $LOOP_RC alone can't
+   # distinguish pass from fail — add an explicit error-string grep.
+   if grep -qE "Read Error|Write Error|Error opening device" "$TMPFILE"; then
+      echo "[FAIL] irq_modes $label -- dmaLoopTest worker thread reported an error"
+      grep -E "Read Error|Write Error|Error opening device" "$TMPFILE" | head -5
+      CYCLE_FAIL=1
+   fi
 
    # PRBS integrity check.
    if grep -q "Prbs mismatch" "$TMPFILE"; then

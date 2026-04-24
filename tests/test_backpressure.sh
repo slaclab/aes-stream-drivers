@@ -95,6 +95,16 @@ TMPFILE=$(mktemp)
 trap "rm -f \$TMPFILE" EXIT
 timeout 30 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$SIZE" > "$TMPFILE" 2>&1 || true
 
+# dmaLoopTest returns 0 even when a worker hit Read Error / Write Error /
+# Error opening device (see runWrite/runRead in dmaLoopTest.cpp), so $rc
+# alone can't distinguish pass from fail — add an explicit error-string
+# grep alongside the PRBS check.
+if grep -qE "Read Error|Write Error|Error opening device" "$TMPFILE"; then
+   echo "[FAIL] backpressure -- dmaLoopTest worker thread reported an error"
+   grep -E "Read Error|Write Error|Error opening device" "$TMPFILE" | head -5
+   FAILED=$((FAILED + 1))
+fi
+
 # PRBS integrity check.
 if grep -q "Prbs mismatch" "$TMPFILE"; then
    echo "[FAIL] backpressure -- PRBS mismatch"

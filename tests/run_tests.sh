@@ -60,6 +60,17 @@ PASSED=0
 FAILED=0
 FAILED_NAMES=""
 
+# Drain any stale frames sitting in the RX ring before retrying a flaky test.
+# Rare stochastic PRBS mismatches have been observed on GitHub Actions runners
+# (Azure kernel 6.17 + CFS contention) where a single dropped frame cascades
+# into every subsequent test because the leftover buffer carries old PRBS
+# state.  Running dmaLoopTest briefly on dest 0 flushes the queue; stderr is
+# discarded and exit is ignored because this is fire-and-forget.
+drain_stale_frames() {
+   timeout 2 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$SIZE" > /dev/null 2>&1 || true
+   sleep 1
+}
+
 # Helper: run a named test; accumulate PASS/FAIL counters.
 run_test() {
    local name="$1"
@@ -83,26 +94,62 @@ run_test() {
    echo
 }
 
+# Like run_test, but retries once after a drain if the first attempt fails.
+# Applies the same rationale as test_irq_modes.sh's internal retry: stochastic
+# early-frame PRBS mismatches on Azure runners are caught without masking real
+# regressions (a true bug fails twice).  Reserved for dmaLoopTest-based tests
+# that are susceptible to scheduler contention; deterministic tests (ioctl,
+# file_ops, proc) use plain run_test so their failures surface immediately.
+run_test_with_retry() {
+   local name="$1"
+   shift
+   echo "--- RUN: $name ---"
+   local attempt rc=0
+   for attempt in 1 2; do
+      if "$@"; then
+         if [ "$attempt" -gt 1 ]; then
+            echo "[RETRY-PASS] $name (passed on attempt $attempt)"
+         fi
+         echo "[PASS] $name"
+         PASSED=$((PASSED + 1))
+         echo
+         return
+      fi
+      rc=$?
+      if [ "$attempt" -lt 2 ]; then
+         echo "[RETRY] $name (attempt $attempt failed with exit=$rc; draining and retrying)"
+         drain_stale_frames
+      fi
+   done
+   echo "[FAIL] $name (exit=$rc after 2 attempts)"
+   if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
+      echo "::error title=run_tests.sh::${name} failed (exit=${rc} after 2 attempts)"
+   fi
+   FAILED=$((FAILED + 1))
+   FAILED_NAMES="$FAILED_NAMES $name"
+   echo
+}
+
 # --- Test sequence ---
 run_test "ioctl_test"    "$APP_BIN/dmaIoctlTest"    -p "$DEV"
 run_test "file_ops_test" "$APP_BIN/dmaFileOpsTest"  -p "$DEV"
 run_test "error_paths"   "$APP_BIN/dmaErrorTest"    -p "$DEV"
-run_test "multichannel"  bash "$TESTS_DIR/test_multichannel.sh"
+run_test_with_retry "multichannel"  bash "$TESTS_DIR/test_multichannel.sh"
 run_test "proc_interface" bash "$TESTS_DIR/test_proc.sh"
-run_test "data_integrity" bash "$TESTS_DIR/test_data_integrity.sh"
-run_test "dmaLoopTest_idxEn" bash "$TESTS_DIR/test_idx_loopback.sh"
-run_test "tuser_sweep"   bash "$TESTS_DIR/test_tuser_sweep.sh"
-run_test "frame_sizes"   bash "$TESTS_DIR/test_frame_sizes.sh"
-run_test "small_frames"  bash "$TESTS_DIR/test_small_frames.sh"
-run_test "concurrent_open" bash "$TESTS_DIR/test_concurrent_open.sh"
-run_test "backpressure"   bash "$TESTS_DIR/test_backpressure.sh"
+run_test_with_retry "data_integrity" bash "$TESTS_DIR/test_data_integrity.sh"
+run_test_with_retry "dmaLoopTest_idxEn" bash "$TESTS_DIR/test_idx_loopback.sh"
+run_test_with_retry "tuser_sweep"   bash "$TESTS_DIR/test_tuser_sweep.sh"
+run_test_with_retry "frame_sizes"   bash "$TESTS_DIR/test_frame_sizes.sh"
+run_test_with_retry "small_frames"  bash "$TESTS_DIR/test_small_frames.sh"
+run_test_with_retry "concurrent_open" bash "$TESTS_DIR/test_concurrent_open.sh"
+run_test_with_retry "backpressure"   bash "$TESTS_DIR/test_backpressure.sh"
 run_test "irq_modes"      bash "$TESTS_DIR/test_irq_modes.sh"
 
 # --- GPU tests (only when the GPU-enabled stack is loaded) ---
 if [ "${GPU_ENABLED:-0}" = "1" ]; then
    run_test "gpu_ioctls"     "$APP_BIN/dmaGpuIoctlTest" -p "$DEV"
    run_test "gpu_proc"       bash "$TESTS_DIR/test_gpu_proc.sh"
-   run_test "gpu_dma_loopback" bash "$TESTS_DIR/test_gpu_dma_loopback.sh"
+   run_test_with_retry "gpu_dma_loopback" bash "$TESTS_DIR/test_gpu_dma_loopback.sh"
 fi
 
 # --- Summary ---

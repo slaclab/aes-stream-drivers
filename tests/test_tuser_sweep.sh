@@ -58,9 +58,14 @@ run_tuser_case() {
       return 1
    fi
 
-   if grep -q "Read Error" "$out"; then
-      echo "FAIL: Read Error with fuser=$fuser luser=$luser"
-      grep "Read Error" "$out" | head -5
+   # Combined error-string grep: dmaLoopTest exits 0 even when a worker
+   # thread hits Read Error, Write Error, or Error opening device (the
+   # thread just flips running=false and main exits cleanly — see
+   # runWrite/runRead in data_dev/app/src/dmaLoopTest.cpp), so $rc alone
+   # can't distinguish pass from fail.
+   if grep -qE "Read Error|Write Error|Error opening device" "$out"; then
+      echo "FAIL: dmaLoopTest worker reported an error (fuser=$fuser luser=$luser)"
+      grep -E "Read Error|Write Error|Error opening device" "$out" | head -5
       rm -f "$out"
       return 1
    fi

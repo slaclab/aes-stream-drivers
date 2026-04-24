@@ -55,9 +55,12 @@ if grep -q "Prbs mismatch" "$OUT"; then
    exit 1
 fi
 
-if grep -q "Read Error" "$OUT"; then
-   echo "FAIL: Read Error in zero-copy path"
-   grep "Read Error" "$OUT" | head -5
+# dmaLoopTest returns 0 even when a worker hit Read Error / Write Error /
+# Error opening device (the thread just sets running=false and main exits
+# cleanly). Explicit grep guards below catch those silent-exit paths.
+if grep -qE "Read Error|Write Error|Error opening device" "$OUT"; then
+   echo "FAIL: dmaLoopTest worker thread reported an error"
+   grep -E "Read Error|Write Error|Error opening device" "$OUT" | head -5
    dump_log
    exit 1
 fi
