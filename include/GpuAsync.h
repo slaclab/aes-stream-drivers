@@ -50,7 +50,7 @@ struct GpuNvidiaData {
 #ifndef DMA_IN_KERNEL
 
 /**
- * @brief Adds a NVIDIA GPU memory region.
+ * @brief Adds an NVIDIA GPU memory region.
  *
  * This function adds a specified memory region to the NVIDIA GPU, allowing
  * for the region to be accessed as specified by the write flag.
@@ -75,7 +75,7 @@ static inline ssize_t gpuAddNvidiaMemory(int32_t fd, uint32_t write, uint64_t ad
 }
 
 /**
- * @brief Removes a NVIDIA GPU memory region.
+ * @brief Removes an NVIDIA GPU memory region.
  *
  * This function removes a previously added memory region from the NVIDIA GPU,
  * ceasing its accessibility.

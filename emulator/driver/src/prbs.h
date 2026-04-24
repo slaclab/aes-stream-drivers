@@ -14,7 +14,7 @@
  *    PrbsData by the emulator/driver/tests/prbs_cross_validate_cxx harness.
  *
  *    Size-violation paths hard-fail with WARN_ON_ONCE() + -EINVAL
- *    (kernel-safe delta vs. PrbsData's silent return;).
+ *    (kernel-safe delta vs. PrbsData's silent return).
  *----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory
