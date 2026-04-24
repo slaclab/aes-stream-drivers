@@ -41,9 +41,10 @@
 # inside the CI VM spawned by scripts/ci-local/run_cell.sh.
 #
 # Environment variables:
-#   DEV          Device path (default: /dev/datadev_0)
-#   DATADEV_KO   Path to datadev.ko   (default: data_dev/driver/datadev.ko)
-#   EMU_KO       Path to emulator .ko (default: emulator/driver/datadev_emulator.ko)
+#   DEV                 Device path         (default: /dev/datadev_0)
+#   DATADEV_KO          Path to datadev.ko  (default: data_dev/driver/datadev.ko)
+#   EMU_KO              Path to emulator.ko (default: emulator/driver/datadev_emulator.ko)
+#   INSMOD_TIMEOUT_SEC  insmod hard timeout (default: 120)
 # ----------------------------------------------------------------------------
 
 set -euo pipefail
@@ -51,6 +52,7 @@ set -euo pipefail
 DEV="${DEV:-/dev/datadev_0}"
 DATADEV_KO="${DATADEV_KO:-data_dev/driver/datadev.ko}"
 EMU_KO="${EMU_KO:-emulator/driver/datadev_emulator.ko}"
+INSMOD_TIMEOUT_SEC="${INSMOD_TIMEOUT_SEC:-120}"
 
 echo "=== test_reload_segfault.sh ==="
 
@@ -66,6 +68,12 @@ if [ "$(id -u)" -eq 0 ]; then
 else
    SUDO="sudo"
 fi
+
+# Guarantee driver/emulator teardown on any exit path. Under `set -e`, a
+# failure in any phase would otherwise skip the in-script cleanup at the
+# bottom and leave modules loaded for subsequent tests. Single-quoted so
+# $SUDO expansion happens at trap-fire time (after SUDO is set above).
+trap '$SUDO rmmod datadev 2>/dev/null || true; $SUDO rmmod datadev_emulator 2>/dev/null || true' EXIT
 
 # Sanity-check that both modules have been built.
 if [ ! -f "$DATADEV_KO" ]; then
@@ -86,12 +94,15 @@ for _ in $(seq 1 15); do
 done
 
 # Phase A: Load emulator. It creates the virtual pci_dev with cma_area=NULL.
+# insmod hangs are possible when a prior test left the emulator in a bad
+# state (stray kthread, pending work), so hard-bound via timeout like the
+# other reload-heavy tests (test_params.sh, test_backpressure.sh).
 echo "[A] insmod emulator"
-$SUDO insmod "$EMU_KO"
+timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod "$EMU_KO"
 
 # Phase B: First insmod with cfgMode=2 (BUFF_STREAM). kmalloc path -- no CMA.
 echo "[B] insmod datadev cfgMode=2 (BUFF_STREAM, baseline)"
-$SUDO insmod "$DATADEV_KO" cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgMode=2
+timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod "$DATADEV_KO" cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgMode=2
 for _ in $(seq 1 15); do
    [ -e "$DEV" ] && break
    sleep 0.5
@@ -113,7 +124,7 @@ done
 # Phase D: Second insmod with defaulted cfgMode=BUFF_COHERENT (1).
 # Pre-fix: GPF in __cma_alloc here. Post-fix: succeeds.
 echo "[D] insmod datadev (defaults cfgMode=BUFF_COHERENT -- the crash trigger)"
-$SUDO insmod "$DATADEV_KO" cfgTxCount=256 cfgRxCount=256 cfgSize=65536
+timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod "$DATADEV_KO" cfgTxCount=256 cfgRxCount=256 cfgSize=65536
 for _ in $(seq 1 15); do
    [ -e "$DEV" ] && break
    sleep 0.5

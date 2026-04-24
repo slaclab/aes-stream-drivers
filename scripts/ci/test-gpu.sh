@@ -44,6 +44,7 @@ fi
 DEV="${DEV:-/dev/datadev_0}"
 APP_BIN="${APP_BIN:-data_dev/app/bin}"
 TIMEOUT_SEC="${TIMEOUT_SEC:-15}"
+INSMOD_TIMEOUT_SEC="${INSMOD_TIMEOUT_SEC:-120}"
 TESTS_DIR="${TESTS_DIR:-tests}"
 
 # Pick a random frame size for this run (multiple of 4, range 2000..20000).
@@ -114,8 +115,11 @@ sleep 0.5
 for i in $(seq 1 $CYCLES); do
    echo "=== Cycle $i/$CYCLES ==="
 
-   $SUDO insmod emulator/gpu_stub/nvidia_p2p_stub.ko
-   $SUDO insmod emulator/driver/datadev_emulator.ko \
+   # Hard-bound insmod so a hung module_init (stray kthread from prior
+   # cycle, emu_gpu_register_drain_cb retry, etc.) fails CI fast instead
+   # of blocking the job up to the GHA step timeout. Matches test-cpu.sh.
+   timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod emulator/gpu_stub/nvidia_p2p_stub.ko
+   timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod emulator/driver/datadev_emulator.ko \
       emu_gpu_poll_interval_us="${EMU_POLL_INTERVAL_US:-200}"
 
    timeout $TIMEOUT_SEC bash -c 'until [ "$(cat /sys/module/datadev_emulator/initstate 2>/dev/null)" = live ]; do sleep 0.5; done' || {
@@ -125,7 +129,7 @@ for i in $(seq 1 $CYCLES); do
       break
    }
 
-   $SUDO insmod data_dev/driver/datadev.ko cfgTxCount=64 cfgRxCount=64 cfgSize=65536
+   timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod data_dev/driver/datadev.ko cfgTxCount=64 cfgRxCount=64 cfgSize=65536
 
    if [ ! -e /dev/datadev_0 ]; then
       DATADEV_MAJOR=$(awk '$2 == "datadev_0" { print $1 }' /proc/devices)
