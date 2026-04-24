@@ -156,7 +156,7 @@ emulator's RX/TX ticks would otherwise no-op via `__weak` fallback.
 
 | Concern | CPU phase | GPU phase |
 |---|---|---|
-| Module load order | `datadev_emulator` then `datadev` | `nvidia_p2p_stub` then `datadev_emulator` then `datadev-gpu` |
+| Module load order | `nvidia_p2p_stub` then `datadev_emulator` then `datadev` (stub still required — emulator's `module_init` eagerly resolves `emu_gpu_register_drain_cb`) | `nvidia_p2p_stub` then `datadev_emulator` then `datadev-gpu` |
 | Key dmesg success marker | `datadev_emulator: emulator loaded successfully` | Same + `emu: BAR0 GPU Async V4 initialized (version=4, maxBuffers=N)` + `gpu engine poll thread starting` |
 | ioctl probe | `GPU_Is_Gpu_Async_Supp = 0` | `GPU_Is_Gpu_Async_Supp = 1` |
 | Driver node | `/dev/datadev_0` | `/dev/datadev_0` + `/dev/nvidia_p2p_stub_mem` (miscdevice) |
@@ -202,8 +202,14 @@ not covered by `run_cell.sh`'s fixed flow, use this pattern. It mirrors
 the CI harness (privileged + label=disable + cp-a from /src:ro into
 writable /work) so the module builds and loads the same way:
 
-**CPU-phase template** (builds only `emulator/driver`, loads only
-`datadev_emulator` + `datadev`):
+**CPU-phase template** (builds `emulator/gpu_stub` + `emulator/driver`,
+loads `nvidia_p2p_stub` + `datadev_emulator` + `datadev`):
+
+The CPU phase still builds and loads `nvidia_p2p_stub` because the
+emulator's `module_init` eagerly references `emu_gpu_register_drain_cb`
+(exported by the stub). Skipping the stub produces both a modpost
+"undefined symbol" warning at build time and an `insmod: Unknown symbol
+... (err -2)` at load time — see the failure table below.
 
 ```bash
 cat > /tmp/my-test.sh <<'SCRIPT'
@@ -213,13 +219,19 @@ apt-get update -qq >/dev/null 2>&1
 apt-get install -y -qq build-essential make kmod linux-headers-$(uname -r) >/dev/null 2>&1
 cd /work
 
-make -C emulator/driver 2>&1 | tail -5   # avoid `make -s` — hides errors
+# Build gpu_stub FIRST so kbuild's modpost can resolve cross-module
+# symbols via Module.symvers; otherwise emulator/driver build emits
+# "undefined!" warnings and the resulting .ko fails to insmod.
+make -C emulator/gpu_stub 2>&1 | tail -3
+make -C emulator/driver   2>&1 | tail -5   # avoid `make -s` — hides errors
 # ... your checks here, e.g.:
+insmod emulator/gpu_stub/nvidia_p2p_stub.ko
 insmod emulator/driver/datadev_emulator.ko emu_gpu_max_buffers=8
 sleep 1
 grep '\[datadev_emulator\]' /proc/kallsyms | head -20
 ps -eLf | grep emu_gpu_poll   # requires --pid=host below
 rmmod datadev_emulator
+rmmod nvidia_p2p_stub
 SCRIPT
 
 # Copy the script into the VM-mounted tree so the container can see it,

@@ -77,10 +77,10 @@ From the repository root:
 This will:
 
 1. Check prerequisites (exits with guidance if anything is missing)
-2. Build the emulator kernel module, the `datadev` driver, and all test binaries (`dmaLoopTest`, `dmaRate`, `dmaIoctlTest`, `dmaFileOpsTest`, `dmaErrorTest`)
+2. Build the `nvidia_p2p_stub` module (loaded first to satisfy the emulator's `emu_gpu_register_drain_cb` symbol dependency), the emulator kernel module, the `datadev` driver, and all test binaries (`dmaLoopTest`, `dmaRate`, `dmaIoctlTest`, `dmaFileOpsTest`, `dmaErrorTest`)
 3. Download the Ubuntu 24.04 cloud image (first run only, ~600 MB, cached at `~/.cache/aes-stream-local-ci/`)
 4. Boot a QEMU VM with the project directory shared via 9p virtfs at `/mnt/host` in the guest
-5. Inside the VM: `insmod` both modules, run `tests/run_tests.sh` then `tests/test_params.sh`, then unload modules
+5. Inside the VM: `insmod` the three modules in order (`nvidia_p2p_stub` → `datadev_emulator` → `datadev`), run `tests/run_tests.sh` then `tests/test_params.sh`, then unload in reverse order
 6. Capture the VM exit code and print overall PASS / FAIL
 
 Exit code `0` means all tests passed. Non-zero means at least one test failed — see the VM console output for details.
