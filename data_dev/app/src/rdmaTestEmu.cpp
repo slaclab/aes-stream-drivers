@@ -179,6 +179,18 @@ static void parse_args(int argc, char **argv, Args &a) {
          default:   show_help(argv[0]); std::exit(1);
       }
    }
+   /* Reject invalid -s / -c so a typo (-s abc -> 0) doesn't silently
+    * produce a no-op run that reports PASS. -b is range-checked later
+    * against gpuGetMaxBuffers/kMaxBufCnt; -s upper bound is enforced by
+    * the kernel cfgSize on the first dmaWrite. */
+   if (a.size == 0) {
+      fprintf(stderr, "rdmaTestEmu: invalid -s size (must be > 0)\n");
+      std::exit(1);
+   }
+   if (a.count <= 0) {
+      fprintf(stderr, "rdmaTestEmu: invalid -c count (must be > 0)\n");
+      std::exit(1);
+   }
    s_verbose = a.verbose;
 }
 

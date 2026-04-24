@@ -456,6 +456,7 @@ static int stub_mmap(struct file *file, struct vm_area_struct *vma)
    u32 buf_id = (u32)vma->vm_pgoff;   /* kernel pre-divided by PAGE_SIZE */
    unsigned long size = vma->vm_end - vma->vm_start;
    struct emu_gpu_addr_entry *entry;
+   int ret;
 
    (void)file;
    entry = emu_gpu_addr_table_find_by_idx(buf_id);
@@ -476,10 +477,15 @@ static int stub_mmap(struct file *file, struct vm_area_struct *vma)
    /* find_by_idx bumped the refcount; release it now that we are done
     * accessing entry->backing_pages.  remap_pfn_range pins the pages
     * via the VMA pte, so the underlying memory stays mapped. */
-   remap_pfn_range(vma, vma->vm_start,
-                   page_to_pfn(entry->backing_pages),
-                   size, vma->vm_page_prot);
+   ret = remap_pfn_range(vma, vma->vm_start,
+                         page_to_pfn(entry->backing_pages),
+                         size, vma->vm_page_prot);
    emu_gpu_addr_table_release(entry);
+   if (ret) {
+      pr_err("nvidia_p2p_stub: remap_pfn_range buf_id=%u failed (%d)\n",
+             buf_id, ret);
+      return ret;
+   }
    return 0;
 }
 
