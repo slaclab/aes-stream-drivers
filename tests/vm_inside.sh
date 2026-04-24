@@ -41,6 +41,13 @@ HOST=/mnt/host
 TIMEOUT_SEC=30
 EXIT_CODE=0
 
+# Inject a unique baseline marker so the post-run oops/panic/BUG gate only
+# scans driver-induced lines (the delta after module load), not boot/earlier
+# messages that can false-positive. Mirrors scripts/ci/load-modules-cpu.sh
+# and scripts/ci/check-dmesg.sh.
+CI_DMESG_MARKER="BASELINE-vm-inside-$(cat /proc/sys/kernel/random/uuid)"
+echo "$CI_DMESG_MARKER" > /dev/kmsg
+
 echo "=== VM: Loading emulator module ==="
 insmod "$HOST/emulator/driver/datadev_emulator.ko" || {
    echo "FAIL: insmod emulator"
@@ -104,9 +111,14 @@ rmmod datadev 2>/dev/null || true
 sleep 1
 rmmod datadev_emulator 2>/dev/null || true
 
-echo "=== VM: Checking dmesg for errors ==="
-if dmesg | grep -iE 'oops|panic|BUG:'; then
-   echo "FAIL: Kernel errors detected in dmesg"
+echo "=== VM: Checking dmesg for errors (baseline-delta) ==="
+# Extract the post-marker delta with awk+index() so any regex metacharacters
+# in the UUID-based marker are matched literally. Benign kernel-cmdline
+# echoes ('drm panic', 'panic=', 'panic_on_oops', 'panic_on_warn') are
+# excluded to match scripts/ci/check-dmesg.sh behavior.
+DELTA="$(dmesg | awk -v m="$CI_DMESG_MARKER" 'f{print} index($0,m){f=1}')"
+if echo "$DELTA" | grep -iE 'oops|panic|BUG:' | grep -viE 'drm panic|panic=|panic_on_oops|panic_on_warn'; then
+   echo "FAIL: Kernel errors detected in driver-induced dmesg delta"
    EXIT_CODE=1
 fi
 

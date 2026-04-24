@@ -98,6 +98,16 @@ sleep 2
 # Test 3: Test suite
 # ============================================================================
 echo_step "Running test suite"
+# Forward the RX count / buffer size that load-modules-cpu.sh (or -gpu.sh)
+# actually insmod'd so test_proc.sh can assert /proc matches them. Without
+# this forwarding, test_proc.sh falls back to driver compile-time defaults
+# (1024/131072) which no longer match the reduced CI values (64/65536).
+if [ -r /tmp/ci_cfg_rx_count ]; then
+   export EXPECTED_BUFF_COUNT="$(cat /tmp/ci_cfg_rx_count)"
+fi
+if [ -r /tmp/ci_cfg_size ]; then
+   export EXPECTED_BUFF_SIZE="$(cat /tmp/ci_cfg_size)"
+fi
 bash $TESTS_DIR/run_tests.sh 2>&1 | tee /tmp/phase3_tests.log
 PHASE3_RC=${PIPESTATUS[0]}
 

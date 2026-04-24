@@ -24,24 +24,25 @@
 #
 # Environment variables:
 #   DEV_IDX              /proc/datadev_$DEV_IDX (default: 0)
-#   EXPECTED_BUFF_COUNT  Expected Buffer Count (default: 1024)
-#   EXPECTED_BUFF_SIZE   Expected Buffer Size  (default: 131072)
+#   EXPECTED_BUFF_COUNT  Expected Buffer Count (default: 1024 -- driver
+#                        cfgRxCount default from data_dev_top.c)
+#   EXPECTED_BUFF_SIZE   Expected Buffer Size  (default: 131072 -- driver
+#                        cfgSize default from data_dev_top.c)
+#
+# Callers that load the module with non-default cfgRxCount/cfgSize MUST pass
+# EXPECTED_BUFF_COUNT / EXPECTED_BUFF_SIZE explicitly. Deriving them from
+# /proc itself (the file this test validates) would make the value checks
+# self-referential and miss cases where the driver silently ignored the
+# module params.
 # ----------------------------------------------------------------------------
 
 set -uo pipefail
 
 DEV_IDX="${DEV_IDX:-0}"
 
-# Read actual module parameters from /proc if env vars not set.
-# The defaults (1024 / 131072) only match when the driver is loaded with
-# default module params; CI loads with reduced values (64 / 65536).
-_PROC_FILE="/proc/datadev_${DEV_IDX}"
-if [ -z "${EXPECTED_BUFF_COUNT:-}" ] && [ -e "$_PROC_FILE" ]; then
-   EXPECTED_BUFF_COUNT=$(grep -E "^[[:space:]]*Buffer Count[[:space:]]*:" "$_PROC_FILE" | head -1 | awk -F: '{print $2}' | tr -d '[:space:]')
-fi
-if [ -z "${EXPECTED_BUFF_SIZE:-}" ] && [ -e "$_PROC_FILE" ]; then
-   EXPECTED_BUFF_SIZE=$(grep -E "^[[:space:]]*Buffer Size[[:space:]]*:" "$_PROC_FILE" | head -1 | awk -F: '{print $2}' | tr -d '[:space:]')
-fi
+# Defaults match the datadev driver's compiled-in cfgRxCount / cfgSize
+# (see data_dev_top.c). Any caller that insmods with override params must
+# pass matching EXPECTED_* values.
 EXPECTED_BUFF_COUNT="${EXPECTED_BUFF_COUNT:-1024}"
 EXPECTED_BUFF_SIZE="${EXPECTED_BUFF_SIZE:-131072}"
 PROC="/proc/datadev_${DEV_IDX}"

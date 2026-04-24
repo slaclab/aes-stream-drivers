@@ -74,6 +74,12 @@ CFG_RX_COUNT="${CFG_RX_COUNT:-64}"
 CFG_SIZE="${CFG_SIZE:-65536}"
 CFG_MODE="${CFG_MODE:-2}"
 
+# Persist the effective RX count and buffer size for downstream test scripts
+# (see load-modules-cpu.sh for rationale -- test_proc.sh refuses to derive
+# these from /proc itself, so callers advertise via /tmp/ci_cfg_*).
+echo "$CFG_RX_COUNT" > /tmp/ci_cfg_rx_count
+echo "$CFG_SIZE"     > /tmp/ci_cfg_size
+
 echo_step "Loading modules (stub + emulator + GPU-enabled datadev) — insmod timeout ${INSMOD_TIMEOUT_SEC}s, initstate timeout ${TIMEOUT_SEC}s"
 
 # --- 1) nvidia_p2p_stub ---------------------------------------------------
