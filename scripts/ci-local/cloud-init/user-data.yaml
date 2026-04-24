@@ -60,7 +60,15 @@ runcmd:
   - systemctl enable --now qemu-guest-agent
   - sysctl --system
 
-  # Docker 28.x+ from upstream; get.docker.com pipeline == download.docker.com
+  # Docker 28.x+ from upstream; get.docker.com pipeline == download.docker.com.
+  # `curl | sh` is Docker's officially documented quick-install path and is
+  # acceptable here because this VM is an ephemeral local-dev CI guest:
+  # rebuilt from a fresh cloud image on every `provision_vm.sh`, isolated
+  # from production via the libvirt default NAT network, and carries no
+  # persistent state or secrets.  The alternative (apt repo + GPG key +
+  # pinned package version) is the right choice for production hosts but
+  # adds ~10 lines of cloud-init and buys no meaningful security margin
+  # against a throwaway test VM — keep simple.
   - [ sh, -c, 'curl -fsSL https://get.docker.com | sh' ]
   - usermod -aG docker ubuntu
 

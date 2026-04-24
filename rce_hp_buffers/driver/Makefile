@@ -26,7 +26,7 @@ ifndef GITV
 	ifeq ($(GITT),)
 		GITT := $(shell cd $(HOME); git rev-parse --short HEAD 2>/dev/null)
 	endif
-	GITD := $(shell cd $(HOME); git status --short -uno | wc -l)
+	GITD := $(shell cd $(HOME); git status --short -uno 2>/dev/null | wc -l)
 	GITV := $(if $(filter $(GITD),0),$(GITT),$(GITT)-dirty)
 endif
 

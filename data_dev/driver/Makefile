@@ -62,7 +62,7 @@ ifndef GITV
     ifeq ($(GITT),)
         GITT := emulator
     endif
-    GITD := $(shell cd $(HOME); git status --short -uno | wc -l)
+    GITD := $(shell cd $(HOME); git status --short -uno 2>/dev/null | wc -l)
     GITV := $(if $(filter $(GITD),0),$(GITT),$(GITT)-dirty)
 endif
 
@@ -115,9 +115,9 @@ define dkms_configure
 	echo "PACKAGE_VERSION=$(GITV)"	 					>> $(1)/dkms_source_tree/dkms.conf
 	echo "$(NAME)" 										>> $(1)/dkms_source_tree/$(2)_load.conf
 	echo "#!/bin/bash" 									 > $(1)/dkms_source_tree/install.sh
-	echo "dkms add -m $(2) -v $(GITV)" 					>> $(1)/dkms_source_tree/install.sh
-	echo "dkms build -m $(2) -v $(GITV) -a $(ARCH)"	 	>> $(1)/dkms_source_tree/install.sh
-	echo "dkms install -m $(2) -v $(GITV) -a $(ARCH)" 	>> $(1)/dkms_source_tree/install.sh
+	echo "dkms add -m $(2)-dkms -v $(GITV)" 			>> $(1)/dkms_source_tree/install.sh
+	echo "dkms build -m $(2)-dkms -v $(GITV) -a $(ARCH)" >> $(1)/dkms_source_tree/install.sh
+	echo "dkms install -m $(2)-dkms -v $(GITV) -a $(ARCH)" >> $(1)/dkms_source_tree/install.sh
 	echo "cp $(2)_load.conf /etc/modules-load.d" 		>> $(1)/dkms_source_tree/install.sh
 	echo "modprobe $(NAME)" 							>> $(1)/dkms_source_tree/install.sh
 	chmod a+rx $(1)/dkms_source_tree/install.sh
