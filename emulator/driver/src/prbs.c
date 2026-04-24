@@ -124,10 +124,13 @@ int emu_prbs_process_data(const void *buf, size_t size)
       return -EINVAL;
    }
 
-   /* Stateless verifier: no _sequence mutation (gpu_engine tracks its
-    * own per-direction counter). Mismatches return -EILSEQ so the caller
-    * can bump a counter and pr_info_ratelimited() rather than emitting
-    * userspace-style fprintf noise from kernel context. */
+   /* Stateless verifier: no _sequence mutation. gpu_engine tracks its
+    * own generator counter for the RX direction (rx_prbs_seq); the TX
+    * verifier extracts the expected sequence from the frame header
+    * (data32[0]) and so needs no engine-side state. Mismatches return
+    * -EILSEQ so the caller can bump a counter and pr_info_ratelimited()
+    * rather than emitting userspace-style fprintf noise from kernel
+    * context. */
    value = expected;
    words = size / sizeof(u32);
    for (word = 2; word < words; word++) {

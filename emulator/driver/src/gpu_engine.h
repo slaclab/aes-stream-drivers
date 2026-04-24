@@ -85,9 +85,13 @@ struct emu_gpu_engine {
     u32 next_write_idx;
     u32 next_read_idx;
 
-    /* PRBS sequence counters (generator per RX direction, verifier per TX). */
+    /* PRBS generator sequence for the RX direction. Fed as the seed into
+     * emu_prbs_gen_data() on every RX tick; the return value advances it
+     * to the next sequence so consecutive frames produce a continuous
+     * LFSR stream the userspace verifier can match. No TX-side counter
+     * is needed because the verifier reads the sequence out of the
+     * incoming frame header (data32[0]) rather than tracking its own. */
     u32 rx_prbs_seq;
-    u32 tx_prbs_seq;
 
     /* Shared-state lock. */
     spinlock_t lock;

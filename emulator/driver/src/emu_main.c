@@ -216,7 +216,6 @@ static int __init emu_init(void)
       goto err_stop_dma;
    }
    emu_gpu.rx_prbs_seq = emu_prbs_seed;
-   emu_gpu.tx_prbs_seq = emu_prbs_seed;
 
    ret = emu_gpu_start(&emu_gpu);
    if (ret) {

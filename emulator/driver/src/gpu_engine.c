@@ -396,9 +396,10 @@ static void emu_gpu_tx_tick(struct emu_gpu_engine *eng)
        * wrap width is rcnt + 1 (matches the read at line 344). */
       eng->next_read_idx = (idx + 1) % (rcnt + 1);
 
-      /* Update PRBS sequence and bump txFrameCnt. */
-      if (ret >= 0)
-         eng->tx_prbs_seq = (u32)ret;
+      /* Bump txFrameCnt. No per-direction PRBS sequence is tracked here:
+       * emu_prbs_process_data is stateless and extracts the expected
+       * sequence from the frame header itself (data32[0]), so there is
+       * nothing meaningful to accumulate in the engine struct. */
       cnt = ioread32(eng->reg_base + EMU_GPU_REG_TX_FRAME_CNT);
       iowrite32(cnt + 1, eng->reg_base + EMU_GPU_REG_TX_FRAME_CNT);
    }
