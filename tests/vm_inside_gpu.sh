@@ -81,8 +81,11 @@ timeout $TIMEOUT_SEC bash -c \
 }
 echo "  emulator loaded"
 
-if ! dmesg | grep -q "BAR0 GPU Async V4 initialized"; then
-   echo "FAIL: GPU Async V4 init log line not found"
+# Scan only the post-marker delta so a prior run's log line in a reused
+# VM can't satisfy this probe. Same awk+index() idiom as check-dmesg.sh.
+if ! dmesg | awk -v m="$CI_DMESG_MARKER" 'f{print} index($0,m){f=1}' | \
+        grep -q "BAR0 GPU Async V4 initialized"; then
+   echo "FAIL: GPU Async V4 init log line not found in this run's dmesg delta"
    dmesg | tail -50
    exit 1
 fi
@@ -111,8 +114,11 @@ timeout $TIMEOUT_SEC bash -c \
 }
 echo "  /proc/datadev_0 exists"
 
-if ! dmesg | grep -q "Configured for GpuAsyncCore version 4"; then
-   echo "FAIL: Gpu_Init V4 confirmation not found in dmesg"
+# Delta-scan so a prior run's confirmation line in a reused VM cannot
+# satisfy this probe.
+if ! dmesg | awk -v m="$CI_DMESG_MARKER" 'f{print} index($0,m){f=1}' | \
+        grep -q "Configured for GpuAsyncCore version 4"; then
+   echo "FAIL: Gpu_Init V4 confirmation not found in this run's dmesg delta"
    dmesg | tail -100
    EXIT_CODE=1
 else

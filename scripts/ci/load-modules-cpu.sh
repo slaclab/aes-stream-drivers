@@ -158,7 +158,7 @@ if [ ! -e /dev/datadev_0 ]; then
    DATADEV_MAJOR=$(awk '$2 == "datadev_0" { print $1 }' /proc/devices)
    if [ -z "$DATADEV_MAJOR" ]; then
       echo_fail "datadev major number not found in /proc/devices"
-      $SUDO grep -E "^\s*[0-9]+\s+datadev" /proc/devices || true
+      $SUDO grep -E "^[[:space:]]*[0-9]+[[:space:]]+datadev" /proc/devices || true
       exit 1
    fi
    $SUDO mknod /dev/datadev_0 c "$DATADEV_MAJOR" 0

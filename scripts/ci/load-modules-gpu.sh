@@ -157,9 +157,11 @@ echo "datadev_emulator is live"
 # Functional assertion — GPU Async V4 BAR0 init must have happened
 # during emulator init. This is NOT a readiness probe (initstate already
 # guaranteed that) — it is a correctness check that the emulator built the
-# expected register layout.
-if ! $SUDO dmesg | grep -q "BAR0 GPU Async V4 initialized"; then
-   echo_fail "GPU Async V4 init log line not found"
+# expected register layout. Scan only the post-marker delta so a prior run's
+# log line in a reused container/VM can't satisfy this probe.
+if ! $SUDO dmesg | awk -v m="$CI_DMESG_MARKER" 'f{print} index($0,m){f=1}' | \
+        grep -q "BAR0 GPU Async V4 initialized"; then
+   echo_fail "GPU Async V4 init log line not found in this run's dmesg delta"
    $SUDO dmesg | tail -50
    exit 1
 fi
@@ -191,7 +193,7 @@ if [ ! -e /dev/datadev_0 ]; then
    DATADEV_MAJOR=$(awk '$2 == "datadev_0" { print $1 }' /proc/devices)
    if [ -z "$DATADEV_MAJOR" ]; then
       echo_fail "datadev major number not found in /proc/devices"
-      $SUDO grep -E "^\s*[0-9]+\s+datadev" /proc/devices || true
+      $SUDO grep -E "^[[:space:]]*[0-9]+[[:space:]]+datadev" /proc/devices || true
       exit 1
    fi
    $SUDO mknod /dev/datadev_0 c "$DATADEV_MAJOR" 0
@@ -216,8 +218,11 @@ echo "/proc/datadev_0 exists"
 
 # Functional assertion — GPU path was actually exercised (Gpu_Init ran
 # the V4 code path against the V4 registers emulated by datadev_emulator).
-if ! $SUDO dmesg | grep -q "Configured for GpuAsyncCore version 4"; then
-   echo_fail "Gpu_Init V4 confirmation not found in dmesg"
+# Delta-scan so a prior run's confirmation line in a reused VM cannot
+# satisfy this probe.
+if ! $SUDO dmesg | awk -v m="$CI_DMESG_MARKER" 'f{print} index($0,m){f=1}' | \
+        grep -q "Configured for GpuAsyncCore version 4"; then
+   echo_fail "Gpu_Init V4 confirmation not found in this run's dmesg delta"
    $SUDO dmesg | tail -100
    exit 1
 fi

@@ -57,6 +57,14 @@ echo_step "Using frame size: $SIZE"
 
 FAILED=0
 
+# mktemp-backed log paths + trap cleanup. Prevents collisions between
+# concurrent CI cells on a shared runner (unlikely for scripts/ci/test-cpu.sh
+# but consistent with the pattern tests/test_*.sh now use).
+PHASE3_LOG=$(mktemp -t phase3_tests.XXXXXX)
+PARAMS_LOG=$(mktemp -t test_params.XXXXXX)
+GAP13_LOOP_LOG=$(mktemp -t gap13_loop.XXXXXX)
+trap 'rm -f "$PHASE3_LOG" "$PARAMS_LOG" "$GAP13_LOOP_LOG"' EXIT
+
 # ============================================================================
 # Test 1: DMA loopback test
 # ============================================================================
@@ -108,19 +116,19 @@ fi
 if [ -r /tmp/ci_cfg_size ]; then
    export EXPECTED_BUFF_SIZE="$(cat /tmp/ci_cfg_size)"
 fi
-bash $TESTS_DIR/run_tests.sh 2>&1 | tee /tmp/phase3_tests.log
+bash $TESTS_DIR/run_tests.sh 2>&1 | tee "$PHASE3_LOG"
 PHASE3_RC=${PIPESTATUS[0]}
 
 # Display summary
-TOTAL_PASS=$(grep -c '^\[PASS\]' /tmp/phase3_tests.log || true)
-TOTAL_FAIL=$(grep -c '^\[FAIL\]' /tmp/phase3_tests.log || true)
+TOTAL_PASS=$(grep -c '^\[PASS\]' "$PHASE3_LOG" || true)
+TOTAL_FAIL=$(grep -c '^\[FAIL\]' "$PHASE3_LOG" || true)
 echo "Test Summary:"
 echo "  PASS: ${TOTAL_PASS:-0}"
 echo "  FAIL: ${TOTAL_FAIL:-0}"
 
 if [ "$PHASE3_RC" -ne 0 ]; then
    echo_fail "${PHASE3_RC} test(s) failed"
-   grep '^\[FAIL\]' /tmp/phase3_tests.log || true
+   grep '^\[FAIL\]' "$PHASE3_LOG" || true
    $SUDO dmesg | tail -100
    ((FAILED+=PHASE3_RC))
 fi
@@ -135,18 +143,18 @@ DATADEV_KO=data_dev/driver/datadev.ko \
 CUSTOM_TX=256 \
 CUSTOM_RX=256 \
 CUSTOM_SIZE=65536 \
-  bash $TESTS_DIR/test_params.sh 2>&1 | tee /tmp/test_params.log
+  bash $TESTS_DIR/test_params.sh 2>&1 | tee "$PARAMS_LOG"
 PARAMS_RC=${PIPESTATUS[0]}
 
-TOTAL_PASS=$(grep -c '^\[PASS\]' /tmp/test_params.log || true)
-TOTAL_FAIL=$(grep -c '^\[FAIL\]' /tmp/test_params.log || true)
+TOTAL_PASS=$(grep -c '^\[PASS\]' "$PARAMS_LOG" || true)
+TOTAL_FAIL=$(grep -c '^\[FAIL\]' "$PARAMS_LOG" || true)
 echo "Module Parameter Validation Summary:"
 echo "  PASS: ${TOTAL_PASS:-0}"
 echo "  FAIL: ${TOTAL_FAIL:-0}"
 
 if [ "$PARAMS_RC" -ne 0 ]; then
    echo_fail "${PARAMS_RC} param check(s) failed"
-   grep '^\[FAIL\]' /tmp/test_params.log || true
+   grep '^\[FAIL\]' "$PARAMS_LOG" || true
    $SUDO dmesg | tail -100
    ((FAILED+=PARAMS_RC))
 fi
@@ -295,7 +303,21 @@ sleep 0.5
 
 # If the kernel oopsed during rmmod-under-load, remaining insmod/rmmod calls
 # will hang forever.  Bail out early so CI doesn't hit the job timeout.
-KERNEL_HEALTH=$($SUDO dmesg | grep -ciE 'oops|panic|BUG:|reboot is needed' || true)
+# Scan only the post-marker delta (driver-induced) so boot-time messages or
+# messages from a prior cell cannot spuriously trip the gate. Marker is
+# injected by scripts/ci/load-modules-cpu.sh into /tmp/ci_dmesg_marker.
+KERNEL_HEALTH_MARKER=""
+if [ -r /tmp/ci_dmesg_marker ]; then
+   KERNEL_HEALTH_MARKER="$(cat /tmp/ci_dmesg_marker)"
+fi
+if [ -n "$KERNEL_HEALTH_MARKER" ]; then
+   KERNEL_HEALTH=$($SUDO dmesg | awk -v m="$KERNEL_HEALTH_MARKER" 'f{print} index($0,m){f=1}' | \
+                   grep -ciE 'oops|panic|BUG:|reboot is needed' || true)
+else
+   # Fallback: no marker available (should not happen when load-modules-cpu.sh
+   # ran first). Use full-ring scan as a last-resort health signal.
+   KERNEL_HEALTH=$($SUDO dmesg | grep -ciE 'oops|panic|BUG:|reboot is needed' || true)
+fi
 if [ "$KERNEL_HEALTH" -gt 0 ]; then
    echo_fail "Kernel oops/panic detected after rmmod-under-load — skipping remaining tests"
    ((FAILED++))
@@ -338,12 +360,12 @@ if [ "$GAP13_FAILED" -eq 0 ]; then
    $SUDO chmod 666 "$DEV"
    sleep 2
 
-   timeout 30 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0,1 -s "$SIZE" > /tmp/gap13_loop.log 2>&1
+   timeout 30 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0,1 -s "$SIZE" > "$GAP13_LOOP_LOG" 2>&1
    GAP13_LOOP_RC=$?
 
    DMESG_DELTA=$($SUDO dmesg | tail -n "+$((DMESG_BEFORE + 1))")
    GAP13_DMESG_ERRORS=$(echo "$DMESG_DELTA" | grep -iE 'oops|panic|BUG:|WARNING:' || true)
-   GAP13_PRBS_ERRORS=$(grep -q "Prbs mismatch" /tmp/gap13_loop.log && echo "mismatch" || true)
+   GAP13_PRBS_ERRORS=$(grep -q "Prbs mismatch" "$GAP13_LOOP_LOG" && echo "mismatch" || true)
 
    if [ -z "$GAP13_PRBS_ERRORS" ] && [ -z "$GAP13_DMESG_ERRORS" ] && \
       { [ "$GAP13_LOOP_RC" -eq 0 ] || [ "$GAP13_LOOP_RC" -eq 124 ]; }; then
