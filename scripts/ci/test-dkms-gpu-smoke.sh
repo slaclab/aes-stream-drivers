@@ -53,9 +53,11 @@ dkms --version || {
    exit 1
 }
 
-# Compute git version the same way build-cpu.sh does
+# Compute git version the same way build-cpu.sh does. Trailing `|| echo 0`
+# on GITD keeps the pipeline graceful under `set -e` when this script is
+# invoked from a non-git source tree (DKMS tarball, release export).
 GITV=$(git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || echo "emulator")
-GITD=$(git status --short -uno 2>/dev/null | wc -l)
+GITD=$(git status --short -uno 2>/dev/null | wc -l || echo 0)
 if [ "$GITD" -ne 0 ]; then GITV="${GITV}-dirty"; fi
 export GITV
 
