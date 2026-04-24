@@ -186,11 +186,16 @@ if [ "$PARALLEL" -eq 1 ]; then
       PROV_PIDS+=($!)
    done
 
-   # Wait for all VMs to provision
+   # Wait for all VMs to provision.  PROV_FAIL=$((...)) rather than
+   # ((PROV_FAIL++)) for the same reason as the VM_SLOT loop below: under
+   # `set -e` the post-increment of a zero-valued variable returns exit 1
+   # (the pre-increment value) and would abort this waitloop on the first
+   # provisioning failure — leaving the remaining pids unreaped and the
+   # "N VM(s) failed to provision" message unreachable.
    PROV_FAIL=0
    for pid in "${PROV_PIDS[@]}"; do
       if ! wait "$pid"; then
-         ((PROV_FAIL++))
+         PROV_FAIL=$((PROV_FAIL + 1))
       fi
    done
    if [ "$PROV_FAIL" -gt 0 ]; then

@@ -76,7 +76,7 @@ run_gpu_test() {
       if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
          echo "::error title=test-gpu.sh::${name} failed (exit=${rc})"
       fi
-      ((FAILED++))
+      FAILED=$((FAILED + 1))
    fi
    echo | tee -a "$LOG_FILE"
 }
@@ -121,7 +121,7 @@ for i in $(seq 1 $CYCLES); do
    timeout $TIMEOUT_SEC bash -c 'until [ "$(cat /sys/module/datadev_emulator/initstate 2>/dev/null)" = live ]; do sleep 0.5; done' || {
       echo_fail "Emulator module did not initialize within ${TIMEOUT_SEC}s on cycle $i"
       $SUDO dmesg | tail -50
-      ((FAILED++))
+      FAILED=$((FAILED + 1))
       break
    }
 
@@ -138,7 +138,7 @@ for i in $(seq 1 $CYCLES); do
    timeout $TIMEOUT_SEC bash -c 'until [ -e /dev/datadev_0 ]; do sleep 0.5; done' || {
       echo_fail "/dev/datadev_0 not found within ${TIMEOUT_SEC}s on cycle $i"
       $SUDO dmesg | tail -50
-      ((FAILED++))
+      FAILED=$((FAILED + 1))
       break
    }
    echo "  /dev/datadev_0 exists"
@@ -146,7 +146,7 @@ for i in $(seq 1 $CYCLES); do
    timeout $TIMEOUT_SEC bash -c 'until [ -e /proc/datadev_0 ]; do sleep 0.5; done' || {
       echo_fail "/proc/datadev_0 not found within ${TIMEOUT_SEC}s on cycle $i"
       $SUDO dmesg | tail -50
-      ((FAILED++))
+      FAILED=$((FAILED + 1))
       break
    }
    echo "  /proc/datadev_0 exists"

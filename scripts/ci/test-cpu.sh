@@ -79,7 +79,7 @@ $SUDO chmod 666 $DEV
 
 LOG_FILE=dma_loop_output.txt
 echo "Running dmaLoopTest (30s, dest 0, size $SIZE) -- output captured to $LOG_FILE (dumped only on failure)"
-timeout 30 $APP_BIN/dmaLoopTest -p $DEV -m 0 -s $SIZE > "$LOG_FILE" 2>&1
+timeout 30 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$SIZE" > "$LOG_FILE" 2>&1
 LOOP_RC=$?
 
 LOG_LINES=$(wc -l < "$LOG_FILE" 2>/dev/null || echo 0)
@@ -93,7 +93,19 @@ else
    cat "$LOG_FILE"
    echo "--- end $LOG_FILE ---"
    $SUDO dmesg | tail -100
-   ((FAILED++))
+   FAILED=$((FAILED + 1))
+fi
+
+# dmaLoopTest returns 0 even when a worker thread hits Read Error /
+# Write Error / Error opening device (runWrite/runRead flip running=false
+# and main() returns 0 — see data_dev/app/src/dmaLoopTest.cpp), so
+# LOOP_RC alone can't distinguish pass from fail. Match the grep guards
+# the tests/ cells use for the same binary.
+if grep -qE "Read Error|Write Error|Error opening device|Prbs mismatch" "$LOG_FILE"; then
+   echo_fail "dmaLoopTest worker thread reported an error"
+   grep -E "Read Error|Write Error|Error opening device|Prbs mismatch" "$LOG_FILE" | head -5
+   $SUDO dmesg | tail -100
+   FAILED=$((FAILED + 1))
 fi
 
 # Verify some data was actually transferred
@@ -136,7 +148,7 @@ if [ "$PHASE3_RC" -ne 0 ]; then
    echo_fail "${PHASE3_RC} test(s) failed"
    grep '^\[FAIL\]' "$PHASE3_LOG" || true
    $SUDO dmesg | tail -100
-   ((FAILED+=PHASE3_RC))
+   FAILED=$((FAILED + PHASE3_RC))
 fi
 
 # ============================================================================
@@ -162,7 +174,7 @@ if [ "$PARAMS_RC" -ne 0 ]; then
    echo_fail "${PARAMS_RC} param check(s) failed"
    grep '^\[FAIL\]' "$PARAMS_LOG" || true
    $SUDO dmesg | tail -100
-   ((FAILED+=PARAMS_RC))
+   FAILED=$((FAILED + PARAMS_RC))
 fi
 
 # ============================================================================
@@ -188,12 +200,12 @@ DMESG_BEFORE=$($SUDO dmesg | wc -l)
 
 timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod emulator/driver/datadev_emulator.ko || {
    echo_fail "insmod emulator failed or timed out"
-   ((FAILED++))
+   FAILED=$((FAILED + 1))
    GAP1_FAILED=1
 }
 timeout $TIMEOUT_SEC bash -c 'until [ "$(cat /sys/module/datadev_emulator/initstate 2>/dev/null)" = live ]; do sleep 0.5; done' || {
    echo_fail "emulator did not initialize within ${TIMEOUT_SEC}s"
-   ((FAILED++))
+   FAILED=$((FAILED + 1))
    GAP1_FAILED=1
 }
 
@@ -201,7 +213,7 @@ if [ "$GAP1_FAILED" -eq 0 ]; then
    timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod "$DATADEV_KO" cfgMode=2 cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgDebug=1
    timeout $TIMEOUT_SEC bash -c "until [ \"\$(cat /sys/module/datadev/initstate 2>/dev/null)\" = live ]; do sleep 0.5; done" || {
       echo_fail "datadev did not initialize within ${TIMEOUT_SEC}s"
-      ((FAILED++))
+      FAILED=$((FAILED + 1))
       GAP1_FAILED=1
    }
 fi
@@ -226,7 +238,7 @@ if [ "$GAP1_FAILED" -eq 0 ]; then
       echo "[PASS] data_integrity (cfgMode=2)"
    else
       echo "[FAIL] data_integrity (cfgMode=2)"
-      ((FAILED++))
+      FAILED=$((FAILED + 1))
    fi
 
    # Restore cfgMode=1 before cleanup
@@ -255,12 +267,12 @@ DMESG_BEFORE=$($SUDO dmesg | wc -l)
 
 timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod emulator/driver/datadev_emulator.ko || {
    echo_fail "insmod emulator failed or timed out"
-   ((FAILED++))
+   FAILED=$((FAILED + 1))
    GAP5_FAILED=1
 }
 timeout $TIMEOUT_SEC bash -c 'until [ "$(cat /sys/module/datadev_emulator/initstate 2>/dev/null)" = live ]; do sleep 0.5; done' || {
    echo_fail "emulator did not initialize within ${TIMEOUT_SEC}s"
-   ((FAILED++))
+   FAILED=$((FAILED + 1))
    GAP5_FAILED=1
 }
 
@@ -268,7 +280,7 @@ if [ "$GAP5_FAILED" -eq 0 ]; then
    timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod "$DATADEV_KO" cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgDebug=1
    timeout $TIMEOUT_SEC bash -c "until [ \"\$(cat /sys/module/datadev/initstate 2>/dev/null)\" = live ]; do sleep 0.5; done" || {
       echo_fail "datadev did not initialize within ${TIMEOUT_SEC}s"
-      ((FAILED++))
+      FAILED=$((FAILED + 1))
       GAP5_FAILED=1
    }
 fi
@@ -289,10 +301,10 @@ if [ "$GAP5_FAILED" -eq 0 ]; then
    kill $LOOP_PID 2>/dev/null || true
    wait $LOOP_PID 2>/dev/null || true
 
-   timeout 30 $SUDO rmmod datadev || { echo_fail "rmmod datadev failed/timed-out after kill"; ((FAILED++)); GAP5_FAILED=1; }
+   timeout 30 $SUDO rmmod datadev || { echo_fail "rmmod datadev failed/timed-out after kill"; FAILED=$((FAILED + 1)); GAP5_FAILED=1; }
    for _ in $(seq 1 15); do [ ! -e "$DEV" ] && break; sleep 0.5; done
 
-   timeout 30 $SUDO rmmod datadev_emulator || { echo_fail "rmmod datadev_emulator failed/timed-out"; ((FAILED++)); GAP5_FAILED=1; }
+   timeout 30 $SUDO rmmod datadev_emulator || { echo_fail "rmmod datadev_emulator failed/timed-out"; FAILED=$((FAILED + 1)); GAP5_FAILED=1; }
 
    DMESG_DELTA=$($SUDO dmesg | tail -n "+$((DMESG_BEFORE + 1))")
    GAP5_DMESG_ERRORS=$(echo "$DMESG_DELTA" | grep -iE 'oops|panic|BUG:|WARNING:' || true)
@@ -301,7 +313,7 @@ if [ "$GAP5_FAILED" -eq 0 ]; then
       echo "[PASS] rmmod-under-load"
    else
       echo "[FAIL] rmmod-under-load"
-      ((FAILED++))
+      FAILED=$((FAILED + 1))
    fi
 fi
 
@@ -326,7 +338,7 @@ else
 fi
 if [ "$KERNEL_HEALTH" -gt 0 ]; then
    echo_fail "Kernel oops/panic detected after rmmod-under-load — skipping remaining tests"
-   ((FAILED++))
+   FAILED=$((FAILED + 1))
    exit $FAILED
 fi
 
@@ -339,12 +351,12 @@ DMESG_BEFORE=$($SUDO dmesg | wc -l)
 
 timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod emulator/driver/datadev_emulator.ko || {
    echo_fail "insmod emulator failed or timed out"
-   ((FAILED++))
+   FAILED=$((FAILED + 1))
    GAP13_FAILED=1
 }
 timeout $TIMEOUT_SEC bash -c 'until [ "$(cat /sys/module/datadev_emulator/initstate 2>/dev/null)" = live ]; do sleep 0.5; done' || {
    echo_fail "emulator did not initialize within ${TIMEOUT_SEC}s"
-   ((FAILED++))
+   FAILED=$((FAILED + 1))
    GAP13_FAILED=1
 }
 
@@ -352,7 +364,7 @@ if [ "$GAP13_FAILED" -eq 0 ]; then
    timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod "$DATADEV_KO" cfgBgThold0=16 cfgBgThold1=8 cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgDebug=1
    timeout $TIMEOUT_SEC bash -c "until [ \"\$(cat /sys/module/datadev/initstate 2>/dev/null)\" = live ]; do sleep 0.5; done" || {
       echo_fail "datadev did not initialize within ${TIMEOUT_SEC}s"
-      ((FAILED++))
+      FAILED=$((FAILED + 1))
       GAP13_FAILED=1
    }
 fi
@@ -378,7 +390,7 @@ if [ "$GAP13_FAILED" -eq 0 ]; then
       echo "[PASS] bgthold"
    else
       echo "[FAIL] bgthold"
-      ((FAILED++))
+      FAILED=$((FAILED + 1))
    fi
 fi
 
@@ -394,7 +406,7 @@ for i in $(seq 1 $CYCLES); do
    timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod emulator/driver/datadev_emulator.ko || {
       echo_fail "insmod emulator failed or timed out on cycle $i"
       $SUDO dmesg | tail -50
-      ((FAILED++))
+      FAILED=$((FAILED + 1))
       break
    }
 
@@ -403,7 +415,7 @@ for i in $(seq 1 $CYCLES); do
    timeout $TIMEOUT_SEC bash -c 'until [ "$(cat /sys/module/datadev_emulator/initstate 2>/dev/null)" = live ]; do sleep 0.5; done' || {
       echo_fail "Emulator module did not initialize within ${TIMEOUT_SEC}s on cycle $i"
       $SUDO dmesg | tail -50
-      ((FAILED++))
+      FAILED=$((FAILED + 1))
       break
    }
 
@@ -414,7 +426,7 @@ for i in $(seq 1 $CYCLES); do
    timeout $TIMEOUT_SEC bash -c 'until [ "$(cat /sys/module/datadev/initstate 2>/dev/null)" = live ]; do sleep 0.5; done' || {
       echo_fail "datadev module did not initialize within ${TIMEOUT_SEC}s on cycle $i"
       $SUDO dmesg | tail -50
-      ((FAILED++))
+      FAILED=$((FAILED + 1))
       break
    }
 
@@ -430,7 +442,7 @@ for i in $(seq 1 $CYCLES); do
    timeout $TIMEOUT_SEC bash -c 'until [ -e /proc/datadev_0 ]; do sleep 0.5; done' || {
       echo_fail "/proc/datadev_0 not found within ${TIMEOUT_SEC}s on cycle $i"
       $SUDO dmesg | tail -50
-      ((FAILED++))
+      FAILED=$((FAILED + 1))
       break
    }
    echo "  /proc/datadev_0 exists"
