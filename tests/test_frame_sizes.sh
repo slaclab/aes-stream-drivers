@@ -77,26 +77,15 @@ run_size_test() {
       return 1
    fi
 
-   if grep -q "Read Error" "$out"; then
-      echo "FAIL: Read Error at size=$sz"
-      grep "Read Error" "$out" | head -5
-      rm -f "$out"
-      return 1
-   fi
-
-   if grep -q "Write Error" "$out"; then
-      echo "FAIL: Write Error at size=$sz"
-      grep "Write Error" "$out" | head -5
-      rm -f "$out"
-      return 1
-   fi
-
-   # dmaLoopTest also exits 0 when open() of $DEV fails ("Error opening
-   # device" from runWrite/runRead). $rc alone can't catch that path,
-   # so guard it explicitly.
-   if grep -q "Error opening device" "$out"; then
-      echo "FAIL: Error opening device at size=$sz"
-      grep "Error opening device" "$out" | head -5
+   # Combined error gate: dmaLoopTest can exit 0 even when worker threads hit
+   # Read Error, Write Error, or Error opening device (runRead/runWrite just
+   # flip running=false and main exits cleanly), so $rc alone can't catch
+   # those paths.  Dump the full captured output (stderr included) on hit so
+   # PrbsData stderr ("Bad value at index", "Bad size") surfaces alongside
+   # the matching error line — matches the PRBS-mismatch path above.
+   if grep -qE "Read Error|Write Error|Error opening device" "$out"; then
+      echo "FAIL: dmaLoopTest worker error at size=$sz"
+      dump_log "$out"
       rm -f "$out"
       return 1
    fi
@@ -129,6 +118,9 @@ done
 OVERSIZE=$((CFG_SIZE + 1))
 echo "  Testing oversized frame ($OVERSIZE > cfgSize=$CFG_SIZE)..."
 OVER_OUT=$(mktemp)
+# trap-based cleanup so a signal/early-exit between mktemp and the explicit
+# rm at the bottom of the block doesn't leak the temp file.
+trap 'rm -f "$OVER_OUT"' EXIT
 timeout "$DURATION" "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$OVERSIZE" > "$OVER_OUT" 2>&1
 
 if grep -q "Write Error" "$OVER_OUT"; then
@@ -138,7 +130,6 @@ else
    dump_log "$OVER_OUT"
    FAILED=$((FAILED + 1))
 fi
-rm -f "$OVER_OUT"
 
 if [ "$FAILED" -eq 0 ]; then
    echo "PASS: frame_sizes -- valid sizes:$PASSED_SIZES; oversized rejected"
