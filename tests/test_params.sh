@@ -110,7 +110,13 @@ check_field() {
    local field="$1"
    local expected="$2"
    local value
-   value=$(grep -E "^[[:space:]]*${field}[[:space:]]*:" "$PROC" | head -1 | awk -F: '{print $2}' | tr -d '[:space:]')
+   # `|| true` guards the whole pipeline: under `set -euo pipefail`, grep
+   # returns 1 when the field is absent and `pipefail` would propagate that
+   # to abort the script before check_field can report a clean FAIL. We want
+   # the missing-field case to surface as a FAIL line and keep execution
+   # going so subsequent check_field calls still run. Matches the pattern
+   # already used on line 128 for the TX_LINE capture.
+   value=$(grep -E "^[[:space:]]*${field}[[:space:]]*:" "$PROC" | head -1 | awk -F: '{print $2}' | tr -d '[:space:]' || true)
    if [ "$value" = "$expected" ]; then
       echo "PASS: $field = $value"
    else

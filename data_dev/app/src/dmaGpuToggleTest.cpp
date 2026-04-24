@@ -107,6 +107,39 @@ static struct argp argp_parser = { options, parse_opt, 0, 0, 0, 0, 0 };
 static int gPassed = 0;
 static int gErrors = 0;
 
+/* ---------------------------------------------------------------------------
+ * atexit cleanup state (mirrors rdmaTestEmu.cpp:126-144).
+ *
+ * Without this, a timeout inside emu_wait_value32_with_deadline calls
+ * std::exit(1) directly from deep in runOneFrame and bypasses the main()
+ * teardown block. That leaves entries in the nvidia_p2p_stub hashtable,
+ * which fires WARN_ON(!hash_empty(addr_ht)) at
+ * emu_gpu_addr_table_exit+0x32 on the next rmmod cycle — observed in
+ * GHA run 24894533793 (debian:experimental toggle flake).
+ *
+ * main() arms these after opening fd/stub_fd and clears s_atexit_armed
+ * on the happy-path teardown so the handler runs exactly once.
+ * -------------------------------------------------------------------------*/
+static int  s_atexit_fd      = -1;
+static int  s_atexit_stub_fd = -1;
+static bool s_atexit_armed   = false;
+
+static void toggle_test_atexit(void) {
+   if (!s_atexit_armed) return;
+   s_atexit_armed = false;                 /* idempotent: only run once */
+   if (s_atexit_fd >= 0) {
+      /* Best-effort unregister; ignore errors (kernel may have already
+       * dropped state if the datadev module was unloaded before exit). */
+      (void)gpuRemNvidiaMemory(s_atexit_fd);
+      ::close(s_atexit_fd);
+      s_atexit_fd = -1;
+   }
+   if (s_atexit_stub_fd >= 0) {
+      ::close(s_atexit_stub_fd);
+      s_atexit_stub_fd = -1;
+   }
+}
+
 static void report(const char *name, bool ok, const char *detail) {
    if (ok) {
       printf("[PASS] %-40s %s\n", name, detail ? detail : "");
@@ -343,6 +376,22 @@ int main(int argc, char **argv) {
    if (stub_fd < 0) {
       fprintf(stderr, "dmaGpuToggleTest: open(%s) failed: %s\n",
               kStubDev, std::strerror(errno));
+      ::close(fd);
+      return 1;
+   }
+
+   /* Arm atexit cleanup BEFORE any allocation so a timeout inside
+    * emu_wait_value32_with_deadline (which calls std::exit(1) from deep in
+    * runOneFrame) still drops the stub hashtable entries via
+    * gpuRemNvidiaMemory. Without this the next rmmod fires
+    * WARN_ON(!hash_empty(addr_ht)) at emu_gpu_addr_table_exit+0x32. */
+   s_atexit_fd      = fd;
+   s_atexit_stub_fd = stub_fd;
+   s_atexit_armed   = true;
+   if (std::atexit(toggle_test_atexit) != 0) {
+      fprintf(stderr, "dmaGpuToggleTest: atexit registration failed\n");
+      s_atexit_armed = false;
+      ::close(stub_fd);
       ::close(fd);
       return 1;
    }
@@ -607,7 +656,10 @@ int main(int argc, char **argv) {
       }
    }
 
-   /* Teardown. */
+   /* Teardown. Disarm atexit first so the normal close sequence below is
+    * the single source of truth for fd lifetime; the atexit handler becomes
+    * a safety net only used on std::exit(1) paths from runOneFrame. */
+   s_atexit_armed = false;
    gpuRemNvidiaMemory(fd);
    for (int i = 0; i < kBufCnt; ++i) {
       gpuEmuFreeBuf(rxBuffs[i], kBufSize);
@@ -621,6 +673,9 @@ int main(int argc, char **argv) {
    return gErrors > 0 ? 1 : 0;
 
 cleanup_fail:
+   /* Same invariant as happy-path teardown: disarm atexit before the
+    * explicit close sequence so the handler does not double-close. */
+   s_atexit_armed = false;
    gpuRemNvidiaMemory(fd);
    for (int i = 0; i < rxAllocCnt; ++i) gpuEmuFreeBuf(rxBuffs[i], kBufSize);
    for (int i = 0; i < txAllocCnt; ++i) gpuEmuFreeBuf(txBuffs[i], kBufSize);
