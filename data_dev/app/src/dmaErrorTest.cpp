@@ -137,8 +137,18 @@ int main(int argc, char **argv) {
       } else {
          printf("FAIL: dmaGetIndex after exhaustion returned %d (expected < 0)\n", idx);
          errors++;
-         // Also return the surprise buffer so we do not leak it.
-         held[heldCount++] = idx;
+         // Surprise buffer: if held[] still has room, track it so the later
+         // return loop covers it; otherwise hand it back directly. The
+         // explicit bound check avoids a stack-buffer overflow on a driver
+         // that hands out more than MAX_HELD_INDICES buffers — the while
+         // loop above clamps at MAX_HELD_INDICES so heldCount==MAX is the
+         // reachable state where the unchecked `held[heldCount++] = idx`
+         // would write past the array.
+         if (heldCount < MAX_HELD_INDICES) {
+            held[heldCount++] = idx;
+         } else {
+            dmaRetIndex(fd, idx);
+         }
       }
 
       // Verify the driver's in-user accounting matches what we hold.
