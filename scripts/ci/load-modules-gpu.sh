@@ -55,6 +55,13 @@ if [ ! -e "/lib/modules/$(uname -r)/build" ]; then
    exit 1
 fi
 
+# Record that load-modules was reached BEFORE the marker injection attempt.
+# This survives unload-modules and is the signal check-dmesg.sh uses to
+# distinguish "build-only cell, dmesg gate truly N/A" from "load was attempted
+# but /dev/kmsg dropped the marker silently". Without this, a kmsg drop on a
+# load_test cell would produce a false PASS by silently skipping the gate.
+echo 1 > /tmp/ci_load_attempted
+
 # Inject a unique baseline marker so check-dmesg.sh can extract
 # a "since this moment" delta. Uses kernel-native sources (no package deps):
 #   /proc/sys/kernel/random/uuid  — fresh v4 UUID per read, kernel ABI >= 2.6.4
@@ -64,16 +71,15 @@ CI_DMESG_MARKER="BASELINE-aes-ci-$(cat /proc/sys/kernel/random/uuid)"
 echo "$CI_DMESG_MARKER" | $SUDO tee /dev/kmsg > /dev/null
 # Verify the marker landed in dmesg before advertising it to check-dmesg.sh.
 # If the /dev/kmsg write silently dropped (permissions, kmsg throttling,
-# missing device), check-dmesg.sh would read the marker file, fail to match
-# it in the ring, and skip the driver-health gate entirely — producing a
-# false PASS on any driver-induced oops/panic/BUG/WARNING. Mirrors the
-# marker-verification pattern in tests/vm_inside.sh (commit bacf104).
+# missing device), check-dmesg.sh sees the /tmp/ci_load_attempted flag above
+# and falls back to a full-ring scan rather than skipping silently. Mirrors
+# the marker-verification pattern in tests/vm_inside.sh (commit bacf104).
 sleep 0.2
 if $SUDO dmesg | grep -qF "$CI_DMESG_MARKER"; then
    echo "$CI_DMESG_MARKER" > /tmp/ci_dmesg_marker
    echo_step "Baseline marker injected into dmesg: $CI_DMESG_MARKER"
 else
-   echo_warn "Baseline marker not found in dmesg after /dev/kmsg write — check-dmesg.sh will skip the health gate this cell (driver errors would NOT be caught; /dev/kmsg may be throttled or restricted)"
+   echo_warn "Baseline marker not found in dmesg after /dev/kmsg write — check-dmesg.sh will fall back to full-ring scan via /tmp/ci_load_attempted (kmsg may be throttled or restricted)"
    rm -f /tmp/ci_dmesg_marker
 fi
 

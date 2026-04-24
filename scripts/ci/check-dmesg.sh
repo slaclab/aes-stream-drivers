@@ -4,7 +4,10 @@
 # -----------------------------------------------------------------------------
 # Description:
 #    Check dmesg for errors using a baseline-delta model. Extracts the delta
-#    after the load-modules marker and fails on oops/panic/BUG/WARNING.
+#    after the load-modules marker and fails on oops/panic/BUG/WARNING. If
+#    the marker is missing but driver modules are loaded, falls back to a
+#    full-ring scan so a /dev/kmsg write failure cannot silently mask a
+#    driver-induced kernel error.
 # -----------------------------------------------------------------------------
 # This file is part of the aes_stream_drivers package. It is subject to the
 # license terms in the LICENSE.txt file found in the top-level directory of
@@ -19,8 +22,17 @@
 # BUG/WARNING in that delta. Benign kernel-cmdline echoes (drm panic, panic=,
 # panic_on_oops, panic_on_warn) are excluded.
 #
-# If no marker is found (build-only cells, or load-modules aborted before the
-# marker line), skip the gate with exit 0 and print a dmesg tail for visibility.
+# If the marker is missing, the gate distinguishes two cases:
+#   - load-modules-*.sh was never reached (genuine build-only cell) -> skip
+#     with exit 0. Indicator: /tmp/ci_load_attempted absent AND no
+#     /sys/module/datadev[_emulator]|nvidia_p2p_stub entries.
+#   - load-modules-*.sh ran but /dev/kmsg write dropped silently (permissions,
+#     kmsg throttling, ring-buffer wrap) -> fall back to full-ring scan so
+#     driver-induced oops/panic/BUG/WARNING cannot pass unnoticed. Indicator:
+#     /tmp/ci_load_attempted present (durable across unload-modules), or
+#     module dirs still under /sys/module (covers manual/local-CI usage where
+#     check-dmesg.sh is invoked while modules are still resident). Mirrors the
+#     empty-marker fallback in tests/vm_inside.sh.
 #
 # Exit codes: 0=clean or skipped, 1=driver-induced errors found
 # ----------------------------------------------------------------------------
@@ -56,21 +68,55 @@ if [ -r "$MARKER_FILE" ]; then
    MARKER="$(cat "$MARKER_FILE" 2>/dev/null || true)"
 fi
 
-if [ -z "$MARKER" ] || ! $SUDO dmesg | grep -qF "$MARKER"; then
-   echo_warn "No baseline marker found in dmesg — no driver was loaded in this cell"
-   echo "=== dmesg (last 50 lines) for visibility ==="
-   $SUDO dmesg | tail -50 || true
-   echo_step "Dmesg gate skipped (build-only cell)"
-   exit 0
+MARKER_OK=0
+if [ -n "$MARKER" ] && $SUDO dmesg | grep -qF "$MARKER"; then
+   MARKER_OK=1
+fi
+
+if [ "$MARKER_OK" -eq 0 ]; then
+   # Marker missing. Distinguish "load-modules never ran" (genuine build-only)
+   # from "load-modules ran but kmsg write dropped" (false-PASS hazard).
+   #   /tmp/ci_load_attempted is dropped by load-modules-*.sh BEFORE the kmsg
+   #     attempt and survives unload-modules-*.sh, so it remains visible to
+   #     check-dmesg.sh in the workflow's `if: always()` slot.
+   #   /sys/module/<m> presence is a secondary signal for manual/local-CI
+   #     usage where check-dmesg.sh is invoked while modules are still loaded.
+   LOAD_ATTEMPTED=0
+   if [ -f /tmp/ci_load_attempted ]; then
+      LOAD_ATTEMPTED=1
+   fi
+   if [ "$LOAD_ATTEMPTED" -eq 0 ]; then
+      for m in datadev datadev_emulator nvidia_p2p_stub; do
+         if [ -d "/sys/module/$m" ]; then
+            LOAD_ATTEMPTED=1
+            break
+         fi
+      done
+   fi
+
+   if [ "$LOAD_ATTEMPTED" -eq 0 ]; then
+      echo_warn "No baseline marker and no evidence of module load — build-only cell"
+      echo "=== dmesg (last 50 lines) for visibility ==="
+      $SUDO dmesg | tail -50 || true
+      echo_step "Dmesg gate skipped (build-only cell)"
+      exit 0
+   fi
+
+   echo_warn "No baseline marker but load-modules ran (/tmp/ci_load_attempted present or modules resident) — /dev/kmsg write likely dropped; falling back to full-ring scan"
 fi
 
 # --- Extract delta ---------------------------------------------------------
 # awk: once we see the marker line, print everything AFTER it. Using index()
 # for literal-string match so UUID / dash characters cannot be misread as regex
-# metacharacters.
-DELTA="$($SUDO dmesg | awk -v m="$MARKER" 'f{print} index($0,m){f=1}')"
-
-echo "=== Delta (dmesg since baseline marker) ==="
+# metacharacters. With an empty marker (full-ring fallback), index($0,"")
+# returns 1 on every line, so the awk filter scans the entire ring buffer.
+if [ "$MARKER_OK" -eq 1 ]; then
+   DELTA="$($SUDO dmesg | awk -v m="$MARKER" 'f{print} index($0,m){f=1}')"
+   echo "=== Delta (dmesg since baseline marker) ==="
+else
+   DELTA="$($SUDO dmesg)"
+   echo "=== Delta (full dmesg ring — marker fallback) ==="
+fi
 echo "$DELTA" | tail -100
 echo "==========================================="
 
