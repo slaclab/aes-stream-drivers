@@ -35,4 +35,15 @@ if [ ! -x "$APP_BIN/dmaGpuIoctlTest" ]; then
    exit 2
 fi
 
-"$APP_BIN/dmaGpuIoctlTest" -p "$DEV"
+# Outer `timeout` guards against a CI hang if dmaGpuIoctlTest wedges
+# inside an ioctl (e.g. a wedged driver path). Matches the
+# timeout-wrapping convention used throughout the rest of the suite.
+# 30 s is ample for the 6 GPU async ioctls this binary exercises; rc=124
+# surfaces as a non-zero exit and is distinguished below.
+timeout 30 "$APP_BIN/dmaGpuIoctlTest" -p "$DEV"
+RC=$?
+if [ "$RC" -eq 124 ]; then
+   echo "FAIL: dmaGpuIoctlTest timed out (exit 124)"
+   exit 1
+fi
+exit "$RC"

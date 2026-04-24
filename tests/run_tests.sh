@@ -133,9 +133,15 @@ run_test_with_retry() {
 }
 
 # --- Test sequence ---
-run_test "ioctl_test"    "$APP_BIN/dmaIoctlTest"    -p "$DEV"
-run_test "file_ops_test" "$APP_BIN/dmaFileOpsTest"  -p "$DEV"
-run_test "error_paths"   "$APP_BIN/dmaErrorTest"    -p "$DEV"
+# Outer `timeout` guards against a CI hang if one of these deterministic
+# ioctl/file_ops/error-path binaries wedges inside a syscall despite
+# internal short select() timeouts. Matches the timeout-wrapping
+# convention used by every dmaLoopTest invocation in the suite.
+# 30 s is well above each binary's expected runtime (<1 s on healthy
+# hardware); run_test treats rc != 0 (including 124) as FAIL.
+run_test "ioctl_test"    timeout 30 "$APP_BIN/dmaIoctlTest"    -p "$DEV"
+run_test "file_ops_test" timeout 30 "$APP_BIN/dmaFileOpsTest"  -p "$DEV"
+run_test "error_paths"   timeout 30 "$APP_BIN/dmaErrorTest"    -p "$DEV"
 run_test_with_retry "multichannel"  bash "$TESTS_DIR/test_multichannel.sh"
 run_test "proc_interface" bash "$TESTS_DIR/test_proc.sh"
 run_test_with_retry "data_integrity" bash "$TESTS_DIR/test_data_integrity.sh"
@@ -149,7 +155,7 @@ run_test "irq_modes"      bash "$TESTS_DIR/test_irq_modes.sh"
 
 # --- GPU tests (only when the GPU-enabled stack is loaded) ---
 if [ "${GPU_ENABLED:-0}" = "1" ]; then
-   run_test "gpu_ioctls"     "$APP_BIN/dmaGpuIoctlTest" -p "$DEV"
+   run_test "gpu_ioctls"     timeout 30 "$APP_BIN/dmaGpuIoctlTest" -p "$DEV"
    run_test "gpu_proc"       bash "$TESTS_DIR/test_gpu_proc.sh"
    run_test_with_retry "gpu_dma_loopback" bash "$TESTS_DIR/test_gpu_dma_loopback.sh"
 fi
