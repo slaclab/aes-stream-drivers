@@ -108,6 +108,12 @@ if grep -qE "Read Error|Write Error|Error opening device" "$TMPFILE"; then
    FAILED=$((FAILED + 1))
 fi
 
+# NOTE: no RxCount/TxCount throughput assertion by design. cfgTxCount=4/
+# cfgRxCount=4 intentionally starves the free pool -- low or zero "successful"
+# transfers is a valid outcome. The dmesg oops/panic/BUG:/WARNING: scan below
+# is the authoritative signal for "DMA engine broke"; a silent zero-transfer
+# run without kernel errors is still a PASS for this test's charter.
+#
 # PRBS mismatches are EXPECTED here -- with cfgTxCount=4/cfgRxCount=4 and
 # 32 KiB frames, the emulator's free pool starves and frames are dropped,
 # which desyncs the PRBS sequence. This test exercises the buffer-management

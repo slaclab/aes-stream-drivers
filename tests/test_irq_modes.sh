@@ -131,6 +131,12 @@ run_irq_cycle() {
       CYCLE_FAIL=1
    fi
 
+   # NOTE: no RxCount/TxCount throughput assertion by design. The retry-once
+   # wrapper (run_irq_subtest) + the dmesg oops/panic/BUG:/WARNING: scan below
+   # together catch a genuinely broken IRQ mode; a brief polled-mode starvation
+   # that produces few transfers is acceptable as long as the kernel is clean
+   # and PRBS integrity (above) is intact.
+
    # Kernel error check against dmesg delta.
    DMESG_DELTA=$($SUDO dmesg | tail -n "+$((DMESG_BEFORE + 1))")
    if echo "$DMESG_DELTA" | grep -iE 'oops|panic|BUG:|WARNING:'; then
