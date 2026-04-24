@@ -253,8 +253,8 @@ by ``scripts/ci/test-cpu.sh`` or ``scripts/ci/test-gpu.sh`` during CI.
      - Coverage
    * - ``run_tests.sh``
      - Master test runner: ioctl, file-ops, error-paths, multichannel, proc,
-       data-integrity, idx-loopback, frame-sizes, concurrent-open,
-       backpressure, tuser-sweep, irq-modes
+       data-integrity, idx-loopback, tuser-sweep, frame-sizes, small-frames,
+       concurrent-open, backpressure, irq-modes
    * - ``test_data_integrity.sh``
      - Runs ``dmaLoopTest`` for 60s, requires >= 100 transfers with zero
        PRBS mismatches

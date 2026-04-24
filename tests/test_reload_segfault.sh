@@ -40,6 +40,14 @@
 # unprivileged hosts: the script auto-SKIPs. Intended invocation is
 # inside the CI VM spawned by scripts/ci-local/run_cell.sh.
 #
+# Precondition: nvidia_p2p_stub must already be loaded. The emulator's
+# module_init eagerly resolves emu_gpu_register_drain_cb (exported by
+# the stub), so insmod of the emulator at Phase A would otherwise fail
+# with "Unknown symbol ... (err -2)". Standard CI flow loads the stub
+# via scripts/ci/load-modules-cpu.sh before this script runs; the
+# explicit check below produces an actionable error if invoked manually
+# without that preamble.
+#
 # Environment variables:
 #   DEV                 Device path         (default: /dev/datadev_0)
 #   DATADEV_KO          Path to datadev.ko  (default: data_dev/driver/datadev.ko)
@@ -82,6 +90,16 @@ if [ ! -f "$DATADEV_KO" ]; then
 fi
 if [ ! -f "$EMU_KO" ]; then
    echo "FAIL: $EMU_KO not found -- run 'make' in emulator/driver first"
+   exit 1
+fi
+
+# Precondition: nvidia_p2p_stub must be loaded. The emulator's module_init
+# directly references emu_gpu_register_drain_cb (exported by the stub), so
+# the Phase A insmod would otherwise fail with "Unknown symbol ... (err -2)".
+# Refuse early with an actionable message rather than letting the timeout-
+# wrapped insmod produce a generic exit-1 that's hard to diagnose.
+if [ ! -e /sys/module/nvidia_p2p_stub ]; then
+   echo "FAIL: nvidia_p2p_stub not loaded -- 'insmod emulator/gpu_stub/nvidia_p2p_stub.ko' first"
    exit 1
 fi
 
