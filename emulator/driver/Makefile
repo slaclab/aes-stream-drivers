@@ -71,8 +71,13 @@ all:
 	 $(MAKE) BUILD_VER=$$BUILD_VER ARCH=$(ARCH) -C $(KERNELDIR) M=$(HOME) \
 	   $(KBUILD_EXTRA_SYMBOLS_ARG) modules
 
-# Clean target
+# Clean target.
+# Also removes the sideband .build_version stamp written by the `all` recipe
+# so `make clean` leaves a truly-clean tree; otherwise the Pitfall-6
+# staleness gate (modinfo vs .build_version) would report a stale match
+# against whatever epoch last built here.
 clean:
 	@$(MAKE) ARCH=$(ARCH) -C $(KERNELDIR) M=$(HOME) clean
+	@rm -f $(HOME)/.build_version
 
 .PHONY: all clean

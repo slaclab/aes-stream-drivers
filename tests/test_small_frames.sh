@@ -48,11 +48,24 @@ OUT=$(mktemp)
 # quotes protect against whitespace/glob chars if $TMPDIR is ever unusual.
 trap 'rm -f "$OUT"' EXIT
 
-"$APP_BIN/dmaSmallFrameTest" -p "$DEV" -c "$COUNT" -n 1 -x 4 > "$OUT" 2>&1
+# Outer `timeout` guards against a CI hang if dmaSmallFrameTest wedges
+# despite its internal 5 s per-op select() timeouts (e.g. a blocking
+# ioctl/read/write in a wedged driver path). Matches the timeout-wrapping
+# convention used throughout the rest of the suite (test_data_integrity.sh,
+# test_irq_modes.sh, test_backpressure.sh, ...). 60 s is ample headroom:
+# even the worst case (4 sizes × 100 frames × two 5 s selects) can only
+# reach ~4000 s if every op blocks maximally, which is a fault we want to
+# fail fast on. rc=124 is the timeout exit code; the existing non-zero
+# check below surfaces it as a test failure.
+timeout 60 "$APP_BIN/dmaSmallFrameTest" -p "$DEV" -c "$COUNT" -n 1 -x 4 > "$OUT" 2>&1
 RC=$?
 
 cat "$OUT"
 
+if [ "$RC" -eq 124 ]; then
+   echo "FAIL: dmaSmallFrameTest timed out (exit 124)"
+   exit 1
+fi
 if [ "$RC" -ne 0 ]; then
    echo "FAIL: dmaSmallFrameTest exited $RC"
    exit 1
