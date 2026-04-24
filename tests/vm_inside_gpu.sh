@@ -47,6 +47,14 @@ HOST=/mnt/host
 TIMEOUT_SEC=30
 EXIT_CODE=0
 
+# Preserve the first non-zero rc so the final exit reflects the root-cause
+# subtest, not whichever failing step ran last. Without this, a failure in
+# run_tests.sh followed by a failure in test_params.sh or the dmesg gate
+# would clobber the earlier rc via `|| EXIT_CODE=$?`.
+record_rc() {
+   [ "$EXIT_CODE" -eq 0 ] && EXIT_CODE=$1
+}
+
 # Inject a unique baseline marker so the post-run oops/panic/BUG/WARNING
 # gate only scans driver-induced lines (the delta after module load), not
 # boot/earlier messages that can false-positive. Mirrors
@@ -131,7 +139,7 @@ if ! dmesg | awk -v m="$CI_DMESG_MARKER" 'f{print} index($0,m){f=1}' | \
         grep -q "Configured for GpuAsyncCore version 4"; then
    echo "FAIL: Gpu_Init V4 confirmation not found in this run's dmesg delta"
    dmesg | tail -100
-   EXIT_CODE=1
+   record_rc 1
 else
    echo "  Gpu_Init reported GpuAsyncCore version 4"
 fi
@@ -144,7 +152,7 @@ DEV=/dev/datadev_0 \
 APP_BIN="$HOST/data_dev/app/bin" \
 TESTS_DIR="$HOST/tests" \
 GPU_ENABLED=1 \
-   bash "$HOST/tests/run_tests.sh" || EXIT_CODE=$?
+   bash "$HOST/tests/run_tests.sh" || record_rc $?
 
 echo "=== VM-GPU: Running module parameter validation ==="
 DEV=/dev/datadev_0 \
@@ -153,7 +161,7 @@ DATADEV_KO="$HOST/data_dev/driver/datadev.ko" \
 CUSTOM_TX=256 \
 CUSTOM_RX=256 \
 CUSTOM_SIZE=65536 \
-   bash "$HOST/tests/test_params.sh" || EXIT_CODE=$?
+   bash "$HOST/tests/test_params.sh" || record_rc $?
 
 echo "=== VM-GPU: Unloading modules ==="
 # Reverse load order: the emulator holds a reference on the stub via the
@@ -173,7 +181,7 @@ echo "=== VM-GPU: Checking dmesg for errors (baseline-delta) ==="
 DELTA="$(dmesg | awk -v m="$CI_DMESG_MARKER" 'f{print} index($0,m){f=1}')"
 if echo "$DELTA" | grep -iE 'oops|panic|BUG:' | grep -viE 'drm panic|panic=|panic_on_oops|panic_on_warn'; then
    echo "FAIL: Kernel errors detected in driver-induced dmesg delta"
-   EXIT_CODE=1
+   record_rc 1
 fi
 # WARNING: gate — mirrors scripts/ci/check-dmesg.sh so a kernel WARN_ON()
 # in the delta fails locally the same way it fails in CI. No benign
@@ -181,7 +189,7 @@ fi
 # cmdline-echo 'panic_on_warn' is already filtered above.
 if echo "$DELTA" | grep -iE 'WARNING:'; then
    echo "FAIL: Kernel warnings detected in driver-induced dmesg delta"
-   EXIT_CODE=1
+   record_rc 1
 fi
 
 if [ "$EXIT_CODE" -eq 0 ]; then
