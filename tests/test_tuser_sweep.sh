@@ -41,10 +41,10 @@ run_tuser_case() {
    local out
    out=$(mktemp)
 
-   # Drain stale frames from previous tests: run briefly with target
-   # fuser/luser; any leftover frames with old values will cause a
-   # Read Error in this throw-away run, clearing the queue.
-   timeout 1 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$SIZE" -f "$fuser" -l "$luser" > /dev/null 2>&1 || true
+   # Drain stale frames from previous tests: pure-RX consumer (-r 1
+   # disables TX worker, -d disables PRBS check) so the drain doesn't
+   # re-inject frames that become stale when the timeout fires.
+   timeout 3 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$SIZE" -f "$fuser" -l "$luser" -r 1 -d > /dev/null 2>&1 || true
    sleep 1
 
    echo "  Testing fuser=$fuser luser=$luser (${DURATION}s)..."

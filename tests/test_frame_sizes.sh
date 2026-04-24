@@ -40,10 +40,10 @@ run_size_test() {
    local out
    out=$(mktemp)
 
-   # Drain stale frames from previous tests: run briefly at the target
-   # size so any leftover buffers with a different size trigger a Read
-   # Error in this throw-away run, clearing the queue.
-   timeout 1 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$sz" > /dev/null 2>&1 || true
+   # Drain stale frames from previous tests: pure-RX consumer (-r 1
+   # disables TX worker, -d disables PRBS check) so the drain doesn't
+   # re-inject frames that become stale when the timeout fires.
+   timeout 3 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$sz" -r 1 -d > /dev/null 2>&1 || true
    sleep 1
 
    echo "  Testing size=$sz (${DURATION}s)..."

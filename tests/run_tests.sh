@@ -64,10 +64,12 @@ FAILED_NAMES=""
 # Rare stochastic PRBS mismatches have been observed on GitHub Actions runners
 # (Azure kernel 6.17 + CFS contention) where a single dropped frame cascades
 # into every subsequent test because the leftover buffer carries old PRBS
-# state.  Running dmaLoopTest briefly on dest 0 flushes the queue; stderr is
+# state.  `-r 1` disables the TX worker (pure-RX consumer) so the drain
+# doesn't re-inject frames that become stale when the timeout fires.  `-d`
+# disables PRBS checking (irrelevant on stale frames).  stderr/stdout are
 # discarded and exit is ignored because this is fire-and-forget.
 drain_stale_frames() {
-   timeout 2 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$SIZE" > /dev/null 2>&1 || true
+   timeout 5 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$SIZE" -r 1 -d > /dev/null 2>&1 || true
    sleep 1
 }
 

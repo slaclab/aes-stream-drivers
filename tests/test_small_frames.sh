@@ -36,9 +36,11 @@ echo "DEV=$DEV COUNT=$COUNT"
 # 12/4096/32768/65536-byte frames on dest 0). dmaSmallFrameTest does
 # write-read-memcmp sequentially, so any leftover RX frame with size
 # outside 1..4 would make its first dmaRead return an unexpected length
-# and fail the run. Matches the drain pattern in test_frame_sizes.sh /
-# test_tuser_sweep.sh / test_concurrent_open.sh.
-timeout 1 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$SIZE" > /dev/null 2>&1 || true
+# and fail the run. Pure-RX consumer (-r 1 disables TX worker, -d
+# disables PRBS check) so the drain doesn't re-inject frames that become
+# stale when the timeout fires. Matches the drain pattern in
+# test_frame_sizes.sh / test_tuser_sweep.sh / test_concurrent_open.sh.
+timeout 3 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$SIZE" -r 1 -d > /dev/null 2>&1 || true
 sleep 1
 
 OUT=$(mktemp)

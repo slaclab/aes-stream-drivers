@@ -40,8 +40,10 @@ FAILED=0
 echo "=== Concurrent-process access test ==="
 echo "DEV=$DEV SIZE=$SIZE DURATION=${DURATION}s"
 
-# Drain stale frames from previous tests.
-timeout 1 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$SIZE" > /dev/null 2>&1 || true
+# Drain stale frames from previous tests: pure-RX consumer (-r 1 disables
+# TX worker, -d disables PRBS check) so the drain doesn't re-inject frames
+# that become stale when the timeout fires.
+timeout 3 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$SIZE" -r 1 -d > /dev/null 2>&1 || true
 sleep 1
 
 OUT_D0=$(mktemp)
