@@ -187,11 +187,16 @@ jobs:
   gpu_test:
     name: "Phase 3: GPU Test (${{ matrix.container }})"
     needs: [cpu_test]
-    # Bound job wall-clock to 20 minutes. Belt to the 120s per-insmod
+    # Bound job wall-clock to 30 minutes. Belt to the 120s per-insmod
     # timeout suspenders in scripts/ci/load-modules-*.sh; a hang at any step
     # fails well before the 6-hour GitHub runner ceiling, freeing the slot
     # and letting the diagnostic artifact upload (if: failure()) fire.
-    timeout-minutes: 20
+    # The test phase itself completes in ~10-12 min on the slowest matrix
+    # cells; the extra 10 min covers occasional post-job `docker rm --force`
+    # stalls observed on GitHub-hosted runners (e.g. run 24874328424 where
+    # rocky9 teardown sat idle for ~22 min after the test sequence had
+    # already passed).
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
