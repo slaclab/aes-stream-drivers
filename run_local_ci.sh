@@ -14,8 +14,11 @@
 # copied, modified, propagated, or distributed except according to the terms
 # contained in the LICENSE.txt file.
 # -----------------------------------------------------------------------------
-# Boots a QEMU/TCG VM, loads the datadev_emulator + datadev kernel modules
-# inside the VM, runs the full Phase 3 test suite, and reports pass/fail.
+# Boots a QEMU/TCG VM, loads the nvidia_p2p_stub + datadev_emulator + datadev
+# kernel modules inside the VM, runs the full Phase 3 test suite, and reports
+# pass/fail. The stub is loaded first because the emulator's module_init
+# directly references emu_gpu_register_drain_cb (exported by the stub) — the
+# same load-order constraint enforced by scripts/ci/load-modules-cpu.sh.
 #
 # Designed to require NO sudo on the host. The VM boots an Ubuntu 24.04
 # cloud image (cached under $CACHE_DIR), shares the host project directory
@@ -96,6 +99,14 @@ fi
 
 # --- Build modules and tests (no sudo required) ---
 echo "=== Building kernel modules and test binaries ==="
+# Build gpu_stub FIRST. emulator/driver's emu_init() eagerly calls
+# emu_gpu_register_drain_cb() (exported by nvidia_p2p_stub.ko), so
+# kbuild needs the stub's Module.symvers to resolve cross-module refs
+# at modpost, and tests/vm_inside.sh insmods the stub before the
+# emulator. Mirrors the build/load order in scripts/ci/build-cpu.sh
+# and scripts/ci/load-modules-cpu.sh.
+make -C "$SCRIPT_DIR/emulator/gpu_stub" clean
+make -C "$SCRIPT_DIR/emulator/gpu_stub"
 make -C "$SCRIPT_DIR/emulator/driver" clean
 make -C "$SCRIPT_DIR/emulator/driver"
 make -C "$SCRIPT_DIR/data_dev/driver" clean
@@ -105,6 +116,7 @@ make -C "$SCRIPT_DIR/data_dev/app"
 
 # Verify artifacts
 for f in \
+   emulator/gpu_stub/nvidia_p2p_stub.ko \
    emulator/driver/datadev_emulator.ko \
    data_dev/driver/datadev.ko \
    data_dev/app/bin/dmaLoopTest \

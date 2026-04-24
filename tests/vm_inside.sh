@@ -19,15 +19,20 @@
 # from run_local_ci.sh.
 #
 # Responsibilities:
-#   1. Load datadev_emulator.ko (built on the host, shared via 9p)
-#   2. Wait for emulator init confirmation in dmesg
-#   3. Load datadev.ko with cfgDebug=1 for ISR verification
-#   4. Wait for /dev/datadev_0 and /proc/datadev_0
-#   5. Run tests/run_tests.sh (the current CPU-phase test aggregator --
+#   1. Load nvidia_p2p_stub.ko first — datadev_emulator's module_init
+#      eagerly calls emu_gpu_register_drain_cb() (exported by the stub),
+#      so insmod of the emulator fails with "Unknown symbol" if the stub
+#      is not already live. Mirrors scripts/ci/load-modules-cpu.sh.
+#   2. Load datadev_emulator.ko (built on the host, shared via 9p)
+#   3. Wait for emulator init confirmation in dmesg
+#   4. Load datadev.ko with cfgDebug=1 for ISR verification
+#   5. Wait for /dev/datadev_0 and /proc/datadev_0
+#   6. Run tests/run_tests.sh (the current CPU-phase test aggregator --
 #      see run_tests.sh for the authoritative list of sub-tests)
-#   6. Run tests/test_params.sh (module reload with custom parameters)
-#   7. Unload modules in reverse order
-#   8. Check dmesg for oops/panic/BUG/WARNING (matches scripts/ci/check-dmesg.sh)
+#   7. Run tests/test_params.sh (module reload with custom parameters)
+#   8. Unload modules in reverse load order
+#      (datadev -> datadev_emulator -> nvidia_p2p_stub)
+#   9. Check dmesg for oops/panic/BUG/WARNING (matches scripts/ci/check-dmesg.sh)
 #
 # Mirrors the module-load sequence from the cpu_test job in
 # .github/workflows/ci_pipeline.yml so behavior is identical between the
@@ -67,6 +72,24 @@ if ! dmesg | grep -qF "$CI_DMESG_MARKER"; then
    echo "WARN: baseline marker not found in dmesg after /dev/kmsg write — falling back to full-ring scan"
    CI_DMESG_MARKER=""
 fi
+
+# Load nvidia_p2p_stub.ko BEFORE datadev_emulator.ko. The emulator's
+# module_init calls emu_gpu_register_drain_cb() (exported by the stub),
+# so loading the emulator first fails with "Unknown symbol
+# emu_gpu_register_drain_cb (err -2)". Mirrors the load order in
+# scripts/ci/load-modules-cpu.sh.
+echo "=== VM: Loading nvidia_p2p_stub module ==="
+insmod "$HOST/emulator/gpu_stub/nvidia_p2p_stub.ko" || {
+   echo "FAIL: insmod nvidia_p2p_stub"
+   exit 1
+}
+timeout $TIMEOUT_SEC bash -c \
+   'until [ "$(cat /sys/module/nvidia_p2p_stub/initstate 2>/dev/null)" = live ]; do sleep 0.5; done' || {
+   echo "FAIL: nvidia_p2p_stub module did not initialize within ${TIMEOUT_SEC}s"
+   dmesg | tail -50
+   exit 1
+}
+echo "  nvidia_p2p_stub loaded"
 
 echo "=== VM: Loading emulator module ==="
 insmod "$HOST/emulator/driver/datadev_emulator.ko" || {
@@ -127,9 +150,14 @@ CUSTOM_SIZE=65536 \
    bash "$HOST/tests/test_params.sh" || record_rc $?
 
 echo "=== VM: Unloading modules ==="
+# Reverse load order: datadev -> datadev_emulator -> nvidia_p2p_stub.
+# The stub must be unloaded LAST because the emulator still owns the
+# drain callback registration until its rmmod completes.
 rmmod datadev 2>/dev/null || true
 sleep 1
 rmmod datadev_emulator 2>/dev/null || true
+sleep 1
+rmmod nvidia_p2p_stub 2>/dev/null || true
 
 echo "=== VM: Checking dmesg for errors (baseline-delta) ==="
 # Extract the post-marker delta with awk+index() so any regex metacharacters
