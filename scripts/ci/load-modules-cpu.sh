@@ -3,8 +3,11 @@
 # Company    : SLAC National Accelerator Laboratory
 # -----------------------------------------------------------------------------
 # Description:
-#    Load CPU modules. Loads emulator and datadev driver with timeout-wrapped
-#    insmod and initstate polling for readiness confirmation.
+#    Load CPU modules. Loads nvidia_p2p_stub, emulator, and datadev driver
+#    with timeout-wrapped insmod and initstate polling for readiness
+#    confirmation. The stub is loaded first on the CPU path because the
+#    emulator's module_init pulls in emu_gpu_register_drain_cb /
+#    emu_gpu_unregister_drain_cb from nvidia_p2p_stub.ko.
 # -----------------------------------------------------------------------------
 # This file is part of the aes_stream_drivers package. It is subject to the
 # license terms in the LICENSE.txt file found in the top-level directory of
@@ -14,13 +17,15 @@
 # copied, modified, propagated, or distributed except according to the terms
 # contained in the LICENSE.txt file.
 # -----------------------------------------------------------------------------
-# Loads emulator and datadev driver (CPU build). Each insmod is wrapped in a
-# hard timeout and each module's readiness is confirmed by polling
-# /sys/module/<name>/initstate — not by grepping dmesg. Before any
-# insmod, the script refuses to proceed if kernel headers for the running
-# kernel are not available inside this container, and injects a unique
-# baseline marker into the kernel ring buffer so check-dmesg.sh can
-# extract a post-load delta.
+# Loads nvidia_p2p_stub, emulator, and datadev driver (CPU build). Each insmod
+# is wrapped in a hard timeout and each module's readiness is confirmed by
+# polling /sys/module/<name>/initstate — not by grepping dmesg. The stub is
+# loaded first because datadev_emulator.ko references
+# emu_gpu_register_drain_cb / emu_gpu_unregister_drain_cb from
+# nvidia_p2p_stub.ko at module_init time. Before any insmod, the script
+# refuses to proceed if kernel headers for the running kernel are not
+# available inside this container, and injects a unique baseline marker into
+# the kernel ring buffer so check-dmesg.sh can extract a post-load delta.
 #
 # Exit codes: 0=success, 1=timeout/failure/refused
 # ----------------------------------------------------------------------------

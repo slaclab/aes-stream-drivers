@@ -586,7 +586,6 @@ static void reallocBuffersAtSize(
 
    /* runSimpleLoop re-arms free-list + doorbells and flips the enables
     * back on; no separate resume needed here. */
-   (void)oldSize;  /* suppress unused-warning if compiler is strict */
 }
 
 /* ---------------------------------------------------------------------------
