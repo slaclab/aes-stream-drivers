@@ -34,7 +34,9 @@ APP_BIN="${APP_BIN:-data_dev/app/bin}"
 MIN_TRANSFERS="${MIN_TRANSFERS:-100}"
 SIZE="${SIZE:-10000}"
 TMPFILE=$(mktemp)
-trap "rm -f $TMPFILE" EXIT
+# Single quotes defer $TMPFILE expansion to trap-fire time; inner double
+# quotes protect against whitespace/glob chars if TMPDIR is ever unusual.
+trap 'rm -f "$TMPFILE"' EXIT
 
 echo "=== Data integrity check (min ${MIN_TRANSFERS} transfers) ==="
 echo "DEV=$DEV APP_BIN=$APP_BIN SIZE=$SIZE"

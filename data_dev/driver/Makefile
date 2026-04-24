@@ -16,6 +16,13 @@
 # Name of the module to be built
 NAME := datadev
 
+# DKMS PRE_BUILD (build-nvidia.sh) writes NVIDIA_DRIVERS=<src_tree>/<nvidia-ver>
+# into Makefile.local when a matching NVIDIA DKMS tree is installed.  `-include`
+# (hyphen prefix) silently skips the file when absent — which is the expected
+# case on CI/emulator hosts where build-nvidia.sh truncates Makefile.local to
+# zero bytes and the GPU path is built without NVIDIA symbols.
+-include Makefile.local
+
 # Determine if the NVIDIA drivers
 ifneq ($(NVIDIA_DRIVERS),)
 $(info NVIDIA drivers are in-use for this build. NVIDIA_DRIVERS=$(NVIDIA_DRIVERS))
