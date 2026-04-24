@@ -383,7 +383,14 @@ if [ "$GAP13_FAILED" -eq 0 ]; then
 
    DMESG_DELTA=$($SUDO dmesg | tail -n "+$((DMESG_BEFORE + 1))")
    GAP13_DMESG_ERRORS=$(echo "$DMESG_DELTA" | grep -iE 'oops|panic|BUG:|WARNING:' || true)
-   GAP13_PRBS_ERRORS=$(grep -q "Prbs mismatch" "$GAP13_LOOP_LOG" && echo "mismatch" || true)
+   # Explicit if/else avoids the `grep -q ... && echo X || true` idiom: in a
+   # `A && B || C` chain, C still fires when A succeeds but B fails, which can
+   # silently flip a PASS into a FAIL on an unrelated failure in B.
+   if grep -q "Prbs mismatch" "$GAP13_LOOP_LOG"; then
+      GAP13_PRBS_ERRORS="mismatch"
+   else
+      GAP13_PRBS_ERRORS=""
+   fi
 
    if [ -z "$GAP13_PRBS_ERRORS" ] && [ -z "$GAP13_DMESG_ERRORS" ] && \
       { [ "$GAP13_LOOP_RC" -eq 0 ] || [ "$GAP13_LOOP_RC" -eq 124 ]; }; then
