@@ -66,10 +66,17 @@ FAILED_NAMES=""
 # into every subsequent test because the leftover buffer carries old PRBS
 # state.  `-r 1` disables the TX worker (pure-RX consumer) so the drain
 # doesn't re-inject frames that become stale when the timeout fires.  `-d`
-# disables PRBS checking (irrelevant on stale frames).  stderr/stdout are
-# discarded and exit is ignored because this is fire-and-forget.
+# disables PRBS checking (irrelevant on stale frames).  Drain size is cfgSize
+# so the read buffer (allocated as size*2) always fits any leftover frame --
+# a too-small buffer causes the kernel to drop the frame with ret=-1 after
+# one read, prematurely ending the drain (see Dma_Read in dma_common.c).
+# Drain dest=0 and dest=1 because concurrent_open uses both.  stderr/stdout
+# are discarded and exit is ignored because this is fire-and-forget.
 drain_stale_frames() {
-   timeout 5 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$SIZE" -r 1 -d > /dev/null 2>&1 || true
+   local drain_size
+   drain_size=$(cat /sys/module/datadev/parameters/cfgSize 2>/dev/null || echo 65536)
+   timeout 5 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$drain_size" -r 1 -d > /dev/null 2>&1 || true
+   timeout 5 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 1 -s "$drain_size" -r 1 -d > /dev/null 2>&1 || true
    sleep 1
 }
 

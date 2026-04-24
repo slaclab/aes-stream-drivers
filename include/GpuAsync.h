@@ -111,10 +111,18 @@ static inline ssize_t gpuSetWriteEn(int32_t fd, uint32_t idx) {
  *
  * @param fd File descriptor for the device.
  *
- * @return 1 if the firmware and driver support GPU Async, 0 otherwise.
+ * @return @c true if the firmware and driver support GPU Async, @c false
+ *         otherwise (including when the driver was built without GPUAsync
+ *         support and returns @c -ENOTSUPP, or when the ioctl itself fails
+ *         with @c -1).
+ *
+ * @note The ioctl returns @c 1 (supported), @c 0 (not supported), or a
+ *       negative errno on failure.  We must compare against @c >0 because
+ *       casting @c -1 directly to @c bool yields @c true and would produce
+ *       a false-positive "supported" result on driver/fd errors.
  */
 static inline bool gpuIsGpuAsyncSupported(int32_t fd) {
-   return ioctl(fd, GPU_Is_Gpu_Async_Supp);
+   return ioctl(fd, GPU_Is_Gpu_Async_Supp) > 0;
 }
 
 /**

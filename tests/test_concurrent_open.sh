@@ -37,13 +37,20 @@ SIZE="${SIZE:-10000}"
 DURATION=5
 FAILED=0
 
-echo "=== Concurrent-process access test ==="
-echo "DEV=$DEV SIZE=$SIZE DURATION=${DURATION}s"
+# Drain at cfgSize so any leftover frame fits in the drain's read buffer
+# (runRead allocates size*2; a too-small buffer causes the kernel to drop the
+# frame with ret=-1 after one read, prematurely ending the drain).
+CFG_SIZE=$(cat /sys/module/datadev/parameters/cfgSize 2>/dev/null || echo 65536)
 
-# Drain stale frames from previous tests: pure-RX consumer (-r 1 disables
-# TX worker, -d disables PRBS check) so the drain doesn't re-inject frames
-# that become stale when the timeout fires.
-timeout 3 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$SIZE" -r 1 -d > /dev/null 2>&1 || true
+echo "=== Concurrent-process access test ==="
+echo "DEV=$DEV SIZE=$SIZE DURATION=${DURATION}s cfgSize=$CFG_SIZE"
+
+# Drain stale frames on BOTH destinations this test will exercise (0 and 1).
+# Without a per-dest drain on retry, a leftover frame from the prior failing
+# attempt can desync the LFSR continuity check on the second invocation.
+# -r 1 disables the TX worker (pure-RX consumer); -d disables PRBS checking.
+timeout 3 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$CFG_SIZE" -r 1 -d > /dev/null 2>&1 || true
+timeout 3 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 1 -s "$CFG_SIZE" -r 1 -d > /dev/null 2>&1 || true
 sleep 1
 
 OUT_D0=$(mktemp)
@@ -74,7 +81,9 @@ if [ "$RC_D0" -ne 124 ] && [ "$RC_D0" -ne 0 ]; then
    FAILED=$((FAILED + 1))
 elif grep -qE "Prbs mismatch|Read Error|Write Error|Error opening device" "$OUT_D0"; then
    echo "FAIL: dmaLoopTest dest=0 had errors"
-   grep -E "Prbs mismatch|Read Error|Write Error|Error opening device" "$OUT_D0" | head -5
+   # Dump the full captured output (stderr included) so PrbsData diagnostics
+   # ("Bad Sequence", "Bad value at index", "Bad size") are visible.
+   dump_log "$OUT_D0"
    FAILED=$((FAILED + 1))
 fi
 
@@ -85,7 +94,7 @@ if [ "$RC_D1" -ne 124 ] && [ "$RC_D1" -ne 0 ]; then
    FAILED=$((FAILED + 1))
 elif grep -qE "Prbs mismatch|Read Error|Write Error|Error opening device" "$OUT_D1"; then
    echo "FAIL: dmaLoopTest dest=1 had errors"
-   grep -E "Prbs mismatch|Read Error|Write Error|Error opening device" "$OUT_D1" | head -5
+   dump_log "$OUT_D1"
    FAILED=$((FAILED + 1))
 fi
 

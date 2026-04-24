@@ -30,8 +30,15 @@ DURATION=3
 FAILED=0
 PASSED_SIZES=""
 
+# Discover cfgSize up-front so both the drain and the sweep can reference it.
+# Drain size must be >= every leftover frame still in flight from previous tests
+# (kernel returns ret=-1 when the user buffer is smaller than the frame, and
+# runRead breaks out on the resulting "Read Error" -- see data_dev/app/src/
+# dmaLoopTest.cpp), so we use cfgSize as the drain size in every sub-test.
+CFG_SIZE=$(cat /sys/module/datadev/parameters/cfgSize 2>/dev/null || echo 65536)
+
 echo "=== Frame-size sweep test ==="
-echo "DEV=$DEV"
+echo "DEV=$DEV cfgSize=$CFG_SIZE"
 
 dump_log() { echo "--- begin $1 ---"; cat "$1"; echo "--- end $1 ---"; }
 
@@ -40,10 +47,13 @@ run_size_test() {
    local out
    out=$(mktemp)
 
-   # Drain stale frames from previous tests: pure-RX consumer (-r 1
-   # disables TX worker, -d disables PRBS check) so the drain doesn't
-   # re-inject frames that become stale when the timeout fires.
-   timeout 3 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$sz" -r 1 -d > /dev/null 2>&1 || true
+   # Drain stale frames from previous sub-tests at the MAX frame size so any
+   # leftover large frame fits in the drain's read buffer (runRead allocates
+   # size*2; a too-small buffer causes the kernel to drop the frame with
+   # ret=-1 after one read, prematurely ending the drain).  -r 1 disables the
+   # TX worker (pure-RX consumer) so the drain doesn't re-inject frames that
+   # become stale when the timeout fires.  -d disables PRBS checking.
+   timeout 3 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$CFG_SIZE" -r 1 -d > /dev/null 2>&1 || true
    sleep 1
 
    echo "  Testing size=$sz (${DURATION}s)..."
@@ -59,7 +69,10 @@ run_size_test() {
 
    if grep -q "Prbs mismatch" "$out"; then
       echo "FAIL: PRBS mismatch at size=$sz"
-      grep "Prbs mismatch" "$out" | head -5
+      # Dump the full captured output (stderr included) so PrbsData diagnostics
+      # ("Bad Sequence", "Bad value at index", "Bad size") are visible — they
+      # distinguish LFSR drift from data corruption from frame-size mismatch.
+      dump_log "$out"
       rm -f "$out"
       return 1
    fi
@@ -96,7 +109,6 @@ run_size_test() {
 # NOTE: 65536 is tested only if cfgSize >= 65536.
 VALID_SIZES="12 4096 32768"
 
-CFG_SIZE=$(cat /sys/module/datadev/parameters/cfgSize 2>/dev/null || echo 65536)
 if [ "$CFG_SIZE" -ge 65536 ]; then
    VALID_SIZES="$VALID_SIZES 65536"
 fi
