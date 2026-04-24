@@ -329,6 +329,22 @@ static void runSimpleLoop(GpuAsyncCoreRegs &regs, int bufCnt,
                           int frameCount, uint32_t bufSize) {
    const uint32_t dmaHeaderSize = regs.dmaDataBytes();
 
+   /* Underflow guard: `bufSize - dmaHeaderSize` is used on the next
+    * setRemoteWriteMaxSize write AND as the hdr.size ceiling inside the
+    * per-frame bound-check. If `bufSize <= dmaHeaderSize`, the subtraction
+    * wraps as uint32_t, both the register write and the bound-check
+    * trivially succeed for any hdr.size, and the payload memcpy below
+    * runs OOB on txBuffs[i]/rxBuffs[i] (allocated only `bufSize` bytes).
+    * Reject at runtime — dmaHeaderSize is a BAR-sourced runtime value,
+    * so this can't be folded into the CLI-parse check on a.size. */
+   if (bufSize <= dmaHeaderSize) {
+      fprintf(stderr,
+         "rdmaTestEmu: bufSize=%u must exceed dmaHeaderSize=%u "
+         "(raise -s <size>)\n",
+         bufSize, dmaHeaderSize);
+      std::exit(1);
+   }
+
    /* Stop both directions before re-arming any buffer.
     *
     * Apply the quiesce-and-reset pattern: the two disable writes are
@@ -516,6 +532,20 @@ static void reallocBuffersAtSize(
       uint8_t **rxBuffs, uint32_t *rxBufIds,
       uint8_t **txBuffs, uint32_t *txBufIds,
       uint32_t newSize, uint32_t oldSize) {
+   /* Same underflow guard as runSimpleLoop. Step 6 below writes
+    * setRemoteWriteMaxSize(newSize - dmaDataBytes()), which wraps if
+    * newSize <= dmaDataBytes(). kSweepSizes[] is currently all >= 65536
+    * so this is defense-in-depth, not a live bug — but a future sweep
+    * table change that added a smaller entry would turn into a silent
+    * OOB on the next runSimpleLoop iteration. */
+   if (newSize <= regs.dmaDataBytes()) {
+      fprintf(stderr,
+         "rdmaTestEmu: reallocBuffersAtSize newSize=%u must exceed "
+         "dmaDataBytes=%u\n",
+         newSize, regs.dmaDataBytes());
+      std::exit(1);
+   }
+
    /* 1. Pause the poll thread BEFORE touching any registration.
     *
     * The sequential setWriteEnable(0) + setReadEnable(0) pair is NOT atomic
