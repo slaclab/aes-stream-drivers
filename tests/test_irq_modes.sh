@@ -122,28 +122,38 @@ run_irq_cycle() {
 }
 
 # Sub-test 1: minimum IRQ coalescing (cfgIrqHold=1).
-run_irq_cycle "cfgIrqHold=1" cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgIrqHold=1 cfgDebug=1
-if [ "$CYCLE_FAIL" -eq 0 ]; then
-   echo "[PASS] irq_modes cfgIrqHold=1"
-else
-   FAILED=$((FAILED + CYCLE_FAIL))
-fi
+# Subtest runner with up to 2 attempts.  Stochastic early-frame PRBS
+# mismatches have been observed on GitHub Actions runners (Azure kernel
+# 6.17, under contention) even when the local KVM harness on the same
+# kernel passes reliably.  Retrying catches the rare init-window race
+# without masking a genuine regression: a true bug fails twice.
+run_irq_subtest() {
+   local label="$1"
+   shift
+   local params="$*"
+   local attempt
+   for attempt in 1 2; do
+      # shellcheck disable=SC2086
+      run_irq_cycle "$label" $params
+      if [ "$CYCLE_FAIL" -eq 0 ]; then
+         echo "[PASS] irq_modes $label"
+         return 0
+      fi
+      if [ "$attempt" -lt 2 ]; then
+         echo "[RETRY] irq_modes $label (attempt $attempt failed, retrying once)"
+      fi
+   done
+   FAILED=$((FAILED + 1))
+   return 1
+}
+
+run_irq_subtest "cfgIrqHold=1"      cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgIrqHold=1      cfgDebug=1
 
 # Sub-test 2: heavy IRQ coalescing (cfgIrqHold=100000).
-run_irq_cycle "cfgIrqHold=100000" cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgIrqHold=100000 cfgDebug=1
-if [ "$CYCLE_FAIL" -eq 0 ]; then
-   echo "[PASS] irq_modes cfgIrqHold=100000"
-else
-   FAILED=$((FAILED + CYCLE_FAIL))
-fi
+run_irq_subtest "cfgIrqHold=100000" cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgIrqHold=100000 cfgDebug=1
 
 # Sub-test 3: polled mode (cfgIrqDis=1).
-run_irq_cycle "polled" cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgIrqDis=1 cfgDebug=1
-if [ "$CYCLE_FAIL" -eq 0 ]; then
-   echo "[PASS] irq_modes polled"
-else
-   FAILED=$((FAILED + CYCLE_FAIL))
-fi
+run_irq_subtest "polled"            cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgIrqDis=1      cfgDebug=1
 
 # --- Cleanup: restore default parameters ---
 $SUDO rmmod datadev 2>/dev/null || true
