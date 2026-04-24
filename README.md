@@ -40,6 +40,8 @@ Contains BitBake recipes for the aximemorymap and axistreamdma drivers.
 
 The repository includes a local CI runner that validates the full Phase 3 test suite without requiring `sudo` on the host. It boots a QEMU virtual machine under TCG emulation (no KVM, no `/dev/kvm` access needed), loads the `datadev_emulator` and `datadev` kernel modules inside the VM, runs the test suite, and reports pass/fail. The same test scripts run in GitHub Actions CI (`.github/workflows/ci_pipeline.yml`), so local and CI behavior are identical.
 
+> **Host kernel must match the guest cloud-image kernel.** `run_local_ci.sh` builds the `.ko` modules on the host against `linux-headers-$(uname -r)` and then `insmod`s them inside the Ubuntu 24.04 cloud-image VM. Kernel-module `vermagic` must match, so this flow only works when the host and guest run the same kernel series (Ubuntu 24.04 cloud images ship a `6.8.x` generic kernel). If the host kernel differs — for example an Ubuntu 22.04 host on `5.15`, a Rocky/RHEL 9 host, or any system whose `uname -r` disagrees with the cloud image — use the KVM-based local runner under [`scripts/ci-local/`](scripts/ci-local/) instead. That runner installs guest-matching headers inside the VM and builds there, eliminating the host/guest kernel dependency (see [`scripts/LOCAL_CI_TESTING.md`](scripts/LOCAL_CI_TESTING.md)).
+
 ### Prerequisites
 
 Ubuntu / Debian:

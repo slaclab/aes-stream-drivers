@@ -38,9 +38,6 @@
 #include <linux/spinlock.h>
 #include "bar0_regs.h"
 
-#define EMU_GPU_POLL_INTERVAL_US_MIN  900
-#define EMU_GPU_POLL_INTERVAL_US_MAX  1100
-
 /* V4 register offsets inside the GPU Async window (EMU_GPU_ASYNC_OFF +
  * these offsets, all from AxiPcieGpuAsyncControl.vhd). */
 #define EMU_GPU_REG_MAX_BUFFERS   0x0000  /* [10:0]                     */
