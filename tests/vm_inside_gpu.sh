@@ -53,6 +53,17 @@ EXIT_CODE=0
 # scripts/ci/load-modules-gpu.sh and scripts/ci/check-dmesg.sh.
 CI_DMESG_MARKER="BASELINE-vm-inside-gpu-$(cat /proc/sys/kernel/random/uuid)"
 echo "$CI_DMESG_MARKER" > /dev/kmsg
+# Verify the marker landed in dmesg. If /dev/kmsg write silently dropped
+# (permissions, throttling, etc.), the awk-delta extractor below would
+# return an empty DELTA and the oops/panic/BUG/WARNING gate would trivially
+# pass. Fall back to a full-ring scan by clearing the marker — `index($0,"")`
+# returns 1 in awk, so the empty-marker case effectively scans all dmesg
+# lines (minus line 1) rather than producing a false PASS.
+sleep 0.2
+if ! dmesg | grep -qF "$CI_DMESG_MARKER"; then
+   echo "WARN: baseline marker not found in dmesg after /dev/kmsg write — falling back to full-ring scan"
+   CI_DMESG_MARKER=""
+fi
 
 echo "=== VM-GPU: Loading nvidia_p2p_stub ==="
 # Must load before datadev_emulator: the emulator's module_init calls
