@@ -255,6 +255,10 @@ static void *gpuEmuAllocBuf(int stub_fd, size_t size, uint32_t *out_buf_id) {
       fprintf(stderr,
          "rdmaTestEmu: mmap(buf_id=%u size=%zu) failed: %s\n",
          req.buf_id, size, std::strerror(errno));
+      /* Release the aligned reservation we already trimmed; the head/tail
+       * munmaps above only freed the slack, leaving `size` bytes of
+       * PROT_NONE address space orphaned if we return here without it. */
+      ::munmap(reinterpret_cast<void *>(aligned), size);
       return nullptr;
    }
 

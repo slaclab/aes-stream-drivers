@@ -306,6 +306,32 @@ static int emu_process_tx(struct emu_dma_engine *eng)
       return 1;
    }
 
+   /* Bound the memcpy by the maxSize register the driver read at init
+    * (mirrors the VHDL: the hardware FIFO can't accept oversized TX). A
+    * size above EMU_REG_MAXSIZE_INIT means a driver bug — emit a frame-
+    * rejection completion (size=0) and skip the copy rather than walk
+    * off the end of the RX buffer (the rx pages were allocated for
+    * cfgSize <= maxSize). Same return-via-rd_ring shape as the
+    * starvation path above keeps AxisG2_MapReturn's invariants intact. */
+   if (size > EMU_REG_MAXSIZE_INIT) {
+      pr_warn_ratelimited("emu: TX size=%u exceeds maxSize=%u, dropping frame (tx_idx=%u)\n",
+                          size, EMU_REG_MAXSIZE_INIT, index);
+      emu_free_pool_push(eng, rx_index, rx_handle);
+
+      ptr = eng->rd_ring + (eng->rd_ring_idx * 4);
+      ptr[0] = fifo_a;
+      ptr[1] = index;
+      ptr[2] = 0;
+      wmb();
+      ptr[3] = validity;
+
+      eng->rd_ring_idx = (eng->rd_ring_idx + 1) % eng->addr_count;
+      emu_reg_write(eng, EMU_REG_HWRDINDEX, eng->rd_ring_idx);
+
+      eng->tx_count++;
+      return 1;
+   }
+
    rx_virt = phys_to_virt((phys_addr_t)rx_handle);
    memcpy(rx_virt, tx_virt, size);
 
