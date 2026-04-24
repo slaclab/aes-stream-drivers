@@ -368,16 +368,23 @@ static int emu_poll_thread_fn(void *data)
       emu_enforce_enablever_ro(eng);
 
       /* Detect online 1->0 edge (AxisG2_Clear).  The driver writes
-       * online=0 before fifoReset=1 and before dma_free_coherent.  We
-       * zero the rd/wr base-address regs here so that the next
-       * emu_capture_rings() cannot re-acquire the stale physical
-       * addresses of DMA buffers the driver is about to free, and we
-       * drop cached ring pointers so emu_process_tx / seed phase
-       * cannot write into those buffers during the unload window.
-       * AxisG2_Init writes new base addrs *before* it raises fifoReset,
-       * so the subsequent fifoReset-driven recapture picks up the
-       * fresh addresses -- zeroing on fifoReset alone would race with
-       * Init and clobber valid pointers. */
+       * online=0 before fifoReset=1 and before dma_free_coherent, so
+       * online is the unambiguous unload signal -- Init never lowers
+       * it, and every Clear path writes it.  We use this edge to fully
+       * reset engine state that would otherwise require catching the
+       * transient fifoReset=1 pulse (driver writes 1/0 back-to-back in
+       * microseconds; the 1 ms poll interval often misses the window).
+       *
+       * Without this reset, free_pool entries from the old driver
+       * instance persist into the next one.  On the first TX loopback
+       * the emulator may pop a stale (freed) buffer handle, copy into
+       * memory the allocator has reassigned, and produce early PRBS
+       * mismatches -- which is exactly the CI flake that motivated
+       * this hook.
+       *
+       * Keyed on online (not fifoReset) because AxisG2_Init writes new
+       * ring base addrs *before* raising fifoReset; zeroing on that
+       * signal races with Init and clobbers valid pointers. */
       {
          uint8_t cur_online = emu_reg_read(eng, EMU_REG_ONLINE) & 0x1;
          if (!cur_online && eng->prev_online) {
@@ -385,10 +392,23 @@ static int emu_poll_thread_fn(void *data)
             emu_reg_write(eng, EMU_REG_RDBASEHIGH, 0);
             emu_reg_write(eng, EMU_REG_WRBASELOW, 0);
             emu_reg_write(eng, EMU_REG_WRBASEHIGH, 0);
+
+            spin_lock_irqsave(&eng->free_lock, flags);
+            eng->free_count = 0;
+            spin_unlock_irqrestore(&eng->free_lock, flags);
+
+            eng->wr_ring_idx = 0;
+            eng->rd_ring_idx = 0;
+            eng->free_captured = 0;
+
             eng->rings_valid = false;
             eng->wr_ring = NULL;
             eng->rd_ring = NULL;
-            pr_info("emu: online 1->0 edge, ring base regs cleared\n");
+
+            eng->seed_active = false;
+            eng->seed_pending = false;
+
+            pr_info("emu: online 1->0 edge, engine state reset\n");
          }
          eng->prev_online = cur_online;
       }
