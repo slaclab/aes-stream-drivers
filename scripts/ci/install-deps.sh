@@ -174,6 +174,18 @@ ensure_kernel_gcc() {
       rm -f "/usr/bin/gcc-${kgcc}" "/usr/local/bin/gcc-${kgcc}"
       return 1
    fi
+   # Verify the binary's actual major version matches ${kgcc}. Fedora rawhide
+   # ships a transitional 'gcc-13' alias whose --dumpversion reports 16.x; the
+   # version skew silently miscompiles DMA fast-paths (observed: PRBS
+   # mismatches across every loopback test on fedora:rawhide / gcc 16.0.1
+   # pre-release). Kbuild only warns, it doesn't reject; we must reject here.
+   local actual_major
+   actual_major=$("gcc-${kgcc}" -dumpversion 2>/dev/null | cut -d. -f1)
+   if [ -n "$actual_major" ] && [ "$actual_major" != "$kgcc" ]; then
+      echo_warn "gcc-${kgcc} reports major version ${actual_major} (expected ${kgcc}) — refusing to use (miscompile risk)"
+      rm -f "/usr/bin/gcc-${kgcc}" "/usr/local/bin/gcc-${kgcc}"
+      return 1
+   fi
    # Check for glibc-incompatible kbuild binaries in the host kernel headers.
    # When the host kernel was built on a newer distro, prebuilt helpers like
    # modpost, objtool, and gendwarfksyms may need a newer glibc. Rebuild
