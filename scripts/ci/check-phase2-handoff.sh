@@ -51,7 +51,9 @@ done
 # ----------------------------------------------------------------------------
 echo_step "emu_gpu_addr_lookup exported GPL + /dev/nvidia_p2p_stub_mem usable"
 SC1=FAIL
-if ! $SUDO grep -qE "T emu_gpu_addr_lookup\s+\[nvidia_p2p_stub\]" /proc/kallsyms; then
+# Use POSIX [[:space:]] rather than \s; the latter is a GNU-grep extension
+# that is not valid in POSIX ERE and would match a literal 's' elsewhere.
+if ! $SUDO grep -qE "T emu_gpu_addr_lookup[[:space:]]+\[nvidia_p2p_stub\]" /proc/kallsyms; then
   echo_fail "SC1.a: emu_gpu_addr_lookup not found as T in [nvidia_p2p_stub]"
 elif [ ! -e /dev/nvidia_p2p_stub_mem ]; then
   echo_fail "SC1.b: /dev/nvidia_p2p_stub_mem not present"
@@ -69,8 +71,11 @@ echo_step "no 'non-contiguous GPU memory detected' in dmesg"
 SC2=FAIL
 # Use the baseline marker from load-modules-gpu.sh if present, else tail.
 MARKER_FILE=/tmp/ci_dmesg_marker
+# index($0,m) is a literal substring match; $0 ~ m treats m as a regex and
+# would break if the marker format ever adds regex metacharacters. Mirrors
+# scripts/ci/check-dmesg.sh.
 if [ -f "$MARKER_FILE" ] && MARKER=$(cat "$MARKER_FILE") && \
-   $SUDO dmesg | awk -v m="$MARKER" '$0 ~ m {on=1} on{print}' | \
+   $SUDO dmesg | awk -v m="$MARKER" 'index($0,m){on=1} on{print}' | \
         grep -q "non-contiguous GPU memory detected"; then
   echo_fail "non-contiguous warning found after marker"
 elif [ ! -f "$MARKER_FILE" ] && $SUDO dmesg | tail -200 | \

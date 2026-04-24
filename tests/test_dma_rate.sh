@@ -32,7 +32,10 @@ set -uo pipefail
 DEV="${DEV:-/dev/datadev_0}"
 APP_BIN="${APP_BIN:-data_dev/app/bin}"
 DURATION="${DURATION:-10}"
-OUT="/tmp/dma_rate_output.txt"
+# mktemp + trap so parallel invocations don't clobber each other and /tmp
+# doesn't accumulate stale logs after repeated runs.
+OUT=$(mktemp -t dma_rate_output.XXXXXX)
+trap 'rm -f "$OUT"' EXIT
 
 echo "=== DMA rate test ==="
 echo "DEV=$DEV DURATION=${DURATION}s"

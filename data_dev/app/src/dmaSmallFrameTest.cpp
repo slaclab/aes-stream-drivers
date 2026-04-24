@@ -80,6 +80,15 @@ int main(int argc, char **argv) {
    memcpy(&args, &DefArgs, sizeof(struct PrgArgs));
    argp_parse(&argp, argc, argv, 0, 0, &args);
 
+   // txBuf/rxBuf below are fixed 64KiB stack buffers; reject user input that
+   // would walk off the end or loop zero times.
+   if (args.minSize < 1 || args.maxSize > 65536 || args.minSize > args.maxSize) {
+      fprintf(stderr,
+              "ERROR: invalid size range min=%u max=%u (require 1 <= min <= max <= 65536)\n",
+              args.minSize, args.maxSize);
+      return 1;
+   }
+
    int32_t fd = open(args.path, O_RDWR);
    if (fd < 0) {
       perror("open");

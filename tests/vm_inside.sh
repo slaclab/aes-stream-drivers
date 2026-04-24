@@ -47,8 +47,11 @@ insmod "$HOST/emulator/driver/datadev_emulator.ko" || {
    exit 1
 }
 
+# Poll /sys/module/.../initstate rather than `dmesg | tail -10`; the tail
+# window can race and drop the success marker when module init emits a
+# burst of follow-up lines. Matches scripts/ci/test-cpu.sh.
 timeout $TIMEOUT_SEC bash -c \
-   'until dmesg | tail -10 | grep -q "emulator loaded successfully"; do sleep 0.5; done' || {
+   'until [ "$(cat /sys/module/datadev_emulator/initstate 2>/dev/null)" = live ]; do sleep 0.5; done' || {
    echo "FAIL: Emulator module did not initialize within ${TIMEOUT_SEC}s"
    dmesg | tail -50
    exit 1
