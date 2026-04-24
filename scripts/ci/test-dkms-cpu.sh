@@ -32,9 +32,15 @@ echo_fail() { echo -e "${RED}FAIL:${NC} $1"; }
 
 echo_step "Testing DKMS CPU installation"
 
-# Install DKMS based on distribution
+# Install DKMS based on distribution. In the CI pipeline install-deps.sh
+# runs first and has already refreshed the apt cache + installed dkms, so
+# the update/install below is usually a no-op. When this script is invoked
+# standalone on a fresh/minimal container image the index can be missing
+# or stale, so refresh before installing to avoid intermittent
+# "Unable to locate package dkms" failures.
 if [ -f /etc/debian_version ]; then
    # Ubuntu/Debian
+   apt-get update
    apt-get install -y dkms
 elif [ -f /etc/redhat-release ]; then
    # Rocky/RHEL/Fedora - need EPEL (Fedora has dkms in base repos).
