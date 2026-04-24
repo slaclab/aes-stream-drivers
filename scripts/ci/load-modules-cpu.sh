@@ -65,8 +65,20 @@ fi
 #                                    (already granted by --privileged)
 CI_DMESG_MARKER="BASELINE-aes-ci-$(cat /proc/sys/kernel/random/uuid)"
 echo "$CI_DMESG_MARKER" | $SUDO tee /dev/kmsg > /dev/null
-echo "$CI_DMESG_MARKER" > /tmp/ci_dmesg_marker
-echo_step "Baseline marker injected into dmesg: $CI_DMESG_MARKER"
+# Verify the marker landed in dmesg before advertising it to check-dmesg.sh.
+# If the /dev/kmsg write silently dropped (permissions, kmsg throttling,
+# missing device), check-dmesg.sh would read the marker file, fail to match
+# it in the ring, and skip the driver-health gate entirely — producing a
+# false PASS on any driver-induced oops/panic/BUG/WARNING. Mirrors the
+# marker-verification pattern in tests/vm_inside.sh (commit bacf104).
+sleep 0.2
+if $SUDO dmesg | grep -qF "$CI_DMESG_MARKER"; then
+   echo "$CI_DMESG_MARKER" > /tmp/ci_dmesg_marker
+   echo_step "Baseline marker injected into dmesg: $CI_DMESG_MARKER"
+else
+   echo_warn "Baseline marker not found in dmesg after /dev/kmsg write — check-dmesg.sh will skip the health gate this cell (driver errors would NOT be caught; /dev/kmsg may be throttled or restricted)"
+   rm -f /tmp/ci_dmesg_marker
+fi
 
 # Configuration
 TIMEOUT_SEC="${TIMEOUT_SEC:-15}"

@@ -386,7 +386,13 @@ if [ "$GAP13_FAILED" -eq 0 ]; then
    # Explicit if/else avoids the `grep -q ... && echo X || true` idiom: in a
    # `A && B || C` chain, C still fires when A succeeds but B fails, which can
    # silently flip a PASS into a FAIL on an unrelated failure in B.
-   if grep -q "Prbs mismatch" "$GAP13_LOOP_LOG"; then
+   #
+   # Check for all four error strings dmaLoopTest can emit while still
+   # exiting rc=0 (runWrite/runRead set running=false and main() returns 0;
+   # see data_dev/app/src/dmaLoopTest.cpp). This mirrors the guard on
+   # line 104 above and the guards in tests/test_backpressure.sh,
+   # tests/test_tuser_sweep.sh, tests/test_irq_modes.sh, etc.
+   if grep -qE 'Prbs mismatch|Read Error|Write Error|Error opening device' "$GAP13_LOOP_LOG"; then
       GAP13_PRBS_ERRORS="mismatch"
    else
       GAP13_PRBS_ERRORS=""
