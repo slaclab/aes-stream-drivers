@@ -367,6 +367,32 @@ static int emu_poll_thread_fn(void *data)
        * during the poll cycle). */
       emu_enforce_enablever_ro(eng);
 
+      /* Detect online 1->0 edge (AxisG2_Clear).  The driver writes
+       * online=0 before fifoReset=1 and before dma_free_coherent.  We
+       * zero the rd/wr base-address regs here so that the next
+       * emu_capture_rings() cannot re-acquire the stale physical
+       * addresses of DMA buffers the driver is about to free, and we
+       * drop cached ring pointers so emu_process_tx / seed phase
+       * cannot write into those buffers during the unload window.
+       * AxisG2_Init writes new base addrs *before* it raises fifoReset,
+       * so the subsequent fifoReset-driven recapture picks up the
+       * fresh addresses -- zeroing on fifoReset alone would race with
+       * Init and clobber valid pointers. */
+      {
+         uint8_t cur_online = emu_reg_read(eng, EMU_REG_ONLINE) & 0x1;
+         if (!cur_online && eng->prev_online) {
+            emu_reg_write(eng, EMU_REG_RDBASELOW, 0);
+            emu_reg_write(eng, EMU_REG_RDBASEHIGH, 0);
+            emu_reg_write(eng, EMU_REG_WRBASELOW, 0);
+            emu_reg_write(eng, EMU_REG_WRBASEHIGH, 0);
+            eng->rings_valid = false;
+            eng->wr_ring = NULL;
+            eng->rd_ring = NULL;
+            pr_info("emu: online 1->0 edge, ring base regs cleared\n");
+         }
+         eng->prev_online = cur_online;
+      }
+
       /* Capture ring addresses if not yet valid */
       if (!eng->rings_valid) {
          emu_capture_rings(eng);
@@ -572,6 +598,11 @@ int emu_dma_init(struct emu_dma_engine *eng, struct emu_bar0 *bar,
     * write to bit 0 will drive a 0->1 edge that advances enable_cnt to 1. */
    eng->prev_enable = 0;
    eng->enable_cnt = 0;
+
+   /* online edge-detection seed matches EMU_REG_ONLINE_INIT = 1.  The
+    * driver's AxisG2_Enable will also write 1 (0->1, no action); only
+    * AxisG2_Clear's 1->0 write triggers the ring base-reg wipe. */
+   eng->prev_online = 1;
 
    spin_lock_init(&eng->free_lock);
 

@@ -637,17 +637,6 @@ void AxisG2_Clear(struct DmaDevice *dev) {
    writel(0x0, &(reg->enableVer));
    writel(0x0, &(reg->online));
 
-   // Zero the ring base-address registers BEFORE freeing the DMA
-   // buffers.  Downstream emulator/monitor implementations keep a
-   // cached pointer to the ring addresses; if these regs still hold
-   // the soon-to-be-freed physical addresses when the emulator next
-   // re-captures on fifoReset, it can write into pages the allocator
-   // has already handed to someone else.
-   writel(0x0, &(reg->rdBaseAddrLow));
-   writel(0x0, &(reg->rdBaseAddrHigh));
-   writel(0x0, &(reg->wrBaseAddrLow));
-   writel(0x0, &(reg->wrBaseAddrHigh));
-
    // Clear FIFOs to reset the device's internal state.
    writel(0x1, &(reg->fifoReset));
 

@@ -113,6 +113,13 @@ struct emu_dma_engine {
    uint8_t prev_enable;
    uint8_t enable_cnt;
 
+   /* online 1->0 edge detection (driver AxisG2_Clear).  On the falling
+    * edge the poll thread zeros the rd/wr base-address regs, invalidates
+    * cached ring pointers, and marks rings_valid=false so the next
+    * emu_capture_rings() cannot re-acquire the soon-to-be-freed DMA
+    * addresses.  Initialized to 1 to match EMU_REG_ONLINE_INIT. */
+   uint8_t prev_online;
+
    /* RX buffer seeding: after init busy-poll, write zero-size RX
     * completions one at a time to discover RX buffer indices/handles
     * from the driver's WriteFree responses. */
