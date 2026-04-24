@@ -59,7 +59,10 @@ fi
 # under $HOME. Default to /var/tmp/aes-ci-parity-$USER on NFS homes; caller
 # may override via AES_CI_CACHE_DIR. Consumers source common.sh then read
 # $AES_CI_CACHE_DIR_RESOLVED rather than recomputing.
-if [ -n "$AES_CI_CACHE_DIR" ]; then
+# Use `${VAR:-}` so this library is safe to source from callers running with
+# `set -u`; a bare `$AES_CI_CACHE_DIR` would abort the caller before the
+# resolved value is assigned.
+if [ -n "${AES_CI_CACHE_DIR:-}" ]; then
    AES_CI_CACHE_DIR_RESOLVED="$AES_CI_CACHE_DIR"
 elif [ "$(stat -f -c %T "$HOME" 2>/dev/null)" = "nfs" ]; then
    AES_CI_CACHE_DIR_RESOLVED="/var/tmp/aes-ci-parity-$(id -un)"

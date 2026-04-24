@@ -34,8 +34,9 @@
 #      datadev -> datadev_emulator -> nvidia_p2p_stub
 #   8. Check dmesg for oops/panic/BUG
 #
-# Mirrors the module-load sequence from the build_and_test_gpu CI job so
-# behavior is identical between local VM and CI.
+# Mirrors the module-load sequence from the gpu_test job in
+# .github/workflows/ci_pipeline.yml so behavior is identical between the
+# local VM and CI.
 #
 # Exit code: 0 on all-pass, non-zero on any failure.
 # ----------------------------------------------------------------------------

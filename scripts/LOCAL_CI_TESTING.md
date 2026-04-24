@@ -40,16 +40,18 @@ local shims or forks.
 
 ### Matrix Cells
 
-Mirrors `.github/workflows/ci_pipeline.yml` exactly:
+Mirrors `.github/workflows/ci_pipeline.yml` exactly. All cells declare
+`load_test: true`; the actual load/test/unload steps only fire on the
+cell whose kernel matches the parity VM host (driven by
+`CI_HOST_MATCH=1`). Other cells stop at build + DKMS tarball smoke.
 
-| Container | load_test | CPU | GPU |
-|-----------|-----------|-----|-----|
-| ubuntu:24.04 | build-only | yes | yes |
-| ubuntu:24.04 | load+test | yes | yes |
-| ubuntu:22.04 | build-only | yes | yes |
-| rockylinux:9 | build-only | yes | yes |
-| debian:experimental | build-only | yes | yes |
-| centos7-vault | build-only (soft-fail) | yes | yes |
+| Container | CPU | GPU | Load/test gating |
+|-----------|-----|-----|------------------|
+| ubuntu:24.04 | yes | yes | Runs load+test when `CI_HOST_MATCH=1` (normally the matching cell) |
+| ubuntu:22.04 | yes | yes | Build + DKMS smoke unless `CI_HOST_MATCH=1` |
+| rockylinux:9 | yes | yes | Build + DKMS smoke unless `CI_HOST_MATCH=1` |
+| debian:experimental | yes | yes | Build + DKMS smoke unless `CI_HOST_MATCH=1` |
+| fedora:rawhide | yes | yes | Build + DKMS smoke unless `CI_HOST_MATCH=1` |
 
 ## Common Flags
 

@@ -38,7 +38,7 @@ Contains BitBake recipes for the aximemorymap and axistreamdma drivers.
 
 ## Local CI Testing
 
-The repository includes a local CI runner that validates the full Phase 3 test suite without requiring `sudo` on the host. It boots a QEMU virtual machine under TCG emulation (no KVM, no `/dev/kvm` access needed), loads the `datadev_emulator` and `datadev` kernel modules inside the VM, runs the test suite, and reports pass/fail. The same test scripts run in GitHub Actions CI (`.github/workflows/emu_ci.yml`), so local and CI behavior are identical.
+The repository includes a local CI runner that validates the full Phase 3 test suite without requiring `sudo` on the host. It boots a QEMU virtual machine under TCG emulation (no KVM, no `/dev/kvm` access needed), loads the `datadev_emulator` and `datadev` kernel modules inside the VM, runs the test suite, and reports pass/fail. The same test scripts run in GitHub Actions CI (`.github/workflows/ci_pipeline.yml`), so local and CI behavior are identical.
 
 ### Prerequisites
 
@@ -107,35 +107,31 @@ Override the defaults by exporting these before running the script:
 
 ## Continuous Integration
 
-Two GitHub Actions workflows run on every `push` event:
+A single unified GitHub Actions workflow runs on every `push` event:
 
-[![Repo Integration](https://github.com/slaclab/aes-stream-drivers/actions/workflows/aes_ci.yml/badge.svg)](https://github.com/slaclab/aes-stream-drivers/actions/workflows/aes_ci.yml)
-[![Emulator CI](https://github.com/slaclab/aes-stream-drivers/actions/workflows/emu_ci.yml/badge.svg)](https://github.com/slaclab/aes-stream-drivers/actions/workflows/emu_ci.yml)
+[![CI Pipeline](https://github.com/slaclab/aes-stream-drivers/actions/workflows/ci_pipeline.yml/badge.svg)](https://github.com/slaclab/aes-stream-drivers/actions/workflows/ci_pipeline.yml)
 
 | Workflow | Purpose | Runner Environment |
 |----------|---------|--------------------|
-| [`aes_ci.yml`](.github/workflows/aes_ci.yml) — **Repo Integration** | Multi-distro kernel-module **compile matrix** (Ubuntu 22.04/24.04, Rocky Linux 9, Debian experimental, CentOS 7), `cpplint`, trailing-whitespace / tab check, `clang-tidy` + `sparse` on Debian experimental, DKMS tarball packaging on tagged releases | Containerized distro images on an `ubuntu-24.04` host |
-| [`emu_ci.yml`](.github/workflows/emu_ci.yml) — **Emulator CI** | End-to-end **runtime tests** — build `datadev_emulator.ko`, `nvidia_p2p_stub.ko`, `datadev.ko`, and user-space test apps; `insmod`; run the full Phase 3 and Phase 4 test suite (ioctl / file-ops / error-paths / multi-channel / `/proc` / DMA rate / module parameters / GPU ioctls); scan `dmesg` for oops/panic/BUG; execute three load/unload cycles | `ubuntu-22.04` and `ubuntu-24.04` hosted VMs (needs passwordless `sudo` for `insmod`, which containers cannot provide) |
+| [`ci_pipeline.yml`](.github/workflows/ci_pipeline.yml) — **CI Pipeline** | Unified CI combining repo integration and emulator/runtime validation: documentation + lint/static checks, multi-distro kernel-module build + load + test matrix (`ubuntu:22.04`, `ubuntu:24.04`, `rockylinux:9`, `debian:experimental`, `fedora:rawhide`) for both the CPU and GPU stacks, end-to-end Phase 3 and Phase 4 test coverage against the `datadev_emulator` + `nvidia_p2p_stub` pair, `dmesg` scanning for oops/panic/BUG, DKMS tarball smoke + full-install validation, and release packaging on tagged releases | `ubuntu-24.04` hosted runner; every matrix cell executes in a containerized distro image with host kernel headers bind-mounted. The CPU/GPU load + test steps are gated by `CI_HOST_MATCH=1` so they only fire on cells whose kernel matches the host runner (passwordless `sudo` + `CAP_SYS_MODULE` for `insmod`); other cells are compile-only. |
 
-### Why two workflows?
+### Single unified workflow
 
-`aes_ci.yml` runs its compile-matrix jobs inside container images (`rockylinux:9`, `debian:experimental`, `ghcr.io/jjl772/centos7-vault`, etc.) to verify the driver still compiles across distros with older kernels. These containers do not provide passwordless `sudo` and cannot load kernel modules. `emu_ci.yml` must therefore run on non-container hosted VMs where `sudo insmod` works. Keeping the two concerns in separate files keeps each workflow focused and keeps failures in one from blocking the other.
+`ci_pipeline.yml` replaces the previously separate `aes_ci.yml` (compile matrix) and `emu_ci.yml` (emulator runtime tests). One workflow means one badge, one summary, one place to look when something is red, and no possibility of the two drifting relative to each other. Broad compile coverage across distros, static analysis / lint checks, and runtime tests that require loading kernel modules now all live in the same pipeline.
 
-The two workflows are **independent** — a failure in one does not block the other. Both must be green for a push to be considered passing. Repo maintainers can require specific job names as branch-protection gates (e.g. `Test And Generate Documentation`, `Compile Kernel Module (ubuntu:24.04)`, `Build & DMA Test (ubuntu-24.04)`, `Build & GPU Test (ubuntu-24.04)`).
+Repo maintainers can still require specific job names from the unified workflow as branch-protection gates — for example `test_and_document`, `cpu_test (ubuntu:24.04)`, and `gpu_test (ubuntu:24.04)`.
 
 ### Runtime tests share code with the local VM runner
 
-`emu_ci.yml` invokes the same `tests/run_tests.sh` + `tests/test_params.sh` scripts that `./run_local_ci.sh` runs inside a QEMU VM (see **Local CI Testing** above). Behaviour in CI and the local VM is therefore identical — if a test passes locally via `./run_local_ci.sh`, it should pass in CI, and vice versa (with the caveat that TCG emulation used locally is much slower than the hosted runners, so timing-sensitive assertions are intentionally tolerant).
+The workflow invokes the same `tests/run_tests.sh` + `tests/test_params.sh` scripts that `./run_local_ci.sh` runs inside a QEMU VM (see **Local CI Testing** above). Behaviour in CI and the local VM is therefore identical — if a test passes locally via `./run_local_ci.sh`, it should pass in CI, and vice versa (with the caveat that TCG emulation used locally is much slower than the hosted runners, so timing-sensitive assertions are intentionally tolerant).
 
 ### How to interpret a CI failure
 
-When `emu_ci.yml` reports red on a push:
+When `ci_pipeline.yml` reports red on a push:
 
 1. Open the failing run and click the **Summary** tab. Each test-suite step renders a PASS/FAIL count table; failing tests are listed in a fenced block.
 2. Scroll the workflow view for red **`::error::` annotations** — each failing test emits one with the test name and exit code (e.g. `run_tests.sh: error_paths failed (exit=1)`).
-3. Download the `emu-ci-diag-<job>-<os>` artifact from the run's **Artifacts** panel. It contains `dmesg.txt`, the saved test-suite logs (`/tmp/phase3_tests.log`, `/tmp/phase4_tests.log`, `/tmp/test_params.log`), any `dma_loop_output*.txt`, and the built `.ko` modules — enough to reproduce a post-mortem without re-running CI.
-
-If `aes_ci.yml` reports red, the failure is a compile, lint, or static-analysis issue — check the specific job's log.
+3. Download the `cpu-ci-diag-*` or `gpu-ci-diag-*` artifact from the run's **Artifacts** panel. It contains `dmesg.txt`, the saved test-suite logs (`/tmp/phase3_tests.log`, `/tmp/phase4_tests.log`, `/tmp/test_params.log`), any `dma_loop_output*.txt`, and the built `.ko` modules — enough to reproduce a post-mortem without re-running CI.
 
 <!--- ########################################################################################### -->
 

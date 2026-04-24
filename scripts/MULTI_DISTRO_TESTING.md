@@ -19,13 +19,17 @@ matching the GitHub Actions runners. Each matrix cell runs in a Docker
 container inside that guest:
 
 1. **ubuntu:24.04** — build + load + test + DKMS (CPU and GPU)
-2. **ubuntu:22.04** — build-only (CPU and GPU)
-3. **rockylinux:9** — build-only (CPU and GPU)
-4. **debian:experimental** — build-only (CPU and GPU)
-5. **centos7-vault** — build-only, soft-fail (CPU and GPU)
+2. **ubuntu:22.04** — build + DKMS smoke (CPU and GPU)
+3. **rockylinux:9** — build + DKMS smoke (CPU and GPU)
+4. **debian:experimental** — build + DKMS smoke (CPU and GPU)
+5. **fedora:rawhide** — build + DKMS smoke (CPU and GPU)
 
-Only `ubuntu:24.04` runs the full load/test/unload/DKMS cycle because it
-matches the GitHub runner's host kernel. Other distros verify compilation.
+All five cells declare `load_test: true`, but the actual module
+load/test/unload steps are gated by the `CI_HOST_MATCH` environment
+variable. Only the cell whose kernel matches the parity VM host kernel
+(normally `ubuntu:24.04`) runs the full load/test/unload/DKMS-install
+cycle; the other cells stop after compile + DKMS tarball smoke. This
+mirrors the gating used in `.github/workflows/ci_pipeline.yml`.
 
 ## Prerequisites
 
