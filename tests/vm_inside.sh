@@ -27,7 +27,7 @@
 #      see run_tests.sh for the authoritative list of sub-tests)
 #   6. Run tests/test_params.sh (module reload with custom parameters)
 #   7. Unload modules in reverse order
-#   8. Check dmesg for oops/panic/BUG
+#   8. Check dmesg for oops/panic/BUG/WARNING (matches scripts/ci/check-dmesg.sh)
 #
 # Mirrors the module-load sequence from the cpu_test job in
 # .github/workflows/ci_pipeline.yml so behavior is identical between the
@@ -42,10 +42,10 @@ HOST=/mnt/host
 TIMEOUT_SEC=30
 EXIT_CODE=0
 
-# Inject a unique baseline marker so the post-run oops/panic/BUG gate only
-# scans driver-induced lines (the delta after module load), not boot/earlier
-# messages that can false-positive. Mirrors scripts/ci/load-modules-cpu.sh
-# and scripts/ci/check-dmesg.sh.
+# Inject a unique baseline marker so the post-run oops/panic/BUG/WARNING
+# gate only scans driver-induced lines (the delta after module load), not
+# boot/earlier messages that can false-positive. Mirrors
+# scripts/ci/load-modules-cpu.sh and scripts/ci/check-dmesg.sh.
 CI_DMESG_MARKER="BASELINE-vm-inside-$(cat /proc/sys/kernel/random/uuid)"
 echo "$CI_DMESG_MARKER" > /dev/kmsg
 
@@ -120,6 +120,14 @@ echo "=== VM: Checking dmesg for errors (baseline-delta) ==="
 DELTA="$(dmesg | awk -v m="$CI_DMESG_MARKER" 'f{print} index($0,m){f=1}')"
 if echo "$DELTA" | grep -iE 'oops|panic|BUG:' | grep -viE 'drm panic|panic=|panic_on_oops|panic_on_warn'; then
    echo "FAIL: Kernel errors detected in driver-induced dmesg delta"
+   EXIT_CODE=1
+fi
+# WARNING: gate — mirrors scripts/ci/check-dmesg.sh so a kernel WARN_ON()
+# in the delta fails locally the same way it fails in CI. No benign
+# exclusions here: the delta is post-load by construction, and any
+# cmdline-echo 'panic_on_warn' is already filtered above.
+if echo "$DELTA" | grep -iE 'WARNING:'; then
+   echo "FAIL: Kernel warnings detected in driver-induced dmesg delta"
    EXIT_CODE=1
 fi
 
