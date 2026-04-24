@@ -48,7 +48,10 @@ echo_step "Building against kernel ${KVER}"
 # dir, outside the repo).  Passing GITV= on the command line skips the
 # Makefile's ifndef GITV block entirely.
 GITV=$(git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || echo "emulator")
-GITD=$(git status --short -uno | wc -l)
+# Silence stderr and fall back to 0 when $(pwd) isn't a git worktree (e.g.
+# release tarball / exported source). Under `set -e` a failing git status
+# would otherwise abort the whole build even though GITV already resolved.
+GITD=$(git status --short -uno 2>/dev/null | wc -l || echo 0)
 if [ "$GITD" -ne 0 ]; then GITV="${GITV}-dirty"; fi
 export GITV
 echo_step "Git version: ${GITV}"

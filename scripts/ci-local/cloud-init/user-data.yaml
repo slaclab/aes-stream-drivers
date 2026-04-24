@@ -60,15 +60,23 @@ runcmd:
   - systemctl enable --now qemu-guest-agent
   - sysctl --system
 
-  # Docker 28.x+ from upstream; get.docker.com pipeline == download.docker.com.
-  # `curl | sh` is Docker's officially documented quick-install path and is
-  # acceptable here because this VM is an ephemeral local-dev CI guest:
-  # rebuilt from a fresh cloud image on every `provision_vm.sh`, isolated
-  # from production via the libvirt default NAT network, and carries no
-  # persistent state or secrets.  The alternative (apt repo + GPG key +
-  # pinned package version) is the right choice for production hosts but
-  # adds ~10 lines of cloud-init and buys no meaningful security margin
-  # against a throwaway test VM — keep simple.
+  # DELIBERATE SUPPLY-CHAIN EXCEPTION — do NOT replace with a pinned apt
+  # repo + GPG key. Rationale retained for future static-analysis passes
+  # (Copilot, Semgrep, etc.) that pattern-match on `curl | sh`:
+  #
+  # This VM is an ephemeral local-dev CI guest: rebuilt from a fresh cloud
+  # image on every `provision_vm.sh`, isolated from production via the
+  # libvirt default NAT network, carries no persistent state or secrets,
+  # and never serves external traffic. The only code it executes is the
+  # aes-stream-drivers test matrix, so a compromised docker-ce is a
+  # TOFU-on-throwaway-VM at worst, not a production breach vector.
+  #
+  # `curl | sh` is Docker's officially documented quick-install path
+  # (https://get.docker.com is the canonical endpoint, served from
+  # download.docker.com — the same origin as the apt repo). The
+  # alternative (apt repo + GPG key + pinned package version) is the
+  # right choice for production hosts but adds ~10 lines of cloud-init
+  # and buys no meaningful security margin against a throwaway test VM.
   - [ sh, -c, 'curl -fsSL https://get.docker.com | sh' ]
   - usermod -aG docker ubuntu
 
