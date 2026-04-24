@@ -119,7 +119,10 @@ detect_installed_kver() {
 # should fall back to distro-native kernel headers).
 ensure_kernel_gcc() {
    local kgcc=""
-   kgcc=$(cat /proc/version 2>/dev/null | grep -oP 'gcc-\K[0-9]+' | head -1)
+   # awk extraction (not grep -oP): PCRE is GNU-grep-specific and the prior
+   # Copilot review flagged the equivalent pattern in tests/test_data_integrity.sh
+   # as a portability hazard on musl/BusyBox minimal images.
+   kgcc=$(awk 'match($0, /gcc-[0-9]+/) { print substr($0, RSTART+4, RLENGTH-4); exit }' /proc/version 2>/dev/null)
    if [ -z "$kgcc" ]; then
       echo_warn "Cannot determine kernel build GCC version from /proc/version"
       return 1
@@ -134,7 +137,8 @@ ensure_kernel_gcc() {
          echo_warn "gcc-${kgcc} not available; trying highest available gcc"
          local best=""
          for v in $(apt-cache search '^gcc-[0-9]+$' 2>/dev/null \
-                    | grep -oP 'gcc-\K[0-9]+' | sort -n); do
+                    | awk 'match($0, /gcc-[0-9]+/) { print substr($0, RSTART+4, RLENGTH-4) }' \
+                    | sort -n); do
             best="$v"
          done
          if [ -n "$best" ]; then
