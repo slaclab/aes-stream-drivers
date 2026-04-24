@@ -72,10 +72,13 @@ SC2=FAIL
 # Use the baseline marker from load-modules-gpu.sh if present, else tail.
 MARKER_FILE=/tmp/ci_dmesg_marker
 # index($0,m) is a literal substring match; $0 ~ m treats m as a regex and
-# would break if the marker format ever adds regex metacharacters. Mirrors
-# scripts/ci/check-dmesg.sh.
+# would break if the marker format ever adds regex metacharacters. Use the
+# same idiom as scripts/ci/check-dmesg.sh: 'f{print} index($0,m){f=1}'
+# which prints strictly AFTER the marker line (the marker line itself is
+# not part of the driver-induced delta, keeping output shape consistent
+# across every SC gate in this PR).
 if [ -f "$MARKER_FILE" ] && MARKER=$(cat "$MARKER_FILE") && \
-   $SUDO dmesg | awk -v m="$MARKER" 'index($0,m){on=1} on{print}' | \
+   $SUDO dmesg | awk -v m="$MARKER" 'f{print} index($0,m){f=1}' | \
         grep -q "non-contiguous GPU memory detected"; then
   echo_fail "non-contiguous warning found after marker"
 elif [ ! -f "$MARKER_FILE" ] && $SUDO dmesg | tail -200 | \
@@ -91,11 +94,21 @@ fi
 # ----------------------------------------------------------------------------
 echo_step "pr_info_once 'gpu addr_lookup ... (first hit)' in dmesg"
 SC3=FAIL
-if $SUDO dmesg | grep -qE "gpu addr_lookup fake=0x[0-9a-f]+ kva=0x[0-9a-f]+ \(first hit\)"; then
+# pr_info_once fires once per module load; a prior run's line in a reused
+# VM would spuriously satisfy this probe. Delta-scan via the baseline
+# marker (same pattern as SC2) so the assertion reflects THIS run.
+if [ -f "$MARKER_FILE" ] && SC3_MARKER=$(cat "$MARKER_FILE") && \
+   $SUDO dmesg | awk -v m="$SC3_MARKER" 'f{print} index($0,m){f=1}' | \
+        grep -qE "gpu addr_lookup fake=0x[0-9a-f]+ kva=0x[0-9a-f]+ \(first hit\)"; then
   echo_pass "SC3"
   SC3=PASS
+elif [ ! -f "$MARKER_FILE" ] && \
+     $SUDO dmesg | tail -200 | \
+        grep -qE "gpu addr_lookup fake=0x[0-9a-f]+ kva=0x[0-9a-f]+ \(first hit\)"; then
+  echo_pass "SC3 (marker absent — matched in last 200 lines)"
+  SC3=PASS
 else
-  echo_fail "first-hit probe not found in dmesg (was Gpu_AddNvidia called?)"
+  echo_fail "first-hit probe not found in dmesg delta (was Gpu_AddNvidia called this run?)"
 fi
 
 # ----------------------------------------------------------------------------

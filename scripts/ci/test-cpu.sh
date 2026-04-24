@@ -57,13 +57,19 @@ echo_step "Using frame size: $SIZE"
 
 FAILED=0
 
-# mktemp-backed log paths + trap cleanup. Prevents collisions between
-# concurrent CI cells on a shared runner (unlikely for scripts/ci/test-cpu.sh
-# but consistent with the pattern tests/test_*.sh now use).
-PHASE3_LOG=$(mktemp -t phase3_tests.XXXXXX)
-PARAMS_LOG=$(mktemp -t test_params.XXXXXX)
+# PHASE3_LOG / PARAMS_LOG are load-bearing filenames: the CI workflow's
+# diagnostic-artifact step copies them by literal path
+# (.github/workflows/ci_pipeline.yml cpu_test/diag Collect), and README.md
+# advertises them in the post-mortem instructions. Keep them fixed and do
+# NOT add a trap rm -- the next workflow step needs to read these files.
+# CI cells run in isolated Docker containers with a private /tmp, so
+# concurrent-collision is not a concern.
+PHASE3_LOG=/tmp/phase3_tests.log
+PARAMS_LOG=/tmp/test_params.log
+# GAP13_LOOP_LOG is internal-only (no workflow reference); mktemp + trap
+# so reruns on a shared host don't reuse stale state.
 GAP13_LOOP_LOG=$(mktemp -t gap13_loop.XXXXXX)
-trap 'rm -f "$PHASE3_LOG" "$PARAMS_LOG" "$GAP13_LOOP_LOG"' EXIT
+trap 'rm -f "$GAP13_LOOP_LOG"' EXIT
 
 # ============================================================================
 # Test 1: DMA loopback test

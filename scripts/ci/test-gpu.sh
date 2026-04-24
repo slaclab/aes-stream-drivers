@@ -53,10 +53,13 @@ export SIZE="${SIZE:-$(( (RANDOM % 4501) * 4 + 2000 ))}"
 echo_step "Using frame size: $SIZE"
 
 FAILED=0
-# mktemp-backed log + trap cleanup — consistent with test-cpu.sh and the
-# tests/test_*.sh pattern Copilot required in earlier rounds.
-LOG_FILE=$(mktemp -t phase4_tests.XXXXXX)
-trap 'rm -f "$LOG_FILE"' EXIT
+# LOG_FILE is a load-bearing filename: the CI workflow's diagnostic-artifact
+# step copies it by literal path (.github/workflows/ci_pipeline.yml gpu_test
+# diag Collect), and README.md advertises it in the post-mortem instructions.
+# Keep it fixed and do NOT add a trap rm -- the next workflow step reads it.
+# CI cells run in isolated Docker containers with a private /tmp, so
+# concurrent-collision is not a concern.
+LOG_FILE=/tmp/phase4_tests.log
 : > "$LOG_FILE"
 
 $SUDO chmod 666 "$DEV" 2>/dev/null || true

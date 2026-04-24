@@ -23,7 +23,8 @@
 #   2. Wait for emulator init confirmation in dmesg
 #   3. Load datadev.ko with cfgDebug=1 for ISR verification
 #   4. Wait for /dev/datadev_0 and /proc/datadev_0
-#   5. Run tests/run_tests.sh (ioctl, file-ops, error, multichannel, proc, rate)
+#   5. Run tests/run_tests.sh (the current CPU-phase test aggregator --
+#      see run_tests.sh for the authoritative list of sub-tests)
 #   6. Run tests/test_params.sh (module reload with custom parameters)
 #   7. Unload modules in reverse order
 #   8. Check dmesg for oops/panic/BUG
