@@ -106,10 +106,12 @@ if [ "$MARKER_OK" -eq 0 ]; then
 fi
 
 # --- Extract delta ---------------------------------------------------------
-# awk: once we see the marker line, print everything AFTER it. Using index()
-# for literal-string match so UUID / dash characters cannot be misread as regex
-# metacharacters. With an empty marker (full-ring fallback), index($0,"")
-# returns 1 on every line, so the awk filter scans the entire ring buffer.
+# Marker-present path: awk prints every line AFTER the marker. index() is a
+# literal-string match so UUID / dash characters cannot be misread as regex
+# metacharacters.
+# Marker-missing path (load-modules ran but /dev/kmsg write dropped): awk is
+# bypassed entirely and DELTA is assigned the full dmesg ring so a driver
+# oops/panic/BUG/WARNING cannot pass unnoticed.
 if [ "$MARKER_OK" -eq 1 ]; then
    DELTA="$($SUDO dmesg | awk -v m="$MARKER" 'f{print} index($0,m){f=1}')"
    echo "=== Delta (dmesg since baseline marker) ==="
