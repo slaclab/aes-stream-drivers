@@ -119,7 +119,12 @@ else
    DELTA="$($SUDO dmesg)"
    echo "=== Delta (full dmesg ring — marker fallback) ==="
 fi
-echo "$DELTA" | tail -100
+# Use printf '%s\n' instead of echo for $DELTA: kernel-log content is
+# trusted but echo's option/escape parsing is implementation-defined for
+# leading -n/-e or backslash sequences, so printf is the defensive default
+# for variable data being printed verbatim. Applied to every "$DELTA"
+# emitter below for the same reason.
+printf '%s\n' "$DELTA" | tail -100
 echo "==========================================="
 
 # --- Benign exclusions (retained from commit 8fa7049) ----------------------
@@ -129,7 +134,7 @@ echo "==========================================="
 BENIGN_PATTERN='drm panic|panic=|panic_on_oops|panic_on_warn'
 
 # --- Oops / panic / BUG check ---------------------------------------------
-if echo "$DELTA" | grep -iE 'oops|panic|BUG:' | grep -viE "$BENIGN_PATTERN"; then
+if printf '%s\n' "$DELTA" | grep -iE 'oops|panic|BUG:' | grep -viE "$BENIGN_PATTERN"; then
    echo_fail "Driver-induced kernel error detected in delta"
    exit 1
 fi
@@ -138,13 +143,13 @@ fi
 # The previous allowlist is deleted: anything it was meant to pass is already
 # inside the delta by construction, and a real driver WARNING in the delta
 # must fail the gate.
-if echo "$DELTA" | grep -iE 'WARNING:'; then
+if printf '%s\n' "$DELTA" | grep -iE 'WARNING:'; then
    echo_fail "Driver-induced kernel warning detected in delta"
    exit 1
 fi
 
 # --- Verify ISR was exercised (informational, reads from delta) -----------
-if echo "$DELTA" | grep -q "Irq: Called"; then
+if printf '%s\n' "$DELTA" | grep -q "Irq: Called"; then
    echo "PASS: ISR invocation confirmed (interrupt-driven path)"
 else
    echo "INFO: No ISR invocation found in delta (debug logging may be off)"
@@ -152,6 +157,6 @@ fi
 
 # --- Emulator DMA statistics (from delta) --------------------------------
 echo "=== Emulator DMA Statistics (delta) ==="
-echo "$DELTA" | grep "emu:" | tail -20 || echo "No emulator stats found"
+printf '%s\n' "$DELTA" | grep "emu:" | tail -20 || echo "No emulator stats found"
 
 echo_step "dmesg gate passed"

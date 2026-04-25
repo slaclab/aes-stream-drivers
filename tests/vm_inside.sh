@@ -165,7 +165,11 @@ echo "=== VM: Checking dmesg for errors (baseline-delta) ==="
 # echoes ('drm panic', 'panic=', 'panic_on_oops', 'panic_on_warn') are
 # excluded to match scripts/ci/check-dmesg.sh behavior.
 DELTA="$(dmesg | awk -v m="$CI_DMESG_MARKER" 'f{print} index($0,m){f=1}')"
-if echo "$DELTA" | grep -iE 'oops|panic|BUG:' | grep -viE 'drm panic|panic=|panic_on_oops|panic_on_warn'; then
+# Use printf '%s\n' instead of echo for $DELTA: kernel-log content is
+# trusted but echo's option/escape parsing is implementation-defined for
+# leading -n/-e or backslash sequences, so printf is the defensive default
+# for variable data being printed verbatim.
+if printf '%s\n' "$DELTA" | grep -iE 'oops|panic|BUG:' | grep -viE 'drm panic|panic=|panic_on_oops|panic_on_warn'; then
    echo "FAIL: Kernel errors detected in driver-induced dmesg delta"
    record_rc 1
 fi
@@ -173,7 +177,7 @@ fi
 # in the delta fails locally the same way it fails in CI. No benign
 # exclusions here: the delta is post-load by construction, and any
 # cmdline-echo 'panic_on_warn' is already filtered above.
-if echo "$DELTA" | grep -iE 'WARNING:'; then
+if printf '%s\n' "$DELTA" | grep -iE 'WARNING:'; then
    echo "FAIL: Kernel warnings detected in driver-induced dmesg delta"
    record_rc 1
 fi
