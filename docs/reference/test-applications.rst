@@ -62,8 +62,11 @@ Ioctl and File Operations
 dmaIoctlTest
 ^^^^^^^^^^^^^
 
-Exercises all 28 non-GPU ioctl commands defined in ``DmaDriver.h`` and
-``AxisDriver.h``, validating return values and argument semantics.
+Exercises all 28 ioctl commands (24 DMA from ``DmaDriver.h``, 2 AXIS from
+``AxisDriver.h``, 1 AxiVersion from ``AxiVersion.h``, 1 GPU readiness from
+``GpuAsync.h``), validating return values and argument semantics. The 27
+numbered checks below span 28 ioctls because check 5 exercises both
+``DMA_Get_Index`` and ``DMA_Ret_Index`` in one round-trip.
 
 .. code-block:: text
 
