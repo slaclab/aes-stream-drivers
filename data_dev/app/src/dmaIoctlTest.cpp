@@ -3,11 +3,12 @@
  * Company    : SLAC National Accelerator Laboratory
  *-----------------------------------------------------------------------------
  * Description:
- *    Ioctl sanity test for the datadev driver. Exercises all 27 non-GPU ioctls
- *    exposed by DmaDriver.h, AxisDriver.h, and AxiVersion.h and verifies each
- *    returns a sane value. One GPU ioctl (GPU_Is_Gpu_Async_Supp) is exercised
- *    to confirm it returns a valid value (0 or 1). The program exits 0 if all
- *    ioctls pass, 1 otherwise.
+ *    Ioctl sanity test for the datadev driver. Runs 27 numbered checks that
+ *    cover 26 non-GPU ioctls exposed by DmaDriver.h, AxisDriver.h, and
+ *    AxiVersion.h plus 1 GPU readiness ioctl (GPU_Is_Gpu_Async_Supp) that is
+ *    expected to return 0 (CPU build) or 1 (GPU build). Each call is verified
+ *    to return a sane value; the program exits 0 if every check passes, 1
+ *    otherwise.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory

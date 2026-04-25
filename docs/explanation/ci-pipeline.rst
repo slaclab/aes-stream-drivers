@@ -363,17 +363,17 @@ The combined Phase 2 + Phase 3 coverage across all distributions:
        zero-copy
    * - Ioctl interface
      - 28
-     - All 27 DMA/AXIS ioctls + 1 AxiVersion ioctl validated
+     - 24 DMA + 2 AXIS + 1 AxiVersion + 1 GPU readiness ioctls validated
    * - GPU ioctls
      - 6
      - All 6 GPU async ioctls including memory registration
    * - File operations
-     - 9
-     - open, close, multi-open, select, mmap, read, ioctl
+     - 8
+     - open, multi-open, select(read), select(write), mmap, read, ioctl,
+       close
    * - Error handling
-     - 5
-     - Buffer exhaustion, oversized write, invalid index, oversized RX,
-       stale buffer
+     - 3
+     - Buffer exhaustion, oversized write, invalid index
    * - Channel routing
      - 3
      - Multi-destination (0, 7, 8), cross-contamination check
