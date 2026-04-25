@@ -22,8 +22,19 @@ GCC  := $(COMP)gcc
 TEST := $(shell which $(GCC) 2> /dev/null)
 
 ifndef GITV
-	GITT := $(shell cd $(HOME); git describe --tags)
-	GITD := $(shell cd $(HOME); git status --short -uno | wc -l)
+	GITT := $(shell cd $(HOME); git describe --tags 2>/dev/null)
+	ifeq ($(GITT),)
+		GITT := $(shell cd $(HOME); git rev-parse --short HEAD 2>/dev/null)
+	endif
+	# Final fallback so -DGITV=\"$(GITV)\" always produces a well-formed
+	# string literal when building from a non-git source tree (release
+	# tarball / exported source). Without this, both git describe and git
+	# rev-parse return empty, GITT stays empty, and GITV becomes either
+	# "" or "-dirty" — neither is a valid version token.
+	ifeq ($(GITT),)
+		GITT := unknown
+	endif
+	GITD := $(shell cd $(HOME); git status --short -uno 2>/dev/null | wc -l)
 	GITV := $(if $(filter $(GITD),0),$(GITT),$(GITT)-dirty)
 endif
 

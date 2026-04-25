@@ -34,6 +34,11 @@ breathe_projects = {
     'aes-stream-drivers': '_doxygen/xml',
 }
 breathe_default_project = 'aes-stream-drivers'
+# Headers here are plain C (no extern "C", no C++ features) and Doxyfile sets
+# EXTENSION_MAPPING = h=C / OPTIMIZE_OUTPUT_FOR_C=YES. docs/reference/*.rst
+# references them exclusively as :c:func:/:c:type:/:c:macro:, so map .h files
+# to the C domain; mapping to cpp would register the entities in the C++ domain
+# and silently break every :c:func: cross-reference.
 breathe_domain_by_extension = {'h': 'c', 'c': 'c'}
 breathe_default_members = ('members', 'undoc-members')
 
@@ -64,4 +69,4 @@ html_context = {
     'source_suffix': '.rst',
 }
 
-html_static_path = ['_static']
+html_static_path = []
