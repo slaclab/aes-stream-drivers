@@ -58,6 +58,15 @@ export_ci_var() {
    esac
 }
 
+# Clear per-cell side-channel files at the very start of every cell. On
+# ephemeral GHA runners /tmp is fresh, but self-hosted runners and local
+# manual reruns can leave /tmp/ci_load_attempted or /tmp/ci_dmesg_marker
+# from a prior cell. Stale /tmp/ci_load_attempted on a build-only cell
+# would push check-dmesg.sh into the kmsg-drop fallback path and run a
+# full-ring scan against unrelated history. Both files are recreated by
+# load-modules-*.sh on load_test cells; build-only cells leave them absent.
+rm -f /tmp/ci_load_attempted /tmp/ci_dmesg_marker
+
 echo_step "Installing build dependencies"
 
 # Detect distribution
