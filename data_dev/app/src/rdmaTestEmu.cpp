@@ -698,11 +698,23 @@ int main(int argc, char **argv) {
       return 1;
    }
 
-   /* V4-only gate (project_gpu_v4_only.md). */
-   uint32_t ver = gpuGetGpuAsyncVersion(fd);
-   if (ver < kRequiredGpuAsyncVersion) {
+   /* V4-only gate (project_gpu_v4_only.md). gpuGetGpuAsyncVersion's return
+    * type is uint32_t for ABI reasons (see include/GpuAsync.h), so a -1
+    * ioctl error becomes 0xFFFFFFFFu. A naive `(uint32_t)ver < 4` check
+    * would be vacuously false and let the test proceed against a driver
+    * that never reported a version. Cast to int32_t and reject negatives
+    * explicitly before the version comparison. */
+   int32_t ver = static_cast<int32_t>(gpuGetGpuAsyncVersion(fd));
+   if (ver < 0) {
       fprintf(stderr,
-         "rdmaTestEmu: unsupported GPU Async version %u (V4 required)\n", ver);
+         "rdmaTestEmu: GPU_Get_Gpu_Async_Ver ioctl failed (rc=%d, errno=%s)\n",
+         ver, std::strerror(errno));
+      ::close(fd);
+      return 1;
+   }
+   if (static_cast<uint32_t>(ver) < kRequiredGpuAsyncVersion) {
+      fprintf(stderr,
+         "rdmaTestEmu: unsupported GPU Async version %d (V4 required)\n", ver);
       ::close(fd);
       return 1;
    }

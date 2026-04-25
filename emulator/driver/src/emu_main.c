@@ -90,7 +90,7 @@ MODULE_PARM_DESC(build_version,
 uint emu_gpu_poll_interval_us = 1000;
 module_param(emu_gpu_poll_interval_us, uint, 0644);
 MODULE_PARM_DESC(emu_gpu_poll_interval_us,
-                 "emu_gpu_poll kthread usleep_range min (µs, default 1000, floor 10)");
+                 "emu_gpu_poll kthread usleep_range min (µs, default 1000, clamped to [10, 1000000])");
 
 /* File-static global state */
 static struct emu_bar0 emu_bar;

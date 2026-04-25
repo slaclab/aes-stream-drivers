@@ -442,10 +442,19 @@ static int emu_gpu_poll_thread_fn(void *data)
       emu_gpu_rx_tick(eng);
       emu_gpu_tx_tick(eng);
       /* Read the param every tick so late-binding sysfs writes take
-       * effect without a reload. ±10% jitter tolerance for usleep_range. */
+       * effect without a reload. ±10% jitter tolerance for usleep_range.
+       * Floor at 10 µs to avoid 100% CPU spin; cap at 1 s so that a
+       * fat-fingered sysfs write (the param is 0644) cannot wedge the
+       * emulator forever, and so that `us_max = us_min + us_min/10 + 1`
+       * cannot overflow uint when us_min approaches UINT_MAX (the wrapped
+       * us_max would land below us_min and feed usleep_range an inverted
+       * range). 1 s is also well past any responsiveness need: the CI
+       * tightens to 100 µs and the developer default is 1 ms. */
       us_min = emu_gpu_poll_interval_us;
       if (us_min < 10)
-         us_min = 10;           /* floor: avoid 100% CPU spin */
+         us_min = 10;
+      if (us_min > 1000000)
+         us_min = 1000000;
       us_max = us_min + (us_min / 10) + 1;
       usleep_range(us_min, us_max);
    }
