@@ -230,8 +230,12 @@ if [ "$GAP1_FAILED" -eq 0 ]; then
    bash "$TESTS_DIR/test_data_integrity.sh"
    GAP1_INTG_RC=$?
 
+   # Use printf '%s\n' instead of echo for $DMESG_DELTA: echo's option/escape
+   # parsing is implementation-defined for leading -n/-e or backslash
+   # sequences; printf is the defensive default (matches scripts/ci/
+   # check-dmesg.sh). Applied to the GAP5 / GAP13 grep blocks below as well.
    DMESG_DELTA=$($SUDO dmesg | tail -n "+$((DMESG_BEFORE + 1))")
-   GAP1_DMESG_ERRORS=$(echo "$DMESG_DELTA" | grep -iE 'oops|panic|BUG:|WARNING:' || true)
+   GAP1_DMESG_ERRORS=$(printf '%s\n' "$DMESG_DELTA" | grep -iE 'oops|panic|BUG:|WARNING:' || true)
 
    if [ "$GAP1_INTG_RC" -eq 0 ] && \
       [ -z "$GAP1_DMESG_ERRORS" ]; then
@@ -307,7 +311,7 @@ if [ "$GAP5_FAILED" -eq 0 ]; then
    timeout 30 $SUDO rmmod datadev_emulator || { echo_fail "rmmod datadev_emulator failed/timed-out"; FAILED=$((FAILED + 1)); GAP5_FAILED=1; }
 
    DMESG_DELTA=$($SUDO dmesg | tail -n "+$((DMESG_BEFORE + 1))")
-   GAP5_DMESG_ERRORS=$(echo "$DMESG_DELTA" | grep -iE 'oops|panic|BUG:|WARNING:' || true)
+   GAP5_DMESG_ERRORS=$(printf '%s\n' "$DMESG_DELTA" | grep -iE 'oops|panic|BUG:|WARNING:' || true)
 
    if [ "$GAP5_FAILED" -eq 0 ] && [ -z "$GAP5_DMESG_ERRORS" ]; then
       echo "[PASS] rmmod-under-load"
@@ -382,7 +386,7 @@ if [ "$GAP13_FAILED" -eq 0 ]; then
    GAP13_LOOP_RC=$?
 
    DMESG_DELTA=$($SUDO dmesg | tail -n "+$((DMESG_BEFORE + 1))")
-   GAP13_DMESG_ERRORS=$(echo "$DMESG_DELTA" | grep -iE 'oops|panic|BUG:|WARNING:' || true)
+   GAP13_DMESG_ERRORS=$(printf '%s\n' "$DMESG_DELTA" | grep -iE 'oops|panic|BUG:|WARNING:' || true)
    # Explicit if/else avoids the `grep -q ... && echo X || true` idiom: in a
    # `A && B || C` chain, C still fires when A succeeds but B fails, which can
    # silently flip a PASS into a FAIL on an unrelated failure in B.

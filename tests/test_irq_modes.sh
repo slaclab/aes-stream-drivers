@@ -137,9 +137,12 @@ run_irq_cycle() {
    # that produces few transfers is acceptable as long as the kernel is clean
    # and PRBS integrity (above) is intact.
 
-   # Kernel error check against dmesg delta.
+   # Kernel error check against dmesg delta. Use printf '%s\n' instead of
+   # echo for variable data: echo's option/escape parsing is implementation-
+   # defined for leading -n/-e or backslash sequences; printf is the
+   # defensive default (matches scripts/ci/check-dmesg.sh).
    DMESG_DELTA=$($SUDO dmesg | tail -n "+$((DMESG_BEFORE + 1))")
-   if echo "$DMESG_DELTA" | grep -iE 'oops|panic|BUG:|WARNING:'; then
+   if printf '%s\n' "$DMESG_DELTA" | grep -iE 'oops|panic|BUG:|WARNING:'; then
       echo "[FAIL] irq_modes $label -- kernel error in dmesg"
       CYCLE_FAIL=1
    fi

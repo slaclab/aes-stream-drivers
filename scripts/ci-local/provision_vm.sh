@@ -352,7 +352,11 @@ for i in $(seq 1 "$CLOUD_INIT_POLLS"); do
       STATUS_RESP=$(virsh --connect qemu:///system qemu-agent-command "$DOM" \
          "{\"execute\":\"guest-exec-status\",\"arguments\":{\"pid\":$PID}}" \
          2>/dev/null || true)
-      if echo "$STATUS_RESP" | grep -q '"exitcode":0'; then
+      # Use printf '%s\n' instead of echo for $STATUS_RESP / $KVER below: the
+      # JSON response can contain backslash escapes that bash's echo may
+      # mis-handle under xpg_echo, and uname-r output is treated the same way
+      # for consistency. Same defensive substitution as scripts/ci/check-dmesg.sh.
+      if printf '%s\n' "$STATUS_RESP" | grep -q '"exitcode":0'; then
          DONE=1
          break
       fi
@@ -405,11 +409,11 @@ SSH_CMD="ssh -i $SSH_KEY -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/
 KVER=""
 for _ in $(seq 1 30); do
    KVER=$($SSH_CMD 'uname -r' 2>/dev/null || true)
-   if echo "$KVER" | grep -q azure; then break; fi
+   if printf '%s\n' "$KVER" | grep -q azure; then break; fi
    sleep 5
 done
 echo_info "Guest kernel: $KVER"
-if ! echo "$KVER" | grep -q azure; then
+if ! printf '%s\n' "$KVER" | grep -q azure; then
    echo_fail "Kernel check failed — kernel is '$KVER' (expected contains 'azure')"
    exit 1
 fi
