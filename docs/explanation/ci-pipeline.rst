@@ -395,16 +395,18 @@ The combined Phase 2 + Phase 3 coverage across all distributions:
        tarball cycle on every distro with matching kernel headers;
        ``dkms ldtarball`` smoke fallback when headers can't be matched)
    * - GPU DMA loopback
-     - 4
-     - ``rdmaTestEmu`` single-size, ``rdmaTestEmu --sweep`` payload
-       sweep, 10000-frame soak, ``dmaGpuToggleTest`` enable-toggle +
-       maxBuffers 4→2 mid-stream reduction
+     - 3
+     - ``rdmaTestEmu --sweep`` payload sweep, 10000-frame soak at 64 KiB,
+       ``dmaGpuToggleTest`` (enable-toggle + maxBuffers 4→2 mid-stream
+       reduction). Mirrors the test_gpu_dma_loopback.sh subtest list.
    * - Concurrent access
      - 2
      - Two-process loopback, backpressure/recovery
    * - AXI stream flags
-     - 4
-     - fuser/luser sweep (0x00, 0x55, 0xAA, 0xFF)
+     - 2
+     - Two extreme fuser/luser combinations (0x00 + 0xFF, 0xFF + 0x00)
+       to catch bit-shifting / masking bugs in axisSetFlags /
+       axisGetFuser / axisGetLuser
    * - /proc interface
      - 9
      - Buffer count, size, Desc128En, IRQ, API version, buffer mode,

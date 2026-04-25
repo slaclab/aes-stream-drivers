@@ -274,7 +274,9 @@ by ``scripts/ci/test-cpu.sh`` or ``scripts/ci/test-gpu.sh`` during CI.
      - ``dmaLoopTest`` at 12 / 4096 / 32768 / 65536 bytes plus oversized
        (``cfgSize+1``) rejection assertion
    * - ``test_tuser_sweep.sh``
-     - Sweeps fuser/luser values (0x00, 0x55, 0xAA, 0xFF) via ``dmaLoopTest -f/-l``
+     - Two extreme fuser/luser combinations (0x00 + 0xFF, 0xFF + 0x00) via
+       ``dmaLoopTest -f/-l`` to catch bit-shifting / masking bugs in
+       axisSetFlags / axisGetFuser / axisGetLuser
    * - ``test_params.sh``
      - Module parameter validation: loads with custom cfgTxCount/cfgRxCount/cfgSize,
        verifies ``/proc/datadev_0`` reflects the new values
