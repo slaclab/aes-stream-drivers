@@ -292,9 +292,9 @@ int Rce_Probe(struct platform_device *pdev) {
 
    // Initialize DMA and check for success.
    // Dma_Init unwinds its own resources (incl. Dma_UnmapReg) on failure,
-   // so we only need to dispose the IRQ mapping and clear the slot here.
+   // so skip err_post_mapreg and go straight to err_post_irq_map.
    if (Dma_Init(dev) < 0)
-      goto err_dma_init;
+      goto err_post_irq_map;
 
    // Successful DMA initialization increments device count
    gDmaDevCount++;
@@ -304,11 +304,6 @@ int Rce_Probe(struct platform_device *pdev) {
 
    // Return success
    return 0;
-
-err_dma_init:
-   irq_dispose_mapping(dev->irq);
-   memset(dev, 0, sizeof(*dev));
-   return -1;
 
 err_post_mapreg:
    Dma_UnmapReg(dev);
@@ -329,8 +324,6 @@ err_post_irq_map:
  *
  * @pdev: Platform device structure representing the DMA device.
  */
-// The platform_driver .remove callback returns int prior to kernel 6.11
-// and void from 6.11 onward; mirror that with a version-guarded signature.
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
 void Rce_Remove(struct platform_device *pdev) {
 #else

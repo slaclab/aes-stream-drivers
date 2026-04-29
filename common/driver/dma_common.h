@@ -227,10 +227,6 @@ extern struct class * gCl;
 extern struct file_operations DmaFunctions;
 
 // Function prototypes
-// class.devnode() took a non-const struct device* until upstream commit
-// ff62b8e6588f ("driver core: make struct class.devnode() take a const *")
-// in v6.2-rc1; RHEL 9.4 backported it. Note: this is a different change
-// from the class_create() signature change in v6.4 below.
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 4))
 char *Dma_DevNode(const struct device *dev, umode_t *mode);
 #else

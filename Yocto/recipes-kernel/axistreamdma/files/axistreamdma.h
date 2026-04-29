@@ -50,9 +50,6 @@ int Rce_Probe(struct platform_device *pdev);
  * This function performs the cleanup and removal of the device driver
  * associated with a given platform device. It is called by the Linux
  * kernel during the device removal process.
- *
- * The platform_driver .remove callback signature changed from int to
- * void in kernel 6.11; the prototype tracks that.
  */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
 void Rce_Remove(struct platform_device *pdev);
