@@ -53,11 +53,6 @@ struct DmaDesc;
 typedef uint32_t __poll_t;
 #endif
 
-#undef MIN
-#define MIN(_x, _y) ((_x) < (_y) ? (_x) : (_y))
-#undef MAX
-#define MAX(_x, _y) ((_x) > (_y) ? (_x) : (_y))
-
 /**
  * struct DmaDevice - Represents a DMA-capable device.
  * @baseAddr: Base physical address of the device's memory-mapped I/O region.
@@ -198,10 +193,10 @@ struct DmaDesc {
    // Number of elements in the read scratch buffer. Corresponds to cfgRxCount
    uint32_t readScratchCount;
 
-   // Number of elements in the index scratch buffer. max(cfgTxCount, cfgRxCount)
+   // Number of elements in the index scratch buffer.
    uint32_t indexScratchCount;
 
-   // Number of elements in the buff list scratch buffer. max(cfgTxCount, cfgRxCount)
+   // Number of elements in the buff list scratch buffer.
    uint32_t buffListScratchCount;
 
    // Operation guard

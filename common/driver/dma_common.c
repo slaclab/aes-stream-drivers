@@ -29,6 +29,12 @@
 #include <linux/version.h>
 #include <linux/slab.h>
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+#include <linux/minmax.h>
+#else
+#include <linux/kernel.h>
+#endif
+
 /**
  * struct DmaFunctions - Define interface routines for DMA operations
  * @owner:          Pointer to the module owner of this structure
@@ -488,6 +494,9 @@ int Dma_Open(struct inode *inode, struct file *filp) {
 
    if (!desc->readDataScratch || !desc->indexScratch || !desc->buffListScratch) {
       dev_err(dev->device, "Open: kzalloc for scratch area(s) failed\n");
+      kfree(desc->readDataScratch);
+      kfree(desc->indexScratch);
+      kfree(desc->buffListScratch);
       kfree(desc);
       return -ENOMEM;
    }
@@ -594,6 +603,11 @@ int Dma_Release(struct inode *inode, struct file *filp) {
 
    // Clear the tx queue and free the descriptor
    dmaQueueFree(&(desc->q));
+   
+   // Free scratch buffers
+   kfree(desc->buffListScratch);
+   kfree(desc->indexScratch);
+   kfree(desc->readDataScratch);
    kfree(desc);
    return 0;
 }
@@ -622,13 +636,10 @@ ssize_t Dma_Read(struct file *filp, __user char *buffer, size_t count, loff_t *f
    struct DmaDevice *dev = desc->dev;
    struct DmaReadData *rd = NULL;
 
-   mutex_lock(&desc->mutex);
-
    // Verify the size of the passed structure
    if ((count % sizeof(struct DmaReadData)) != 0) {
       dev_warn(dev->device, "Read: Called with incorrect size. Got=%li, Exp=%li\n",
                count, sizeof(struct DmaReadData));
-      mutex_unlock(&desc->mutex);
       return -1;
    }
 
@@ -639,10 +650,11 @@ ssize_t Dma_Read(struct file *filp, __user char *buffer, size_t count, loff_t *f
    // Check that we can read that many buffers
    if (rCnt > desc->readScratchCount || rCnt > desc->buffListScratchCount) {
       dev_warn(dev->device, "Read: attempted to read too many buffers. rCnt=%zu > max=%d\n",
-         rCnt, MIN(desc->readScratchCount, desc->buffListScratchCount));
-      mutex_unlock(&desc->mutex);
-      return -1;
+         rCnt, min(desc->readScratchCount, desc->buffListScratchCount));
+      return -EINVAL;
    }
+
+   mutex_lock(&desc->mutex);
 
    // Check that we can actually access the user buffers
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0)
@@ -850,6 +862,17 @@ static ssize_t Dma_Ret_Indexes(struct file *filp, uint32_t cmd, __user void* arg
    desc = (struct DmaDesc *)filp->private_data;
    dev  = desc->dev;
 
+   // No work to do
+   if (cnt == 0)
+      return 0;
+
+   // Reject returns that are too large for the scratch buffer
+   if (cnt > desc->indexScratchCount) {
+      dev_warn(dev->device, "Ret_Indexes: Tried to return too many indexes (%d > %d)\n",
+         cnt, (int)desc->indexScratchCount);
+      return -EINVAL;
+   }
+
    // Ensure the buffer is readable
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0)
    if (!access_ok(arg, cnt * sizeof(uint32_t), VERIFY_READ)) {
@@ -859,13 +882,6 @@ static ssize_t Dma_Ret_Indexes(struct file *filp, uint32_t cmd, __user void* arg
       dev_warn(dev->device, "Ret_Indexes: Invalid user buffer provided. buffer=%p, size=%ld\n",
          arg, cnt * sizeof(uint32_t));
       return -EFAULT;
-   }
-
-   // Reject returns that are too large for the scratch buffer
-   if (cnt > desc->indexScratchCount) {
-      dev_warn(dev->device, "Ret_Indexes: Tried to return too many indexes (%d > %d)\n",
-         cnt, (int)desc->indexScratchCount);
-      return -1;
    }
 
    mutex_lock(&desc->mutex);
@@ -898,6 +914,9 @@ static ssize_t Dma_Ret_Indexes(struct file *filp, uint32_t cmd, __user void* arg
          }
       } else {
          dev_warn(dev->device, "Command: Invalid index posted: %i.\n", desc->indexScratch[x]);
+         // Clear these out for subsequent operations, just in case.
+         memset(desc->buffListScratch, 0, sizeof(struct DmaBuffer*) * desc->buffListScratchCount);
+         memset(desc->indexScratch, 0, sizeof(uint32_t) * desc->indexScratchCount);
          mutex_unlock(&desc->mutex);
          return -EINVAL;
       }
