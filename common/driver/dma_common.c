@@ -142,7 +142,9 @@ struct class *gCl;
  *
  * Returns NULL always.
  */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 4))
+// class.devnode() became const in v6.2 (upstream commit ff62b8e6588f),
+// backported by RHEL 9.4. Distinct from the class_create() change in v6.4.
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 4))
 char *Dma_DevNode(const struct device *dev, umode_t *mode) {
 #else
 char *Dma_DevNode(struct device *dev, umode_t *mode) {
