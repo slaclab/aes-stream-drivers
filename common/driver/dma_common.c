@@ -860,7 +860,7 @@ static ssize_t Dma_Ret_Indexes(struct file *filp, uint32_t cmd, __user void* arg
          arg, cnt * sizeof(uint32_t));
       return -EFAULT;
    }
-   
+
    // Reject returns that are too large for the scratch buffer
    if (cnt > desc->indexScratchCount) {
       dev_warn(dev->device, "Ret_Indexes: Tried to return too many indexes (%d > %d)\n",
@@ -887,13 +887,12 @@ static ssize_t Dma_Ret_Indexes(struct file *filp, uint32_t cmd, __user void* arg
             buff->userHas = NULL;
             desc->buffListScratch[bCnt++] = buff;
          }
-   
       // Attempt to find in tx list
       } else if ( (buff = dmaGetBufferList(&(dev->txBuffers), desc->indexScratch[x])) != NULL ) {
          // Only return if owned by current desc
          if ( buff->userHas == desc ) {
             buff->userHas = NULL;
-   
+
             // Return entry to TX queue
             dmaQueuePush(&(dev->tq), buff);
          }
