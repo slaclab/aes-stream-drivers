@@ -16,31 +16,43 @@
 # ----------------------------------------------------------------------------
 
 # Variables
-HOME      := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-CC        := $(CROSS_COMPILE)g++
-DEF       :=
-BIN       := $(HOME)/bin
-OBJ       := $(HOME)/.obj
-CFLAGS    := -O2 -g -Wall -I$(HOME)/../../include -I$(HOME)/../../common/app_lib -fpic --std=c++11 -DDEFAULT_AXI_DEVICE=\"/dev/datadev_0\"
-LFLAGS    := -lpthread
-NVCC      ?= /usr/local/cuda/bin/nvcc
-NVCCFLAGS := -O2 -g -I$(HOME)/../../include -I$(HOME)/../../common/app_lib --std=c++14 --gpu-architecture=compute_100 -lcuda
+HOME     := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+CC       := $(CROSS_COMPILE)g++
+DEF      :=
+BIN      := $(HOME)/bin
+OBJ      := $(HOME)/.obj
+CFLAGS   := -O2 -g -Wall \
+            -I$(HOME)/../../include \
+            -I$(HOME)/../../common/app_lib \
+            -I$(HOME)/../../emulator/gpu_stub/src \
+            -fpic --std=c++11 \
+            -DDEFAULT_AXI_DEVICE=\"/dev/datadev_0\"
+LFLAGS   := -lpthread
+NVCC     ?= /usr/local/cuda/bin/nvcc
+NVCCFLAGS := -O2 -g \
+             -I$(HOME)/../../include \
+             -I$(HOME)/../../common/app_lib \
+             --std=c++14 --gpu-architecture=compute_100 -lcuda
 
-# Source and Object Directories
+# Library
 LIB_DIR  := $(HOME)/../../common/app_lib
 LIB_SRC  := $(wildcard $(LIB_DIR)/*.cpp)
 LIB_HDR  := $(wildcard $(LIB_DIR)/*.h)
 LIB_OBJ  := $(patsubst $(LIB_DIR)/%.cpp,$(OBJ)/%.o,$(LIB_SRC))
 
+# Applications — auto-derived from .cpp files in src/
 APP_DIR  := $(HOME)/src
-APP_SRC  := $(wildcard $(APP_DIR)/*.cpp)
-APP_BIN  := $(addprefix $(BIN)/,dmaRate dmaWrite dmaSetDebug dmaLoopTest dmaRead test)
 
-# CUDA helper objects (compiled with nvcc and linked into all CUDA binaries)
+# CUDA helper objects (compiled with nvcc and linked into all CUDA binaries).
+# Helper sources have no main() and must be excluded from the standalone-binary build.
 CUDA_LIB_SRC := $(APP_DIR)/GpuAsyncLib.cpp
 CUDA_LIB_OBJ := $(OBJ)/GpuAsyncLib.o
 
-CUDA_BIN := $(addprefix $(BIN)/,rdmaTest)
+APP_SRC  := $(filter-out $(CUDA_LIB_SRC),$(wildcard $(APP_DIR)/*.cpp))
+APP_BIN  := $(patsubst $(APP_DIR)/%.cpp,$(BIN)/%,$(APP_SRC))
+
+# CUDA applications — built separately via 'make cuda'
+CUDA_BIN := $(BIN)/rdmaTest
 
 # Main Targets
 all: $(LIB_OBJ) $(APP_BIN)
@@ -49,10 +61,8 @@ all: $(LIB_OBJ) $(APP_BIN)
 # CUDA targets
 cuda: $(LIB_OBJ) $(CUDA_LIB_OBJ) $(CUDA_BIN)
 
-# Phony Targets
-.PHONY: all clean cuda nothing_done
+.PHONY: all cuda clean
 
-# Clean Build Artifacts
 clean:
 	@echo "Cleaning build artifacts."
 	@rm -f $(BIN)/*
@@ -64,7 +74,7 @@ $(OBJ)/%.o: $(LIB_DIR)/%.cpp $(LIB_DIR)/%.h
 	@echo "Compiling library object $@"
 	@$(CC) -c $(CFLAGS) $(DEF) -o $@ $<
 
-# Compile Application Binaries
+# Compile C++ Application Binaries
 $(BIN)/%: $(APP_DIR)/%.cpp $(LIB_OBJ)
 	@test -d $(BIN) || mkdir -p $(BIN)
 	@echo "Compiling application binary $@"
@@ -76,14 +86,8 @@ $(CUDA_LIB_OBJ): $(CUDA_LIB_SRC) $(HOME)/../../include/GpuAsyncLib.h
 	@echo "Compiling CUDA helper object $@"
 	@$(NVCC) $(NVCCFLAGS) $(DEF) -c -o $@ $<
 
-# CUDA application binaries
+# Compile CUDA Application Binary
 $(BIN)/rdmaTest: $(APP_DIR)/rdmaTest.cu $(CUDA_LIB_OBJ) $(LIB_OBJ)
 	@test -d $(BIN) || mkdir -p $(BIN)
 	@echo "Compiling CUDA application binary $@"
 	@$(NVCC) $(NVCCFLAGS) $(DEF) $(CUDA_LIB_OBJ) $(LIB_OBJ) -o $@ $< $(LFLAGS)
-
-# Check if anything was done, otherwise print a custom message
-nothing_done:
-	@echo "Make done, but no tasks were performed."
-
-# Include this phony target as a dependency to main targets if needed

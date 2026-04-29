@@ -270,7 +270,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    if (dev->irq == 0) {
       dev_err(dev->device, "%s: No IRQ associated with PCI device\n", MOD_NAME);
       probeReturn = -EINVAL;
-      goto err_post_en;
+      goto err_unmap;
    }
 
    // Set basic device context
@@ -306,12 +306,12 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
          } else {
             dev_err(dev->device, "Init: Failed to set coherent DMA mask.\n");
             probeReturn = -EINVAL;
-            goto err_post_en;
+            goto err_unmap;
          }
       } else {
          dev_err(dev->device, "Init: Failed to set DMA mask.\n");
          probeReturn = -EINVAL;
-         goto err_post_en;
+         goto err_unmap;
       }
    }
 
@@ -331,6 +331,8 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    probeReturn = 0;                  // Set successful return code
    return probeReturn;               // Return success
 
+err_unmap:
+   Dma_UnmapReg(dev);               // Idempotent: safe even if Dma_MapReg never ran
 err_post_en:
    pci_disable_device(pcidev);      // Disable PCI device on failure
 err_pre_en:
