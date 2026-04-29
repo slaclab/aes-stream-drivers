@@ -32,7 +32,7 @@ NVCC     ?= /usr/local/cuda/bin/nvcc
 NVCCFLAGS := -O2 -g \
              -I$(HOME)/../../include \
              -I$(HOME)/../../common/app_lib \
-             --gpu-architecture=compute_100 -lcuda
+             --std=c++14 --gpu-architecture=compute_100 -lcuda
 
 # Library
 LIB_DIR  := $(HOME)/../../common/app_lib
@@ -42,7 +42,13 @@ LIB_OBJ  := $(patsubst $(LIB_DIR)/%.cpp,$(OBJ)/%.o,$(LIB_SRC))
 
 # Applications — auto-derived from .cpp files in src/
 APP_DIR  := $(HOME)/src
-APP_SRC  := $(wildcard $(APP_DIR)/*.cpp)
+
+# CUDA helper objects (compiled with nvcc and linked into all CUDA binaries).
+# Helper sources have no main() and must be excluded from the standalone-binary build.
+CUDA_LIB_SRC := $(APP_DIR)/GpuAsyncLib.cpp
+CUDA_LIB_OBJ := $(OBJ)/GpuAsyncLib.o
+
+APP_SRC  := $(filter-out $(CUDA_LIB_SRC),$(wildcard $(APP_DIR)/*.cpp))
 APP_BIN  := $(patsubst $(APP_DIR)/%.cpp,$(BIN)/%,$(APP_SRC))
 
 # CUDA applications — built separately via 'make cuda'
@@ -53,7 +59,7 @@ all: $(LIB_OBJ) $(APP_BIN)
 	@echo "Build complete."
 
 # CUDA targets
-cuda: $(LIB_OBJ) $(CUDA_BIN)
+cuda: $(LIB_OBJ) $(CUDA_LIB_OBJ) $(CUDA_BIN)
 
 .PHONY: all cuda clean
 
@@ -74,8 +80,14 @@ $(BIN)/%: $(APP_DIR)/%.cpp $(LIB_OBJ)
 	@echo "Compiling application binary $@"
 	@$(CC) $(CFLAGS) $(DEF) $(LIB_OBJ) -o $@ $< $(LFLAGS)
 
+# Compile shared CUDA helper object via nvcc so it links cleanly with .cu binaries
+$(CUDA_LIB_OBJ): $(CUDA_LIB_SRC) $(HOME)/../../include/GpuAsyncLib.h
+	@test -d $(OBJ) || mkdir -p $(OBJ)
+	@echo "Compiling CUDA helper object $@"
+	@$(NVCC) $(NVCCFLAGS) $(DEF) -c -o $@ $<
+
 # Compile CUDA Application Binary
-$(BIN)/rdmaTest: $(APP_DIR)/rdmaTest.cu $(LIB_OBJ)
+$(BIN)/rdmaTest: $(APP_DIR)/rdmaTest.cu $(CUDA_LIB_OBJ) $(LIB_OBJ)
 	@test -d $(BIN) || mkdir -p $(BIN)
-	@echo "Compiling CUDA binary $@"
-	@$(NVCC) $(NVCCFLAGS) $(DEF) $(LIB_OBJ) -o $@ $< $(LFLAGS)
+	@echo "Compiling CUDA application binary $@"
+	@$(NVCC) $(NVCCFLAGS) $(DEF) $(CUDA_LIB_OBJ) $(LIB_OBJ) -o $@ $< $(LFLAGS)

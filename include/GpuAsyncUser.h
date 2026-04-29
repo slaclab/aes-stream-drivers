@@ -2,9 +2,9 @@
  * ----------------------------------------------------------------------------
  * Company    : SLAC National Accelerator Laboratory
  * ----------------------------------------------------------------------------
- * Description: User space API for Gpu Async support. Attempts to abstract away
- *  some of the internal implementation detail from user-space software.
- *  This file contains no handling for big-endian systems.
+ * Description: User space C++ wrapper around the mapped GpuAsyncCore
+ *  register block. Hides offset / behaviour differences between V1 and
+ *  V4 firmware. This file contains no handling for big-endian systems.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory
@@ -349,7 +349,7 @@ public:
 
    /**
     * @brief Arms free list buffer for remote write from FPGA -> GPU.
-    * @see triggerRemoteWriteOffset() for something usable with CUDA
+    * @see freeListOffset() for something usable with CUDA
     * @param buffer Buffer index to trigger.
     */
    inline void returnFreeListIndex(uint32_t buffer) {
