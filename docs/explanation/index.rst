@@ -11,3 +11,4 @@ context, and architectural decisions — the "why" behind the driver design.
    dma-modes
    axi-stream-protocol
    kernel-compatibility
+   ci-pipeline
