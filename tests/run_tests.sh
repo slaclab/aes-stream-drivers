@@ -60,6 +60,25 @@ PASSED=0
 FAILED=0
 FAILED_NAMES=""
 
+# Confirm the kernel-side ring is fully drained by polling
+# /proc/datadev_${DEV_IDX}.  The "Buffers In User" lines (one for the RX
+# block, one for the TX block) sum to 0 only when no userspace process
+# holds a buffer; this is a stronger guarantee than fire-and-forget drain
+# because a -1 short-read inside dmaLoopTest's drain pass can leave frames
+# sitting in user-state.  Returns 0 when drained, 1 on timeout (5s).
+verify_rings_empty() {
+   local proc="/proc/datadev_${DEV_IDX:-0}"
+   [ -r "$proc" ] || return 0   # /proc not exposed (Docker without devtmpfs); skip
+   local deadline=$((SECONDS + 5))
+   while [ $SECONDS -lt $deadline ]; do
+      local in_user
+      in_user=$(awk '/Buffers In User/ {sum += $5} END {print sum+0}' "$proc" 2>/dev/null)
+      [ "${in_user:-0}" -eq 0 ] && return 0
+      sleep 0.5
+   done
+   return 1
+}
+
 # Drain any stale frames sitting in the RX ring before retrying a flaky test.
 # Rare stochastic PRBS mismatches have been observed on GitHub Actions runners
 # (Azure kernel 6.17 + CFS contention) where a single dropped frame cascades
@@ -71,13 +90,39 @@ FAILED_NAMES=""
 # a too-small buffer causes the kernel to drop the frame with ret=-1 after
 # one read, prematurely ending the drain (see Dma_Read in dma_common.c).
 # Drain dest=0 and dest=1 because concurrent_open uses both.  stderr/stdout
-# are discarded and exit is ignored because this is fire-and-forget.
+# are discarded and exit is ignored because this is fire-and-forget.  After
+# the drain, verify_rings_empty() polls /proc to confirm the rings actually
+# drained; on timeout we return non-zero so the caller can escalate to a
+# module reload.
 drain_stale_frames() {
    local drain_size
    drain_size=$(cat /sys/module/datadev/parameters/cfgSize 2>/dev/null || echo 65536)
    timeout 5 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$drain_size" -r 1 -d > /dev/null 2>&1 || true
    timeout 5 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 1 -s "$drain_size" -r 1 -d > /dev/null 2>&1 || true
    sleep 1
+   verify_rings_empty
+}
+
+# Hard reset between retries: rmmod + insmod the full module stack so the
+# next attempt starts against pristine kernel state.  Used in addition to
+# drain_stale_frames because the documented Azure-runner cascade can leave
+# residue (TX FIFO, descriptor ring counters) that no userspace drain reaches.
+# Re-invokes the existing CI scripts so module-param plumbing, /dev-node
+# creation, and initstate polling stay in one place.  The BASELINE dmesg
+# marker injected at first load is preserved so check-dmesg.sh continues to
+# scan the original window and any kernel error from either attempt is
+# captured.  Returns 0 on success, non-zero when the helper scripts are not
+# present (e.g. local bare-metal runs) -- caller falls back to drain.
+reload_modules() {
+   local script_dir="${TESTS_DIR}/../scripts/ci"
+   [ -x "$script_dir/unload-modules-cpu.sh" ] || return 1
+   [ -x "$script_dir/load-modules-cpu.sh" ]   || return 1
+   local saved_marker=""
+   [ -r /tmp/ci_dmesg_marker ] && saved_marker=$(cat /tmp/ci_dmesg_marker)
+   bash "$script_dir/unload-modules-cpu.sh" >/dev/null 2>&1 || true
+   bash "$script_dir/load-modules-cpu.sh"   >/dev/null 2>&1 || return 1
+   [ -n "$saved_marker" ] && echo "$saved_marker" > /tmp/ci_dmesg_marker
+   return 0
 }
 
 # Helper: run a named test; accumulate PASS/FAIL counters.
@@ -126,8 +171,18 @@ run_test_with_retry() {
       fi
       rc=$?
       if [ "$attempt" -lt 2 ]; then
-         echo "[RETRY] $name (attempt $attempt failed with exit=$rc; draining and retrying)"
-         drain_stale_frames
+         # Tier-2 reset: nuke and reload the modules so the retry starts
+         # against pristine kernel state. drain_stale_frames alone cannot
+         # reach descriptor-ring or TX FIFO residue from the failed run.
+         # If reload_modules can't run (helper scripts absent on bare-metal
+         # repros, or insmod refused by env), fall back to plain drain so
+         # legacy / non-CI invocations keep working.
+         if reload_modules; then
+            echo "[RETRY] $name (attempt $attempt failed with exit=$rc; reloaded modules and retrying)"
+         else
+            echo "[RETRY] $name (attempt $attempt failed with exit=$rc; draining and retrying)"
+            drain_stale_frames
+         fi
       fi
    done
    echo "[FAIL] $name (exit=$rc after 2 attempts)"
