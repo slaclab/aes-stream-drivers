@@ -603,7 +603,7 @@ int Dma_Release(struct inode *inode, struct file *filp) {
 
    // Clear the tx queue and free the descriptor
    dmaQueueFree(&(desc->q));
-   
+
    // Free scratch buffers
    kfree(desc->buffListScratch);
    kfree(desc->indexScratch);
