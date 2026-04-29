@@ -162,11 +162,15 @@ char *Dma_DevNode(struct device *dev, umode_t *mode) {
  * resources are properly cleaned up.
  */
 void Dma_UnmapReg(struct DmaDevice *dev) {
+   // Idempotent: callable from multiple cleanup paths.
+   if (dev->base == NULL) return;
+
    // Release the allocated memory region
    release_mem_region(dev->baseAddr, dev->baseSize);
 
    // Unmap the device I/O memory
    iounmap(dev->base);
+   dev->base = NULL;
 }
 
 /**
@@ -202,6 +206,7 @@ int Dma_MapReg(struct DmaDevice *dev) {
       if (request_mem_region(dev->baseAddr, dev->baseSize, dev->devName) == NULL) {
          dev_err(dev->device, "Init: Memory in use.\n");
          iounmap(dev->base);
+         dev->base = NULL;
          return -1;
       }
    }
@@ -239,7 +244,7 @@ int Dma_Init(struct DmaDevice *dev) {
    dev->major = MAJOR(dev->devNum);
 
    // Add the character device
-   if (cdev_add(&(dev->charDev), dev->devNum, 1) == -1) {
+   if (cdev_add(&(dev->charDev), dev->devNum, 1) < 0) {
       dev_err(dev->device, "Init: Failed to add device file.\n");
       goto cleanup_alloc_chrdev_region;
    }
@@ -255,8 +260,11 @@ int Dma_Init(struct DmaDevice *dev) {
       gCl = class_create(THIS_MODULE, dev->devName);
 #endif
 
-      if (gCl == NULL) {
+      // class_create returns ERR_PTR on failure; reset to NULL so
+      // shared cleanup (gDmaDevCount == 0 && gCl != NULL) is safe.
+      if (IS_ERR_OR_NULL(gCl)) {
          dev_err(dev->device, "Init: Failed to create device class\n");
+         gCl = NULL;
          goto cleanup_cdev_add;
       }
 
@@ -264,7 +272,7 @@ int Dma_Init(struct DmaDevice *dev) {
    }
 
    // Attempt to create the device
-   if (device_create(gCl, NULL, dev->devNum, NULL, "%s", dev->devName) == NULL) {
+   if (IS_ERR_OR_NULL(device_create(gCl, NULL, dev->devNum, NULL, "%s", dev->devName))) {
       dev_err(dev->device, "Init: Failed to create device file\n");
       goto cleanup_class_create;
    }
