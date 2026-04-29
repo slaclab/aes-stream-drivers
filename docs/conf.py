@@ -34,7 +34,20 @@ breathe_projects = {
     'aes-stream-drivers': '_doxygen/xml',
 }
 breathe_default_project = 'aes-stream-drivers'
+# Most headers are plain C (no extern "C", no C++ features) and Doxyfile sets
+# EXTENSION_MAPPING = h=C / OPTIMIZE_OUTPUT_FOR_C=YES. docs/reference/*.rst
+# references them exclusively as :c:func:/:c:type:/:c:macro:, so map .h files
+# to the C domain; mapping to cpp would register the entities in the C++ domain
+# and silently break every :c:func: cross-reference.
 breathe_domain_by_extension = {'h': 'c', 'c': 'c'}
+# A few headers carry C++-only features (class declarations, namespaces).
+# Override those individually so their classes can be parsed at all — leaving
+# them in the C domain trips Breathe with KeyError: 'class'. The pattern is an
+# fnmatch glob applied against Doxygen's absolute-path location attribute.
+breathe_domain_by_file_pattern = {
+    '*/GpuAsyncUser.h': 'cpp',
+    '*/GpuAsyncLib.h': 'cpp',
+}
 breathe_default_members = ('members', 'undoc-members')
 
 # -- sphinx-copybutton configuration -----------------------------------------
@@ -64,4 +77,4 @@ html_context = {
     'source_suffix': '.rst',
 }
 
-html_static_path = ['_static']
+html_static_path = []

@@ -1,0 +1,356 @@
+# ----------------------------------------------------------------------------
+# Title      : AES Stream Drivers CI Pipeline
+# ----------------------------------------------------------------------------
+# Complete CI/CD pipeline with sequential phases:
+#  Phase 1: Documentation & Linting
+#  Phase 2: CPU Testing (4 distros in parallel) → waits for Phase 1
+#  Phase 3: GPU Testing (4 distros in parallel) → waits for Phase 2
+#  Phase 4: Release Generation → waits for Phase 3
+#  Phase 5: DKMS Package Generation → waits for Phase 4
+#
+# All phases visible in a single GitHub Actions run page.
+#
+# NOTE: Phase 2 and Phase 3 use modular scripts from scripts/ci/ directory.
+#       This ensures 100% parity between local testing and CI execution.
+# ----------------------------------------------------------------------------
+
+name: CI Pipeline
+on: [push]
+
+jobs:
+  # ==========================================================================
+  # Phase 1: Documentation & Linting
+  # ==========================================================================
+  test_and_document:
+    name: "Phase 1: Documentation & Linting"
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-pip doxygen
+          python -m pip install --upgrade pip
+          pip install -r pip_requirements.txt
+          pip install -r docs/requirements.txt
+
+      - name: Documentation build smoke test
+        run: |
+          cd docs
+          doxygen Doxyfile
+          make html
+          test -f _build/html/index.html
+
+      - name: Check for trailing whitespace and tabs
+        run: |
+          if grep -rnI '[[:blank:]]$' --include=\*.{c,cpp,h,sh,py} .; then
+            echo "Error: Trailing whitespace found in the repository!"
+            exit 1
+          fi
+          if grep -rnI $'\t' --include=\*.{c,cpp,h,sh,py} .; then
+            echo "Error: Tab characters found in the repository! Please use spaces for indentation."
+            exit 1
+          fi
+
+      - name: C/C++ Linter
+        run: |
+          find . -name '*.h' -o -name '*.cpp' -o -name '*.c' | xargs cpplint
+
+      - name: Assert gpu_async.c unchanged from main
+        run: |
+          git fetch origin main --depth=1 2>/dev/null || true
+          BASE=$(git merge-base HEAD origin/main 2>/dev/null || echo "")
+          if [ -z "$BASE" ]; then
+            echo "WARN: cannot resolve merge base; skipping diff gate"
+            exit 0
+          fi
+          git diff --exit-code "$BASE" -- \
+            common/driver/gpu_async.c \
+            data_dev/driver/src/gpu_async.c
+
+  # ==========================================================================
+  # Phase 2: CPU Testing (5 distros in parallel)
+  # Waits for Phase 1 to complete
+  # Uses modular scripts from scripts/ci/
+  # ==========================================================================
+  cpu_test:
+    name: "Phase 2: CPU Test (${{ matrix.container }})"
+    needs: [test_and_document]
+    # Bound job wall-clock to 20 minutes. Belt to the 120s per-insmod
+    # timeout suspenders in scripts/ci/load-modules-*.sh; a hang at any step
+    # fails well before the 6-hour GitHub runner ceiling, freeing the slot
+    # and letting the diagnostic artifact upload (if: failure()) fire.
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Only ubuntu:24.04 has the running host's Azure kernel headers in its
+          # --privileged: CAP_SYS_MODULE for insmod
+          # bind-mounts: host kernel headers visible inside every container
+          - container: "ubuntu:24.04"
+            load_test: true
+          - container: "ubuntu:22.04"
+            load_test: true
+          - container: "rockylinux:9"
+            load_test: true
+          - container: "debian:experimental"
+            load_test: true
+          - container: "fedora:rawhide"
+            load_test: true
+    runs-on: ubuntu-24.04
+    container:
+      image: ${{ matrix.container }}
+      options: "--privileged -v /lib/modules:/lib/modules -v /usr/src:/usr/src"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: bash scripts/ci/install-deps.sh
+
+      - name: Display environment info
+        run: |
+          echo "Container: ${{ matrix.container }}"
+          echo "Host kernel: $(uname -r)"
+          echo "Build kernel: ${CI_KVER}"
+          echo "Host match: ${CI_HOST_MATCH}"
+          echo "## ${{ matrix.container }} — kernel ${CI_KVER}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Build (CPU)
+        run: bash scripts/ci/build-cpu.sh
+
+      - name: Load modules
+        if: matrix.load_test && env.CI_HOST_MATCH == '1'
+        run: bash scripts/ci/load-modules-cpu.sh
+
+      - name: Run tests
+        if: matrix.load_test && env.CI_HOST_MATCH == '1'
+        run: bash scripts/ci/test-cpu.sh
+
+      - name: Unload modules
+        if: always() && matrix.load_test && env.CI_HOST_MATCH == '1'
+        run: bash scripts/ci/unload-modules-cpu.sh
+
+      - name: Test DKMS (smoke)
+        run: bash scripts/ci/test-dkms-cpu-smoke.sh
+
+      - name: Check dmesg
+        if: always()
+        run: bash scripts/ci/check-dmesg.sh
+
+      - name: Collect diagnostics on failure
+        if: failure()
+        run: |
+          mkdir -p diag
+          dmesg > diag/dmesg.txt 2>&1 || true
+          cp /tmp/phase3_tests.log   diag/ 2>/dev/null || true
+          cp /tmp/test_params.log    diag/ 2>/dev/null || true
+          cp dma_loop_output.txt     diag/ 2>/dev/null || true
+          cp dma_rate_output.txt     diag/ 2>/dev/null || true
+          cp emulator/driver/datadev_emulator.ko diag/ 2>/dev/null || true
+          cp data_dev/driver/datadev.ko          diag/ 2>/dev/null || true
+          ls -la diag/ || true
+
+      - name: Sanitize container name for artifact
+        if: failure()
+        run: |
+          SANITIZED=$(echo "${{ matrix.container }}" | sed 's/:/-/g; s/\//-/g')
+          echo "ARTIFACT_NAME=cpu-ci-diag-${{ github.job }}-${SANITIZED}" >> $GITHUB_ENV
+
+      - name: Upload diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: diag/
+          retention-days: 3
+          if-no-files-found: ignore
+
+      - name: Dump full dmesg on failure
+        if: failure()
+        run: dmesg || echo "dmesg not available (expected in container)"
+
+  # ==========================================================================
+  # Phase 3: GPU Testing (5 distros in parallel)
+  # Waits for Phase 2 (all CPU tests) to complete
+  # Uses modular scripts from scripts/ci/
+  # ==========================================================================
+  gpu_test:
+    name: "Phase 3: GPU Test (${{ matrix.container }})"
+    needs: [cpu_test]
+    # Bound job wall-clock to 30 minutes. Belt to the 120s per-insmod
+    # timeout suspenders in scripts/ci/load-modules-*.sh; a hang at any step
+    # fails well before the 6-hour GitHub runner ceiling, freeing the slot
+    # and letting the diagnostic artifact upload (if: failure()) fire.
+    # The test phase itself completes in ~10-12 min on the slowest matrix
+    # cells; the extra 10 min covers occasional post-job `docker rm --force`
+    # stalls observed on GitHub-hosted runners (e.g. run 24874328424 where
+    # rocky9 teardown sat idle for ~22 min after the test sequence had
+    # already passed).
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # --privileged: CAP_SYS_MODULE for insmod
+          # bind-mounts: host kernel headers visible inside every container
+          - container: "ubuntu:24.04"
+            load_test: true
+          - container: "ubuntu:22.04"
+            load_test: true
+          - container: "rockylinux:9"
+            load_test: true
+          - container: "debian:experimental"
+            load_test: true
+          - container: "fedora:rawhide"
+            load_test: true
+    runs-on: ubuntu-24.04
+    container:
+      image: ${{ matrix.container }}
+      options: "--privileged -v /lib/modules:/lib/modules -v /usr/src:/usr/src"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: bash scripts/ci/install-deps.sh
+
+      - name: Display environment info
+        run: |
+          echo "Container: ${{ matrix.container }}"
+          echo "Host kernel: $(uname -r)"
+          echo "Build kernel: ${CI_KVER}"
+          echo "Host match: ${CI_HOST_MATCH}"
+          echo "## ${{ matrix.container }} — kernel ${CI_KVER}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Build (GPU)
+        run: bash scripts/ci/build-gpu.sh
+
+      - name: Load modules
+        if: matrix.load_test && env.CI_HOST_MATCH == '1'
+        run: bash scripts/ci/load-modules-gpu.sh
+
+      - name: Run tests
+        if: matrix.load_test && env.CI_HOST_MATCH == '1'
+        run: bash scripts/ci/test-gpu.sh
+
+      - name: Unload modules
+        if: always() && matrix.load_test && env.CI_HOST_MATCH == '1'
+        run: bash scripts/ci/unload-modules-gpu.sh
+
+      - name: Test DKMS (smoke)
+        run: bash scripts/ci/test-dkms-gpu-smoke.sh
+
+      - name: Check dmesg
+        if: always()
+        run: bash scripts/ci/check-dmesg.sh
+
+      - name: Collect diagnostics on failure
+        if: failure()
+        run: |
+          mkdir -p diag
+          dmesg > diag/dmesg.txt 2>&1 || true
+          cp /tmp/phase4_tests.log       diag/ 2>/dev/null || true
+          cp dma_loop_output_gpu.txt     diag/ 2>/dev/null || true
+          cp emulator/driver/datadev_emulator.ko diag/ 2>/dev/null || true
+          cp emulator/gpu_stub/nvidia_p2p_stub.ko diag/ 2>/dev/null || true
+          cp data_dev/driver/datadev.ko          diag/ 2>/dev/null || true
+          ls -la diag/ || true
+
+      - name: Sanitize container name for artifact
+        if: failure()
+        run: |
+          SANITIZED=$(echo "${{ matrix.container }}" | sed 's/:/-/g; s/\//-/g')
+          echo "ARTIFACT_NAME=gpu-ci-diag-${{ github.job }}-${SANITIZED}" >> $GITHUB_ENV
+
+      - name: Upload diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: diag/
+          retention-days: 3
+          if-no-files-found: ignore
+
+      - name: Dump full dmesg on failure
+        if: failure()
+        run: dmesg || echo "dmesg not available (expected in container)"
+
+  # ==========================================================================
+  # Phase 4: Release Generation
+  # Waits for Phase 3 (all GPU tests) to complete
+  # ==========================================================================
+  gen_release:
+    name: "Phase 4: Generate Release"
+    needs: [gpu_test]
+    uses: slaclab/ruckus/.github/workflows/gen_release.yml@main
+    with:
+      version: '1.0.0'
+    secrets:
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+
+  # ==========================================================================
+  # Phase 5: DKMS Package Generation
+  # Waits for Phase 4 (release) to complete
+  # Only runs on tagged releases
+  # ==========================================================================
+  generate_dkms:
+    name: "Phase 5: Generate DKMS Packages"
+    needs: [gen_release]
+    runs-on: ubuntu-24.04
+    if: startsWith(github.ref, 'refs/tags/')
+    strategy:
+      matrix:
+        mod:
+          - datadev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install debhelper dkms fakeroot rpm
+          python -m pip install --upgrade pip
+          pip install -r pip_requirements.txt
+
+      - name: Get Image Information
+        id: get_image_info
+        env:
+          MOD: ${{ matrix.mod }}
+        run: |
+          echo ::set-output name=tag::`git describe --tags`
+
+          if [ $MOD == "datadev" ]
+          then
+             echo ::set-output name=module::"datadev"
+             echo ::set-output name=dir::"data_dev/driver"
+          fi
+
+      - name: Build DKMS Tarballs
+        run: |
+          make -C data_dev/driver dkms
+
+      - name: Upload Assets
+        env:
+          VERSION: ${{ steps.get_image_info.outputs.tag }}
+          GIT_REPO: ${{ github.repository }}
+          GH_REPO_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          python scripts/uploadTag.py --tag=$VERSION --repo=$GIT_REPO --file=data_dev/driver/datadev-dkms-${VERSION}.tar.gz
+          python scripts/uploadTag.py --tag=$VERSION --repo=$GIT_REPO --file=data_dev/driver/datadev-gpu-dkms-${VERSION}.tar.gz

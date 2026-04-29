@@ -2,9 +2,9 @@
  * ----------------------------------------------------------------------------
  * Company    : SLAC National Accelerator Laboratory
  * ----------------------------------------------------------------------------
- * Description: User space API for Gpu Async support. Attempts to abstract away
- *  some of the internal implementation detail from user-space software.
- *  This file contains no handling for big-endian systems.
+ * Description: User space C++ wrapper around the mapped GpuAsyncCore
+ *  register block. Hides offset / behaviour differences between V1 and
+ *  V4 firmware. This file contains no handling for big-endian systems.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory
@@ -37,11 +37,15 @@ public:
    GpuAsyncCoreRegs() = delete;
 
    /**
-    * @brief regs Pointer to the memory mapped GpuAsyncCore registers.
+    * @param regs Pointer to the memory mapped GpuAsyncCore registers.
+    * @param versionOverride Force this specific version of GpuAsyncCore, instead of reading from the GpuAsyncReg_Version
     */
-   explicit GpuAsyncCoreRegs(volatile void* regs) :
+   explicit GpuAsyncCoreRegs(volatile void* regs, int versionOverride = -1) :
       regs_((volatile uint8_t*)regs) {
-      this->version_ = readReg(GpuAsyncReg_Version);
+      if (versionOverride < 0)
+         this->version_ = readReg(GpuAsyncReg_Version);
+      else
+         this->version_ = versionOverride;
    }
 
    inline volatile uint8_t* registers() const {
@@ -190,6 +194,18 @@ public:
       }
    }
 
+   inline uint32_t totalLatencyOffset(uint32_t buffer) const {
+      switch (versionSwitch()) {
+      case 0:
+         return 0xFFFFFFFF;
+      case 1:
+         return GPU_ASYNC_REG_LATENCY_TOTAL_OFFSET_V1(buffer);
+      case 4:
+      default:
+         return GpuAsyncReg_TotLatencyV4.offset;
+      }
+   }
+
    /**
     * @brief Returns the GPU processing latency, in clock cycles, reported for the buffer
     * @note For V4+, the buffer argument is ignored and should be 0.
@@ -206,6 +222,18 @@ public:
       }
    }
 
+   inline uint32_t gpuLatencyOffset(uint32_t buffer) const {
+      switch (versionSwitch()) {
+      case 0:
+         return 0xFFFFFFFF;
+      case 1:
+         return GPU_ASYNC_REG_LATENCY_GPU_OFFSET_V1(buffer);
+      case 4:
+      default:
+         return GpuAsyncReg_GpuLatencyV4.offset;
+      }
+   }
+
    /**
     * @brief Returns the FPGA -> GPU write latency, in clock cycles, reported for the buffer
     * @note For V4+, the buffer argument is ignored and should be 0.
@@ -219,6 +247,18 @@ public:
       case 4:
       default:
          return readReg(GpuAsyncReg_WrLatencyV4);
+      }
+   }
+
+   inline uint32_t writeLatencyOffset(uint32_t buffer) const {
+      switch (versionSwitch()) {
+      case 0:
+         return 0xFFFFFFFF;
+      case 1:
+         return GPU_ASYNC_REG_LATENCY_WRITE_OFFSET_V1(buffer);
+      case 4:
+      default:
+         return GpuAsyncReg_WrLatencyV4.offset;
       }
    }
 
@@ -309,7 +349,7 @@ public:
 
    /**
     * @brief Arms free list buffer for remote write from FPGA -> GPU.
-    * @see triggerRemoteWriteOffset() for something usable with CUDA
+    * @see freeListOffset() for something usable with CUDA
     * @param buffer Buffer index to trigger.
     */
    inline void returnFreeListIndex(uint32_t buffer) {

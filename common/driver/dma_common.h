@@ -184,6 +184,23 @@ struct DmaDesc {
 
    // Pointer back to card structure
    struct DmaDevice * dev;
+
+   // Scratch data buffers for ioctl and read operations
+   uint32_t* indexScratch;
+   struct DmaReadData* readDataScratch;
+   struct DmaBuffer** buffListScratch;
+
+   // Number of elements in the read scratch buffer. Corresponds to cfgRxCount
+   uint32_t readScratchCount;
+
+   // Number of elements in the index scratch buffer.
+   uint32_t indexScratchCount;
+
+   // Number of elements in the buff list scratch buffer.
+   uint32_t buffListScratchCount;
+
+   // Operation guard
+   struct mutex mutex;
 };
 
 /**
@@ -227,7 +244,7 @@ extern struct class * gCl;
 extern struct file_operations DmaFunctions;
 
 // Function prototypes
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 4))
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 4))
 char *Dma_DevNode(const struct device *dev, umode_t *mode);
 #else
 char *Dma_DevNode(struct device *dev, umode_t *mode);

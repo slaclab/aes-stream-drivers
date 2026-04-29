@@ -15,7 +15,6 @@ PROJECT_BRIEF          = "SLAC AES Stream Drivers — User Space API"
 INPUT                  = ../include/
 RECURSIVE              = YES
 FILE_PATTERNS          = *.h *.c
-EXTENSION_MAPPING      = h=C c=C
 
 #---------------------------------------------------------------------------
 # Output: XML only (Breathe consumes this; no HTML site from Doxygen)
@@ -56,7 +55,8 @@ EXPAND_ONLY_PREDEF     = NO
 PREDEFINED             = __attribute__(x)= \
                          __user= \
                          __iomem= \
-                         __must_check=
+                         __must_check= \
+                         __cplusplus=201103L
 
 #---------------------------------------------------------------------------
 # Noise reduction

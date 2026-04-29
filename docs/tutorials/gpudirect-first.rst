@@ -186,6 +186,11 @@ With both drivers loaded and GPUDirect support confirmed, run the test:
 
    sudo ./data_dev/app/bin/rdmaTest
 
+``rdmaTest`` uses ``gpuAsyncInit()`` and ``gpuAsyncCleanup()`` from
+``GpuAsyncUser.h`` to handle the full GPU/FPGA bring-up and tear-down
+sequence. See :doc:`../reference/gpu-async-api` for the complete API
+reference.
+
 Expected output: ``rdmaTest`` prints GPU-to-FPGA transfer statistics and
 exits with status 0. If it exits cleanly the DMA path from the GPU through
 the PCIe bus to the FPGA card is working correctly.

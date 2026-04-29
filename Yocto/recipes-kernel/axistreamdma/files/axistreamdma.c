@@ -232,7 +232,7 @@ int Rce_Probe(struct platform_device *pdev) {
    dev->device = &(pdev->dev);
 
    // Map device memory to enable probing
-   if (Dma_MapReg(dev) < 0) return -1;
+   if (Dma_MapReg(dev) < 0) goto err_post_irq_map;
 
    // Configure device settings based on the selected index
    switch (tmpIdx) {
@@ -255,7 +255,7 @@ int Rce_Probe(struct platform_device *pdev) {
          dev->cfgMode = cfgMode2;
          break;
       default:
-         return -1;  // Invalid index
+         goto err_post_mapreg;  // Invalid index
    }
 
    // Instance-independent configuration
@@ -268,7 +268,7 @@ int Rce_Probe(struct platform_device *pdev) {
       writel(0x1, ((uint8_t *)dev->reg) + 0x8);
       if (readl(((uint8_t *)dev->reg) + 0x8) != 0x1) {
          pr_info("%s: Probe: Empty register space. Exiting.\n", MOD_NAME);
-         return -1;
+         goto err_post_mapreg;
       }
       dev->hwFunc = &(AxisG1_functions);
    }
@@ -290,9 +290,11 @@ int Rce_Probe(struct platform_device *pdev) {
 #endif
 #endif
 
-   // Initialize DMA and check for success
+   // Initialize DMA and check for success.
+   // Dma_Init unwinds its own resources (incl. Dma_UnmapReg) on failure,
+   // so skip err_post_mapreg and go straight to err_post_irq_map.
    if (Dma_Init(dev) < 0)
-      return -1;  // Return error if DMA initialization fails
+      goto err_post_irq_map;
 
    // Successful DMA initialization increments device count
    gDmaDevCount++;
@@ -302,6 +304,13 @@ int Rce_Probe(struct platform_device *pdev) {
 
    // Return success
    return 0;
+
+err_post_mapreg:
+   Dma_UnmapReg(dev);
+err_post_irq_map:
+   irq_dispose_mapping(dev->irq);
+   memset(dev, 0, sizeof(*dev));
+   return -1;
 }
 
 /**
@@ -315,10 +324,15 @@ int Rce_Probe(struct platform_device *pdev) {
  *
  * @pdev: Platform device structure representing the DMA device.
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
 void Rce_Remove(struct platform_device *pdev) {
+#else
+int Rce_Remove(struct platform_device *pdev) {
+#endif
    int32_t x;
    const char *tmpName;
    int32_t tmpIdx;
+   unsigned int irq_to_dispose;
    struct DmaDevice *dev = NULL;
 
    pr_info("%s: Remove: Removal process initiated.\n", MOD_NAME);
@@ -341,17 +355,31 @@ void Rce_Remove(struct platform_device *pdev) {
    // Exit if no matching device is found
    if (tmpIdx < 0) {
       pr_info("%s: Remove: No matching device found.\n", MOD_NAME);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
+      return -1;
+#else
       return;
+#endif
    }
 
    // Retrieve the device structure and update the global device count
    dev = &gDmaDevices[tmpIdx];
    gDmaDevCount--;
 
+   // Save the virtual IRQ before Dma_Clean zeros the device struct.
+   irq_to_dispose = dev->irq;
+
    // Invoke common cleanup operations for the DMA device
    Dma_Clean(dev);
 
+   // Release the virtual-IRQ mapping created in Rce_Probe.
+   // irq_dispose_mapping(0) is a no-op, so this is safe even if no IRQ was mapped.
+   irq_dispose_mapping(irq_to_dispose);
+
    pr_info("%s: Remove: Device removal completed.\n", MOD_NAME);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
+   return 0;
+#endif
 }
 
 /**
