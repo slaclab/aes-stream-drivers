@@ -1,5 +1,5 @@
 Set Up GPUDirect RDMA
-====================
+=====================
 
 This guide covers the system configuration required to enable GPUDirect RDMA
 between an NVIDIA GPU and an FPGA card using the datadev driver.

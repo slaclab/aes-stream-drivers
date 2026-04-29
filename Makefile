@@ -34,7 +34,7 @@ RCE_DIRS += /sdf/group/faders/tools/xilinx/rce_linux_kernel/backup/linux-xlnx-v2
 
 # Default target: Display the available build options
 all:
-	@echo "Available targets: app driver rce"
+	@echo "Available targets: app driver emulator gpu_stub driver_gpu rce"
 
 # Build applications
 app:
@@ -52,6 +52,33 @@ driver:
 		mkdir -p $(MAKE_HOME)/install/$(ver); \
 		$(MAKE) -C $(MAKE_HOME)/data_dev/driver KVER=$(ver) clean; \
 		$(MAKE) -C $(MAKE_HOME)/data_dev/driver KVER=$(ver); \
+		scp $(MAKE_HOME)/data_dev/driver/*.ko $(MAKE_HOME)/install/$(ver); \
+	)
+
+# Build emulator module for each discovered kernel version
+emulator:
+	@echo "Building emulator module..."
+	@$(foreach ver,$(LOC_VERS), \
+		$(MAKE) -C $(MAKE_HOME)/emulator/driver KVER=$(ver) clean; \
+		$(MAKE) -C $(MAKE_HOME)/emulator/driver KVER=$(ver); \
+	)
+
+# Build nvidia_p2p_stub module for each discovered kernel version
+gpu_stub:
+	@echo "Building nvidia_p2p_stub module..."
+	@$(foreach ver,$(LOC_VERS), \
+		$(MAKE) -C $(MAKE_HOME)/emulator/gpu_stub KVER=$(ver) clean; \
+		$(MAKE) -C $(MAKE_HOME)/emulator/gpu_stub KVER=$(ver); \
+	)
+
+# Build datadev driver with DATA_GPU=1 using nvidia_p2p_stub as NVIDIA_DRIVERS
+driver_gpu: gpu_stub
+	@echo "Building datadev driver with GPU support..."
+	@mkdir -p $(MAKE_HOME)/install
+	@$(foreach ver,$(LOC_VERS), \
+		mkdir -p $(MAKE_HOME)/install/$(ver); \
+		$(MAKE) -C $(MAKE_HOME)/data_dev/driver KVER=$(ver) clean; \
+		$(MAKE) -C $(MAKE_HOME)/data_dev/driver KVER=$(ver) NVIDIA_DRIVERS=$(MAKE_HOME)/emulator/gpu_stub; \
 		scp $(MAKE_HOME)/data_dev/driver/*.ko $(MAKE_HOME)/install/$(ver); \
 	)
 

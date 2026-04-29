@@ -331,7 +331,11 @@ uint32_t AxisG2_Process(struct DmaDevice * dev, __iomem struct AxisG2Reg *reg, s
              dmaRxBufferIrq(desc, buff);
          }
       } else {
-          dev_warn(dev->device, "Process: Failed to locate RX buffer index %i.\n", ret.index);
+          // Rate-limited: during rmmod-under-load this can fire per-descriptor
+          // as buffers are torn down concurrently.  An unrate-limited dev_warn
+          // under maskLock can saturate the console path and deadlock against
+          // Dma_Release which also needs maskLock.
+          dev_warn_ratelimited(dev->device, "Process: Failed to locate RX buffer index %i.\n", ret.index);
       }
 
       // Update write index
