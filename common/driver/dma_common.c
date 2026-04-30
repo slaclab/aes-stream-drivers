@@ -339,8 +339,15 @@ int Dma_Init(struct DmaDevice *dev) {
    if ( dev->cfgRxCount > 0 && res == 0 )
       goto cleanup_dma_queue;
 
-   // Call card specific init
-   dev->hwFunc->init(dev);
+   // Call card specific init. On failure the init function
+   // owns its own cleanup; we must not call ->clear() because
+   // dev->hwData may be NULL or partially built. Log the
+   // returned errno so the real failure reason survives.
+   res = dev->hwFunc->init(dev);
+   if (res < 0) {
+      dev_err(dev->device, "Init: Card-specific init failed: %zd.\n", res);
+      goto cleanup_rx_buffers;
+   }
 
    // Set interrupt
    if ( dev->irq != 0 ) {
@@ -363,7 +370,8 @@ int Dma_Init(struct DmaDevice *dev) {
 cleanup_card_clear:
    dev->hwFunc->clear(dev);
 
-// Clean RX buffers
+cleanup_rx_buffers:
+   // Clean RX buffers
    dmaFreeBuffers(&(dev->rxBuffers));
 
 cleanup_dma_queue:

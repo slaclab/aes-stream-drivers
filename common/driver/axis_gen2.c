@@ -407,7 +407,7 @@ irqreturn_t AxisG2_Irq(int irq, void *dev_id) {
  * This includes setting up DMA buffers, configuring hardware registers, and initializing
  * software queues for efficient DMA transfers.
  */
-void AxisG2_Init(struct DmaDevice *dev) {
+int AxisG2_Init(struct DmaDevice *dev) {
    uint32_t x;
    uint32_t size;
 
@@ -423,6 +423,10 @@ void AxisG2_Init(struct DmaDevice *dev) {
 
    // Allocate and initialize hardware data structure
    hwData = (struct AxisG2Data *)kzalloc(sizeof(struct AxisG2Data), GFP_KERNEL);
+   if (hwData == NULL) {
+      dev_err(dev->device, "Init: Failed to allocate AxisG2Data.\n");
+      return -ENOMEM;
+   }
    dev->hwData = hwData;
    hwData->dev = dev;
 
@@ -436,11 +440,28 @@ void AxisG2_Init(struct DmaDevice *dev) {
    hwData->hwWrBuffCnt = 0;
    hwData->hwRdBuffCnt = 0;
 
-   // Initialize software queues if in 128-bit descriptor mode
+   // Initialize software queues if in 128-bit descriptor mode.
+   // dmaQueueInit returns 0 on success-with-zero-elements *and*
+   // on failure, so test queue->queue (NULL on failure) for an
+   // unambiguous result. The cleanup goto for each step targets
+   // the matching err_free_<queue> label so the partially-built
+   // queue is freed via dmaQueueFree.
    if ( hwData->desc128En ) {
       dmaQueueInit(&hwData->wrQueue, dev->rxBuffers.count);
+      if (hwData->wrQueue.queue == NULL) {
+         dev_err(dev->device, "Init: Failed to init wrQueue.\n");
+         goto err_free_wrqueue;
+      }
       dmaQueueInit(&hwData->rdQueue, dev->txBuffers.count + dev->rxBuffers.count);
-      hwData->buffList = (struct DmaBuffer **)kzalloc(BUFF_LIST_SIZE * sizeof(struct DmaBuffer *), GFP_ATOMIC);
+      if (hwData->rdQueue.queue == NULL) {
+         dev_err(dev->device, "Init: Failed to init rdQueue.\n");
+         goto err_free_rdqueue;
+      }
+      hwData->buffList = (struct DmaBuffer **)kzalloc(BUFF_LIST_SIZE * sizeof(struct DmaBuffer *), GFP_KERNEL);
+      if (hwData->buffList == NULL) {
+         dev_err(dev->device, "Init: Failed to allocate buffList.\n");
+         goto err_free_rdqueue;
+      }
    }
 
    // Calculate and set the addressable space based on register settings
@@ -450,14 +471,30 @@ void AxisG2_Init(struct DmaDevice *dev) {
    // Allocate DMA buffers based on configuration mode
    if (dev->cfgMode & AXIS2_RING_ACP) {
       // Allocate read and write buffers in contiguous physical memory
-      hwData->readAddr   = kzalloc(size, GFP_KERNEL);
+      hwData->readAddr = kzalloc(size, GFP_KERNEL);
+      if (hwData->readAddr == NULL) {
+         dev_err(dev->device, "Init: Failed to allocate read ring (size=%u).\n", size);
+         goto err_free_bufflist;
+      }
       hwData->readHandle = virt_to_phys(hwData->readAddr);
-      hwData->writeAddr   = kzalloc(size, GFP_KERNEL);
+      hwData->writeAddr = kzalloc(size, GFP_KERNEL);
+      if (hwData->writeAddr == NULL) {
+         dev_err(dev->device, "Init: Failed to allocate write ring (size=%u).\n", size);
+         goto err_free_readaddr_acp;
+      }
       hwData->writeHandle = virt_to_phys(hwData->writeAddr);
    } else {
       // Allocate coherent DMA buffers for read and write operations
       hwData->readAddr = dma_alloc_coherent(dev->device, size, &(hwData->readHandle), GFP_KERNEL);
+      if (hwData->readAddr == NULL) {
+         dev_err(dev->device, "Init: dma_alloc_coherent failed for read ring (size=%u).\n", size);
+         goto err_free_bufflist;
+      }
       hwData->writeAddr = dma_alloc_coherent(dev->device, size, &(hwData->writeHandle), GFP_KERNEL);
+      if (hwData->writeAddr == NULL) {
+         dev_err(dev->device, "Init: dma_alloc_coherent failed for write ring (size=%u).\n", size);
+         goto err_free_readaddr_dma;
+      }
    }
 
    // Log buffer addresses
@@ -531,6 +568,26 @@ void AxisG2_Init(struct DmaDevice *dev) {
    }
 
    dev_info(dev->device, "Init: Found Version 2 Device. Desc128En=%i\n", hwData->desc128En);
+   return 0;
+
+   // Allocation failure cleanup. dev->hwData is left NULL so
+   // AxisG2_Clear (not invoked here) is never called with a
+   // half-built hwData.
+err_free_readaddr_dma:
+   dma_free_coherent(dev->device, size, hwData->readAddr, hwData->readHandle);
+   goto err_free_bufflist;
+err_free_readaddr_acp:
+   kfree(hwData->readAddr);
+err_free_bufflist:
+   if (hwData->desc128En) kfree(hwData->buffList);
+err_free_rdqueue:
+   if (hwData->desc128En) dmaQueueFree(&hwData->rdQueue);
+err_free_wrqueue:
+   if (hwData->desc128En) dmaQueueFree(&hwData->wrQueue);
+err_free_hwdata:
+   kfree(hwData);
+   dev->hwData = NULL;
+   return -ENOMEM;
 }
 
 /**

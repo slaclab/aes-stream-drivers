@@ -171,7 +171,7 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
 
 
 // Init card in top level Probe
-void AxisG1_Init(struct DmaDevice *dev) {
+int AxisG1_Init(struct DmaDevice *dev) {
    uint32_t x;
 
    struct DmaBuffer  *buff;
@@ -209,6 +209,7 @@ void AxisG1_Init(struct DmaDevice *dev) {
    // Set dest mask
    memset(dev->destMask, 0xFF, DMA_MASK_SIZE);
    dev_info(dev->device, "Init: Found Version 1 Device.\n");
+   return 0;
 }
 
 // Enable or disable IRQs in the hardware

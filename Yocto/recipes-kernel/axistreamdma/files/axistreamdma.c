@@ -290,11 +290,13 @@ int Rce_Probe(struct platform_device *pdev) {
 #endif
 #endif
 
-   // Initialize DMA and check for success.
-   // Dma_Init unwinds its own resources (incl. Dma_UnmapReg) on failure,
-   // so skip err_post_mapreg and go straight to err_post_irq_map.
+   // Initialize DMA and check for success. Dma_Init's late
+   // failure paths unwind via Dma_UnmapReg, but its early
+   // paths (chrdev/class/device/proc) do NOT — so we must
+   // always route through err_post_mapreg. Dma_UnmapReg is
+   // idempotent, so a double call is harmless.
    if (Dma_Init(dev) < 0)
-      goto err_post_irq_map;
+      goto err_post_mapreg;
 
    // Successful DMA initialization increments device count
    gDmaDevCount++;
