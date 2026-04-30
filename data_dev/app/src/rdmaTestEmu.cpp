@@ -768,6 +768,30 @@ int main(int argc, char **argv) {
 
    GpuAsyncCoreRegs regs(bar0);
 
+   /* Defensive cleanup of stale BAR0 per-buffer state from a prior
+    * test instance. test_gpu_dma_loopback.sh's run_with_retry harness
+    * re-invokes this binary on a 10s tx-ack timeout flake, but the
+    * prior instance's gpuRemNvidiaMemory only clears ctrl and
+    * RW_MAX_SIZE — remoteReadSize[] and freeList[] survive. On the
+    * next gpuAddNvidiaMemory(write=0) below, ctrl re-enables RE=1
+    * with rcnt=0; the kernel TX tick immediately reads the stale
+    * remoteReadSize[0]=non-zero, looks up the freshly-mapped (zero-
+    * filled) TX buffer, and emu_prbs_process_data fires
+    * WARN_ON_ONCE at prbs.c:123 because the new buffer's
+    * data32[1]=0 yields event_length=4 != stale reqsz. Force a
+    * clean slate here. ctrl was already cleared to WE=0/RE=0 by the
+    * prior session's Gpu_RemNvidia, so no engine activity can race
+    * these writes. */
+   regs.setWriteEnable(0);
+   regs.setReadEnable(0);
+   {
+      const uint32_t maxBuffersHw = regs.maxBuffers();
+      for (uint32_t i = 0; i < maxBuffersHw; ++i) {
+         regs.setRemoteReadSize(i, 0);
+         regs.writeReg(regs.freeListOffset(i), 0);
+      }
+   }
+
    /* Allocate parallel arrays for rx/tx buffers + their stub buf_ids. */
    uint8_t *rxBuffs[kMaxBufCnt] = {0};
    uint8_t *txBuffs[kMaxBufCnt] = {0};
