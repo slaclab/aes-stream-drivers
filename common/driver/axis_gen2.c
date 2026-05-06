@@ -539,13 +539,19 @@ int AxisG2_Init(struct DmaDevice *dev) {
    if ( dev->version >= 3 ) writel(dev->cfgIrqHold, &(reg->irqHoldOff));
    if ( dev->version >= 5 ) writel(dev->cfgTimeout, &(reg->timeout));
 
-   // Push RX buffers to hardware and map
+   // Push RX buffers to hardware and map. A per-buffer map failure means
+   // the RX ring would come up partially primed -- a broken driver state
+   // -- so fail init and unwind through the cleanup chain.
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
       buff = dmaGetBufferList(&(dev->rxBuffers), x);
 
       // Map failure
       if ( dmaBufferToHw(buff) < 0 ) {
-          dev_warn(dev->device, "Init: Failed to map dma buffer.\n");
+         dev_err(dev->device, "Init: Failed to map dma buffer.\n");
+         if (dev->cfgMode & AXIS2_RING_ACP)
+            goto err_free_writeaddr_acp;
+         else
+            goto err_free_writeaddr_dma;
 
       // Add to software queue, if enabled and hardware is full
       } else if ( hwData->desc128En && (hwData->hwWrBuffCnt >= (hwData->addrCount-1)) ) {
@@ -572,7 +578,14 @@ int AxisG2_Init(struct DmaDevice *dev) {
 
    // Allocation failure cleanup. dev->hwData is left NULL so
    // AxisG2_Clear (not invoked here) is never called with a
-   // half-built hwData.
+   // half-built hwData. RX buffers already pushed to hardware
+   // are reclaimed by Dma_Init via cleanup_rx_buffers.
+err_free_writeaddr_dma:
+   dma_free_coherent(dev->device, size, hwData->writeAddr, hwData->writeHandle);
+   goto err_free_readaddr_dma;
+err_free_writeaddr_acp:
+   kfree(hwData->writeAddr);
+   goto err_free_readaddr_acp;
 err_free_readaddr_dma:
    dma_free_coherent(dev->device, size, hwData->readAddr, hwData->readHandle);
    goto err_free_bufflist;
