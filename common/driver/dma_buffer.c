@@ -674,10 +674,17 @@ size_t dmaQueueInit(struct DmaQueue *queue, uint32_t count) {
    return count;
 
 cleanup_sub_queue:
-   // Cleanup in case of allocation failure for sub-queues
-   for (x = 0; x < queue->subCount; x++)
-      if (queue->queue[x] != NULL)
+   // Cleanup in case of allocation failure for sub-queues.
+   // Free what we already allocated and NULL the entries so a
+   // subsequent dmaQueueFree call cannot double-free them.
+   for (x = 0; x < queue->subCount; x++) {
+      if (queue->queue[x] != NULL) {
          kfree(queue->queue[x]);
+         queue->queue[x] = NULL;
+      }
+   }
+   kfree(queue->queue);
+   queue->queue = NULL;
 
 cleanup_force_exit:
    // Return 0 to indicate failure to initialize the queue
@@ -696,12 +703,17 @@ void dmaQueueFree(struct DmaQueue *queue) {
    uint32_t x;
 
    queue->count = 0;
-   for (x = 0; x < queue->subCount; x++)
-      if (queue->queue[x] != NULL)
-         kfree(queue->queue[x]);
-
+   // Tolerate dmaQueueInit failure: queue->queue may be
+   // NULL while queue->subCount was already written. Skip
+   // the walk in that case so we do not deref NULL.
+   if (queue->queue != NULL) {
+      for (x = 0; x < queue->subCount; x++)
+         if (queue->queue[x] != NULL)
+            kfree(queue->queue[x]);
+      kfree(queue->queue);
+      queue->queue = NULL;
+   }
    queue->subCount = 0;
-   kfree(queue->queue);
 }
 
 /**

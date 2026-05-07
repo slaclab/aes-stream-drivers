@@ -30,7 +30,7 @@ struct hardware_functions RceHp_functions = {
 };
 
 // Init card in top level Probe
-void RceHp_Init(struct DmaDevice *dev) {
+int RceHp_Init(struct DmaDevice *dev) {
    uint32_t x;
 
    struct DmaBuffer * buff;
@@ -58,6 +58,7 @@ void RceHp_Init(struct DmaDevice *dev) {
    // Set dest mask
    memset(dev->destMask, 0x0, DMA_MASK_SIZE);
    dev_info(dev->device, "Init: Done.\n");
+   return 0;
 }
 
 // Enable the card

@@ -220,7 +220,7 @@ inline void AxisG2_WriteFree(struct DmaBuffer *buff, __iomem struct AxisG2Reg *r
 inline void AxisG2_WriteTx(struct DmaBuffer *buff, __iomem struct AxisG2Reg *reg, uint32_t desc128En);
 uint32_t AxisG2_Process(struct DmaDevice * dev, __iomem struct AxisG2Reg *reg, struct AxisG2Data *hwData);
 irqreturn_t AxisG2_Irq(int irq, void *dev_id);
-void AxisG2_Init(struct DmaDevice *dev);
+int AxisG2_Init(struct DmaDevice *dev);
 void AxisG2_Enable(struct DmaDevice *dev);
 void AxisG2_Clear(struct DmaDevice *dev);
 void AxisG2_IrqEnable(struct DmaDevice *dev, int en);
