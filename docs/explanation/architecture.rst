@@ -20,7 +20,7 @@ and register access — without knowing which hardware implementation it is call
    /* dma_common.h */
    struct hardware_functions {
       irqreturn_t (*irq)(int irq, void *dev_id);
-      void        (*init)(struct DmaDevice *dev);
+      int         (*init)(struct DmaDevice *dev);
       void        (*enable)(struct DmaDevice *dev);
       void        (*clear)(struct DmaDevice *dev);
       void        (*irqEnable)(struct DmaDevice *dev, int mask);
@@ -29,6 +29,11 @@ and register access — without knowing which hardware implementation it is call
       int32_t     (*command)(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);
       void        (*seqShow)(struct seq_file *s, struct DmaDevice *dev);
    };
+
+``init`` returns ``0`` on success or a negative errno on failure (e.g. ``-ENOMEM``). The common
+layer aborts ``Dma_Init`` when ``init`` fails and tears down the buffer pools without invoking
+``clear``, which lets each implementation leave ``dev->hwData == NULL`` on the error path without
+risking a NULL deref during teardown.
 
 The concrete instance for the PCIe/x86 data_dev hardware is ``DataDev_functions``, defined in
 ``data_dev_top.c``:

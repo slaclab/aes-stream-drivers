@@ -28,7 +28,7 @@ struct RceHpReg {
 };
 
 // Init card in top level Probe
-void RceHp_Init(struct DmaDevice *dev);
+int RceHp_Init(struct DmaDevice *dev);
 
 // Enable
 void RceHp_Enable(struct DmaDevice *dev);

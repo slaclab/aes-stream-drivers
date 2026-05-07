@@ -171,7 +171,7 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
 
 
 // Init card in top level Probe
-void AxisG1_Init(struct DmaDevice *dev) {
+int AxisG1_Init(struct DmaDevice *dev) {
    uint32_t x;
 
    struct DmaBuffer  *buff;
@@ -189,14 +189,17 @@ void AxisG1_Init(struct DmaDevice *dev) {
    iowrite32(0x1, &(reg->rxEnable));
    iowrite32(0x1, &(reg->txEnable));
 
-   // Push RX buffers to hardware
+   // Push RX buffers to hardware. A per-buffer map failure here means
+   // the RX ring would come up partially primed -- a broken driver
+   // state -- so fail init and let Dma_Init unwind via cleanup_rx_buffers.
+   // AxisG1_Init owns no allocations, so a bare error return is sufficient.
    for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
       buff = dmaGetBufferList(&(dev->rxBuffers), x);
       if ( dmaBufferToHw(buff) < 0 ) {
-         dev_warn(dev->device, "Init: Failed to map dma buffer.\n");
-      } else {
-          iowrite32(buff->buffHandle, &(reg->rxFree));
+         dev_err(dev->device, "Init: Failed to map dma buffer.\n");
+         return -ENOMEM;
       }
+      iowrite32(buff->buffHandle, &(reg->rxFree));
    }
 
    // Set cache mode
@@ -209,6 +212,7 @@ void AxisG1_Init(struct DmaDevice *dev) {
    // Set dest mask
    memset(dev->destMask, 0xFF, DMA_MASK_SIZE);
    dev_info(dev->device, "Init: Found Version 1 Device.\n");
+   return 0;
 }
 
 // Enable or disable IRQs in the hardware

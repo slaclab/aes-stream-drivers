@@ -90,6 +90,7 @@ struct class *gCl = NULL;
  *    Maps file operations to the corresponding device driver functions.
  */
 struct file_operations MapFunctions = {
+   .owner          = THIS_MODULE,
    .read           = Map_Read,
    .write          = Map_Write,
    .open           = Map_Open,
@@ -175,7 +176,7 @@ int Map_Init(void) {
    gCl->devnode = Map_DevNode;
 
    // Step 5: Create a device file
-   if (IS_ERR_OR_NULL(device_create(gCl, NULL, dev.devNum, NULL, dev.devName))) {
+   if (IS_ERR_OR_NULL(device_create(gCl, NULL, dev.devNum, NULL, "%s", dev.devName))) {
       pr_err("%s: Init: Failed to create device file\n", MOD_NAME);
       class_destroy(gCl);  // Clean up on failure
       unregister_chrdev_region(dev.devNum, 1);

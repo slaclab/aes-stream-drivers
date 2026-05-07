@@ -30,6 +30,7 @@
 #include <linux/seq_file.h>
 #include <linux/signal.h>
 #include <linux/pci.h>
+#include <linux/slab.h>
 #include <axis_gen2.h>
 #include <GpuAsync.h>
 
@@ -315,10 +316,16 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
       }
    }
 
-   // Initialize common DMA functionalities
-   if (Dma_Init(dev) < 0) {
-      probeReturn = -ENOMEM;      // Indicate memory allocation error
-      goto err_post_en;
+   // Initialize common DMA functionalities. Dma_Init's early
+   // failure paths (chrdev/class/device/proc) do not unmap the
+   // registers we mapped above, so route through err_unmap.
+   // Dma_UnmapReg is idempotent, so a double-unmap from a late
+   // Dma_Init failure path is harmless. Preserve Dma_Init's
+   // actual return code instead of forcing -ENOMEM, which
+   // would mask the real failure reason.
+   probeReturn = Dma_Init(dev);
+   if (probeReturn < 0) {
+      goto err_unmap;
    }
 
    // Log memory mapping information
@@ -332,6 +339,13 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    return probeReturn;               // Return success
 
 err_unmap:
+#ifdef DATA_GPU
+   // Gpu_Init may have allocated utilData before we got here.
+   // kfree(NULL) is a no-op, so this stays safe even when
+   // Gpu_Init never ran.
+   kfree(dev->utilData);
+   dev->utilData = NULL;
+#endif
    Dma_UnmapReg(dev);               // Idempotent: safe even if Dma_MapReg never ran
 err_post_en:
    pci_disable_device(pcidev);      // Disable PCI device on failure
@@ -382,6 +396,16 @@ void DataDev_Remove(struct pci_dev *pcidev) {
 
    // Decrement count
    gDmaDevCount--;
+
+#ifdef DATA_GPU
+   // Free GPU utility data allocated by Gpu_Init. gpu_async.c
+   // does not own its teardown path; release here so unload
+   // does not leak the kzalloc.
+   if (dev->utilData != NULL) {
+      kfree(dev->utilData);
+      dev->utilData = NULL;
+   }
+#endif
 
    // Call common DMA clean function
    Dma_Clean(dev);
