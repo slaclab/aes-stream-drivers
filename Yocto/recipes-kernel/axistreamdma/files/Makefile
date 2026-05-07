@@ -19,8 +19,18 @@ NAME := axi_stream_dma
 # Directory containing the Makefile
 HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
-# Version or identifier for this build
-GITV := yocto
+# Automatically determine the git version (override via GITV=... from caller, e.g. recipe)
+ifndef GITV
+    GITT := $(shell cd $(HOME); git describe --tags 2>/dev/null)
+    ifeq ($(GITT),)
+        GITT := $(shell cd $(HOME); git rev-parse --short HEAD 2>/dev/null)
+    endif
+    ifeq ($(GITT),)
+        GITT := emulator
+    endif
+    GITD := $(shell cd $(HOME); git status --short -uno 2>/dev/null | wc -l)
+    GITV := $(if $(filter $(GITD),0),$(GITT),$(GITT)-dirty)
+endif
 
 # Source files discovery within the same directory as the Makefile
 SRCS := $(wildcard $(HOME)/*.c)
