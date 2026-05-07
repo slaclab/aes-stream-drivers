@@ -197,7 +197,7 @@ int AxisG1_Init(struct DmaDevice *dev) {
       buff = dmaGetBufferList(&(dev->rxBuffers), x);
       if ( dmaBufferToHw(buff) < 0 ) {
          dev_err(dev->device, "Init: Failed to map dma buffer.\n");
-         return -EIO;
+         return -ENOMEM;
       }
       iowrite32(buff->buffHandle, &(reg->rxFree));
    }
