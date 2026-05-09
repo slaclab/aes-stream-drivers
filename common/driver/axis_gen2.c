@@ -597,7 +597,6 @@ err_free_rdqueue:
    if (hwData->desc128En) dmaQueueFree(&hwData->rdQueue);
 err_free_wrqueue:
    if (hwData->desc128En) dmaQueueFree(&hwData->wrQueue);
-err_free_hwdata:
    kfree(hwData);
    dev->hwData = NULL;
    return -ENOMEM;
