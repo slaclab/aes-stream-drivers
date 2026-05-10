@@ -7,6 +7,29 @@ inherit module
 
 INHIBIT_PACKAGE_STRIP = "1"
 
+# Resolve the aes-stream-drivers Git version at recipe parse time so the
+# axi_stream_dma kernel module reports the real upstream tag in
+# /proc/axi_stream_dma_0 — matching the host data_dev driver semantic.
+# This must run at parse time (not do_configure) because by the time
+# do_configure runs, sources have been copied to WORKDIR and ${THISDIR}
+# is no longer a path inside a git checkout from the build's perspective.
+python __anonymous() {
+    import subprocess
+    repo = d.expand("${THISDIR}/../../..")
+    def _git(args):
+        try:
+            return subprocess.check_output(
+                ["git", "-C", repo] + args,
+                stderr=subprocess.DEVNULL,
+            ).decode().strip()
+        except Exception:
+            return ""
+    tag = _git(["describe", "--tags"]) or _git(["rev-parse", "--short", "HEAD"]) or "emulator"
+    if _git(["status", "--short", "-uno"]):
+        tag += "-dirty"
+    d.setVar("GITV", tag)
+}
+
 SRC_URI = "file://Makefile \
            file://axistreamdma.h \
            file://axistreamdma.c \
@@ -35,6 +58,7 @@ do_compile() {
            DMA_TX_BUFF_COUNT=${DMA_TX_BUFF_COUNT} \
            DMA_RX_BUFF_COUNT=${DMA_RX_BUFF_COUNT} \
            DMA_BUFF_SIZE=${DMA_BUFF_SIZE} \
+           GITV="${GITV}" \
            ${MAKE_TARGETS}
 }
 
