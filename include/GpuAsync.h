@@ -34,6 +34,8 @@
 #define GPU_Is_Gpu_Async_Supp 0x8005   // Check if GPU Async is supported by firmware
 #define GPU_Get_Gpu_Async_Ver 0x8006   // Get the GpuAsyncCore version
 #define GPU_Get_Max_Buffers   0x8007   // Get the max number of DMA buffers
+#define GPU_Enable_Tx         0x8008   // Enable tx buffers (FPGA -> GPU)
+#define GPU_Enable_Rx         0x8009   // Enable rx buffers (GPU -> FPGA)
 
 /**
  * @brief Represents NVIDIA GPU memory data.
@@ -54,6 +56,10 @@ struct GpuNvidiaData {
  *
  * This function adds a specified memory region to the NVIDIA GPU, allowing
  * for the region to be accessed as specified by the write flag.
+ *
+ * For GpuAsyncCore V4 and later, this function will clear the "write enable"
+ * and "read enable" bits. Userspace must call gpuEnableRx/gpuEnableTx as needed
+ * after adding memory with this function.
  *
  * @param fd       File descriptor for the device.
  * @param write    Write access flag (1 for write access, 0 for read-only).
@@ -160,6 +166,30 @@ static inline ssize_t gpuGetGpuAsyncVersion(int32_t fd) {
  */
 static inline ssize_t gpuGetMaxBuffers(int32_t fd) {
    return ioctl(fd, GPU_Get_Max_Buffers);
+}
+
+/**
+ * @brief Enables TX buffers, flowing from FPGA -> GPU
+ *
+ * @param fd File descriptor for the device.
+ * @param enable Disable tx if 0, enable tx if != 0
+ *
+ * @return On success, returns 0. On failure, returns -1 the sets errno.
+ */
+static inline int32_t gpuEnableTx(int32_t fd, uint32_t enable) {
+   return ioctl(fd, GPU_Enable_Tx, enable);
+}
+
+/**
+ * @brief Enable RX buffers, flowing from GPU -> FPGA
+ *
+ * @param fd File descriptor for the device.
+ * @param enable Disable rx if 0, enable rx if != 0
+ *
+ * @return On success, returns 0. On failure, returns -1 and sets errno.
+ */
+static inline int32_t gpuEnableRx(int32_t fd, uint32_t enable) {
+   return ioctl(fd, GPU_Enable_Rx, enable);
 }
 
 #endif  // !DMA_IN_KERNEL
