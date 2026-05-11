@@ -163,13 +163,12 @@ size_t dmaAllocBuffers(struct DmaDevice *dev, struct DmaBufferList *list,
    /* Cleanup */
 cleanup_buffers:
    dmaFreeBuffersList(list);
-   if ( list->sorted  != NULL ) kfree(list->sorted);
+   kfree(list->sorted);
 
 cleanup_list_heads:
    for (x=0; x < list->subCount; x++)
-      if ( list->indexed[x] != NULL )
-         kfree(list->indexed[x]);
-   if ( list->indexed != NULL ) kfree(list->indexed);
+      kfree(list->indexed[x]);
+   kfree(list->indexed);
 
 // Return 0 as no buffers were allocated
 cleanup_forced_exit:

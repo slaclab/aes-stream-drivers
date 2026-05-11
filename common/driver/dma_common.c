@@ -643,7 +643,6 @@ int Dma_Release(struct inode *inode, struct file *filp) {
  */
 ssize_t Dma_Read(struct file *filp, __user char *buffer, size_t count, loff_t *f_pos) {
    size_t rCnt = 0;
-   size_t rem = 0;
    ssize_t bCnt = 0;
    size_t copied = 0;
    ssize_t x = 0;
@@ -661,7 +660,6 @@ ssize_t Dma_Read(struct file *filp, __user char *buffer, size_t count, loff_t *f
 
    // Number of buffers to read, in total
    rCnt = count / sizeof(struct DmaReadData);
-   rem = rCnt;
 
    // Check that we can read that many buffers
    if (rCnt > desc->readScratchCount || rCnt > desc->buffListScratchCount) {

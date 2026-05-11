@@ -176,7 +176,7 @@ inline void AxisG2_WriteTx(struct DmaBuffer *buff, __iomem struct AxisG2Reg *reg
 
    // Configure buffer flags for transmission
    rdData[0]  = (buff->flags >> 13) & 0x00000008;  // bit[3] = continue = flags[16]
-   rdData[0]  = (buff->flags >> 13) & 0x00000010;  // bit[4] = timeout = flags[17]
+   rdData[0] |= (buff->flags >> 13) & 0x00000010;  // bit[4] = timeout = flags[17]
    rdData[0] |= (buff->flags <<  8) & 0x00FF0000;  // Bits[23:16] = lastUser = flags[15:8]
    rdData[0] |= (buff->flags << 24) & 0xFF000000;  // Bits[31:24] = firstUser = flags[7:0]
 
@@ -597,7 +597,6 @@ err_free_rdqueue:
    if (hwData->desc128En) dmaQueueFree(&hwData->rdQueue);
 err_free_wrqueue:
    if (hwData->desc128En) dmaQueueFree(&hwData->wrQueue);
-err_free_hwdata:
    kfree(hwData);
    dev->hwData = NULL;
    return -ENOMEM;
