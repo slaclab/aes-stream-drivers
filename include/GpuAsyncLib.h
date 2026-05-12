@@ -32,7 +32,7 @@
 #include "DmaDriver.h"
 #include "GpuAsync.h"
 
-#ifdef __NVCC__
+#ifdef __CUDACC__
 #define globalFunc __global__
 #define hostFunc   __host__
 #define deviceFunc __device__
@@ -184,13 +184,15 @@ void gpuDestroyBufferState(GpuBufferState_t* b);
  * Layout matches AxiStreamDmaV2Write.vhd.
  */
 struct __attribute__((packed)) AxiWrDesc64_t {
-    uint32_t result    : 2;
-    uint32_t overflow  : 1;   /**< Overflow bit. */
-    uint32_t cont      : 1;   /**< Continue bit. */
-    uint32_t reserved0 : 12;
-    uint32_t lastUser  : 8;
-    uint32_t firstUser : 8;
-    uint32_t size;
+   uint32_t flags;
+   uint32_t size;
+
+   // Accessors for frame flags. Cannot use bit flags due to potential reordering by the compiler.
+   deviceFunc hostFunc inline uint32_t result() const { return flags & 0x3; }
+   deviceFunc hostFunc inline uint32_t overflow() const { return !!(flags & 0x4); }
+   deviceFunc hostFunc inline uint32_t cont() const { return !!(flags & 0x8); }
+   deviceFunc hostFunc inline uint32_t lastUser() const { return (flags >> 16) & 0xFF; }
+   deviceFunc hostFunc inline uint32_t firstUser() const { return (flags >> 24) & 0xFF; }
 };
 
 static_assert(sizeof(AxiWrDesc64_t) == 8, "AxiWrDesc64_t must be 64-bits (8-bytes)");
