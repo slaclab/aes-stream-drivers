@@ -43,16 +43,11 @@ export KVER="$CI_KVER"
 
 echo_step "Building against kernel ${KVER}"
 
-# Compute git version once here where we're in the repo root.
-# The Makefile's own git logic fails under kbuild (runs from kernel build
-# dir, outside the repo).  Passing GITV= on the command line skips the
-# Makefile's ifndef GITV block entirely.
-GITV=$(git describe --tags 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || echo "emulator")
-# Silence stderr and fall back to 0 when $(pwd) isn't a git worktree (e.g.
-# release tarball / exported source). Under `set -e` a failing git status
-# would otherwise abort the whole build even though GITV already resolved.
-GITD=$(git status --short -uno 2>/dev/null | wc -l || echo 0)
-if [ "$GITD" -ne 0 ]; then GITV="${GITV}-dirty"; fi
+# Force GITV=emulator for CI test builds so the artifact is identifiable
+# as a CI build regardless of branch/tag/dirty state and the build is
+# deterministic across CI runs. Tagged release artifacts (Phase 5 DKMS)
+# bypass this and let the Makefile compute the real version.
+GITV=emulator
 export GITV
 echo_step "Git version: ${GITV}"
 
