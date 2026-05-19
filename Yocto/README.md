@@ -57,7 +57,7 @@ echo "MACHINE_ESSENTIAL_EXTRA_RRECOMMENDS += \"aximemorymap\"" >> $proj_dir/conf
 echo "KERNEL_MODULE_AUTOLOAD += \"aximemorymap\"" >> $proj_dir/conf/layer.conf
 
 # Step 5 - No action required for device tree
-# Note: axi_memory_map does NOT require an entire for the device-tree
+# Note: axi_memory_map does NOT require an entry for the device-tree
 
 # Step 6 - Build the module
 bitbake core-image-minimal

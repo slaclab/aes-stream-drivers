@@ -37,7 +37,7 @@ This document describes the ``aes-stream-drivers`` user space API for DMA.
 ``include/AxisDriver.h``
 
 - axisSetFlags - Set the flags for a DMA transfer.
-- axisGetFuser - Get the file user bits associated with the DMA transer.
+- axisGetFuser - Get the file user bits associated with the DMA transfer.
 - axisGetLuser - Get the last user bits associated with the DMA transfer.
 - axisGetCont - Get the continue bit; set when there is another DMA transfer.
 - axisReadAck - Acknowledge that a DMA transfer has been completed by the application.

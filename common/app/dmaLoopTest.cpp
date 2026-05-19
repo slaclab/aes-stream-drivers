@@ -63,7 +63,7 @@ static char   doc[]      = "";
 
 static struct argp_option options[] = {
    { "path",    'p', "PATH",   0, "Path of pgpcard device to use. Default=" DEFAULT_AXI_DEVICE ".", 0},
-   { "dest",    'm', "LIST",   0, "Comman seperated list of destinations.", 0},
+   { "dest",    'm', "LIST",   0, "Comma separated list of destinations.", 0},
    { "prbsdis", 'd', 0,        0, "Disable PRBS checking.", 0},
    { "size",    's', "SIZE",   0, "Size for transmitted frames.", 0},
    { "indexen", 'i', 0,        0, "Use index based receive buffers.", 0},
