@@ -53,16 +53,22 @@ ifneq ($(NVIDIA_DRIVERS),)
 KBUILD_EXTRA_SYMBOLS := $(NVIDIA_DRIVERS)/Module.symvers
 endif
 
+# Trust the worktree even when owned by a different user — required when
+# /etc/rc.local rebuilds drivers as root from a tree cloned by an
+# unprivileged user. System/global git config is suppressed so a hostile
+# core.fsmonitor / pager / credential helper there cannot ride along.
+GIT := GIT_CONFIG_SYSTEM=/dev/null GIT_CONFIG_GLOBAL=/dev/null git -c safe.directory='*'
+
 # Automatically determine the git version
 ifndef GITV
-    GITT := $(shell cd $(HOME); git describe --tags 2>/dev/null)
+    GITT := $(shell cd $(HOME); $(GIT) describe --tags 2>/dev/null)
     ifeq ($(GITT),)
-        GITT := $(shell cd $(HOME); git rev-parse --short HEAD 2>/dev/null)
+        GITT := $(shell cd $(HOME); $(GIT) rev-parse --short HEAD 2>/dev/null)
     endif
     ifeq ($(GITT),)
         GITT := emulator
     endif
-    GITD := $(shell cd $(HOME); git status --short -uno 2>/dev/null | wc -l)
+    GITD := $(shell cd $(HOME); $(GIT) status --short -uno 2>/dev/null | wc -l)
     GITV := $(if $(filter $(GITD),0),$(GITT),$(GITT)-dirty)
 endif
 

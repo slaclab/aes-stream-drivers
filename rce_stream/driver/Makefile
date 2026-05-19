@@ -24,10 +24,16 @@ OBJS := $(patsubst %.c,%.o,$(SRCS))
 GCC  := $(COMP)gcc
 TEST := $(shell which $(GCC) 2> /dev/null)
 
+# Trust the worktree even when owned by a different user — required when
+# /etc/rc.local rebuilds drivers as root from a tree cloned by an
+# unprivileged user. System/global git config is suppressed so a hostile
+# core.fsmonitor / pager / credential helper there cannot ride along.
+GIT := GIT_CONFIG_SYSTEM=/dev/null GIT_CONFIG_GLOBAL=/dev/null git -c safe.directory='*'
+
 ifndef GITV
-	GITT := $(shell cd $(HOME); git describe --tags 2>/dev/null)
+	GITT := $(shell cd $(HOME); $(GIT) describe --tags 2>/dev/null)
 	ifeq ($(GITT),)
-		GITT := $(shell cd $(HOME); git rev-parse --short HEAD 2>/dev/null)
+		GITT := $(shell cd $(HOME); $(GIT) rev-parse --short HEAD 2>/dev/null)
 	endif
 	# Final fallback so -DGITV=\"$(GITV)\" always produces a well-formed
 	# string literal when building from a non-git source tree (release
@@ -37,7 +43,7 @@ ifndef GITV
 	ifeq ($(GITT),)
 		GITT := unknown
 	endif
-	GITD := $(shell cd $(HOME); git status --short -uno 2>/dev/null | wc -l)
+	GITD := $(shell cd $(HOME); $(GIT) status --short -uno 2>/dev/null | wc -l)
 	GITV := $(if $(filter $(GITD),0),$(GITT),$(GITT)-dirty)
 endif
 
