@@ -139,7 +139,7 @@ irqreturn_t AxisG1_Irq(int irq, void *dev_id) {
                       desc = NULL;
                   }
 
-                  // Return entry to FPGA if destc is not open
+                  // Return entry to FPGA if dest is not open
                   if ( desc == NULL ) {
                      if ( dev->debug > 0 ) {
                         dev_info(dev->device, "Irq: Port not open return to free list.\n");
