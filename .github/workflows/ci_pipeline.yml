@@ -25,11 +25,11 @@ jobs:
     name: "Phase 1: Documentation & Linting"
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: 3.12
 
@@ -110,7 +110,7 @@ jobs:
       image: ${{ matrix.container }}
       options: "--privileged -v /lib/modules:/lib/modules -v /usr/src:/usr/src"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -218,7 +218,7 @@ jobs:
       image: ${{ matrix.container }}
       options: "--privileged -v /lib/modules:/lib/modules -v /usr/src:/usr/src"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -314,11 +314,11 @@ jobs:
         mod:
           - datadev
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: 3.12
 
