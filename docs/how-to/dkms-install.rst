@@ -78,8 +78,13 @@ This method works on **all distributions** (Ubuntu, Debian, Rocky Linux, CentOS,
 
 Download the appropriate tarball from the `Releases page <https://github.com/slaclab/aes-stream-drivers/releases>`_:
 
-- **CPU version** (no GPU support): ``datadev-cpu-v7.0.1.tgz``
-- **GPU version** (with GPUDirect RDMA): ``datadev-gpu-v7.0.1.tgz``
+- **CPU version** (no GPU support): ``datadev-dkms-7.2.2.tar.gz``
+- **GPU version** (with GPUDirect RDMA): ``datadev-gpu-dkms-7.2.2.tar.gz``
+
+.. note::
+
+   Release tags do **not** carry a ``v`` prefix (e.g. ``7.2.2``, not ``v7.2.2``).
+   Use the bare version string in both the download URL and the ``dkms`` commands.
 
 CPU Version
 ^^^^^^^^^^^
@@ -87,12 +92,15 @@ CPU Version
 .. code-block:: bash
 
    # Download the CPU tarball
-   VERSION=v7.0.1  # Replace with latest release
-   wget https://github.com/slaclab/aes-stream-drivers/releases/download/${VERSION}/datadev-cpu-${VERSION}.tgz
+   VERSION=7.2.2  # Replace with latest release
+   wget https://github.com/slaclab/aes-stream-drivers/releases/download/${VERSION}/datadev-dkms-${VERSION}.tar.gz
 
    # Install with DKMS
-   sudo dkms ldtarball datadev-cpu-${VERSION}.tgz
-   sudo dkms install datadev/${VERSION}
+   sudo dkms ldtarball datadev-dkms-${VERSION}.tar.gz
+   sudo dkms install datadev-dkms/${VERSION}
+
+   # Load the module
+   sudo modprobe datadev
 
 GPU Version
 ^^^^^^^^^^^
@@ -100,12 +108,15 @@ GPU Version
 .. code-block:: bash
 
    # Download the GPU tarball
-   VERSION=v7.0.1  # Replace with latest release
-   wget https://github.com/slaclab/aes-stream-drivers/releases/download/${VERSION}/datadev-gpu-${VERSION}.tgz
+   VERSION=7.2.2  # Replace with latest release
+   wget https://github.com/slaclab/aes-stream-drivers/releases/download/${VERSION}/datadev-gpu-dkms-${VERSION}.tar.gz
 
    # Install with DKMS
-   sudo dkms ldtarball datadev-gpu-${VERSION}.tgz
-   sudo dkms install datadev-gpu/${VERSION}
+   sudo dkms ldtarball datadev-gpu-dkms-${VERSION}.tar.gz
+   sudo dkms install datadev-gpu-dkms/${VERSION}
+
+   # Load the module
+   sudo modprobe datadev
 
 .. note::
 
@@ -122,13 +133,13 @@ Step 1 — Copy Sources to the DKMS Tree
 
 .. code-block:: bash
 
-   VERSION=v7.0.1   # Replace with your version
-   sudo mkdir -p /usr/src/datadev-${VERSION}
-   sudo cp -r data_dev/driver/src/* /usr/src/datadev-${VERSION}/
-   sudo cp data_dev/driver/Makefile /usr/src/datadev-${VERSION}/
-   sudo cp data_dev/driver/dkms.conf /usr/src/datadev-${VERSION}/
-   sudo cp data_dev/driver/datadev.conf /usr/src/datadev-${VERSION}/
-   sudo cp data_dev/driver/rc.local.in /usr/src/datadev-${VERSION}/
+   VERSION=7.2.2   # Replace with your version
+   sudo mkdir -p /usr/src/datadev-dkms-${VERSION}
+   sudo cp -r data_dev/driver/src/* /usr/src/datadev-dkms-${VERSION}/
+   sudo cp data_dev/driver/Makefile /usr/src/datadev-dkms-${VERSION}/
+   sudo cp data_dev/driver/dkms.conf /usr/src/datadev-dkms-${VERSION}/
+   sudo cp data_dev/driver/datadev.conf /usr/src/datadev-dkms-${VERSION}/
+   sudo cp data_dev/driver/rc.local.in /usr/src/datadev-dkms-${VERSION}/
 
 Step 2 — Set the Package Version
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -140,7 +151,7 @@ Step 2 — Set the Package Version
 
 .. code-block:: bash
 
-   echo "PACKAGE_VERSION=${VERSION}" | sudo tee -a /usr/src/datadev-${VERSION}/dkms.conf
+   echo "PACKAGE_VERSION=${VERSION}" | sudo tee -a /usr/src/datadev-dkms-${VERSION}/dkms.conf
 
 After editing, the key fields in ``dkms.conf`` should read:
 
@@ -152,7 +163,7 @@ After editing, the key fields in ``dkms.conf`` should read:
    BUILT_MODULE_LOCATION=.
    DEST_MODULE_LOCATION="/kernel/modules/misc"
    PACKAGE_NAME=datadev-dkms
-   PACKAGE_VERSION=v7.0.1
+   PACKAGE_VERSION=7.2.2
    REMAKE_INITRD=no
    AUTOINSTALL="yes"
 
@@ -161,9 +172,10 @@ Step 3 — Add, Build, and Install
 
 .. code-block:: bash
 
-   sudo dkms add datadev/${VERSION}
-   sudo dkms build datadev/${VERSION}
-   sudo dkms install datadev/${VERSION}
+   sudo dkms add datadev-dkms/${VERSION}
+   sudo dkms build datadev-dkms/${VERSION}
+   sudo dkms install datadev-dkms/${VERSION}
+   sudo modprobe datadev
 
 Verification
 ------------
@@ -179,13 +191,13 @@ Expected output:
 
 .. code-block:: text
 
-   datadev, v7.0.1, 5.15.0-91-generic, x86_64: installed
+   datadev-dkms/7.2.2, 5.15.0-91-generic, x86_64: installed
 
 Or for GPU variant:
 
 .. code-block:: text
 
-   datadev-gpu, v7.0.1, 5.15.0-91-generic, x86_64: installed
+   datadev-gpu-dkms/7.2.2, 5.15.0-91-generic, x86_64: installed
 
 Verify Module Information
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -242,14 +254,14 @@ Remove DKMS Module
 
 .. code-block:: bash
 
-   VERSION=v7.0.1  # Your installed version
+   VERSION=7.2.2  # Your installed version
 
    # Unload the module
    sudo modprobe -r datadev
 
-   # Uninstall from DKMS
-   sudo dkms uninstall datadev/${VERSION}
-   sudo dkms remove datadev/${VERSION} --all
+   # Uninstall from DKMS (use datadev-gpu-dkms for the GPU variant)
+   sudo dkms uninstall datadev-dkms/${VERSION}
+   sudo dkms remove datadev-dkms/${VERSION} --all
 
    # Remove auto-load configuration
    sudo rm -f /etc/modules-load.d/datadev.conf
@@ -298,8 +310,8 @@ If ``dkms install`` fails with compilation errors:
    ls /lib/modules/$(uname -r)/build
 
    # View detailed build log
-   sudo dkms status -m datadev
-   cat /var/lib/dkms/datadev/${VERSION}/build/make.log
+   sudo dkms status -m datadev-dkms
+   cat /var/lib/dkms/datadev-dkms/${VERSION}/build/make.log
 
 Missing Kernel Headers
 ~~~~~~~~~~~~~~~~~~~~~~
