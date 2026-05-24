@@ -37,8 +37,8 @@ gating the next:
      - Creates GitHub Release artifacts (tags only)
    * - 5
      - DKMS Package Generation
-     - Builds ``datadev-cpu-*.tgz`` and ``datadev-gpu-*.tgz`` DKMS
-       tarballs (tags only)
+     - Builds ``datadev-dkms-*.tar.gz`` and ``datadev-gpu-dkms-*.tar.gz``
+       DKMS tarballs (tags only)
 
 
 Distribution Matrix
