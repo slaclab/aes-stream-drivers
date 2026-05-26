@@ -67,9 +67,9 @@ $ sudo reboot
 
 <!--- ######################################################## -->
 
-## How to build and load the nvidia and datadev drviers
+## How to build and load the nvidia and datadev drivers
 
-After you completed all the "System Configuration" configuration steps above, run the following script to build and load the nvidia and datadev drviers
+After completing all the "System Configuration" steps above, run the following script to build and load the nvidia and datadev drivers
 
 ```bash
 $ sudo ./comp_and_load_drivers.sh

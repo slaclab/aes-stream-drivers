@@ -99,6 +99,10 @@ fi
 
 # --- Build modules and tests (no sudo required) ---
 echo "=== Building kernel modules and test binaries ==="
+# Force GITV=emulator for local CI builds to match scripts/ci/build-cpu.sh
+# behavior in GitHub Actions: deterministic version, identifiable as a CI
+# artifact regardless of branch/tag/dirty state.
+export GITV=emulator
 # Build gpu_stub FIRST. emulator/driver's emu_init() eagerly calls
 # emu_gpu_register_drain_cb() (exported by nvidia_p2p_stub.ko), so
 # kbuild needs the stub's Module.symvers to resolve cross-module refs
@@ -110,7 +114,7 @@ make -C "$SCRIPT_DIR/emulator/gpu_stub"
 make -C "$SCRIPT_DIR/emulator/driver" clean
 make -C "$SCRIPT_DIR/emulator/driver"
 make -C "$SCRIPT_DIR/data_dev/driver" clean
-make -C "$SCRIPT_DIR/data_dev/driver"
+make -C "$SCRIPT_DIR/data_dev/driver" GITV="$GITV"
 make -C "$SCRIPT_DIR/data_dev/app" clean
 make -C "$SCRIPT_DIR/data_dev/app"
 
