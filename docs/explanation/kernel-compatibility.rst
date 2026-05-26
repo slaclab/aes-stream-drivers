@@ -65,6 +65,13 @@ the source files listed.
    ``class_create()`` dropped its first argument (``THIS_MODULE``) in 6.4. Red Hat backported
    this change in RHEL 9.4.
 
+``< KERNEL_VERSION(6, 11, 0)`` — ``data_dev_top.c``
+   ``PCI_IRQ_LEGACY`` was renamed to ``PCI_IRQ_INTX`` in 6.11 (the old name was kept as a
+   deprecated alias for a few releases, then dropped). A ``#ifndef PCI_IRQ_INTX`` guard
+   defines the new spelling as ``PCI_IRQ_LEGACY`` so the single ``pci_alloc_irq_vectors()``
+   call site builds on pre-6.11 kernels (e.g. Ubuntu 22.04 / kernel 5.15, which lacks
+   ``PCI_IRQ_INTX``).
+
 RHEL Backport Detection
 ------------------------
 

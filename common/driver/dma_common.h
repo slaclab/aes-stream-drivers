@@ -44,6 +44,15 @@
 // Maximum number of destination channels
 #define DMA_MAX_DEST (8*DMA_MASK_SIZE)
 
+// IRQ delivery type selected at probe time. Set by the PCI top-level
+// driver (data_dev_top.c) based on what pci_alloc_irq_vectors() actually
+// negotiated; consumed for diagnostic logging only -- the shared
+// Dma_Init/Dma_Clean paths in dma_common.c do not branch on this.
+#define DMA_IRQ_NONE 0
+#define DMA_IRQ_INTX 1
+#define DMA_IRQ_MSI  2
+#define DMA_IRQ_MSIX 3
+
 // Forward declarations
 struct hardware_functions;
 struct DmaDesc;
@@ -82,6 +91,7 @@ typedef uint32_t __poll_t;
  * @utilData: Utility data for driver use.
  * @debug: Debug flag.
  * @irq: IRQ number.
+ * @irqType: IRQ delivery type (DMA_IRQ_NONE/INTX/MSI/MSIX).
  * @writeHwLock: Spinlock for hardware write operations.
  * @commandLock: Spinlock for command operations.
  * @maskLock: Spinlock for destination mask operations.
@@ -145,6 +155,7 @@ struct DmaDevice {
 
    // IRQ
    uint32_t irq;
+   uint8_t  irqType;
 
    // Locks
    spinlock_t writeHwLock;

@@ -34,6 +34,7 @@ set -uo pipefail
 DEV="${DEV:-/dev/datadev_0}"
 APP_BIN="${APP_BIN:-data_dev/app/bin}"
 DATADEV_KO="${DATADEV_KO:-data_dev/driver/datadev.ko}"
+EMULATOR_KO="${EMULATOR_KO:-emulator/driver/datadev_emulator.ko}"
 SIZE="${SIZE:-32768}"
 TIMEOUT_SEC="${TIMEOUT_SEC:-15}"
 INSMOD_TIMEOUT_SEC="${INSMOD_TIMEOUT_SEC:-120}"
@@ -64,11 +65,16 @@ echo "=== IRQ behavior sweep test ==="
 
 # run_irq_cycle LABEL [insmod_params...]
 # Reloads datadev with the given parameters, runs a short dmaLoopTest, checks
-# PRBS and dmesg. Sets CYCLE_FAIL=1 on any error.
+# PRBS and dmesg. Sets CYCLE_FAIL=1 on any error.  Also stashes the most
+# recent "Probe: using <kind> interrupts" line in CYCLE_PROBE_LINE so the
+# outer mode sweep can verify the cascade selection without doing an extra
+# insmod (which would compound DMA-buffer allocation pressure across the
+# 3-mode sweep and trip the cell's later load/unload tests with -ENOMEM).
 run_irq_cycle() {
    local label="$1"
    shift
    local insmod_params="$*"
+   CYCLE_PROBE_LINE=""
 
    echo "--- IRQ sub-test: $label ---"
    DMESG_BEFORE=$($SUDO dmesg | wc -l)
@@ -96,6 +102,15 @@ run_irq_cycle() {
       $SUDO chmod 666 "$DEV"
    fi
    $SUDO chmod 666 "$DEV"
+
+   # Capture the "Probe: using <kind> interrupts" line BEFORE dmaLoopTest
+   # runs with cfgDebug=1 -- the per-frame Process/MapReturn lines flood
+   # dmesg fast enough to evict the probe line out of any reasonable tail
+   # window within ~5 seconds. The outer mode-sweep reads this back via
+   # CYCLE_PROBE_LINE.
+   CYCLE_PROBE_LINE=$($SUDO dmesg | tail -n 80 | \
+                      grep -oE 'Probe: using [A-Za-z0-9-]+([ -]+[A-Za-z]+)* interrupts' | \
+                      tail -1 || echo "")
 
    sleep 2
 
@@ -176,13 +191,105 @@ run_irq_subtest() {
    return 1
 }
 
-run_irq_subtest "cfgIrqHold=1"      cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgIrqHold=1      cfgDebug=1
+# ----------------------------------------------------------------------------
+# Outer sweep: emu_irq_mode in {intx, msi, msix}.
+#
+# For each emulator IRQ mode, reload datadev_emulator with the requested mode
+# (so cfg_space advertises the matching capability), then run the existing
+# three cfgIrqHold/polled subtests against that emulator.  After the
+# subtests, scrape dmesg to assert datadev's probe selected the correct
+# cascade branch -- a regression in data_dev_top.c's pci_alloc_irq_vectors
+# call would silently land on a different branch and pass the cfg subtests
+# but fail the dmesg gate below.
+#
+# Hosts without a built emulator (EMULATOR_KO missing) fall back to the
+# legacy single-pass behavior against whichever emulator is already loaded.
+# This keeps the script useful for hardware-attached test rigs where the
+# real datadev hardware can't be hot-swapped between modes.
+# ----------------------------------------------------------------------------
 
-# Sub-test 2: heavy IRQ coalescing (cfgIrqHold=100000).
-run_irq_subtest "cfgIrqHold=100000" cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgIrqHold=100000 cfgDebug=1
+run_three_irq_subtests() {
+   local mode_label="$1"
+   run_irq_subtest "${mode_label}/cfgIrqHold=1" \
+      cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgIrqHold=1      cfgDebug=1
+   run_irq_subtest "${mode_label}/cfgIrqHold=100000" \
+      cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgIrqHold=100000 cfgDebug=1
+   run_irq_subtest "${mode_label}/polled" \
+      cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgIrqDis=1      cfgDebug=1
+}
 
-# Sub-test 3: polled mode (cfgIrqDis=1).
-run_irq_subtest "polled"            cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgIrqDis=1      cfgDebug=1
+# Map an emu_irq_mode value to the dmesg substring data_dev_top.c logs at
+# probe time. Used by the per-mode dmesg gate.
+expected_probe_line() {
+   case "$1" in
+      intx) printf 'using legacy INTx interrupts' ;;
+      msi)  printf 'using MSI interrupts' ;;
+      msix) printf 'using MSI-X interrupts' ;;
+      *)    printf 'using ?' ;;
+   esac
+}
+
+if [ "${GPU_ENABLED:-0}" = "1" ]; then
+   # GPU CI phase: skip the IRQ-mode sweep. The GPU phase exists to exercise
+   # the GPU-async path; reloading the emulator three times to flip MSI/MSI-X
+   # caps adds ~3x runtime to that already-long phase without exercising any
+   # GPU-specific code path. The CPU phase runs the full sweep on the same
+   # emulator binary, so MSI/MSI-X coverage is preserved.
+   echo "=== GPU_ENABLED=1; running legacy single-mode IRQ test (mode sweep is CPU-phase-only) ==="
+   run_three_irq_subtests "current"
+elif [ -f "$EMULATOR_KO" ]; then
+   echo "=== Emulator detected ($EMULATOR_KO); sweeping emu_irq_mode ==="
+   for IRQ_MODE in intx msi msix; do
+      echo "============================================================"
+      echo "  emu_irq_mode=${IRQ_MODE}"
+      echo "============================================================"
+
+      # Reload emulator with the requested mode. The stub stays loaded
+      # because the emulator depends on its symbols.
+      $SUDO rmmod datadev 2>/dev/null || true
+      $SUDO rmmod datadev_emulator 2>/dev/null || true
+      for _ in $(seq 1 15); do [ ! -e "$DEV" ] && break; sleep 0.5; done
+
+      if ! timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" \
+            $SUDO insmod "$EMULATOR_KO" emu_irq_mode="$IRQ_MODE"; then
+         echo "[FAIL] could not load emulator with emu_irq_mode=$IRQ_MODE"
+         FAILED=$((FAILED + 1))
+         continue
+      fi
+
+      # Run the existing three subtests; they reload datadev each cycle
+      # and (via run_irq_cycle) stash the post-probe dmesg snapshot in
+      # CYCLE_PROBE_LINE before dmaLoopTest spam can evict it.
+      FAIL_BEFORE=$FAILED
+      run_three_irq_subtests "$IRQ_MODE"
+
+      # Mode-selection assertion. Use the probe line captured during the
+      # last inner subtest (dev_info renders as "datadev 0000:bb:dd.f:
+      # Init: Probe: using <kind> interrupts, irq=N"; we stripped to just
+      # the "Probe: using <kind> interrupts" middle phrase).
+      #
+      # Only run this gate when all three subtests passed. If a subtest
+      # failed it has already been counted, and CYCLE_PROBE_LINE may be
+      # empty/stale from an aborted cycle -- asserting on it here would
+      # double-count the failure with a misleading "probe line mismatch".
+      # When the subtests pass, this still catches a wrong-branch cascade
+      # (dataplane OK but datadev picked the wrong interrupt kind).
+      EXPECTED=$(expected_probe_line "$IRQ_MODE")
+      if [ "$FAILED" -ne "$FAIL_BEFORE" ]; then
+         echo "[SKIP] irq_modes ${IRQ_MODE} -- probe-line assertion skipped (a subtest already failed this mode)"
+      elif [ "$CYCLE_PROBE_LINE" = "Probe: ${EXPECTED}" ]; then
+         echo "[PASS] irq_modes ${IRQ_MODE} -- datadev selected: ${EXPECTED}"
+      else
+         echo "[FAIL] irq_modes ${IRQ_MODE} -- captured probe line mismatch:"
+         echo "        expected: 'Probe: ${EXPECTED}'"
+         echo "        captured: '${CYCLE_PROBE_LINE}'"
+         FAILED=$((FAILED + 1))
+      fi
+   done
+else
+   echo "=== Emulator not found ($EMULATOR_KO); legacy single-mode pass ==="
+   run_three_irq_subtests "current"
+fi
 
 # --- Cleanup: restore default parameters ---
 $SUDO rmmod datadev 2>/dev/null || true

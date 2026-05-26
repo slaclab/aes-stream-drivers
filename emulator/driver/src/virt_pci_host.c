@@ -73,8 +73,9 @@ static void emu_pci_init_cfg_space(struct emu_pci_host *host)
    /* Command = 0x0000 (driver sets bus master + mem space enable) */
    cfg_write16(cfg, EMU_CFG_COMMAND, 0x0000);
 
-   /* Status = 0x0010 (capabilities list present) */
-   cfg_write16(cfg, EMU_CFG_STATUS, 0x0010);
+   /* Status: the Capabilities List bit (0x0010) is set per-irq_mode below.
+    * INTx-only advertises no capabilities, so it stays cleared in that case. */
+   cfg_write16(cfg, EMU_CFG_STATUS, 0x0000);
 
    /* Revision = 0x01 */
    cfg[EMU_CFG_REVISION] = 0x01;
@@ -111,8 +112,58 @@ static void emu_pci_init_cfg_space(struct emu_pci_host *host)
    /* IRQ line = virtual IRQ number */
    cfg[EMU_CFG_IRQ_LINE] = (uint8_t)(host->virq & 0xFF);
 
-   /* IRQ pin = INTA# */
+   /* IRQ pin = INTA#. Always assert that the function has an INTx pin so
+    * pci_alloc_irq_vectors(... PCI_IRQ_INTX) succeeds even when MSI/MSI-X
+    * are also advertised -- the cascade picks the highest-priority kind
+    * that's actually advertised, but it's spec-correct for a function to
+    * report all three. */
    cfg[EMU_CFG_IRQ_PIN] = 0x01;
+
+   /*
+    * Capability list. Pick a single capability to advertise based on
+    * irq_mode and set the Status "Capabilities List" bit (0x0010) to match
+    * -- the kernel's pci_alloc_irq_vectors cascade then negotiates the
+    * matching path. INTx-only advertises no capability and leaves the bit
+    * clear so the config space stays internally consistent.
+    */
+   switch (host->irq_mode) {
+   case EMU_IRQ_MODE_MSIX: {
+      /* 12-byte MSI-X capability at EMU_CFG_MSIX_CAP */
+      uint16_t mc = 0x0000;        /* Table Size = 0 (means 1 vector); Enable=0 */
+      uint32_t table_bir = EMU_MSIX_TABLE_OFF | 0x0;  /* BIR=0 (BAR0) */
+      uint32_t pba_bir   = EMU_MSIX_PBA_OFF   | 0x0;  /* BIR=0 (BAR0) */
+
+      cfg_write16(cfg, EMU_CFG_STATUS, 0x0010);
+      cfg[EMU_CFG_CAP_PTR]            = EMU_CFG_MSIX_CAP;
+      cfg[EMU_CFG_MSIX_CAP + 0]       = 0x11;          /* Cap ID = MSI-X */
+      cfg[EMU_CFG_MSIX_CAP + 1]       = 0x00;          /* Next  = end   */
+      cfg_write16(cfg, EMU_CFG_MSIX_CAP + 2, mc);
+      cfg_write32(cfg, EMU_CFG_MSIX_CAP + 4, table_bir);
+      cfg_write32(cfg, EMU_CFG_MSIX_CAP + 8, pba_bir);
+      break;
+   }
+   case EMU_IRQ_MODE_MSI: {
+      /* 10-byte 32-bit MSI capability at EMU_CFG_MSI_CAP. MMC=0 means a
+       * single message vector is supported; 64-bit address bit (MC[7]) is
+       * zero so the kernel writes a 32-bit Message Address only. */
+      uint16_t mc = 0x0000;        /* MMC=0, MME=0, no 64-bit, no per-vec mask */
+
+      cfg_write16(cfg, EMU_CFG_STATUS, 0x0010);
+      cfg[EMU_CFG_CAP_PTR]           = EMU_CFG_MSI_CAP;
+      cfg[EMU_CFG_MSI_CAP + 0]       = 0x05;           /* Cap ID = MSI  */
+      cfg[EMU_CFG_MSI_CAP + 1]       = 0x00;           /* Next  = end   */
+      cfg_write16(cfg, EMU_CFG_MSI_CAP + 2, mc);
+      /* Bytes 4-7: Message Address (kernel writes during enable, RW)   */
+      /* Bytes 8-9: Message Data (kernel writes during enable, RW)      */
+      break;
+   }
+   case EMU_IRQ_MODE_INTX:
+   default:
+      /* No capability list -- legacy INTx only, matches pre-MSI behavior.
+       * Status "Capabilities List" bit stays clear (set to 0x0000 above). */
+      cfg[EMU_CFG_CAP_PTR] = 0x00;
+      break;
+   }
 }
 
 /**
@@ -301,16 +352,20 @@ static struct notifier_block emu_pci_nb = {
  */
 int emu_pci_host_create(struct emu_pci_host *host,
                         struct emu_bar0 *bar,
-                        unsigned int virq)
+                        unsigned int virq,
+                        enum emu_irq_mode irq_mode,
+                        struct irq_domain *msi_domain)
 {
    struct pci_dev *pdev;
    int ret;
 
-   /* Store BAR0 and IRQ references */
-   host->bar  = bar;
-   host->virq = virq;
+   /* Store BAR0, IRQ, and mode references */
+   host->bar        = bar;
+   host->virq       = virq;
+   host->irq_mode   = irq_mode;
+   host->msi_domain = msi_domain;
 
-   /* Populate PCI config space with static values */
+   /* Populate PCI config space with static values (caps gated on irq_mode) */
    emu_pci_init_cfg_space(host);
 
    /* Initialize the memory resource for BAR0 */
@@ -355,11 +410,12 @@ int emu_pci_host_create(struct emu_pci_host *host,
    pci_bus_claim_resources(host->bus);
 
    /*
-    * Fix pci_dev->irq: The PCI subsystem does NOT populate pcidev->irq
+    * Set pci_dev->irq: the PCI subsystem does NOT populate pcidev->irq
     * from config space byte 0x3C for virtual host bridges. The datadev
-    * driver checks pcidev->irq != 0 at data_dev_top.c:270 and fails
-    * probe if it is 0. Set the IRQ on all enumerated devices BEFORE
-    * pci_bus_add_devices() triggers the driver probe path.
+    * driver's pci_alloc_irq_vectors(... PCI_IRQ_INTX) fall-through hands
+    * back this value via pci_irq_vector(pdev, 0), so it must be a valid
+    * legacy IRQ for the INTx branch of the cascade to work. Set it on all
+    * enumerated devices BEFORE pci_bus_add_devices() triggers driver probe.
     */
    for_each_pci_dev(pdev) {
       if (pdev->bus == host->bus) {
@@ -370,6 +426,20 @@ int emu_pci_host_create(struct emu_pci_host *host,
          pdev->dev.cma_area = NULL;
 #endif
          set_dev_node(&pdev->dev, NUMA_NO_NODE);
+
+         /* Attach the virtual PCI-MSI domain so the datadev driver's
+          * pci_alloc_irq_vectors(... PCI_IRQ_MSIX | PCI_IRQ_MSI | ...)
+          * call finds something to allocate from. INTX mode leaves the
+          * domain unset; the kernel skips MSI/MSI-X (no caps in cfg
+          * space) and lands on legacy INTx using pdev->irq above.
+          */
+         if (host->irq_mode != EMU_IRQ_MODE_INTX && host->msi_domain) {
+            dev_set_msi_domain(&pdev->dev, host->msi_domain);
+            pr_info("emu: attached MSI domain to %s (mode=%s)\n",
+                    pci_name(pdev),
+                    host->irq_mode == EMU_IRQ_MODE_MSIX ? "msix" : "msi");
+         }
+
          pr_info("emu: set pci_dev %s irq to %u, DMA mask 64-bit\n",
                  pci_name(pdev), virq);
       }
