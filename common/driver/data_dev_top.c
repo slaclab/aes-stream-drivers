@@ -242,15 +242,17 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
       goto err_post_en;
    }
 
-   // The driver's register map spans a fixed 16 MB window (2 * USER_SIZE):
-   // DMA engine (AGEN2_OFF), PCIe PHY (PHY_OFF), AxiVersion (AVER_OFF), and
-   // the user region (rwBase = base + PHY_OFF, rwSize = 2*USER_SIZE - PHY_OFF).
-   // A BAR0 of any other size means the firmware was built with a mismatched
-   // address map; reject it here with a clear message instead of letting it
-   // surface as out-of-bounds register access later.
-   if ( dev->baseSize != (2 * USER_SIZE) ) {
+   // The driver's register map tops out at a fixed 16 MB window (2 * USER_SIZE:
+   // DMA engine (AGEN2_OFF), PCIe PHY (PHY_OFF), AxiVersion (AVER_OFF), and the
+   // user region: rwBase = base + PHY_OFF, rwSize = 2*USER_SIZE - PHY_OFF). A
+   // BAR0 *larger* than this means the firmware was built with a different
+   // address map, so reject it with a clear message instead of letting the
+   // mismatch surface later. A smaller BAR0 is tolerated: the emulator shrinks
+   // its BAR when it cannot reserve 16 MB of contiguous memory, and only the
+   // lower register regions are exercised in that configuration.
+   if ( dev->baseSize > (2 * USER_SIZE) ) {
       dev_err(&pcidev->dev,
-              "%s: Probe: BAR0 size 0x%x != expected 0x%x (16 MB); "
+              "%s: Probe: BAR0 size 0x%x exceeds expected 0x%x (16 MB); "
               "firmware register-map mismatch.\n",
               MOD_NAME, dev->baseSize, (unsigned int)(2 * USER_SIZE));
       probeReturn = -EINVAL;
