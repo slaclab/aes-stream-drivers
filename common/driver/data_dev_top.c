@@ -288,38 +288,15 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->cfgTimeout = cfgTimeout;
    dev->debug = cfgDebug;
 
-
-   // Enforce that the FPGA advertises exactly one interrupt type. The cascade
-   // below selects by *advertised capability*, not by what the firmware can
-   // actually deliver: a bitstream that exposes both legacy INTx and MSI lets
-   // pci_alloc_irq_vectors() prefer MSI, and if the user logic only drives the
-   // legacy pin the driver ends up with interrupts enabled but none arriving
-   // (silent DMA timeouts). Require a single type so the selection is
-   // unambiguous, and abort loudly on a misconfigured core instead.
-   {
-      int     msiCap  = pci_find_capability(pcidev, PCI_CAP_ID_MSI);
-      int     msixCap = pci_find_capability(pcidev, PCI_CAP_ID_MSIX);
-      uint8_t intxPin = 0;
-      int     irqTypes;
-
-      pci_read_config_byte(pcidev, PCI_INTERRUPT_PIN, &intxPin);
-      irqTypes = (intxPin != 0) + (msiCap != 0) + (msixCap != 0);
-
-      if (irqTypes > 1) {
-         dev_err(&pcidev->dev,
-                 "%s: Probe: FPGA advertises multiple IRQ types "
-                 "(INTx pin=%u, MSI=%s, MSI-X=%s); exactly one is required. "
-                 "Rebuild the PCIe IP core with a single interrupt type.\n",
-                 MOD_NAME, intxPin, msiCap ? "yes" : "no", msixCap ? "yes" : "no");
-         probeReturn = -EINVAL;
-         goto err_unmap;
-      }
-   }
-
    // Allocate IRQ vectors: try MSI-X first, then MSI, then legacy INTx.
    // pci_alloc_irq_vectors() walks the requested types in priority order
    // and returns the count of vectors negotiated; pci_irq_vector(pdev, 0)
-   // returns the right Linux IRQ number regardless of which path won.
+   // returns the right Linux IRQ number regardless of which path won. A
+   // bitstream that advertises more than one type is tolerated for
+   // backwards compatibility with legacy PCIe IP cores that report
+   // INTx + MSI/MSI-X simultaneously: the cascade picks the highest
+   // priority kind that's actually advertised. Probe fails only if all
+   // three are unavailable.
    ret = pci_alloc_irq_vectors(pcidev, 1, 1,
                                PCI_IRQ_MSIX | PCI_IRQ_MSI | PCI_IRQ_INTX);
    if (ret < 0) {
@@ -340,14 +317,11 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
       goto err_unmap;
    }
    dev->irq = ret;
-   if (pcidev->msix_enabled)      dev->irqType = DMA_IRQ_MSIX;
-   else if (pcidev->msi_enabled)  dev->irqType = DMA_IRQ_MSI;
-   else                           dev->irqType = DMA_IRQ_INTX;
 
    dev_info(dev->device,
             "Init: Probe: using %s interrupts, irq=%u\n",
-            dev->irqType == DMA_IRQ_MSIX ? "MSI-X" :
-            dev->irqType == DMA_IRQ_MSI  ? "MSI"   : "legacy INTx",
+            pcidev->msix_enabled ? "MSI-X" :
+            pcidev->msi_enabled  ? "MSI"   : "legacy INTx",
             dev->irq);
 
    // Set basic device context

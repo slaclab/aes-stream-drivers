@@ -112,11 +112,13 @@ static void emu_pci_init_cfg_space(struct emu_pci_host *host)
    /* IRQ line = virtual IRQ number */
    cfg[EMU_CFG_IRQ_LINE] = (uint8_t)(host->virq & 0xFF);
 
-   /* IRQ pin is asserted per irq_mode in the switch below: INTx mode reports
-    * INTA#, while MSI/MSI-X modes leave it cleared so the function advertises
-    * exactly one interrupt type. The datadev driver rejects a function that
-    * advertises more than one type, mirroring the single-IRQ-type firmware
-    * policy this emulator models. */
+   /* IRQ pin = INTA#. Always assert that the function has an INTx pin so
+    * pci_alloc_irq_vectors(... PCI_IRQ_INTX) succeeds even when MSI/MSI-X
+    * are also advertised -- the cascade picks the highest-priority kind
+    * that's actually advertised, but it's spec-correct for a function to
+    * report all three. This also models legacy PCIe IP cores that expose
+    * INTx alongside MSI/MSI-X in the same config space. */
+   cfg[EMU_CFG_IRQ_PIN] = 0x01;
 
    /*
     * Capability list. Pick a single capability to advertise based on
@@ -159,10 +161,8 @@ static void emu_pci_init_cfg_space(struct emu_pci_host *host)
    case EMU_IRQ_MODE_INTX:
    default:
       /* No capability list -- legacy INTx only, matches pre-MSI behavior.
-       * Status "Capabilities List" bit stays clear (set to 0x0000 above).
-       * Assert INTA# so this is the single advertised interrupt type. */
+       * Status "Capabilities List" bit stays clear (set to 0x0000 above). */
       cfg[EMU_CFG_CAP_PTR] = 0x00;
-      cfg[EMU_CFG_IRQ_PIN] = 0x01;
       break;
    }
 }
