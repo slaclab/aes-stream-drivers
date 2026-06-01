@@ -369,6 +369,31 @@ static int emu_process_tx(struct emu_dma_engine *eng)
 }
 
 /* ----------------------------------------------------------------
+ * IRQ delivery dispatch
+ * ---------------------------------------------------------------- */
+
+/*
+ * emu_dma_fire_irq - Trigger the IRQ that datadev currently has registered.
+ *
+ * In INTx mode datadev called request_irq() on emu_irq.virq, so we fire that.
+ * In MSI / MSI-X mode, the kernel allocated a child virq through our PCI-MSI
+ * domain when datadev called pci_alloc_irq_vectors(); the parent .alloc op
+ * stashed it in emu_msi.alloc_virq. Fire that one instead -- emu_irq.virq is
+ * stale (datadev never request_irq'd it).
+ *
+ * The MSI path may briefly have alloc_virq == 0 between emu_dma_start (which
+ * runs before the host bridge is created) and the kernel's MSI alloc during
+ * datadev probe; emu_msi_fire_safe() short-circuits in that window.
+ */
+static inline void emu_dma_fire_irq(struct emu_dma_engine *eng)
+{
+   if (eng->msi != NULL && eng->msi->alloc_virq != 0)
+      emu_msi_fire_safe(eng->msi);
+   else
+      emu_irq_fire_safe(eng->irq);
+}
+
+/* ----------------------------------------------------------------
  * Polling kthread
  * ---------------------------------------------------------------- */
 
@@ -530,7 +555,7 @@ static int emu_poll_thread_fn(void *data)
             need_irq = true;
 
          if (need_irq) {
-            emu_irq_fire_safe(eng->irq);
+            emu_dma_fire_irq(eng);
             eng->irq_count++;
          }
       }
@@ -592,7 +617,7 @@ static int emu_poll_thread_fn(void *data)
             eng->wr_ring_idx = (eng->wr_ring_idx + 1) % eng->addr_count;
             emu_reg_write(eng, EMU_REG_HWWRINDEX, eng->wr_ring_idx);
 
-            emu_irq_fire_safe(eng->irq);
+            emu_dma_fire_irq(eng);
             eng->irq_count++;
             eng->seed_pending = true;
             eng->seed_idx++;
@@ -613,11 +638,17 @@ do_sleep:
  * Engine lifecycle
  * ---------------------------------------------------------------- */
 
+void emu_dma_set_msi(struct emu_dma_engine *eng, struct emu_msi *msi)
+{
+   eng->msi = msi;
+}
+
 int emu_dma_init(struct emu_dma_engine *eng, struct emu_bar0 *bar,
                  struct emu_irq *irq)
 {
    eng->bar = bar;
    eng->irq = irq;
+   eng->msi = NULL;
    eng->reg_base = bar->uc_virt + EMU_AGEN2_OFF;
 
    eng->rd_ring = NULL;

@@ -267,8 +267,13 @@ by ``scripts/ci/test-cpu.sh`` or ``scripts/ci/test-gpu.sh`` during CI.
    * - ``test_backpressure.sh``
      - Saturates TX buffers then verifies recovery and correct dmesg state
    * - ``test_irq_modes.sh``
-     - Sweeps ``cfgIrqHold`` (1, 100000) and polled mode; verifies
-       loopback works under each IRQ configuration
+     - Sweeps the emulator's ``emu_irq_mode`` (``intx`` / ``msi`` /
+       ``msix``). For each mode it reloads ``datadev`` across
+       ``cfgIrqHold`` (1, 100000) and polled mode, verifies loopback +
+       PRBS integrity, then asserts that ``datadev``'s probe-time
+       ``pci_alloc_irq_vectors`` cascade selected the matching interrupt
+       type. The ``emu_irq_mode`` sweep is CPU-phase only; the GPU phase
+       and emulator-less hosts run the legacy single-mode pass
    * - ``test_concurrent_open.sh``
      - Two ``dmaLoopTest`` instances on different destinations simultaneously
    * - ``test_idx_loopback.sh``

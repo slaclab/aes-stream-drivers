@@ -52,7 +52,7 @@ else
 endif
 
 # Object files that make up the module
-$(NAME)-objs := src/bar0_regs.o src/virt_irq.o src/virt_pci_host.o src/dma_engine.o src/prbs.o src/gpu_engine.o src/emu_main.o
+$(NAME)-objs := src/bar0_regs.o src/virt_irq.o src/virt_msi.o src/virt_pci_host.o src/dma_engine.o src/prbs.o src/gpu_engine.o src/emu_main.o
 
 # Target module
 obj-m := $(NAME).o

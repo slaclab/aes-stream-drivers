@@ -28,6 +28,7 @@
 #include "bar0_regs.h"
 #include "virt_pci_host.h"
 #include "virt_irq.h"
+#include "virt_msi.h"
 #include "dma_engine.h"
 #include "gpu_engine.h"
 /* Drain-callback registration surface from nvidia_p2p_stub. */
@@ -56,6 +57,26 @@ static uint emu_prbs_seed;
 module_param(emu_prbs_seed, uint, 0444);
 MODULE_PARM_DESC(emu_prbs_seed,
                  "PRBS seed (0 = random via get_random_u32)");
+
+/*
+ * IRQ delivery mode advertised by the virtual PCI device. Selects which
+ * capability block emu_pci_init_cfg_space installs in cfg_space and
+ * whether dev_set_msi_domain() is invoked on the enumerated pdev:
+ *
+ *    "intx" (default): no caps; pcidev->irq = virq for legacy INTx delivery.
+ *    "msi"  : 32-bit MSI cap at 0x40, MSI domain attached so the kernel
+ *             succeeds pci_alloc_irq_vectors(... PCI_IRQ_MSI).
+ *    "msix" : MSI-X cap at 0x50, table at BAR0+0x38000 and PBA at
+ *             BAR0+0x39000 (EMU_MSIX_TABLE_OFF / EMU_MSIX_PBA_OFF), MSI
+ *             domain attached so pci_alloc_irq_vectors(... PCI_IRQ_MSIX)
+ *             succeeds.
+ *
+ * tests/test_irq_modes.sh sweeps {intx, msi, msix} on every CPU-CI cell.
+ */
+static char *emu_irq_mode = "intx";
+module_param(emu_irq_mode, charp, 0444);
+MODULE_PARM_DESC(emu_irq_mode,
+                 "IRQ delivery mode: intx | msi | msix (default intx)");
 
 /* Gates a pr_info in emu_gpu_rx_tick that emits "emu_gpu: buf=%u
  * rx_seq=0x%08x" per RX-completed frame. Default 0 (off) so soak dmesg
@@ -95,9 +116,43 @@ MODULE_PARM_DESC(emu_gpu_poll_interval_us,
 /* File-static global state */
 static struct emu_bar0 emu_bar;
 static struct emu_irq emu_irq;
+static struct emu_msi emu_msi;
 static struct emu_dma_engine emu_dma;
 static struct emu_pci_host emu_host;
 static struct emu_gpu_engine emu_gpu;
+
+/*
+ * Resolved irq_mode (parsed from the emu_irq_mode modparam at init).
+ * Tracked separately so emu_exit() can branch teardown without re-parsing
+ * the string.
+ */
+static enum emu_irq_mode emu_irq_mode_val = EMU_IRQ_MODE_INTX;
+
+/**
+ * emu_parse_irq_mode - Map the emu_irq_mode modparam string to its enum.
+ * @s: modparam string (must be non-NULL)
+ * @out: resolved enum on success
+ *
+ * Return: 0 on success, -EINVAL on unrecognized value.
+ */
+static int emu_parse_irq_mode(const char *s, enum emu_irq_mode *out)
+{
+   if (s == NULL)
+      return -EINVAL;
+   if (!strcmp(s, "intx")) {
+      *out = EMU_IRQ_MODE_INTX;
+      return 0;
+   }
+   if (!strcmp(s, "msi")) {
+      *out = EMU_IRQ_MODE_MSI;
+      return 0;
+   }
+   if (!strcmp(s, "msix")) {
+      *out = EMU_IRQ_MODE_MSIX;
+      return 0;
+   }
+   return -EINVAL;
+}
 
 /* ----------------------------------------------------------------
  * Drain callback.
@@ -134,6 +189,19 @@ static int __init emu_init(void)
    int ret;
 
    pr_info("%s: loading emulator module\n", EMU_MOD_NAME);
+
+   /* Validate emu_irq_mode BEFORE any allocation so a typo on the insmod
+    * line fails fast (-EINVAL) instead of silently coercing to a default.
+    * tests/test_irq_modes.sh relies on this -- a quietly-defaulted mode
+    * would let the test see "INTx" when it asked for "msix" and produce
+    * a misleading "everything passed" report. */
+   ret = emu_parse_irq_mode(emu_irq_mode, &emu_irq_mode_val);
+   if (ret) {
+      pr_err("%s: invalid emu_irq_mode='%s' (expected intx|msi|msix)\n",
+             EMU_MOD_NAME, emu_irq_mode ? emu_irq_mode : "(null)");
+      return ret;
+   }
+   pr_info("%s: irq mode = %s\n", EMU_MOD_NAME, emu_irq_mode);
 
    /* Reject out-of-range emu_gpu_max_buffers BEFORE any allocation so
     * we never leak resources on a misconfigured insmod. The V4 BAR0
@@ -176,19 +244,36 @@ static int __init emu_init(void)
     * both track the insmod parameter. */
    emu_bar0_init_regs(&emu_bar, emu_gpu_max_buffers);
 
-   /* Step 4: Create IRQ domain and virtual IRQ */
+   /* Step 4: Create IRQ domain and virtual IRQ (always; legacy INTx slot
+    * stays populated even in MSI/MSI-X mode so cfg_space EMU_CFG_IRQ_LINE
+    * has a stable value and the cascade fall-through path remains valid). */
    ret = emu_irq_create(&emu_irq);
    if (ret) {
       pr_err("%s: IRQ creation failed (%d)\n", EMU_MOD_NAME, ret);
       goto err_release_iomem;
    }
 
-   /* Step 5: Initialize DMA engine */
+   /* Step 4b: Create the virtual PCI-MSI domain when needed. INTx mode
+    * skips this -- no domain is attached to the bus, no MSI cap is
+    * advertised, and the kernel never tries to allocate MSI vectors. */
+   if (emu_irq_mode_val != EMU_IRQ_MODE_INTX) {
+      ret = emu_msi_create(&emu_msi);
+      if (ret) {
+         pr_err("%s: MSI domain creation failed (%d)\n", EMU_MOD_NAME, ret);
+         goto err_destroy_irq;
+      }
+   }
+
+   /* Step 5: Initialize DMA engine. Wire the MSI sink so the engine fires
+    * the kernel-allocated child virq once datadev's pci_alloc_irq_vectors
+    * runs; INTx mode leaves it NULL and the engine falls back to emu_irq. */
    ret = emu_dma_init(&emu_dma, &emu_bar, &emu_irq);
    if (ret) {
       pr_err("%s: DMA engine init failed (%d)\n", EMU_MOD_NAME, ret);
-      goto err_destroy_irq;
+      goto err_destroy_msi;
    }
+   if (emu_irq_mode_val != EMU_IRQ_MODE_INTX)
+      emu_dma_set_msi(&emu_dma, &emu_msi);
 
    /* Step 6: Start DMA engine polling BEFORE creating the PCI host bridge.
     * The poll thread must be running when pci_bus_add_devices() triggers
@@ -237,9 +322,15 @@ static int __init emu_init(void)
 
    /* Step 7: Create PCI host bridge -- triggers bus scan and driver probe.
     * emu_pci_host_create() sets pcidev->irq = virq before
-    * pci_bus_add_devices() so the datadev driver's IRQ check at probe
-    * time succeeds. */
-   ret = emu_pci_host_create(&emu_host, &emu_bar, emu_irq.virq);
+    * pci_bus_add_devices() so the datadev driver's INTx fallback path
+    * succeeds; for MSI/MSI-X mode it also attaches the MSI domain to the
+    * enumerated pdev so pci_alloc_irq_vectors() finds something to
+    * allocate from. */
+   ret = emu_pci_host_create(&emu_host, &emu_bar, emu_irq.virq,
+                             emu_irq_mode_val,
+                             emu_irq_mode_val == EMU_IRQ_MODE_INTX
+                                ? NULL
+                                : emu_msi_get_domain(&emu_msi));
    if (ret) {
       pr_err("%s: PCI host creation failed (%d)\n", EMU_MOD_NAME, ret);
       goto err_unregister_drain;
@@ -278,6 +369,9 @@ err_stop_dma:
     * target lands here because emu_dma_init failure skips the
     * corresponding stop step). */
    emu_dma_destroy(&emu_dma);
+err_destroy_msi:
+   if (emu_irq_mode_val != EMU_IRQ_MODE_INTX)
+      emu_msi_destroy(&emu_msi);
 err_destroy_irq:
    emu_irq_destroy(&emu_irq);
 err_release_iomem:
@@ -339,12 +433,19 @@ static void __exit emu_exit(void)
     * any residual engine state (idempotent if stop already ran). */
    emu_gpu_destroy(&emu_gpu);
 
-   /* Step 3: Destroy DMA engine -- flush and destroy workqueue after
-    * PCI host is gone but before IRQ domain teardown, since
-    * irq_work may still be pending until the workqueue is flushed */
+   /* Step 3: Destroy DMA engine after the PCI host is gone. The poll
+    * thread (the only emu_msi_fire_safe() caller) was already stopped in
+    * Step 2, so no new MSI irq_work can be queued past this point. */
    emu_dma_destroy(&emu_dma);
 
-   /* Step 4: Destroy IRQ domain */
+   /* Step 4: Destroy MSI domain (no-op in INTx mode). emu_msi_destroy()
+    * runs irq_work_sync() internally to drain any fire queued just before
+    * the poll thread stopped, then removes the child domain before the
+    * parent so the kernel doesn't walk a child whose parent has gone. */
+   if (emu_irq_mode_val != EMU_IRQ_MODE_INTX)
+      emu_msi_destroy(&emu_msi);
+
+   /* Step 4b: Destroy parent IRQ domain */
    emu_irq_destroy(&emu_irq);
 
    /* Step 5: Release BAR0 iomem window and restore the original System
