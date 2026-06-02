@@ -59,6 +59,29 @@ MODULE_PARM_DESC(emu_prbs_seed,
                  "PRBS seed (0 = random via get_random_u32)");
 
 /*
+ * Per-descriptor max-transfer size, in bytes. Models the AxiStreamDmaV2
+ * "continue" feature: the real firmware splits any frame larger than its
+ * internal max-transfer (512 KiB on the C1100 PrbsTester) into multiple
+ * completion descriptors, setting cont=1 on every segment except the last
+ * so the host stitches them back into one logical frame.
+ *
+ * Default 0x80000 (512 KiB) mirrors the firmware. A frame whose total size
+ * is <= emu_max_transfer loops back as a single descriptor (legacy 1:1
+ * behaviour). tests/test_continue_frame.sh sets a small value (e.g. 16384)
+ * so a modest cfgSize frame crosses the boundary and exercises the
+ * multi-buffer reassembly path under CI without huge buffers.
+ *
+ * A per-segment buffer can never exceed the RX buffer the driver registered
+ * (cfgSize <= maxSize), so the effective split size is bounded by the frame
+ * size itself; values >= the frame size simply never split.
+ */
+static uint emu_max_transfer = 0x80000;
+module_param(emu_max_transfer, uint, 0444);
+MODULE_PARM_DESC(emu_max_transfer,
+                 "Per-descriptor DMA max-transfer in bytes; frames larger than "
+                 "this split into cont-flagged segments (default 0x80000 = 512 KiB)");
+
+/*
  * IRQ delivery mode advertised by the virtual PCI device. Selects which
  * capability block emu_pci_init_cfg_space installs in cfg_space and
  * whether dev_set_msi_domain() is invoked on the enumerated pdev:
@@ -274,6 +297,13 @@ static int __init emu_init(void)
    }
    if (emu_irq_mode_val != EMU_IRQ_MODE_INTX)
       emu_dma_set_msi(&emu_dma, &emu_msi);
+
+   /* Propagate the continue-split threshold into the engine (mirrors how
+    * emu_gpu.rx_prbs_seq is seeded after emu_gpu_init). 0 disables splitting
+    * (treated as "no limit" by emu_process_tx). */
+   emu_dma.max_transfer = emu_max_transfer;
+   pr_info("%s: max_transfer=0x%x bytes (continue split threshold)\n",
+           EMU_MOD_NAME, emu_max_transfer);
 
    /* Step 6: Start DMA engine polling BEFORE creating the PCI host bridge.
     * The poll thread must be running when pci_bus_add_devices() triggers

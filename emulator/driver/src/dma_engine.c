@@ -245,17 +245,116 @@ static bool emu_capture_free_one(struct emu_dma_engine *eng)
    return true;
 }
 
+/*
+ * emu_emit_segment - Emit one segment of the in-progress (cont_active) frame.
+ *
+ * Models the AxiStreamDmaV2 "continue" feature: a TX frame larger than
+ * max_transfer is delivered as several RX completion descriptors, one per
+ * poll cycle (the completion ring is only addr_count deep and the caller
+ * fires a single IRQ per cycle). cont=1 is set on every segment except the
+ * last; firstUser appears only on segment 0 and lastUser only on the final
+ * segment, matching AXI-stream framing. The TX return is written together
+ * with the final segment so the source buffer (cont_tx_virt) stays valid
+ * for the whole frame.
+ *
+ * Returns 1 when a segment (and possibly the TX return) was emitted — the
+ * caller fires one IRQ. Returns 0 when no free RX buffer is available
+ * mid-frame; the caller retries next cycle. The companion userspace test
+ * copies each segment out via read() and returns its buffer immediately,
+ * so the free pool is replenished between cycles and cannot deadlock.
+ */
+static int emu_emit_segment(struct emu_dma_engine *eng)
+{
+   uint32_t rx_index;
+   dma_addr_t rx_handle;
+   void *rx_virt;
+   uint32_t *ptr;
+   uint32_t remaining, seg_max, seg_len;
+   bool is_first, is_last;
+   uint8_t seg_fuser, seg_luser, seg_cont;
+
+   remaining = eng->cont_total - eng->cont_offset;
+   seg_max   = eng->max_transfer ? eng->max_transfer : remaining;
+   seg_len   = (remaining < seg_max) ? remaining : seg_max;
+   is_first  = (eng->cont_offset == 0);
+   is_last   = (seg_len == remaining);
+
+   if (!emu_free_pool_pop(eng, &rx_index, &rx_handle)) {
+      /* First segment with no buffer: fall back to the legacy drop path so
+       * a starved pool never stalls the TX return (no-deadlock guarantee).
+       * Mid-frame: keep cont_active and retry next cycle once the driver
+       * frees a consumed segment's buffer. */
+      if (!is_first)
+         return 0;
+
+      pr_warn_ratelimited("emu: no free RX buffer for TX loopback (tx_idx=%u)\n",
+                          eng->cont_tx_index);
+      ptr = eng->rd_ring + (eng->rd_ring_idx * 4);
+      ptr[0] = eng->cont_tx_fifo_a;
+      ptr[1] = eng->cont_tx_index;
+      ptr[2] = 0;
+      wmb();
+      ptr[3] = eng->cont_validity;
+      eng->rd_ring_idx = (eng->rd_ring_idx + 1) % eng->addr_count;
+      emu_reg_write(eng, EMU_REG_HWRDINDEX, eng->rd_ring_idx);
+      eng->tx_count++;
+      eng->cont_active = false;
+      return 1;
+   }
+
+   seg_fuser = is_first ? eng->cont_fuser : 0;
+   seg_luser = is_last  ? eng->cont_luser : 0;
+   seg_cont  = is_last  ? eng->cont_tx_cont : 1;
+
+   rx_virt = phys_to_virt((phys_addr_t)rx_handle);
+   memcpy(rx_virt, (uint8_t *)eng->cont_tx_virt + eng->cont_offset, seg_len);
+
+   /* RX completion to write ring (128-bit: 4 words) */
+   ptr = eng->wr_ring + (eng->wr_ring_idx * 4);
+   ptr[0] = ((uint32_t)seg_fuser    << 24) |
+            ((uint32_t)seg_luser    << 16) |
+            ((uint32_t)eng->cont_dest << 8) |
+            ((uint32_t)seg_cont     <<  3);
+   ptr[1] = rx_index;
+   ptr[2] = seg_len;
+   wmb();
+   ptr[3] = eng->cont_validity;
+   eng->wr_ring_idx = (eng->wr_ring_idx + 1) % eng->addr_count;
+   emu_reg_write(eng, EMU_REG_HWWRINDEX, eng->wr_ring_idx);
+   eng->rx_count++;
+
+   eng->cont_offset += seg_len;
+
+   if (is_last) {
+      /* The whole frame consumed exactly one TX descriptor; return it now. */
+      ptr = eng->rd_ring + (eng->rd_ring_idx * 4);
+      ptr[0] = eng->cont_tx_fifo_a;
+      ptr[1] = eng->cont_tx_index;
+      ptr[2] = eng->cont_total;
+      wmb();
+      ptr[3] = eng->cont_validity;
+      eng->rd_ring_idx = (eng->rd_ring_idx + 1) % eng->addr_count;
+      emu_reg_write(eng, EMU_REG_HWRDINDEX, eng->rd_ring_idx);
+      eng->tx_count++;
+      eng->cont_active = false;
+   }
+
+   return 1;
+}
+
 static int emu_process_tx(struct emu_dma_engine *eng)
 {
    uint32_t fifo_a, fifo_b, fifo_c, fifo_d;
    uint32_t index, size;
    uint8_t fuser, luser, dest, chan, cont;
-   dma_addr_t tx_handle, rx_handle;
-   void *tx_virt, *rx_virt;
-   uint32_t rx_index;
-   uint32_t *ptr;
+   dma_addr_t tx_handle;
    uint32_t validity;
-   int tx_processed = 0;
+
+   /* Finish an in-progress split frame one segment per cycle before pulling
+    * a new TX descriptor.  With addr_count==2 the driver keeps at most one
+    * TX in flight, so readFifoB stays empty until the TX return below. */
+   if (eng->cont_active)
+      return emu_emit_segment(eng);
 
    fifo_b = emu_reg_read(eng, EMU_REG_READFIFOB);
    if (fifo_b == 0)
@@ -277,8 +376,6 @@ static int emu_process_tx(struct emu_dma_engine *eng)
    chan      = (fifo_a >> 4) & 0xF;
    cont      = (fifo_a >> 3) & 0x1;
 
-   tx_virt = phys_to_virt((phys_addr_t)tx_handle);
-
    /* ptr[3] doubles as the ring-entry validity word: AxisG2_MapReturn
     * treats ptr[3]==0 as "no entry."  Bits 11:8 = chan, bits 7:0 = dest.
     * Bits 31:12 are unused by the driver, so set bit 16 as a non-zero
@@ -287,85 +384,43 @@ static int emu_process_tx(struct emu_dma_engine *eng)
    if (validity == 0)
       validity = 0x10000;
 
-   if (!emu_free_pool_pop(eng, &rx_index, &rx_handle)) {
-      pr_warn_ratelimited("emu: no free RX buffer for TX loopback (tx_idx=%u)\n",
-                          index);
-
-      /* Return TX buffer via rd_ring (128-bit: 4 words) */
-      ptr = eng->rd_ring + (eng->rd_ring_idx * 4);
-      ptr[0] = fifo_a;
-      ptr[1] = index;
-      ptr[2] = 0;
-      wmb();
-      ptr[3] = validity;
-
-      eng->rd_ring_idx = (eng->rd_ring_idx + 1) % eng->addr_count;
-      emu_reg_write(eng, EMU_REG_HWRDINDEX, eng->rd_ring_idx);
-
-      eng->tx_count++;
-      return 1;
-   }
-
-   /* Bound the memcpy by the maxSize register the driver read at init
-    * (mirrors the VHDL: the hardware FIFO can't accept oversized TX). A
-    * size above EMU_REG_MAXSIZE_INIT means a driver bug — emit a frame-
-    * rejection completion (size=0) and skip the copy rather than walk
-    * off the end of the RX buffer (the rx pages were allocated for
-    * cfgSize <= maxSize). Same return-via-rd_ring shape as the
-    * starvation path above keeps AxisG2_MapReturn's invariants intact. */
+   /* A single TX frame can never exceed the RX buffer the driver allocated
+    * (cfgSize <= maxSize); a larger size means a driver bug.  Drop it with a
+    * size=0 TX return rather than walk off the RX buffer.  (Note: this caps
+    * the *total* frame; the continue split below caps each segment.) */
    if (size > EMU_REG_MAXSIZE_INIT) {
+      uint32_t *ptr;
+
       pr_warn_ratelimited("emu: TX size=%u exceeds maxSize=%u, dropping frame (tx_idx=%u)\n",
                           size, EMU_REG_MAXSIZE_INIT, index);
-      emu_free_pool_push(eng, rx_index, rx_handle);
-
       ptr = eng->rd_ring + (eng->rd_ring_idx * 4);
       ptr[0] = fifo_a;
       ptr[1] = index;
       ptr[2] = 0;
       wmb();
       ptr[3] = validity;
-
       eng->rd_ring_idx = (eng->rd_ring_idx + 1) % eng->addr_count;
       emu_reg_write(eng, EMU_REG_HWRDINDEX, eng->rd_ring_idx);
-
       eng->tx_count++;
       return 1;
    }
 
-   rx_virt = phys_to_virt((phys_addr_t)rx_handle);
-   memcpy(rx_virt, tx_virt, size);
+   /* Latch the frame and emit its first segment.  emu_emit_segment splits
+    * when size > max_transfer; otherwise it emits a single descriptor,
+    * identical to the legacy 1:1 loopback. */
+   eng->cont_active    = true;
+   eng->cont_tx_virt   = phys_to_virt((phys_addr_t)tx_handle);
+   eng->cont_tx_fifo_a = fifo_a;
+   eng->cont_tx_index  = index;
+   eng->cont_total     = size;
+   eng->cont_offset    = 0;
+   eng->cont_validity  = validity;
+   eng->cont_fuser     = fuser;
+   eng->cont_luser     = luser;
+   eng->cont_dest      = dest;
+   eng->cont_tx_cont   = cont;
 
-   /* Write RX completion to write ring (128-bit: 4 words) */
-   ptr = eng->wr_ring + (eng->wr_ring_idx * 4);
-   ptr[0] = ((uint32_t)fuser << 24) |
-            ((uint32_t)luser << 16) |
-            ((uint32_t)dest  << 8)  |
-            ((uint32_t)cont  << 3);
-   ptr[1] = rx_index;
-   ptr[2] = size;
-   wmb();
-   ptr[3] = validity;
-
-   eng->wr_ring_idx = (eng->wr_ring_idx + 1) % eng->addr_count;
-
-   /* Write TX return to read ring (128-bit: 4 words) */
-   ptr = eng->rd_ring + (eng->rd_ring_idx * 4);
-   ptr[0] = fifo_a;
-   ptr[1] = index;
-   ptr[2] = size;
-   wmb();
-   ptr[3] = validity;
-
-   eng->rd_ring_idx = (eng->rd_ring_idx + 1) % eng->addr_count;
-
-   emu_reg_write(eng, EMU_REG_HWWRINDEX, eng->wr_ring_idx);
-   emu_reg_write(eng, EMU_REG_HWRDINDEX, eng->rd_ring_idx);
-
-   eng->tx_count++;
-   eng->rx_count++;
-   tx_processed++;
-
-   return tx_processed;
+   return emu_emit_segment(eng);
 }
 
 /* ----------------------------------------------------------------
@@ -459,6 +514,10 @@ static int emu_poll_thread_fn(void *data)
             eng->seed_active = false;
             eng->seed_pending = false;
 
+            /* Abandon any half-emitted split frame from the old driver
+             * instance; its TX buffer is about to be freed. */
+            eng->cont_active = false;
+
             pr_info("emu: online 1->0 edge, engine state reset\n");
          }
          eng->prev_online = cur_online;
@@ -511,6 +570,10 @@ static int emu_poll_thread_fn(void *data)
 
          eng->seed_active = false;
          eng->seed_pending = false;
+
+         /* Abandon any half-emitted split frame; the ring pointers and TX
+          * buffer it referenced are being torn down. */
+         eng->cont_active = false;
 
          eng->init_polling = true;
          init_deadline = jiffies + msecs_to_jiffies(EMU_INIT_POLL_TIMEOUT_MS);
@@ -669,6 +732,11 @@ int emu_dma_init(struct emu_dma_engine *eng, struct emu_bar0 *bar,
    eng->rx_count = 0;
    eng->irq_count = 0;
    eng->free_captured = 0;
+
+   /* No split frame in progress. max_transfer is set from the modparam in
+    * emu_init() after this returns; 0 here is harmless until then. */
+   eng->cont_active = false;
+   eng->max_transfer = 0;
 
    /* enableVer R/O enforcement starts with bit 0 = 0 / enableCnt = 0,
     * matching EMU_REG_ENABLEVER_INIT. The driver's first AxisG2_Enable

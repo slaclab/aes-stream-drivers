@@ -131,6 +131,29 @@ struct emu_dma_engine {
    uint32_t seed_max;         /* upper bound for probing */
    uint32_t seed_target;      /* desired free pool count */
 
+   /* Per-descriptor max-transfer (bytes), from the emu_max_transfer
+    * modparam. A TX frame larger than this is split into multiple RX
+    * completion descriptors (cont=1 on all but the last), modelling the
+    * AxiStreamDmaV2 continue feature. 0 means "no limit" (never split). */
+   uint32_t max_transfer;
+
+   /* In-progress continue (multi-segment) frame state. When a TX frame
+    * exceeds max_transfer, emu_process_tx emits one segment per poll cycle
+    * (the completion ring is only addr_count deep and one IRQ fires per
+    * cycle) and holds the remaining frame here. The TX return is deferred
+    * to the final segment so cont_tx_virt stays valid across cycles. */
+   bool       cont_active;     /* a split frame is mid-emission */
+   void      *cont_tx_virt;    /* source TX buffer kernel VA           */
+   uint32_t   cont_tx_fifo_a;  /* original TX fifo_a (for the TX return) */
+   uint32_t   cont_tx_index;   /* TX buffer index (for the TX return)   */
+   uint32_t   cont_total;      /* total frame size in bytes             */
+   uint32_t   cont_offset;     /* bytes already emitted                 */
+   uint32_t   cont_validity;   /* ring validity word for this frame     */
+   uint8_t    cont_fuser;      /* firstUser — emitted on segment 0 only */
+   uint8_t    cont_luser;      /* lastUser  — emitted on final segment  */
+   uint8_t    cont_dest;       /* destination — every segment           */
+   uint8_t    cont_tx_cont;    /* app-driven TX cont — final segment    */
+
    /* Statistics */
    uint32_t tx_count;
    uint32_t rx_count;

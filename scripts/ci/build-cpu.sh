@@ -111,4 +111,9 @@ test -f data_dev/app/bin/dmaErrorTest || {
    exit 1
 }
 
+test -f data_dev/app/bin/dmaContinueTest || {
+   echo_fail "data_dev/app/bin/dmaContinueTest not found"
+   exit 1
+}
+
 echo_step "All build artifacts present"
