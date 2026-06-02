@@ -39,6 +39,14 @@
 #include <gpu_async.h>
 #endif
 
+// PCI_IRQ_LEGACY was renamed to PCI_IRQ_INTX in Linux 6.11; the old name was
+// kept as a deprecated alias for a few releases, then dropped. Provide the new
+// spelling on pre-6.11 kernels so the single pci_alloc_irq_vectors() call site
+// builds across the CI matrix (Ubuntu 22.04 / kernel 5.15 lacks PCI_IRQ_INTX).
+#ifndef PCI_IRQ_INTX
+#define PCI_IRQ_INTX PCI_IRQ_LEGACY
+#endif
+
 // Init Configuration values
 static int cfgTxCount  = 1024;
 static int cfgRxCount  = 1024;
@@ -234,6 +242,23 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
       goto err_post_en;
    }
 
+   // The driver's register map tops out at a fixed 16 MB window (2 * USER_SIZE:
+   // DMA engine (AGEN2_OFF), PCIe PHY (PHY_OFF), AxiVersion (AVER_OFF), and the
+   // user region: rwBase = base + PHY_OFF, rwSize = 2*USER_SIZE - PHY_OFF). A
+   // BAR0 *larger* than this means the firmware was built with a different
+   // address map, so reject it with a clear message instead of letting the
+   // mismatch surface later. A smaller BAR0 is tolerated: the emulator shrinks
+   // its BAR when it cannot reserve 16 MB of contiguous memory, and only the
+   // lower register regions are exercised in that configuration.
+   if ( dev->baseSize > (2 * USER_SIZE) ) {
+      dev_err(&pcidev->dev,
+              "%s: Probe: BAR0 size 0x%x exceeds expected 0x%x (16 MB); "
+              "firmware register-map mismatch.\n",
+              MOD_NAME, dev->baseSize, (unsigned int)(2 * USER_SIZE));
+      probeReturn = -EINVAL;
+      goto err_post_en;
+   }
+
    // Set basic device attributes
    dev->pcidev = pcidev;          // PCI device structure
    dev->device = &(pcidev->dev);  // Device structure
@@ -263,16 +288,41 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->cfgTimeout = cfgTimeout;
    dev->debug = cfgDebug;
 
-
-   // Assign the IRQ number from the pci_dev structure
-   dev->irq = pcidev->irq;
-
-   // Check that we actually have an IRQ
-   if (dev->irq == 0) {
-      dev_err(dev->device, "%s: No IRQ associated with PCI device\n", MOD_NAME);
-      probeReturn = -EINVAL;
+   // Allocate IRQ vectors: try MSI-X first, then MSI, then legacy INTx.
+   // pci_alloc_irq_vectors() walks the requested types in priority order
+   // and returns the count of vectors negotiated; pci_irq_vector(pdev, 0)
+   // returns the right Linux IRQ number regardless of which path won. A
+   // bitstream that advertises more than one type is tolerated for
+   // backwards compatibility with legacy PCIe IP cores that report
+   // INTx + MSI/MSI-X simultaneously: the cascade picks the highest
+   // priority kind that's actually advertised. Probe fails only if all
+   // three are unavailable.
+   ret = pci_alloc_irq_vectors(pcidev, 1, 1,
+                               PCI_IRQ_MSIX | PCI_IRQ_MSI | PCI_IRQ_INTX);
+   if (ret < 0) {
+      dev_err(&pcidev->dev,
+              "%s: Probe: pci_alloc_irq_vectors() = %i\n", MOD_NAME, ret);
+      probeReturn = ret;
       goto err_unmap;
    }
+
+   // pci_irq_vector() returns a signed errno on failure; capture it in an
+   // int and reject < 0 before storing into the uint32_t dev->irq, otherwise
+   // a negative value would wrap to a bogus IRQ and reach request_irq().
+   ret = pci_irq_vector(pcidev, 0);
+   if (ret < 0) {
+      dev_err(&pcidev->dev,
+              "%s: Probe: pci_irq_vector() = %i\n", MOD_NAME, ret);
+      probeReturn = ret;
+      goto err_unmap;
+   }
+   dev->irq = ret;
+
+   dev_info(dev->device,
+            "Init: Probe: using %s interrupts, irq=%u\n",
+            pcidev->msix_enabled ? "MSI-X" :
+            pcidev->msi_enabled  ? "MSI"   : "legacy INTx",
+            dev->irq);
 
    // Set basic device context
 
@@ -347,6 +397,8 @@ err_unmap:
    dev->utilData = NULL;
 #endif
    Dma_UnmapReg(dev);               // Idempotent: safe even if Dma_MapReg never ran
+   pci_free_irq_vectors(pcidev);    // Releases MSI/MSI-X/INTx allocation; no-op if
+                                    // pci_alloc_irq_vectors failed or never ran
 err_post_en:
    pci_disable_device(pcidev);      // Disable PCI device on failure
 err_pre_en:
@@ -407,8 +459,11 @@ void DataDev_Remove(struct pci_dev *pcidev) {
    }
 #endif
 
-   // Call common DMA clean function
+   // Call common DMA clean function (calls free_irq() internally)
    Dma_Clean(dev);
+
+   // Release MSI/MSI-X/INTx vectors (must follow free_irq, precede pci_disable_device)
+   pci_free_irq_vectors(pcidev);
 
    // Disable device
    pci_disable_device(pcidev);

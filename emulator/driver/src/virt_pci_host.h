@@ -48,29 +48,65 @@
 #define EMU_CFG_IRQ_LINE     0x3C
 #define EMU_CFG_IRQ_PIN      0x3D
 
+/*
+ * Capability block offsets within cfg_space. Both layouts fit comfortably
+ * inside the 256-byte standard config space. Only one cap is installed at
+ * a time -- emu_pci_init_cfg_space picks based on irq_mode.
+ */
+#define EMU_CFG_MSI_CAP      0x40   /* 10-byte 32-bit MSI capability   */
+#define EMU_CFG_MSIX_CAP     0x50   /* 12-byte MSI-X capability        */
+
+/*
+ * MSI-X table + PBA placement inside BAR0. These must live inside the
+ * guaranteed-minimum BAR0 allocation: emu_bar0_alloc() may fall back as
+ * far as EMU_BAR0_MIN_ORDER (256 KB) under host memory fragmentation, and
+ * since MSI-X is advertised as the only capability, a table offset past
+ * the actual BAR length would make pci_alloc_irq_vectors(...MSIX...) fail
+ * with no MSI fall-back in cfg_space. The emulated register regions top
+ * out at 0x30000 (GPU_ASYNC end); 0x38000/0x39000 sit above them, in
+ * separate 4 KB pages, and below the 0x40000 minimum BAR size.
+ */
+#define EMU_MSIX_TABLE_OFF   0x00038000
+#define EMU_MSIX_PBA_OFF     0x00039000
+
+/* IRQ mode selector for the virtual device */
+enum emu_irq_mode {
+   EMU_IRQ_MODE_INTX = 0,
+   EMU_IRQ_MODE_MSI  = 1,
+   EMU_IRQ_MODE_MSIX = 2,
+};
+
 /**
  * struct emu_pci_host - Virtual PCI host bridge state
- * @bridge:   PCI host bridge allocated by pci_alloc_host_bridge()
- * @bus:      root PCI bus created during bus scan
+ * @bridge:    PCI host bridge allocated by pci_alloc_host_bridge()
+ * @bus:       root PCI bus created during bus scan
  * @cfg_space: emulated PCI configuration space (256 bytes)
- * @bar:      pointer to BAR0 memory allocation state
- * @virq:     virtual IRQ number for the emulated device
- * @mem_res:  memory resource describing BAR0 region
+ * @bar:       pointer to BAR0 memory allocation state
+ * @virq:      virtual IRQ number for the emulated device (legacy INTx slot)
+ * @mem_res:   memory resource describing BAR0 region
+ * @irq_mode:  which IRQ delivery mode the cfg space advertises
+ * @msi_domain: PCI-MSI domain attached to enumerated devices when irq_mode != INTX
  */
 struct emu_pci_host {
    struct pci_host_bridge *bridge;
    struct pci_bus *bus;
    uint8_t cfg_space[EMU_PCI_CFG_SIZE];
-   struct emu_bar0 *bar;         /* pointer to BAR0 data */
-   unsigned int virq;            /* virtual IRQ number */
-   struct resource mem_res;      /* memory resource for BAR0 */
+   struct emu_bar0 *bar;
+   unsigned int virq;
+   struct resource mem_res;
+   enum emu_irq_mode irq_mode;
+   struct irq_domain *msi_domain;
 };
 
 /**
  * emu_pci_host_create - Create virtual PCI host bridge and scan bus
- * @host: host bridge state structure (caller-allocated)
- * @bar:  initialized BAR0 memory allocation
- * @virq: virtual IRQ number to assign to the emulated device
+ * @host:       host bridge state structure (caller-allocated)
+ * @bar:        initialized BAR0 memory allocation
+ * @virq:       virtual IRQ number to assign to the emulated device
+ *              (used for legacy INTx; ignored once MSI/MSI-X is negotiated)
+ * @irq_mode:   which IRQ kind to advertise in cfg_space
+ * @msi_domain: PCI-MSI irq_domain to attach to enumerated devices when
+ *              irq_mode is MSI or MSI-X; ignored for INTX
  *
  * Creates a PCI host bridge with custom pci_ops that emulate config space
  * for a device matching the datadev driver's PCI ID table. Scanning the
@@ -80,7 +116,9 @@ struct emu_pci_host {
  */
 int emu_pci_host_create(struct emu_pci_host *host,
                         struct emu_bar0 *bar,
-                        unsigned int virq);
+                        unsigned int virq,
+                        enum emu_irq_mode irq_mode,
+                        struct irq_domain *msi_domain);
 
 /**
  * emu_pci_host_destroy - Tear down the virtual PCI host bridge

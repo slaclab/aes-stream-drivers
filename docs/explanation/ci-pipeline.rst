@@ -378,8 +378,12 @@ The combined Phase 2 + Phase 3 coverage across all distributions:
      - 3
      - Multi-destination (0, 7, 8), cross-contamination check
    * - IRQ modes
-     - 3
-     - cfgIrqHold=1, cfgIrqHold=100000, polled (cfgIrqDis=1)
+     - 12
+     - ``emu_irq_mode`` {intx, msi, msix} sweep (CPU phase). Each mode
+       runs cfgIrqHold=1, cfgIrqHold=100000, and polled (cfgIrqDis=1),
+       plus a probe-cascade assertion that ``datadev`` selected the
+       matching INTx / MSI / MSI-X path. GPU phase runs the single-mode
+       legacy pass
    * - Module lifecycle
      - 4
      - 3 rapid reload cycles, rmmod-under-load, cfgMode=1/2 transitions

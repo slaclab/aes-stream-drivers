@@ -32,6 +32,7 @@
 #include <linux/spinlock.h>
 #include "bar0_regs.h"
 #include "virt_irq.h"
+#include "virt_msi.h"
 
 /* Maximum RX buffers in free pool (matches driver's default rxBuffers.count) */
 #define EMU_FREE_POOL_MAX   4096
@@ -81,7 +82,8 @@ struct emu_free_buf {
 struct emu_dma_engine {
    /* Back-references */
    struct emu_bar0 *bar;
-   struct emu_irq *irq;
+   struct emu_irq  *irq;   /* legacy INTx delivery (always populated) */
+   struct emu_msi  *msi;   /* MSI/MSI-X delivery (NULL in INTx mode)  */
 
    /* Register base (bar->virt + EMU_AGEN2_OFF) */
    void *reg_base;
@@ -138,6 +140,7 @@ struct emu_dma_engine {
 
 int emu_dma_init(struct emu_dma_engine *eng, struct emu_bar0 *bar,
                  struct emu_irq *irq);
+void emu_dma_set_msi(struct emu_dma_engine *eng, struct emu_msi *msi);
 void emu_dma_start(struct emu_dma_engine *eng);
 void emu_dma_stop(struct emu_dma_engine *eng);
 void emu_dma_destroy(struct emu_dma_engine *eng);
