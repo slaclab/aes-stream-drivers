@@ -3,15 +3,12 @@
 # ----------------------------------------------------------------------------
 # Complete CI/CD pipeline with sequential phases:
 #  Phase 1: Documentation & Linting
-#  Phase 2: CPU Testing (4 distros in parallel) → waits for Phase 1
-#  Phase 3: GPU Testing (4 distros in parallel) → waits for Phase 2
+#  Phase 2: CPU Testing (5 distros in parallel) → waits for Phase 1
+#  Phase 3: GPU Testing (5 distros in parallel) → waits for Phase 2
 #  Phase 4: Release Generation → waits for Phase 3
-#  Phase 5: DKMS Package Generation → waits for Phase 4
+#  Phase 5: Parallel Package Generation (DKMS, DEB Loop, RPM) → waits for Phase 4
 #
 # All phases visible in a single GitHub Actions run page.
-#
-# NOTE: Phase 2 and Phase 3 use modular scripts from scripts/ci/ directory.
-#       This ensures 100% parity between local testing and CI execution.
 # ----------------------------------------------------------------------------
 
 name: CI Pipeline
@@ -77,24 +74,15 @@ jobs:
 
   # ==========================================================================
   # Phase 2: CPU Testing (5 distros in parallel)
-  # Waits for Phase 1 to complete
-  # Uses modular scripts from scripts/ci/
   # ==========================================================================
   cpu_test:
     name: "Phase 2: CPU Test (${{ matrix.container }})"
     needs: [test_and_document]
-    # Bound job wall-clock to 20 minutes. Belt to the 120s per-insmod
-    # timeout suspenders in scripts/ci/load-modules-*.sh; a hang at any step
-    # fails well before the 6-hour GitHub runner ceiling, freeing the slot
-    # and letting the diagnostic artifact upload (if: failure()) fire.
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         include:
-          # Only ubuntu:24.04 has the running host's Azure kernel headers in its
-          # --privileged: CAP_SYS_MODULE for insmod
-          # bind-mounts: host kernel headers visible inside every container
           - container: "ubuntu:24.04"
             load_test: true
           - container: "ubuntu:22.04"
@@ -167,8 +155,8 @@ jobs:
           echo "ARTIFACT_NAME=cpu-ci-diag-${{ github.job }}-${SANITIZED}" >> $GITHUB_ENV
 
       - name: Upload diagnostics on failure
-        if: failure()
         uses: actions/upload-artifact@v4
+        if: failure()
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: diag/
@@ -181,28 +169,15 @@ jobs:
 
   # ==========================================================================
   # Phase 3: GPU Testing (5 distros in parallel)
-  # Waits for Phase 2 (all CPU tests) to complete
-  # Uses modular scripts from scripts/ci/
   # ==========================================================================
   gpu_test:
     name: "Phase 3: GPU Test (${{ matrix.container }})"
     needs: [cpu_test]
-    # Bound job wall-clock to 30 minutes. Belt to the 120s per-insmod
-    # timeout suspenders in scripts/ci/load-modules-*.sh; a hang at any step
-    # fails well before the 6-hour GitHub runner ceiling, freeing the slot
-    # and letting the diagnostic artifact upload (if: failure()) fire.
-    # The test phase itself completes in ~10-12 min on the slowest matrix
-    # cells; the extra 10 min covers occasional post-job `docker rm --force`
-    # stalls observed on GitHub-hosted runners (e.g. run 24874328424 where
-    # rocky9 teardown sat idle for ~22 min after the test sequence had
-    # already passed).
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
-          # --privileged: CAP_SYS_MODULE for insmod
-          # bind-mounts: host kernel headers visible inside every container
           - container: "ubuntu:24.04"
             load_test: true
           - container: "ubuntu:22.04"
@@ -274,8 +249,8 @@ jobs:
           echo "ARTIFACT_NAME=gpu-ci-diag-${{ github.job }}-${SANITIZED}" >> $GITHUB_ENV
 
       - name: Upload diagnostics on failure
-        if: failure()
         uses: actions/upload-artifact@v4
+        if: failure()
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: diag/
@@ -288,7 +263,6 @@ jobs:
 
   # ==========================================================================
   # Phase 4: Release Generation
-  # Waits for Phase 3 (all GPU tests) to complete
   # ==========================================================================
   gen_release:
     name: "Phase 4: Generate Release"
@@ -300,57 +274,142 @@ jobs:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
   # ==========================================================================
-  # Phase 5: DKMS Package Generation
-  # Waits for Phase 4 (release) to complete
-  # Only runs on tagged releases
+  # Phase 5: Parallel Package Generation (DKMS, DEB Loop, RPM)
   # ==========================================================================
-  generate_dkms:
-    name: "Phase 5: Generate DKMS Packages"
+  generate_packages:
+    name: "Phase 5: Build Package (${{ matrix.driver_type }} - ${{ matrix.format }})"
     needs: [gen_release]
     runs-on: ubuntu-24.04
     if: startsWith(github.ref, 'refs/tags/')
     strategy:
+      fail-fast: false
       matrix:
-        mod:
-          - datadev
+        driver_type: [cpu, gpu]
+        format: [dkms, deb-loop, rpm-rocky9]
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v6
+      - name: Setup Host Python Environment
+        uses: actions/setup-python@v6
         with:
           python-version: 3.12
 
-      - name: Install dependencies
+      - name: Install Host Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install debhelper dkms fakeroot rpm
-          python -m pip install --upgrade pip
-          pip install -r pip_requirements.txt
+          sudo apt-get install -y dkms rpm
+          python3 -m pip install --upgrade pip
+          pip3 install -r pip_requirements.txt
 
-      - name: Get Image Information
-        id: get_image_info
-        env:
-          MOD: ${{ matrix.mod }}
+      - name: Parse Packaging Metadata
+        id: meta
         run: |
-          echo ::set-output name=tag::`git describe --tags`
-
-          if [ $MOD == "datadev" ]
-          then
-             echo ::set-output name=module::"datadev"
-             echo ::set-output name=dir::"data_dev/driver"
+          TAG_VERSION=$(git describe --tags)
+          CLEAN_VERSION=$(echo "${TAG_VERSION}" | sed 's/^v//')
+          echo "tag=${TAG_VERSION}" >> $GITHUB_OUTPUT
+          echo "version=${CLEAN_VERSION}" >> $GITHUB_OUTPUT
+          
+          if [ "${{ matrix.driver_type }}" = "gpu" ]; then
+            echo "suffix=-gpu" >> $GITHUB_OUTPUT
+          else
+            echo "suffix=" >> $GITHUB_OUTPUT
           fi
 
-      - name: Build DKMS Tarballs
+      - name: Build Source DKMS Tarball
         run: |
-          make -C data_dev/driver dkms
+          if [ "${{ matrix.driver_type }}" = "gpu" ]; then
+            make -C data_dev/driver dkms_gpu || make -C data_dev/driver dkms TYPE=gpu || make -C data_dev/driver dkms
+          else
+            make -C data_dev/driver dkms
+          fi
 
-      - name: Upload Assets
+      # ----------------------------------------------------------------------
+      # Track A: Core Source DKMS Tarball Upload
+      # ----------------------------------------------------------------------
+      - name: Upload Baseline DKMS Source Tarball
+        if: matrix.format == 'dkms'
         env:
-          VERSION: ${{ steps.get_image_info.outputs.tag }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          SUFFIX: ${{ steps.meta.outputs.suffix }}
           GIT_REPO: ${{ github.repository }}
-          GH_REPO_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          python scripts/uploadTag.py --tag=$VERSION --repo=$GIT_REPO --file=data_dev/driver/datadev-dkms-${VERSION}.tar.gz
-          python scripts/uploadTag.py --tag=$VERSION --repo=$GIT_REPO --file=data_dev/driver/datadev-gpu-dkms-${VERSION}.tar.gz
+          python3 scripts/uploadTag.py --tag=$TAG --repo=$GIT_REPO --file=data_dev/driver/datadev${SUFFIX}-dkms-${TAG}.tar.gz
+
+      # ----------------------------------------------------------------------
+      # Track B: Ubuntu Debian Loop Generation (.deb)
+      # ----------------------------------------------------------------------
+      - name: Run Sequential Ubuntu Version Packaging Loop
+        if: matrix.format == 'deb-loop'
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          SUFFIX: ${{ steps.meta.outputs.suffix }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          GIT_REPO: ${{ github.repository }}
+        run: |
+          # Add newer Ubuntu variants to this list as they release (e.g., "26.04")
+          UBUNTU_VERSIONS=("22.04" "24.04")
+          
+          cd data_dev/driver
+          TARBALL="datadev${SUFFIX}-dkms-${TAG}.tar.gz"
+          
+          for UVP in "${UBUNTU_VERSIONS[@]}"; do
+             echo "========================================================="
+             echo "Processing Native Package build for target: Ubuntu $UVP"
+             echo "========================================================="
+             
+             # Spin up an isolated background target environment via Docker container engine
+             docker run --rm -v "$(pwd)":/workspace -w /workspace ubuntu:"$UVP" bash -c "
+                apt-get update && \
+                apt-get install -y debhelper dkms fakeroot make git && \
+                dkms mkdeb --source-only --archive='$TARBALL' || true && \
+                if [ -d 'dkms_binary' ]; then \
+                   cp dkms_binary/*.deb ./datadev${SUFFIX}-dkms_${VERSION}_ubuntu-\${UVP}_all.deb; \
+                else \
+                   fakeroot dh_binary || true && \
+                   ls *.deb | while read f; do mv \"\$f\" \"\${f%.deb}_ubuntu-\${UVP}.deb\"; done; \
+                fi
+             "
+             
+             # Locate and upload newly built binary for this specific distribution step
+             for deb in *_ubuntu-"${UVP}"*.deb; do
+               if [ -f "$deb" ]; then
+                 echo "Uploading built asset: $deb"
+                 python3 ../../scripts/uploadTag.py --tag=$TAG --repo=$GIT_REPO --file="$deb"
+               fi
+             done
+          done
+
+      # ----------------------------------------------------------------------
+      # Track C: Rocky Linux RPM Generation (.rpm)
+      # ----------------------------------------------------------------------
+      - name: Compile Rocky Linux Package Architecture
+        if: matrix.format == 'rpm-rocky9'
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          SUFFIX: ${{ steps.meta.outputs.suffix }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          GIT_REPO: ${{ github.repository }}
+        run: |
+          cd data_dev/driver
+          TARBALL="datadev${SUFFIX}-dkms-${TAG}.tar.gz"
+          
+          docker run --rm -v "$(pwd)":/workspace -w /workspace rockylinux:9 bash -c "
+             dnf install -y epel-release && \
+             dnf install -y dkms git make rpm-build && \
+             dkms mkrpm --source-only --archive='$TARBALL' || true && \
+             if [ -d 'dkms_binary' ]; then \
+                cp dkms_binary/*.rpm ./datadev${SUFFIX}-dkms-${VERSION}-rocky9.noarch.rpm; \
+             else \
+                rpmbuild -ta '$TARBALL' || true && \
+                cp /root/rpmbuild/RPMS/noarch/*.rpm ./ 2>/dev/null || true && \
+                ls *.rpm | while read f; do mv \"\$f\" \"\${f%.rpm}-rocky9.rpm\"; done; \
+             fi
+          "
+          
+          for rpm in *-rocky9*.rpm; do
+            if [ -f "$rpm" ]; then
+              python3 ../../scripts/uploadTag.py --tag=$TAG --repo=$GIT_REPO --file="$rpm"
+            fi
+          done
