@@ -1,36 +1,56 @@
 # ----------------------------------------------------------------------------
-# Title      : Targeted Binary Package Generation (.deb & .rpm)
+# Title      : Native GitHub Actions Container Package Generation (.deb & .rpm)
 # ----------------------------------------------------------------------------
-# Compiles distribution-specific wrappers targeting explicit environments:
-#  - Ubuntu 22.04 & 24.04 (Debian Packages via Loop)
-#  - Rocky Linux 9 (RPM Packages)
-# ----------------------------------------------------------------------------
-
 name: Build Distribution Packages
 on:
-  workflow_dispatch: # Allows manual verification via the GitHub Actions tab
+  workflow_dispatch:
 
 jobs:
   # ==========================================================================
-  # Parallel Binary Package Compilation
+  # Parallel Package Compilation using Native GitHub Containers
   # ==========================================================================
   compile_dist_packages:
-    name: "Compile Packages (${{ matrix.driver_type }} - ${{ matrix.format }})"
+    name: "Compile Package (${{ matrix.driver_type }} - ${{ matrix.target_env }})"
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
         driver_type: [cpu, gpu]
-        format: [deb-loop, rpm-rocky9]
+        target_env: [ubuntu-22.04, ubuntu-24.04, rockylinux-9]
+        include:
+          - target_env: ubuntu-22.04
+            container_image: "ubuntu:22.04"
+            pkg_format: "deb"
+          - target_env: ubuntu-24.04
+            container_image: "ubuntu:24.04"
+            pkg_format: "deb"
+          - target_env: rockylinux-9
+            container_image: "rockylinux:9"
+            pkg_format: "rpm"
+            
+    # Native GitHub Action container initialization hook
+    container:
+      image: ${{ matrix.container_image }}
+      
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Install Host Packaging Engines
+      # ----------------------------------------------------------------------
+      # Environment Setup Steps (Executed natively inside target container)
+      # ----------------------------------------------------------------------
+      - name: Install Native Ubuntu Packaging Engines
+        if: matrix.pkg_format == 'deb'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y dkms rpm linux-headers-$(uname -r)
+          apt-get update
+          apt-get install -y debhelper dpkg-dev dkms build-essential make git
+
+      - name: Install Native Rocky Linux Packaging Engines
+        if: matrix.pkg_format == 'rpm'
+        run: |
+          dnf install -y epel-release
+          dnf install -y dkms git make rpm-build rpm-devtools
 
       - name: Parse Metadata and Versioning
         id: meta
@@ -46,7 +66,7 @@ jobs:
             echo "suffix=" >> $GITHUB_OUTPUT
           fi
 
-      - name: Regenerate Temporary Source Tree for Packaging
+      - name: Regenerate Source Tree for Packaging
         run: |
           if [ "${{ matrix.driver_type }}" = "gpu" ]; then
             make -C data_dev/driver dkms_gpu || make -C data_dev/driver dkms TYPE=gpu || make -C data_dev/driver dkms
@@ -69,49 +89,65 @@ jobs:
           echo "target_tarball=$EXPECTED_TARBALL" >> $GITHUB_OUTPUT
 
       # ----------------------------------------------------------------------
-      # Track A: Ubuntu Debian Loop Generation (.deb)
+      # Build Track A: Build Debian Package Natively
       # ----------------------------------------------------------------------
-      - name: Run Sequential Ubuntu Version Packaging Loop
-        if: matrix.format == 'deb-loop'
+      - name: Build Debian Package Architecture
+        if: matrix.pkg_format == 'deb'
         env:
           VERSION: ${{ steps.meta.outputs.version }}
           SUFFIX: ${{ steps.meta.outputs.suffix }}
           TARBALL: ${{ steps.tarball_check.outputs.target_tarball }}
         run: |
-          # Easily append newer Ubuntu tags here as they drop (e.g., "26.04")
-          UBUNTU_VERSIONS=("22.04" "24.04")
           cd data_dev/driver
           
-          for UVP in "${UBUNTU_VERSIONS[@]}"; do
-             echo "========================================================="
-             echo "Compiling Native Package targeting: Ubuntu $UVP"
-             echo "========================================================="
-             
-             docker run --rm --privileged \
-                -v "$(pwd)":/workspace \
-                -v /lib/modules:/lib/modules \
-                -v /usr/src:/usr/src \
-                -w /workspace ubuntu:"$UVP" bash -c "
-                apt-get update && \
-                apt-get install -y debhelper dkms fakeroot make git linux-headers-generic && \
-                dkms mkdeb --archive='$TARBALL' || true && \
-                if [ -d 'dkms_binary' ]; then \
-                   cp dkms_binary/*.deb ./datadev${SUFFIX}-dkms_${VERSION}_ubuntu-\${UVP}_all.deb; \
-                else \
-                   fakeroot dh_binary || true && \
-                   ls *.deb | while read f; do mv \"\$f\" \"\${f%.deb}_ubuntu-\${UVP}.deb\"; done; \
-                fi
-             "
-          done
+          # Setup standard debian skeleton files
+          mkdir -p debian/source
+          echo '3.0 (native)' > debian/source/format
           
-          echo "=== Completed Debian Packages ==="
-          ls -la *.deb 2>/dev/null || (echo "Compilation Error: No packages found." && exit 1)
+          cat <<EOF > debian/control
+          Source: datadev${SUFFIX}
+          Section: kernel
+          Priority: optional
+          Maintainer: CI System <ci@example.com>
+          Build-Depends: debhelper-compat (= 13)
+          Standards-Version: 4.6.2
+
+          Package: datadev${SUFFIX}-dkms
+          Architecture: all
+          Depends: dkms, \${misc:Depends}
+          Description: AES Stream Drivers packaged for DKMS architecture
+          EOF
+
+          cat <<EOF > debian/rules
+          #!/usr/bin/make -f
+          %:
+          	dh \$@
+          
+          override_dh_auto_build:
+          	true
+
+          override_dh_auto_install:
+          	mkdir -p debian/datadev${SUFFIX}-dkms/usr/src/datadev${SUFFIX}-${VERSION}
+          	tar -xf ${TARBALL} --strip-components=1 -C debian/datadev${SUFFIX}-dkms/usr/src/datadev${SUFFIX}-${VERSION}/ || cp -r * debian/datadev${SUFFIX}-dkms/usr/src/datadev${SUFFIX}-${VERSION}/ || true
+          EOF
+          chmod +x debian/rules
+          echo '13' > debian/compat
+          
+          cat <<EOF > debian/changelog
+          datadev${SUFFIX}-dkms (${VERSION}) unstable; urgency=low
+            * Automated production compilation run.
+           -- CI System <ci@example.com>  $(date -R)
+          EOF
+
+          # Compile natively without escaping restrictions
+          dpkg-buildpackage -us -uc -b
+          mv ../*.deb ./datadev${SUFFIX}-dkms_${VERSION}_${{ matrix.target_env }}_all.deb
 
       # ----------------------------------------------------------------------
-      # Track B: Rocky Linux RPM Generation (.rpm)
+      # Build Track B: Build RedHat RPM Natively
       # ----------------------------------------------------------------------
-      - name: Compile Rocky Linux Package Architecture
-        if: matrix.format == 'rpm-rocky9'
+      - name: Build RPM Package Architecture
+        if: matrix.pkg_format == 'rpm'
         env:
           VERSION: ${{ steps.meta.outputs.version }}
           SUFFIX: ${{ steps.meta.outputs.suffix }}
@@ -119,25 +155,37 @@ jobs:
         run: |
           cd data_dev/driver
           
-          docker run --rm --privileged \
-             -v "$(pwd)":/workspace \
-             -v /lib/modules:/lib/modules \
-             -v /usr/src:/usr/src \
-             -w /workspace rockylinux:9 bash -c "
-             dnf install -y epel-release && \
-             dnf install -y dkms git make rpm-build kernel-devel-\$(uname -r) && \
-             dkms mkrpm --archive='$TARBALL' || true && \
-             if [ -d 'dkms_binary' ]; then \
-                cp dkms_binary/*.rpm ./datadev${SUFFIX}-dkms-${VERSION}-rocky9.noarch.rpm; \
-             else \
-                rpmbuild -ta '$TARBALL' || true && \
-                cp /root/rpmbuild/RPMS/noarch/*.rpm ./ 2>/dev/null || true && \
-                ls *.rpm | while read f; do mv \"\$f\" \"\${f%.rpm}-rocky9.rpm\"; done; \
-             fi
-          "
+          rpmdev-setuptree
           
-          echo "=== Completed RedHat Packages ==="
-          ls -la *.rpm 2>/dev/null || (echo "Compilation Error: No packages found." && exit 1)
+          cat <<EOF > /root/rpmbuild/SPECS/datadev.spec
+          Name:           datadev${SUFFIX}-dkms
+          Version:        ${VERSION}
+          Release:        1%{?dist}
+          Summary:        AES Stream Drivers package for DKMS
+          License:        GPL
+          URL:            https://github.com/slaclab/ruckus
+          BuildArch:      noarch
+          Requires:       dkms
+          
+          %description
+          AES Stream Drivers package for DKMS configuration.
+
+          %prep
+          mkdir -p %{buildroot}/usr/src/datadev${SUFFIX}-${VERSION}
+          tar -xf $(pwd)/${TARBALL} --strip-components=1 -C %{buildroot}/usr/src/datadev${SUFFIX}-${VERSION}/ || cp -r $(pwd)/* %{buildroot}/usr/src/datadev${SUFFIX}-${VERSION}/ || true
+
+          %build
+          true
+
+          %install
+          true
+
+          %files
+          /usr/src/datadev${SUFFIX}-${VERSION}
+          EOF
+          
+          rpmbuild -bb /root/rpmbuild/SPECS/datadev.spec
+          cp /root/rpmbuild/RPMS/noarch/*.rpm ./datadev${SUFFIX}-dkms-${VERSION}-${{ matrix.target_env }}.noarch.rpm
 
       # ----------------------------------------------------------------------
       # Track C: Save Artifacts for Local Verification
@@ -145,7 +193,7 @@ jobs:
       - name: Upload Output Archives
         uses: actions/upload-artifact@v4
         with:
-          name: compiled-packages-${{ matrix.driver_type }}-${{ matrix.format }}
+          name: compiled-packages-${{ matrix.driver_type }}-${{ matrix.target_env }}
           path: |
             data_dev/driver/*.deb
             data_dev/driver/*.rpm
