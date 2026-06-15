@@ -398,7 +398,7 @@ static void runSimpleLoop(TestSession& s) {
 
         if (s_verbose > 1) {
             printf("hdr{size=%u, firstUser=%u, lastUser=%u, cont=%u, overflow=%u, result=%u}\n",
-                hdr.size, hdr.firstUser, hdr.lastUser, hdr.cont, hdr.overflow, hdr.result);
+                hdr.size, hdr.firstUser(), hdr.lastUser(), hdr.cont(), hdr.overflow(), hdr.result());
         }
 
         /* Dump first N bytes when requested. Clamp the copy size to the
