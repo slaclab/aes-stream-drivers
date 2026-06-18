@@ -7,6 +7,7 @@
 #  Phase 3: GPU Testing (5 distros in parallel) → waits for Phase 2
 #  Phase 4: Release Generation → waits for Phase 3
 #  Phase 5: Parallel Package Generation (DKMS, DEB Loop, RPM) → waits for Phase 4
+#  Phase 6: Real Distribution Packages (.deb/.rpm) → waits for Phase 5
 #
 # All phases visible in a single GitHub Actions run page.
 # ----------------------------------------------------------------------------
@@ -412,4 +413,241 @@ jobs:
             if [ -f "$rpm" ]; then
               python3 ../../scripts/uploadTag.py --tag=$TAG --repo=$GIT_REPO --file="$rpm"
             fi
+          done
+
+  # ==========================================================================
+  # Phase 6: Real Distribution Packages (.deb & .rpm)
+  # ==========================================================================
+  # Builds real installable DKMS packages per target:
+  #   * ubuntu-22.04  -> .deb
+  #   * ubuntu-24.04  -> .deb
+  #   * rockylinux-9  -> .rpm
+  # for both the CPU (datadev) and GPU (datadev-gpu) driver variants, then
+  # uploads each built package to the GitHub release.
+  #
+  # The build runs inside the target distro via `docker run`, mounting the
+  # already-checked-out repo (which keeps its .git, so the Makefile's
+  # `git describe` versioning works correctly). Each package ships the DKMS
+  # source tree under /usr/src and registers it with dkms on install.
+  # ==========================================================================
+  dist_packages:
+    name: "Phase 6: Dist Package (${{ matrix.driver_type }} - ${{ matrix.target_env }})"
+    needs: [generate_packages]
+    runs-on: ubuntu-24.04
+    if: startsWith(github.ref, 'refs/tags/')
+    strategy:
+      fail-fast: false
+      matrix:
+        driver_type: [cpu, gpu]
+        target_env: [ubuntu-22.04, ubuntu-24.04, rockylinux-9]
+        include:
+          - target_env: ubuntu-22.04
+            container_image: "ubuntu:22.04"
+            pkg_format: "deb"
+          - target_env: ubuntu-24.04
+            container_image: "ubuntu:24.04"
+            pkg_format: "deb"
+          - target_env: rockylinux-9
+            container_image: "rockylinux:9"
+            pkg_format: "rpm"
+    steps:
+      # Checkout on the HOST runner so the full .git history is present and
+      # gets mounted into the build container (needed by the Makefile's
+      # `git describe` versioning).
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Host Python Environment
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.12
+
+      - name: Install Host Dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install -r pip_requirements.txt
+
+      - name: Parse release tag
+        id: meta
+        run: |
+          TAG_VERSION=$(git describe --tags)
+          echo "tag=${TAG_VERSION}" >> $GITHUB_OUTPUT
+
+      # ----------------------------------------------------------------------
+      # Build .deb (Ubuntu targets)
+      # ----------------------------------------------------------------------
+      - name: Build Debian package
+        if: matrix.pkg_format == 'deb'
+        env:
+          IMAGE: ${{ matrix.container_image }}
+          DRIVER_TYPE: ${{ matrix.driver_type }}
+          TARGET_ENV: ${{ matrix.target_env }}
+        run: |
+          docker run --rm \
+            -e DRIVER_TYPE -e TARGET_ENV \
+            -v "${PWD}":/ws -w /ws "${IMAGE}" bash -euo pipefail -c '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update -qq
+              apt-get install -y -qq make git tar dpkg-dev >/dev/null
+
+              # Build the DKMS source tarballs (cpu + gpu) from the mounted tree.
+              make -C data_dev/driver dkms
+              cd data_dev/driver
+
+              # Select the tarball matching this leg. The cpu glob
+              # (datadev-dkms-*) does not match the gpu name (datadev-gpu-dkms-*).
+              if [ "${DRIVER_TYPE}" = "gpu" ]; then
+                TARBALL=$(ls datadev-gpu-dkms-*.tar.gz 2>/dev/null | head -n1)
+              else
+                TARBALL=$(ls datadev-dkms-*.tar.gz 2>/dev/null | head -n1)
+              fi
+              if [ -z "${TARBALL}" ]; then
+                echo "ERROR: DKMS source tarball not produced for ${DRIVER_TYPE}" >&2
+                exit 1
+              fi
+              echo "Using tarball: ${TARBALL}"
+
+              # Unpack the DKMS source tree (dkms_source_tree holds dkms.conf + src).
+              rm -rf stage && mkdir -p stage
+              tar -xzf "${TARBALL}" -C stage
+              SRC=stage/dkms_source_tree
+
+              PKG=$(sed -n "s/^PACKAGE_NAME=//p" "${SRC}/dkms.conf" | tr -d "\"")
+              DVER=$(sed -n "s/^PACKAGE_VERSION=//p" "${SRC}/dkms.conf" | tr -d "\"")
+              # Package-metadata version must be clean (no leading v, no dashes).
+              MVER=$(echo "${DVER}" | sed "s/^v//; s/-/./g")
+              echo "PKG=${PKG} DKMS_VERSION=${DVER} META_VERSION=${MVER}"
+
+              # Assemble the .deb staging tree.
+              ROOT=debpkg
+              rm -rf "${ROOT}"
+              install -d "${ROOT}/usr/src/${PKG}-${DVER}"
+              cp -a "${SRC}/." "${ROOT}/usr/src/${PKG}-${DVER}/"
+              install -d "${ROOT}/DEBIAN"
+
+              cat > "${ROOT}/DEBIAN/control" <<CTL
+          Package: ${PKG}
+          Version: ${MVER}
+          Section: kernel
+          Priority: optional
+          Architecture: all
+          Maintainer: SLAC CI <ci@slac.stanford.edu>
+          Depends: dkms
+          Description: AES Stream Drivers (datadev) DKMS module
+           DKMS source package for the ${PKG} kernel module, built for ${TARGET_ENV}.
+          CTL
+
+              cat > "${ROOT}/DEBIAN/postinst" <<POST
+          #!/bin/sh
+          set -e
+          dkms add -m ${PKG} -v ${DVER} || true
+          dkms build -m ${PKG} -v ${DVER}
+          dkms install -m ${PKG} -v ${DVER} --force
+          POST
+
+              cat > "${ROOT}/DEBIAN/prerm" <<PRERM
+          #!/bin/sh
+          set -e
+          dkms remove -m ${PKG} -v ${DVER} --all || true
+          PRERM
+
+              chmod 0755 "${ROOT}/DEBIAN/postinst" "${ROOT}/DEBIAN/prerm"
+
+              OUT="${PKG}_${MVER}_${TARGET_ENV}_all.deb"
+              dpkg-deb --build --root-owner-group "${ROOT}" "${OUT}"
+              echo "=== Built ${OUT} ==="
+              dpkg-deb -I "${OUT}"
+              dpkg-deb -c "${OUT}"
+            '
+
+      # ----------------------------------------------------------------------
+      # Build .rpm (Rocky Linux 9 target)
+      # ----------------------------------------------------------------------
+      - name: Build RPM package
+        if: matrix.pkg_format == 'rpm'
+        env:
+          IMAGE: ${{ matrix.container_image }}
+          DRIVER_TYPE: ${{ matrix.driver_type }}
+          TARGET_ENV: ${{ matrix.target_env }}
+        run: |
+          docker run --rm \
+            -e DRIVER_TYPE -e TARGET_ENV \
+            -v "${PWD}":/ws -w /ws "${IMAGE}" bash -euo pipefail -c '
+              dnf install -y -q make git tar rpm-build >/dev/null
+
+              make -C data_dev/driver dkms
+              cd data_dev/driver
+
+              if [ "${DRIVER_TYPE}" = "gpu" ]; then
+                TARBALL=$(ls datadev-gpu-dkms-*.tar.gz 2>/dev/null | head -n1)
+              else
+                TARBALL=$(ls datadev-dkms-*.tar.gz 2>/dev/null | head -n1)
+              fi
+              if [ -z "${TARBALL}" ]; then
+                echo "ERROR: DKMS source tarball not produced for ${DRIVER_TYPE}" >&2
+                exit 1
+              fi
+              echo "Using tarball: ${TARBALL}"
+
+              rm -rf stage && mkdir -p stage
+              tar -xzf "${TARBALL}" -C stage
+              SRC="${PWD}/stage/dkms_source_tree"
+
+              PKG=$(sed -n "s/^PACKAGE_NAME=//p" "${SRC}/dkms.conf" | tr -d "\"")
+              DVER=$(sed -n "s/^PACKAGE_VERSION=//p" "${SRC}/dkms.conf" | tr -d "\"")
+              MVER=$(echo "${DVER}" | sed "s/^v//; s/-/./g")
+              echo "PKG=${PKG} DKMS_VERSION=${DVER} META_VERSION=${MVER}"
+
+              mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,BUILDROOT}
+
+              cat > ~/rpmbuild/SPECS/datadev.spec <<SPEC
+          Name:           ${PKG}
+          Version:        ${MVER}
+          Release:        1%{?dist}
+          Summary:        AES Stream Drivers (datadev) DKMS module
+          License:        SLAC
+          BuildArch:      noarch
+          Requires:       dkms
+
+          %description
+          DKMS source package for the ${PKG} kernel module, built for ${TARGET_ENV}.
+
+          %install
+          mkdir -p %{buildroot}/usr/src/${PKG}-${DVER}
+          cp -a ${SRC}/. %{buildroot}/usr/src/${PKG}-${DVER}/
+
+          %files
+          /usr/src/${PKG}-${DVER}
+
+          %post
+          dkms add -m ${PKG} -v ${DVER} || true
+          dkms build -m ${PKG} -v ${DVER}
+          dkms install -m ${PKG} -v ${DVER} --force
+
+          %preun
+          dkms remove -m ${PKG} -v ${DVER} --all || true
+          SPEC
+
+              rpmbuild -bb ~/rpmbuild/SPECS/datadev.spec
+              OUT="${PKG}-${MVER}-${TARGET_ENV}.noarch.rpm"
+              cp ~/rpmbuild/RPMS/noarch/*.rpm "./${OUT}"
+              echo "=== Built ${OUT} ==="
+              rpm -qpi "./${OUT}"
+              rpm -qpl "./${OUT}"
+            '
+
+      # ----------------------------------------------------------------------
+      # Upload the built package(s) to the GitHub release
+      # ----------------------------------------------------------------------
+      - name: Upload package to release
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          GIT_REPO: ${{ github.repository }}
+          GH_REPO_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          shopt -s nullglob
+          for pkg in data_dev/driver/*.deb data_dev/driver/*.rpm; do
+            echo "Uploading built asset: $pkg"
+            python3 scripts/uploadTag.py --tag="$TAG" --repo="$GIT_REPO" --file="$pkg"
           done
