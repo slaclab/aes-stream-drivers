@@ -1,16 +1,24 @@
 # ----------------------------------------------------------------------------
-# Title      : Native GitHub Actions Container Package Generation (.deb & .rpm)
+# Title      : Distribution Package Generation (.deb & .rpm)
+# ----------------------------------------------------------------------------
+# Builds a real installable DKMS package per target:
+#   * ubuntu-22.04  -> .deb
+#   * ubuntu-24.04  -> .deb
+#   * rockylinux-9  -> .rpm
+# for both the CPU (datadev) and GPU (datadev-gpu) driver variants.
+#
+# The build runs inside the target distro via `docker run`, mounting the
+# already-checked-out repo (which keeps its .git, so the Makefile's
+# `git describe` versioning works correctly). Each package ships the DKMS
+# source tree under /usr/src and registers it with dkms on install.
 # ----------------------------------------------------------------------------
 name: Build Distribution Packages
 on:
   workflow_dispatch:
 
 jobs:
-  # ==========================================================================
-  # Parallel Package Compilation using Native GitHub Containers
-  # ==========================================================================
   compile_dist_packages:
-    name: "Compile Package (${{ matrix.driver_type }} - ${{ matrix.target_env }})"
+    name: "Package (${{ matrix.driver_type }} - ${{ matrix.target_env }})"
     runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
@@ -27,175 +35,187 @@ jobs:
           - target_env: rockylinux-9
             container_image: "rockylinux:9"
             pkg_format: "rpm"
-            
-    # Native GitHub Action container initialization hook
-    container:
-      image: ${{ matrix.container_image }}
-      
+
     steps:
+      # Checkout on the HOST runner so the full .git history is present and
+      # gets mounted into the build container (needed by the Makefile's
+      # `git describe` versioning).
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       # ----------------------------------------------------------------------
-      # Environment Setup Steps (Executed natively inside target container)
+      # Build .deb (Ubuntu targets)
       # ----------------------------------------------------------------------
-      - name: Install Native Ubuntu Packaging Engines
-        if: matrix.pkg_format == 'deb'
-        run: |
-          apt-get update
-          apt-get install -y debhelper dpkg-dev dkms build-essential make git
-
-      - name: Install Native Rocky Linux Packaging Engines
-        if: matrix.pkg_format == 'rpm'
-        run: |
-          dnf install -y epel-release
-          dnf install -y dkms git make rpm-build rpm-devtools
-
-      - name: Parse Metadata and Versioning
-        id: meta
-        run: |
-          TAG_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0-test")
-          CLEAN_VERSION=$(echo "${TAG_VERSION}" | sed 's/^v//')
-          echo "tag=${TAG_VERSION}" >> $GITHUB_OUTPUT
-          echo "version=${CLEAN_VERSION}" >> $GITHUB_OUTPUT
-          
-          if [ "${{ matrix.driver_type }}" = "gpu" ]; then
-            echo "suffix=-gpu" >> $GITHUB_OUTPUT
-          else
-            echo "suffix=" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Regenerate Source Tree for Packaging
-        run: |
-          if [ "${{ matrix.driver_type }}" = "gpu" ]; then
-            make -C data_dev/driver dkms_gpu || make -C data_dev/driver dkms TYPE=gpu || make -C data_dev/driver dkms
-          else
-            make -C data_dev/driver dkms
-          fi
-
-      - name: Normalize Tarball Architecture
-        id: tarball_check
-        run: |
-          cd data_dev/driver
-          ACTUAL_TARBALL=$(find . -maxdepth 1 -name "*.tar.gz" | head -n 1 | sed 's|^\./||')
-          if [ -z "$ACTUAL_TARBALL" ]; then
-            echo "ERROR: Target driver tarball failed to generate." && exit 1
-          fi
-          EXPECTED_TARBALL="datadev${{ steps.meta.outputs.suffix }}-dkms-${{ steps.meta.outputs.tag }}.tar.gz"
-          if [ "$ACTUAL_TARBALL" != "$EXPECTED_TARBALL" ]; then
-            mv "$ACTUAL_TARBALL" "$EXPECTED_TARBALL"
-          fi
-          echo "target_tarball=$EXPECTED_TARBALL" >> $GITHUB_OUTPUT
-
-      # ----------------------------------------------------------------------
-      # Build Track A: Build Debian Package Natively
-      # ----------------------------------------------------------------------
-      - name: Build Debian Package Architecture
+      - name: Build Debian package
         if: matrix.pkg_format == 'deb'
         env:
-          VERSION: ${{ steps.meta.outputs.version }}
-          SUFFIX: ${{ steps.meta.outputs.suffix }}
-          TARBALL: ${{ steps.tarball_check.outputs.target_tarball }}
+          IMAGE: ${{ matrix.container_image }}
+          DRIVER_TYPE: ${{ matrix.driver_type }}
+          TARGET_ENV: ${{ matrix.target_env }}
         run: |
-          cd data_dev/driver
-          
-          # Setup standard debian skeleton files
-          mkdir -p debian/source
-          echo '3.0 (native)' > debian/source/format
-          
-          cat <<EOF > debian/control
-          Source: datadev${SUFFIX}
+          docker run --rm \
+            -e DRIVER_TYPE -e TARGET_ENV \
+            -v "${PWD}":/ws -w /ws "${IMAGE}" bash -euo pipefail -c '
+              export DEBIAN_FRONTEND=noninteractive
+              apt-get update -qq
+              apt-get install -y -qq make git tar dpkg-dev >/dev/null
+
+              # Build the DKMS source tarballs (cpu + gpu) from the mounted tree.
+              make -C data_dev/driver dkms
+              cd data_dev/driver
+
+              # Select the tarball matching this leg. The cpu glob
+              # (datadev-dkms-*) does not match the gpu name (datadev-gpu-dkms-*).
+              if [ "${DRIVER_TYPE}" = "gpu" ]; then
+                TARBALL=$(ls datadev-gpu-dkms-*.tar.gz 2>/dev/null | head -n1)
+              else
+                TARBALL=$(ls datadev-dkms-*.tar.gz 2>/dev/null | head -n1)
+              fi
+              if [ -z "${TARBALL}" ]; then
+                echo "ERROR: DKMS source tarball not produced for ${DRIVER_TYPE}" >&2
+                exit 1
+              fi
+              echo "Using tarball: ${TARBALL}"
+
+              # Unpack the DKMS source tree (dkms_source_tree holds dkms.conf + src).
+              rm -rf stage && mkdir -p stage
+              tar -xzf "${TARBALL}" -C stage
+              SRC=stage/dkms_source_tree
+
+              PKG=$(sed -n "s/^PACKAGE_NAME=//p" "${SRC}/dkms.conf" | tr -d "\"")
+              DVER=$(sed -n "s/^PACKAGE_VERSION=//p" "${SRC}/dkms.conf" | tr -d "\"")
+              # Package-metadata version must be clean (no leading v, no dashes).
+              MVER=$(echo "${DVER}" | sed "s/^v//; s/-/./g")
+              echo "PKG=${PKG} DKMS_VERSION=${DVER} META_VERSION=${MVER}"
+
+              # Assemble the .deb staging tree.
+              ROOT=debpkg
+              rm -rf "${ROOT}"
+              install -d "${ROOT}/usr/src/${PKG}-${DVER}"
+              cp -a "${SRC}/." "${ROOT}/usr/src/${PKG}-${DVER}/"
+              install -d "${ROOT}/DEBIAN"
+
+              cat > "${ROOT}/DEBIAN/control" <<CTL
+          Package: ${PKG}
+          Version: ${MVER}
           Section: kernel
           Priority: optional
-          Maintainer: CI System <ci@example.com>
-          Build-Depends: debhelper-compat (= 13)
-          Standards-Version: 4.6.2
-
-          Package: datadev${SUFFIX}-dkms
           Architecture: all
-          Depends: dkms, \${misc:Depends}
-          Description: AES Stream Drivers packaged for DKMS architecture
-          EOF
+          Maintainer: SLAC CI <ci@slac.stanford.edu>
+          Depends: dkms
+          Description: AES Stream Drivers (datadev) DKMS module
+           DKMS source package for the ${PKG} kernel module, built for ${TARGET_ENV}.
+          CTL
 
-          cat <<EOF > debian/rules
-          #!/usr/bin/make -f
-          %:
-          	dh \$@
-          
-          override_dh_auto_build:
-          	true
+              cat > "${ROOT}/DEBIAN/postinst" <<POST
+          #!/bin/sh
+          set -e
+          dkms add -m ${PKG} -v ${DVER} || true
+          dkms build -m ${PKG} -v ${DVER}
+          dkms install -m ${PKG} -v ${DVER} --force
+          POST
 
-          override_dh_auto_install:
-          	mkdir -p debian/datadev${SUFFIX}-dkms/usr/src/datadev${SUFFIX}-${VERSION}
-          	tar -xf ${TARBALL} --strip-components=1 -C debian/datadev${SUFFIX}-dkms/usr/src/datadev${SUFFIX}-${VERSION}/ || cp -r * debian/datadev${SUFFIX}-dkms/usr/src/datadev${SUFFIX}-${VERSION}/ || true
-          EOF
-          chmod +x debian/rules
-          echo '13' > debian/compat
-          
-          cat <<EOF > debian/changelog
-          datadev${SUFFIX}-dkms (${VERSION}) unstable; urgency=low
-            * Automated production compilation run.
-           -- CI System <ci@example.com>  $(date -R)
-          EOF
+              cat > "${ROOT}/DEBIAN/prerm" <<PRERM
+          #!/bin/sh
+          set -e
+          dkms remove -m ${PKG} -v ${DVER} --all || true
+          PRERM
 
-          # Compile natively without escaping restrictions
-          dpkg-buildpackage -us -uc -b
-          mv ../*.deb ./datadev${SUFFIX}-dkms_${VERSION}_${{ matrix.target_env }}_all.deb
+              chmod 0755 "${ROOT}/DEBIAN/postinst" "${ROOT}/DEBIAN/prerm"
+
+              OUT="${PKG}_${MVER}_${TARGET_ENV}_all.deb"
+              dpkg-deb --build --root-owner-group "${ROOT}" "${OUT}"
+              echo "=== Built ${OUT} ==="
+              dpkg-deb -I "${OUT}"
+              dpkg-deb -c "${OUT}"
+            '
 
       # ----------------------------------------------------------------------
-      # Build Track B: Build RedHat RPM Natively
+      # Build .rpm (Rocky Linux 9 target)
       # ----------------------------------------------------------------------
-      - name: Build RPM Package Architecture
+      - name: Build RPM package
         if: matrix.pkg_format == 'rpm'
         env:
-          VERSION: ${{ steps.meta.outputs.version }}
-          SUFFIX: ${{ steps.meta.outputs.suffix }}
-          TARBALL: ${{ steps.tarball_check.outputs.target_tarball }}
+          IMAGE: ${{ matrix.container_image }}
+          DRIVER_TYPE: ${{ matrix.driver_type }}
+          TARGET_ENV: ${{ matrix.target_env }}
         run: |
-          cd data_dev/driver
-          
-          rpmdev-setuptree
-          
-          cat <<EOF > /root/rpmbuild/SPECS/datadev.spec
-          Name:           datadev${SUFFIX}-dkms
-          Version:        ${VERSION}
+          docker run --rm \
+            -e DRIVER_TYPE -e TARGET_ENV \
+            -v "${PWD}":/ws -w /ws "${IMAGE}" bash -euo pipefail -c '
+              dnf install -y -q make git tar rpm-build >/dev/null
+
+              make -C data_dev/driver dkms
+              cd data_dev/driver
+
+              if [ "${DRIVER_TYPE}" = "gpu" ]; then
+                TARBALL=$(ls datadev-gpu-dkms-*.tar.gz 2>/dev/null | head -n1)
+              else
+                TARBALL=$(ls datadev-dkms-*.tar.gz 2>/dev/null | head -n1)
+              fi
+              if [ -z "${TARBALL}" ]; then
+                echo "ERROR: DKMS source tarball not produced for ${DRIVER_TYPE}" >&2
+                exit 1
+              fi
+              echo "Using tarball: ${TARBALL}"
+
+              rm -rf stage && mkdir -p stage
+              tar -xzf "${TARBALL}" -C stage
+              SRC="${PWD}/stage/dkms_source_tree"
+
+              PKG=$(sed -n "s/^PACKAGE_NAME=//p" "${SRC}/dkms.conf" | tr -d "\"")
+              DVER=$(sed -n "s/^PACKAGE_VERSION=//p" "${SRC}/dkms.conf" | tr -d "\"")
+              MVER=$(echo "${DVER}" | sed "s/^v//; s/-/./g")
+              echo "PKG=${PKG} DKMS_VERSION=${DVER} META_VERSION=${MVER}"
+
+              mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,BUILDROOT}
+
+              cat > ~/rpmbuild/SPECS/datadev.spec <<SPEC
+          Name:           ${PKG}
+          Version:        ${MVER}
           Release:        1%{?dist}
-          Summary:        AES Stream Drivers package for DKMS
-          License:        GPL
-          URL:            https://github.com/slaclab/ruckus
+          Summary:        AES Stream Drivers (datadev) DKMS module
+          License:        SLAC
           BuildArch:      noarch
           Requires:       dkms
-          
+
           %description
-          AES Stream Drivers package for DKMS configuration.
-
-          %prep
-          mkdir -p %{buildroot}/usr/src/datadev${SUFFIX}-${VERSION}
-          tar -xf $(pwd)/${TARBALL} --strip-components=1 -C %{buildroot}/usr/src/datadev${SUFFIX}-${VERSION}/ || cp -r $(pwd)/* %{buildroot}/usr/src/datadev${SUFFIX}-${VERSION}/ || true
-
-          %build
-          true
+          DKMS source package for the ${PKG} kernel module, built for ${TARGET_ENV}.
 
           %install
-          true
+          mkdir -p %{buildroot}/usr/src/${PKG}-${DVER}
+          cp -a ${SRC}/. %{buildroot}/usr/src/${PKG}-${DVER}/
 
           %files
-          /usr/src/datadev${SUFFIX}-${VERSION}
-          EOF
-          
-          rpmbuild -bb /root/rpmbuild/SPECS/datadev.spec
-          cp /root/rpmbuild/RPMS/noarch/*.rpm ./datadev${SUFFIX}-dkms-${VERSION}-${{ matrix.target_env }}.noarch.rpm
+          /usr/src/${PKG}-${DVER}
+
+          %post
+          dkms add -m ${PKG} -v ${DVER} || true
+          dkms build -m ${PKG} -v ${DVER}
+          dkms install -m ${PKG} -v ${DVER} --force
+
+          %preun
+          dkms remove -m ${PKG} -v ${DVER} --all || true
+          SPEC
+
+              rpmbuild -bb ~/rpmbuild/SPECS/datadev.spec
+              OUT="${PKG}-${MVER}-${TARGET_ENV}.noarch.rpm"
+              cp ~/rpmbuild/RPMS/noarch/*.rpm "./${OUT}"
+              echo "=== Built ${OUT} ==="
+              rpm -qpi "./${OUT}"
+              rpm -qpl "./${OUT}"
+            '
 
       # ----------------------------------------------------------------------
-      # Track C: Save Artifacts for Local Verification
+      # Upload the built package(s)
       # ----------------------------------------------------------------------
-      - name: Upload Output Archives
+      - name: Upload package
         uses: actions/upload-artifact@v4
         with:
-          name: compiled-packages-${{ matrix.driver_type }}-${{ matrix.target_env }}
+          name: package-${{ matrix.driver_type }}-${{ matrix.target_env }}
           path: |
             data_dev/driver/*.deb
             data_dev/driver/*.rpm
           if-no-files-found: error
-          retention-days: 2
+          retention-days: 7
