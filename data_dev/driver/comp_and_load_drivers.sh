@@ -104,4 +104,4 @@ cd "$RET_DIR" || { echo "Error: Failed to change directory to $RET_DIR"; exit 1;
 make clean
 # Build datadev driver
 make CC=$CC NVIDIA_DRIVERS=$NVIDIA_PATH
-/usr/sbin/insmod $RET_DIR/datadev.ko || { echo "Error: Failed to insert datadev.ko."; exit 1; }
+/usr/sbin/insmod $RET_DIR/datadev.ko cfgMode=2 || { echo "Error: Failed to insert datadev.ko."; exit 1; }
