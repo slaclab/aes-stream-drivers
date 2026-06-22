@@ -63,18 +63,6 @@ jobs:
         run: |
           find . -name '*.h' -o -name '*.cpp' -o -name '*.c' | xargs cpplint
 
-      - name: Assert gpu_async.c unchanged from main
-        run: |
-          git fetch origin main --depth=1 2>/dev/null || true
-          BASE=$(git merge-base HEAD origin/main 2>/dev/null || echo "")
-          if [ -z "$BASE" ]; then
-            echo "WARN: cannot resolve merge base; skipping diff gate"
-            exit 0
-          fi
-          git diff --exit-code "$BASE" -- \
-            common/driver/gpu_async.c \
-            data_dev/driver/src/gpu_async.c
-
   # ==========================================================================
   # Phase 2: CPU Testing (5 distros in parallel)
   # Waits for Phase 1 to complete

@@ -322,12 +322,16 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
 int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
    uint32_t x;
    u64 virt_start;
+   u64 offset;
 
    struct GpuData *data;
    struct GpuBuffer *buffer;
 
    // Retrieve the GPU specific data from the DMA device
    data = (struct GpuData *)dev->utilData;
+
+   // Disable reads and writes before freeing underlying buffers.
+   writel(0, data->base + 0x008);
 
    // Unmap and release pages for all write buffers
    for (x = 0; x < data->writeBuffers.count; x++) {
@@ -336,6 +340,20 @@ int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
 
       nvidia_p2p_dma_unmap_pages(dev->pcidev, buffer->pageTable, buffer->dmaMapping);
       nvidia_p2p_free_page_table(buffer->pageTable);
+
+      // Compute version specific offsets
+      if (data->version < 4) {
+         offset = GPU_ASYNC_REG_WRITE_BASE_V1 + x * 16;
+      } else {
+         offset = GPU_ASYNC_REG_WRITE_BASE_V4 + x * 8;
+      }
+
+      // Clear address register; firmware may initiate an rdma transaction even when dropEn=1, which
+      // typically leads to a hang in the GPU software under some circumstances. This is usually a problem
+      // when 2 or more FPGAs end up with the same physical addresses in these registers (e.g. if you're running
+      // an application against multiple different FPGAs and one GPU)
+      writel(0, data->base + offset);
+      writel(0, data->base + offset + 0x4);
 
       dev_warn(dev->device, "Gpu_RemNvidia: unmapped write memory with address=0x%llx\n", buffer->address);
    }
@@ -348,6 +366,17 @@ int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
       nvidia_p2p_dma_unmap_pages(dev->pcidev, buffer->pageTable, buffer->dmaMapping);
       nvidia_p2p_free_page_table(buffer->pageTable);
 
+      // Compute version specific offsets
+      if (data->version < 4) {
+         offset = GPU_ASYNC_REG_READ_BASE_V1 + data->readBuffers.count * 16;
+      } else {
+         offset = GPU_ASYNC_REG_READ_BASE_V4 + data->readBuffers.count * 8;
+      }
+
+      // See comment in the previous for loop for why this is done.
+      writel(0, data->base + offset);
+      writel(0, data->base + offset + 0x4);
+
       dev_warn(dev->device, "Gpu_RemNvidia: unmapped read memory with address=0x%llx\n", buffer->address);
    }
 
@@ -356,10 +385,9 @@ int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
       writeGpuAsyncReg(data->base, &GpuAsyncReg_RemoteWriteMaxSizeV4, 0);
    }
 
-   // Reset the buffer counts and disable specific functionality by writing to a register
+   // Reset the buffer counts
    data->writeBuffers.count = 0;
    data->readBuffers.count = 0;
-   writel(0, data->base + 0x008);
 
    return 0;
 }
