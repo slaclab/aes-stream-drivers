@@ -335,7 +335,11 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
 #ifdef DATA_GPU
    // GPU Init
-   Gpu_Init(dev, GPU_ASYNC_CORE_OFFSET);
+   probeReturn = Gpu_Init(dev, GPU_ASYNC_CORE_OFFSET);
+   if (probeReturn < 0) {
+      dev_err(dev->device, "Init: Gpu_Init returned error %i.\n", probeReturn);
+      goto err_unmap;
+   }
 #endif
 
    // Manage device reset cycle

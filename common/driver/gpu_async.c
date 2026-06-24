@@ -38,30 +38,50 @@
  * it, and associates it with the given DmaDevice. It sets up
  * the base address for GPU operations and initializes buffer counts.
  */
-void Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
+int Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
    struct GpuData *gpuData;
 
+   uint32_t maxBuffers = 0;
    uint8_t* gpuBase = dev->base + offset;
    uint8_t version = readGpuAsyncReg(gpuBase, &GpuAsyncReg_Version);
    dev->gpuEn = !!version;
+
+   /* GPU not enabled, avoid allocating GPU data */
+   if (!dev->gpuEn)
+      return 0;
 
    /* warn on unsupported version */
    if (version > DATAGPU_MAX_VERSION) {
       dev_err(dev->device, "Gpu_Init: Unsupported GpuAsyncCore version: %d. Max supported is version %d\n",
             version, DATAGPU_MAX_VERSION);
       dev->gpuEn = 0;
+      return 0;  /* allow fallback to CPU DMA */
    }
 
-   /* GPU not enabled, avoid allocating GPU data */
-   if (!dev->gpuEn)
-      return;
+   /* Read the firmware buffer count before allocating any GPU state */
+   if (version < 4) {
+      maxBuffers = readGpuAsyncReg(gpuBase, &GpuAsyncReg_MaxBuffersV1);
+   } else {
+      maxBuffers = readGpuAsyncReg(gpuBase, &GpuAsyncReg_MaxBuffersV4);
+   }
+
+   /* The writeBuffers/readBuffers list[] arrays are statically sized to
+    * MAX_GPU_BUFFERS. If firmware reports more than we can hold, Gpu_AddNvidia
+    * would index past the array and corrupt kernel memory. Refuse to enable
+    * GPU in that case; the device still works via the CPU DMA path. */
+   if (maxBuffers > MAX_GPU_BUFFERS) {
+      dev_err(dev->device, "Gpu_Init: Firmware reports unsupported buffer count: %u > %d\n",
+         maxBuffers, MAX_GPU_BUFFERS);
+      dev->gpuEn = 0;
+      return 0;  /* allow fallback to CPU DMA */
+   }
 
    /* Allocate memory for GPU utility data */
    gpuData = (struct GpuData *)kzalloc(sizeof(struct GpuData), GFP_KERNEL);
    if (!gpuData) {
       dev_err(dev->device, "Gpu_Init: Failed to allocate GpuData space of size %ld bytes\n",
          (ulong)(sizeof(struct GpuData)));
-      return;  // Handle memory allocation failure if necessary
+      return -ENOMEM;  /* allocation failure aborts probe */
    }
 
    /* Associate GPU utility data with the device */
@@ -73,14 +93,10 @@ void Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
    gpuData->readBuffers.count = 0;
    gpuData->offset = offset;
    gpuData->version = version;
-
-   if (version < 4) {
-      gpuData->maxBuffers = readGpuAsyncReg(gpuData->base, &GpuAsyncReg_MaxBuffersV1);
-   } else {
-      gpuData->maxBuffers = readGpuAsyncReg(gpuData->base, &GpuAsyncReg_MaxBuffersV4);
-   }
+   gpuData->maxBuffers = maxBuffers;
 
    dev_info(dev->device, "Gpu_Init: Configured for GpuAsyncCore version %d\n", version);
+   return 0;
 }
 
 /**
