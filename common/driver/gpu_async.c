@@ -98,6 +98,15 @@ void Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
 int32_t Gpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    struct GpuData* data = dev->utilData;
 
+   /* Guard against an uninitialized GPU context. Gpu_Init() can leave the
+    * device marked GPU-enabled while utilData stays NULL (e.g. the GpuData
+    * allocation failed), so reject commands here instead of dereferencing a
+    * NULL pointer in the handlers below. */
+   if (data == NULL) {
+      dev_err(dev->device, "Gpu_Command: GPU not initialized (utilData is NULL), cmd=%u\n", cmd);
+      return -1;
+   }
+
    switch (cmd) {
       // Add NVIDIA Memory
       case GPU_Add_Nvidia_Memory:
