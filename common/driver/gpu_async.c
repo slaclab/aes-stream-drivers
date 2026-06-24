@@ -38,7 +38,7 @@
  * it, and associates it with the given DmaDevice. It sets up
  * the base address for GPU operations and initializes buffer counts.
  */
-int Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
+int32_t Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
    struct GpuData *gpuData;
 
    uint32_t maxBuffers = 0;
