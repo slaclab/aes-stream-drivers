@@ -30,6 +30,54 @@
 #define DATAGPU_MAX_VERSION 4
 
 /**
+ * Gpu_ClearAddrRegs - Disable RDMA and zero GPU buffer address registers
+ * @data: pointer to the GpuData structure
+ * @writeCount: number of write buffer address registers to clear
+ * @readCount: number of read buffer address registers to clear
+ *
+ * Firmware may initiate an RDMA transaction off whatever physical address is
+ * latched in these registers even when dropEn=1. Stale addresses left behind by
+ * a previous driver instance (e.g. after an unclean unload), or a peer FPGA
+ * configured with the same physical address, typically hang the GPU software.
+ * This disables reads/writes and zeroes the configured address registers so the
+ * core always starts from a known-clean state.
+ */
+static void Gpu_ClearAddrRegs(struct GpuData *data, uint32_t writeCount, uint32_t readCount) {
+   uint32_t i;
+   u64 offset;
+
+   // Disable reads and writes before touching the underlying address registers
+   writel(0, data->base + 0x008);
+
+   // Clear write buffer address registers (low + high words)
+   for (i = 0; i < writeCount; i++) {
+      if (data->version < 4) {
+         offset = GPU_ASYNC_REG_WRITE_BASE_V1 + i * 16;
+      } else {
+         offset = GPU_ASYNC_REG_WRITE_BASE_V4 + i * 8;
+      }
+      writel(0, data->base + offset);
+      writel(0, data->base + offset + 0x4);
+   }
+
+   // Clear read buffer address registers (low + high words)
+   for (i = 0; i < readCount; i++) {
+      if (data->version < 4) {
+         offset = GPU_ASYNC_REG_READ_BASE_V1 + i * 16;
+      } else {
+         offset = GPU_ASYNC_REG_READ_BASE_V4 + i * 8;
+      }
+      writel(0, data->base + offset);
+      writel(0, data->base + offset + 0x4);
+   }
+
+   // Clear remote write size register (V4+ uses a single shared size register)
+   if (data->version >= 4) {
+      writeGpuAsyncReg(data->base, &GpuAsyncReg_RemoteWriteMaxSizeV4, 0);
+   }
+}
+
+/**
  * Gpu_Init - Initialize GPU with given offset
  * @dev: pointer to the DmaDevice structure
  * @offset: memory offset for GPU initialization
@@ -79,6 +127,12 @@ void Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
    } else {
       gpuData->maxBuffers = readGpuAsyncReg(gpuData->base, &GpuAsyncReg_MaxBuffersV4);
    }
+
+   // Clear any stale buffer address registers left over from a previous driver
+   // instance before the core is used. Without this, a probe that races ahead of
+   // a peer FPGA's Gpu_RemNvidia can leave two cores driving the same physical
+   // address, hanging the GPU software (see Gpu_ClearAddrRegs).
+   Gpu_ClearAddrRegs(gpuData, gpuData->maxBuffers, gpuData->maxBuffers);
 
    dev_info(dev->device, "Gpu_Init: Configured for GpuAsyncCore version %d\n", version);
 }
@@ -321,8 +375,6 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
  */
 int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
    uint32_t x;
-   u64 virt_start;
-   u64 offset;
 
    struct GpuData *data;
    struct GpuBuffer *buffer;
@@ -330,30 +382,17 @@ int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
    // Retrieve the GPU specific data from the DMA device
    data = (struct GpuData *)dev->utilData;
 
-   // Disable reads and writes before freeing underlying buffers.
-   writel(0, data->base + 0x008);
+   // Disable reads/writes and clear the configured address registers before
+   // freeing the underlying buffers, so firmware cannot DMA into pages we are
+   // about to unmap (see Gpu_ClearAddrRegs).
+   Gpu_ClearAddrRegs(data, data->writeBuffers.count, data->readBuffers.count);
 
    // Unmap and release pages for all write buffers
    for (x = 0; x < data->writeBuffers.count; x++) {
       buffer = &(data->writeBuffers.list[x]);
-      virt_start = buffer->address & GPU_BOUND_MASK;
 
       nvidia_p2p_dma_unmap_pages(dev->pcidev, buffer->pageTable, buffer->dmaMapping);
       nvidia_p2p_free_page_table(buffer->pageTable);
-
-      // Compute version specific offsets
-      if (data->version < 4) {
-         offset = GPU_ASYNC_REG_WRITE_BASE_V1 + x * 16;
-      } else {
-         offset = GPU_ASYNC_REG_WRITE_BASE_V4 + x * 8;
-      }
-
-      // Clear address register; firmware may initiate an rdma transaction even when dropEn=1, which
-      // typically leads to a hang in the GPU software under some circumstances. This is usually a problem
-      // when 2 or more FPGAs end up with the same physical addresses in these registers (e.g. if you're running
-      // an application against multiple different FPGAs and one GPU)
-      writel(0, data->base + offset);
-      writel(0, data->base + offset + 0x4);
 
       dev_warn(dev->device, "Gpu_RemNvidia: unmapped write memory with address=0x%llx\n", buffer->address);
    }
@@ -361,28 +400,11 @@ int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
    // Unmap and release pages for all read buffers
    for (x = 0; x < data->readBuffers.count; x++) {
       buffer = &(data->readBuffers.list[x]);
-      virt_start = buffer->address & GPU_BOUND_MASK;
 
       nvidia_p2p_dma_unmap_pages(dev->pcidev, buffer->pageTable, buffer->dmaMapping);
       nvidia_p2p_free_page_table(buffer->pageTable);
 
-      // Compute version specific offsets
-      if (data->version < 4) {
-         offset = GPU_ASYNC_REG_READ_BASE_V1 + data->readBuffers.count * 16;
-      } else {
-         offset = GPU_ASYNC_REG_READ_BASE_V4 + data->readBuffers.count * 8;
-      }
-
-      // See comment in the previous for loop for why this is done.
-      writel(0, data->base + offset);
-      writel(0, data->base + offset + 0x4);
-
       dev_warn(dev->device, "Gpu_RemNvidia: unmapped read memory with address=0x%llx\n", buffer->address);
-   }
-
-   // Clear out remote write size register
-   if (data->version >= 4) {
-      writeGpuAsyncReg(data->base, &GpuAsyncReg_RemoteWriteMaxSizeV4, 0);
    }
 
    // Reset the buffer counts
