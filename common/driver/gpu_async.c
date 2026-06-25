@@ -24,10 +24,11 @@
 #include <linux/seq_file.h>
 #include <linux/signal.h>
 #include <linux/slab.h>
+#include <linux/delay.h>
 #include <nv-p2p.h>
 
 /* Update this when you add support for a new GpuAsyncCore version! */
-#define DATAGPU_MAX_VERSION 4
+#define DATAGPU_MAX_VERSION 5
 
 /**
  * Gpu_Init - Initialize GPU with given offset
@@ -46,19 +47,19 @@ int32_t Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
    uint8_t version = readGpuAsyncReg(gpuBase, &GpuAsyncReg_Version);
    dev->gpuEn = !!version;
 
-   /* GPU not enabled, avoid allocating GPU data */
+   // GPU not enabled, avoid allocating GPU data */
    if (!dev->gpuEn)
       return 0;
 
-   /* warn on unsupported version */
+   // warn on unsupported version
    if (version > DATAGPU_MAX_VERSION) {
       dev_err(dev->device, "Gpu_Init: Unsupported GpuAsyncCore version: %d. Max supported is version %d\n",
             version, DATAGPU_MAX_VERSION);
       dev->gpuEn = 0;
-      return 0;  /* allow fallback to CPU DMA */
+      return 0;  // allow fallback to CPU DMA
    }
 
-   /* Read the firmware buffer count before allocating any GPU state */
+   // Read the firmware buffer count before allocating any GPU state
    if (version < 4) {
       maxBuffers = readGpuAsyncReg(gpuBase, &GpuAsyncReg_MaxBuffersV1);
    } else {
@@ -76,7 +77,7 @@ int32_t Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
       return 0;  /* allow fallback to CPU DMA */
    }
 
-   /* Allocate memory for GPU utility data */
+   // Allocate memory for GPU utility data
    gpuData = (struct GpuData *)kzalloc(sizeof(struct GpuData), GFP_KERNEL);
    if (!gpuData) {
       dev_err(dev->device, "Gpu_Init: Failed to allocate GpuData space of size %ld bytes\n",
@@ -84,10 +85,10 @@ int32_t Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
       return -ENOMEM;  /* allocation failure aborts probe */
    }
 
-   /* Associate GPU utility data with the device */
+   // Associate GPU utility data with the device
    dev->utilData = gpuData;
 
-   /* Initialize GPU base address and buffer counts */
+   // Initialize GPU base address and buffer counts
    gpuData->base = dev->base + offset;
    gpuData->writeBuffers.count = 0;
    gpuData->readBuffers.count = 0;
@@ -211,6 +212,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
    buffer->size = dat.size;
    buffer->pageTable = 0;
    buffer->dmaMapping = 0;
+   buffer->dev = dev;
 
    // Align virtual start address as required by NVIDIA kernel driver
    virt_start = buffer->address & GPU_BOUND_MASK;
@@ -226,7 +228,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
          buffer->address, buffer->size, virt_start, pin_size, buffer->write);
 
    // Map GPU memory through NVIDIA P2P API
-   ret = nvidia_p2p_get_pages(0, 0, virt_start, pin_size, &(buffer->pageTable), Gpu_FreeNvidia, dev);
+   ret = nvidia_p2p_get_pages(0, 0, virt_start, pin_size, &(buffer->pageTable), Gpu_FreeNvidia, buffer);
 
    if (ret == 0) {
       dev_warn(dev->device, "Gpu_AddNvidia: mapped memory with address=0x%llx, size=%i, page count=%i, write=%i\n", buffer->address, buffer->size, buffer->pageTable->entries, buffer->write);
@@ -327,8 +329,105 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
       }
    }
 
+   data->disabled = 0;
    writel(x, data->base+0x008);
    return 0;
+}
+
+/**
+ * Gpu_ClearBufferRegs - Clear register state on the FPGA
+ * Safe to call multiple times.
+ *
+ * @dev: The underlying DMA device to free the buffers on
+ */
+static void Gpu_ClearBufferRegs(struct DmaDevice* dev) {
+   uint32_t x;
+   u64 offset;
+   ktime_t waitStart;
+
+   struct GpuData *data;
+   struct GpuBuffer *buffer;
+
+   // Retrieve the GPU specific data from the DMA device
+   data = (struct GpuData *)dev->utilData;
+
+   // Skip this code if this has already been disabled.
+   if (data->disabled)
+      return;
+
+   // Disable reads and writes before freeing underlying buffers.
+   writel(0, data->base + 0x008);
+   
+   // GpuAsyncV4 has no "DMA complete" indicator, so we need to delay for a bit while pending transactions complete.
+   // This is far from scientific; I'm just choosing a value (50ms) that *should* prevent crashes...
+   if (data->version < 5) {
+      if (!data->disabled)
+         fsleep(50000);
+      data->disabled = 1;
+   } else {
+      // V5+: Spin on write/read enable readback. This will get cleared once the FPGA has completed all RDMA transactions to the GPU.
+      waitStart = ktime_get();
+      while (readl(data->base + 0x44) != 0) {
+         cpu_relax();
+
+         // Avoid hanging the system if there's a stalled transfer
+         if (ktime_to_ms(ktime_sub(ktime_get(), waitStart)) > 1000) {
+            dev_warn(dev->device, "Gpu_ClearBufferRegs: Possible stalled DMA; already waited for 1s\n");
+            break;
+         }
+      }
+      data->disabled = 1;
+   }
+
+   // Clear out remote write size register
+   if (data->version >= 4) {
+      writeGpuAsyncReg(data->base, &GpuAsyncReg_RemoteWriteMaxSizeV4, 0);
+   }
+
+   // Clear out the write buffer registers
+   for (x = 0; x < data->writeBuffers.count; x++) {
+      buffer = &(data->writeBuffers.list[x]);
+
+      // Compute version specific offsets
+      if (data->version < 4) {
+         offset = GPU_ASYNC_REG_WRITE_BASE_V1 + x * 16;
+      } else {
+         offset = GPU_ASYNC_REG_WRITE_BASE_V4 + x * 8;
+      }
+
+      // Clear address register; firmware may initiate an rdma transaction even when dropEn=1, which
+      // typically leads to a hang in the GPU software under some circumstances. This is usually a problem
+      // when 2 or more FPGAs end up with the same physical addresses in these registers (e.g. if you're running
+      // an application against multiple different FPGAs and one GPU)
+      writel(0, data->base + offset);
+      writel(0, data->base + offset + 0x4);
+
+      dev_warn(dev->device, "Gpu_ClearBufferRegs: unmapped write memory with address=0x%llx\n", buffer->address);
+   }
+
+   // Clear out the read buffer registers
+   for (x = 0; x < data->readBuffers.count; x++) {
+      buffer = &(data->readBuffers.list[x]);
+
+      // Compute version specific offsets
+      if (data->version < 4) {
+         offset = GPU_ASYNC_REG_READ_BASE_V1 + data->readBuffers.count * 16;
+      } else {
+         offset = GPU_ASYNC_REG_READ_BASE_V4 + data->readBuffers.count * 8;
+      }
+
+      // See comment in the previous for loop for why this is done.
+      writel(0, data->base + offset);
+      writel(0, data->base + offset + 0x4);
+
+      dev_warn(dev->device, "Gpu_ClearBufferRegs: unmapped read memory with address=0x%llx\n", buffer->address);
+   }
+
+   // Reset the buffer counts
+   data->writeBuffers.count = 0;
+   data->readBuffers.count = 0;
+
+   return;
 }
 
 /**
@@ -346,8 +445,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
  */
 int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
    uint32_t x;
-   u64 virt_start;
-   u64 offset;
+   int ret;
 
    struct GpuData *data;
    struct GpuBuffer *buffer;
@@ -355,80 +453,54 @@ int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
    // Retrieve the GPU specific data from the DMA device
    data = (struct GpuData *)dev->utilData;
 
-   // Disable reads and writes before freeing underlying buffers.
-   writel(0, data->base + 0x008);
+   dev_info(dev->device, "Gpu_RemNvidia: Called\n");
 
-   // Unmap and release pages for all write buffers
+   // Clear out FPGA state, disable DMAs
+   Gpu_ClearBufferRegs(dev);
+
+   // Unmap write pages
    for (x = 0; x < data->writeBuffers.count; x++) {
       buffer = &(data->writeBuffers.list[x]);
-      virt_start = buffer->address & GPU_BOUND_MASK;
 
-      nvidia_p2p_dma_unmap_pages(dev->pcidev, buffer->pageTable, buffer->dmaMapping);
-      nvidia_p2p_free_page_table(buffer->pageTable);
-
-      // Compute version specific offsets
-      if (data->version < 4) {
-         offset = GPU_ASYNC_REG_WRITE_BASE_V1 + x * 16;
-      } else {
-         offset = GPU_ASYNC_REG_WRITE_BASE_V4 + x * 8;
+      ret = nvidia_p2p_dma_unmap_pages(dev->pcidev, buffer->pageTable, buffer->dmaMapping);
+      if (ret != 0) {
+         dev_warn(dev->device, "Gpu_RemNvidia: nvidia_p2p_dma_unmap_pages returned %d\n", ret);
       }
-
-      // Clear address register; firmware may initiate an rdma transaction even when dropEn=1, which
-      // typically leads to a hang in the GPU software under some circumstances. This is usually a problem
-      // when 2 or more FPGAs end up with the same physical addresses in these registers (e.g. if you're running
-      // an application against multiple different FPGAs and one GPU)
-      writel(0, data->base + offset);
-      writel(0, data->base + offset + 0x4);
-
-      dev_warn(dev->device, "Gpu_RemNvidia: unmapped write memory with address=0x%llx\n", buffer->address);
    }
 
-   // Unmap and release pages for all read buffers
+   // Unmap read pages
    for (x = 0; x < data->readBuffers.count; x++) {
       buffer = &(data->readBuffers.list[x]);
-      virt_start = buffer->address & GPU_BOUND_MASK;
 
-      nvidia_p2p_dma_unmap_pages(dev->pcidev, buffer->pageTable, buffer->dmaMapping);
-      nvidia_p2p_free_page_table(buffer->pageTable);
-
-      // Compute version specific offsets
-      if (data->version < 4) {
-         offset = GPU_ASYNC_REG_READ_BASE_V1 + data->readBuffers.count * 16;
-      } else {
-         offset = GPU_ASYNC_REG_READ_BASE_V4 + data->readBuffers.count * 8;
+      ret = nvidia_p2p_dma_unmap_pages(dev->pcidev, buffer->pageTable, buffer->dmaMapping);
+      if (ret != 0) {
+         dev_warn(dev->device, "Gpu_RemNvidia: nvidia_p2p_dma_unmap_pages returned %d\n", ret);
       }
-
-      // See comment in the previous for loop for why this is done.
-      writel(0, data->base + offset);
-      writel(0, data->base + offset + 0x4);
-
-      dev_warn(dev->device, "Gpu_RemNvidia: unmapped read memory with address=0x%llx\n", buffer->address);
    }
-
-   // Clear out remote write size register
-   if (data->version >= 4) {
-      writeGpuAsyncReg(data->base, &GpuAsyncReg_RemoteWriteMaxSizeV4, 0);
-   }
-
-   // Reset the buffer counts
-   data->writeBuffers.count = 0;
-   data->readBuffers.count = 0;
 
    return 0;
 }
 
 /**
- * Gpu_FreeNvidia - Release NVIDIA GPU resources
+ * Gpu_FreeNvidia - Release NVIDIA GPU resources.
  * @data: Pointer to the device-specific data
  *
- * This function is a callback for freeing NVIDIA GPU resources associated
- * with a DMA device. It logs a warning message and removes NVIDIA GPU
- * resources.
+ * This is called for each buffer by the unpin callback, and frees the page table.
+ * Pages are unmapped by explicit calls to Gpu_RemNvidia, or automatically when the
+ * device fd is closed/removed.
  */
 void Gpu_FreeNvidia(void *data) {
-   struct DmaDevice *dev = (struct DmaDevice *)data;
-   dev_warn(dev->device, "Gpu_FreeNvidia: Called\n");
-   Gpu_RemNvidia(dev, 0);
+   int r;
+   struct GpuBuffer *buffer = data;
+
+   // Disable DMAs, clear out registers on the FPGA side.
+   Gpu_ClearBufferRegs(buffer->dev);
+
+   // Free the underlying page table
+   if ((r = nvidia_p2p_free_page_table(buffer->pageTable)) != 0) {
+      dev_warn(buffer->dev->device, "Gpu_FreeNvidia: nvidia_p2p_free_page_table returned %d!\n", r);
+   }
+   buffer->pageTable = NULL;
 }
 
 /**
