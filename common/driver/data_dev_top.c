@@ -334,11 +334,14 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->rwSize = (2*USER_SIZE) - PHY_OFF;  // Read/Write region size
 
 #ifdef DATA_GPU
-   // GPU Init
-   probeReturn = Gpu_Init(dev, GPU_ASYNC_CORE_OFFSET);
-   if (probeReturn < 0) {
-      dev_err(dev->device, "Init: Gpu_Init returned error %i.\n", probeReturn);
-      goto err_unmap;
+   // Skip GPU init if the module is not enabled
+   if (readl(dev->base + AVER_OFF + 0x428) == 1) {
+      // GPU Init
+      probeReturn = Gpu_Init(dev, GPU_ASYNC_CORE_OFFSET);
+      if (probeReturn < 0) {
+         dev_err(dev->device, "Init: Gpu_Init returned error %i.\n", probeReturn);
+         goto err_unmap;
+      }
    }
 #endif
 
