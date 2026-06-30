@@ -179,6 +179,10 @@ void emu_bar0_init_regs(struct emu_bar0 *bar, u32 max_buffers)
    /* userReset (0x010C): clear */
    iowrite32(0x00000000, base + EMU_AVER_OFF + 0x010C);
 
+   /* DataGpuEn (0x428, UserValues[10] bit 0): assert so the GPU-build
+    * driver's Gpu_Init gate (data_dev_top.c) takes the GPU path. */
+   iowrite32(EMU_REG_DATAGPU_EN_INIT, base + EMU_AVER_OFF + EMU_REG_DATAGPU_EN_OFF);
+
    /* --- GPU Async Core V4 registers (at base + EMU_GPU_ASYNC_OFF) ---
     *
     * Only two non-zero values are required so Gpu_Init (in
