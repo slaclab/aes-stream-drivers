@@ -144,6 +144,14 @@
 #define EMU_BUILD_VERSION  0
 #endif
 
+/* DataGpuEn (offset 0x428 = UserValues[10], bit 0): mirrors the firmware
+ * AxiVersion.UserValues(10)(0) = DATAGPU_EN_G generic.  The GPU-build
+ * datadev driver (data_dev_top.c, #ifdef DATA_GPU) gates Gpu_Init on this
+ * bit reading 1, so the emulator must assert it to present a GPU-capable
+ * device. */
+#define EMU_REG_DATAGPU_EN_OFF    0x428
+#define EMU_REG_DATAGPU_EN_INIT   0x00000001
+
 /* ----------------------------------------------------------------
  * GPU Async Core V4 initial register values (offsets relative to
  * EMU_GPU_ASYNC_OFF = 0x00028000)
