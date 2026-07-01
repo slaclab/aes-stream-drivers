@@ -6,10 +6,13 @@
 #  Phase 2: CPU Testing (5 distros in parallel) → waits for Phase 1
 #  Phase 3: GPU Testing (5 distros in parallel) → waits for Phase 2
 #  Phase 4: Release Generation → waits for Phase 3
-#  Phase 5: Parallel Package Generation (DKMS, DEB Loop, RPM) → waits for Phase 4
+#  Phase 5: DKMS Source Tarball Uploads (cpu, gpu) → waits for Phase 4
 #  Phase 6: Real Distribution Packages (.deb/.rpm) → waits for Phase 5
 #
 # All phases visible in a single GitHub Actions run page.
+#
+# NOTE: Phase 2 and Phase 3 use modular scripts from scripts/ci/ directory.
+#       This ensures 100% parity between local testing and CI execution.
 # ----------------------------------------------------------------------------
 
 name: CI Pipeline
@@ -75,15 +78,24 @@ jobs:
 
   # ==========================================================================
   # Phase 2: CPU Testing (5 distros in parallel)
+  # Waits for Phase 1 to complete
+  # Uses modular scripts from scripts/ci/
   # ==========================================================================
   cpu_test:
     name: "Phase 2: CPU Test (${{ matrix.container }})"
     needs: [test_and_document]
+    # Bound job wall-clock to 20 minutes. Belt to the 120s per-insmod
+    # timeout suspenders in scripts/ci/load-modules-*.sh; a hang at any step
+    # fails well before the 6-hour GitHub runner ceiling, freeing the slot
+    # and letting the diagnostic artifact upload (if: failure()) fire.
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
         include:
+          # Only ubuntu:24.04 has the running host's Azure kernel headers in its
+          # --privileged: CAP_SYS_MODULE for insmod
+          # bind-mounts: host kernel headers visible inside every container
           - container: "ubuntu:24.04"
             load_test: true
           - container: "ubuntu:22.04"
@@ -170,15 +182,28 @@ jobs:
 
   # ==========================================================================
   # Phase 3: GPU Testing (5 distros in parallel)
+  # Waits for Phase 2 (all CPU tests) to complete
+  # Uses modular scripts from scripts/ci/
   # ==========================================================================
   gpu_test:
     name: "Phase 3: GPU Test (${{ matrix.container }})"
     needs: [cpu_test]
+    # Bound job wall-clock to 30 minutes. Belt to the 120s per-insmod
+    # timeout suspenders in scripts/ci/load-modules-*.sh; a hang at any step
+    # fails well before the 6-hour GitHub runner ceiling, freeing the slot
+    # and letting the diagnostic artifact upload (if: failure()) fire.
+    # The test phase itself completes in ~10-12 min on the slowest matrix
+    # cells; the extra 10 min covers occasional post-job `docker rm --force`
+    # stalls observed on GitHub-hosted runners (e.g. run 24874328424 where
+    # rocky9 teardown sat idle for ~22 min after the test sequence had
+    # already passed).
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         include:
+          # --privileged: CAP_SYS_MODULE for insmod
+          # bind-mounts: host kernel headers visible inside every container
           - container: "ubuntu:24.04"
             load_test: true
           - container: "ubuntu:22.04"
@@ -264,6 +289,7 @@ jobs:
 
   # ==========================================================================
   # Phase 4: Release Generation
+  # Waits for Phase 3 (all GPU tests) to complete
   # ==========================================================================
   gen_release:
     name: "Phase 4: Generate Release"
@@ -282,6 +308,8 @@ jobs:
     needs: [gen_release]
     runs-on: ubuntu-24.04
     if: startsWith(github.ref, 'refs/tags/')
+    env:
+      GH_REPO_TOKEN: ${{ secrets.GH_TOKEN }}
     strategy:
       fail-fast: false
       matrix:
@@ -320,11 +348,7 @@ jobs:
 
       - name: Build Source DKMS Tarball
         run: |
-          if [ "${{ matrix.driver_type }}" = "gpu" ]; then
-            make -C data_dev/driver dkms_gpu || make -C data_dev/driver dkms TYPE=gpu || make -C data_dev/driver dkms
-          else
-            make -C data_dev/driver dkms
-          fi
+          make -C data_dev/driver dkms
 
       # ----------------------------------------------------------------------
       # Track A: Core Source DKMS Tarball Upload
@@ -373,13 +397,6 @@ jobs:
                 fi
              "
              
-             # Locate and upload newly built binary for this specific distribution step
-             for deb in *_ubuntu-"${UVP}"*.deb; do
-               if [ -f "$deb" ]; then
-                 echo "Uploading built asset: $deb"
-                 python3 ../../scripts/uploadTag.py --tag=$TAG --repo=$GIT_REPO --file="$deb"
-               fi
-             done
           done
 
       # ----------------------------------------------------------------------
@@ -408,12 +425,6 @@ jobs:
                 ls *.rpm | while read f; do mv \"\$f\" \"\${f%.rpm}-rocky9.rpm\"; done; \
              fi
           "
-          
-          for rpm in *-rocky9*.rpm; do
-            if [ -f "$rpm" ]; then
-              python3 ../../scripts/uploadTag.py --tag=$TAG --repo=$GIT_REPO --file="$rpm"
-            fi
-          done
 
   # ==========================================================================
   # Phase 6: Real Distribution Packages (.deb & .rpm)
