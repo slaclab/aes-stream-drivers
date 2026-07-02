@@ -61,3 +61,63 @@ jobs:
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
           commit_message: 'Deploy docs for ${{ github.ref_name }}'
+
+      # ----------------------------------------------------------------------------
+      # Pushing to gh-pages above triggers GitHub's own asynchronous
+      # "pages build and deployment" run, which is outside this workflow's control
+      # and occasionally fails transiently ("Deployment failed, try again later.").
+      # This step watches that build and re-triggers it via the Pages API so a
+      # transient hiccup can no longer leave a release serving stale docs.
+      # Requires secrets.GH_TOKEN to carry the pages:write scope (repo-scope PAT).
+      # ----------------------------------------------------------------------------
+      - name: Verify Pages publish and retry on transient failure
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          repo="${GITHUB_REPOSITORY}"
+          target_sha="$(gh api "repos/${repo}/branches/gh-pages" --jq '.commit.sha')"
+          echo "gh-pages HEAD to publish: ${target_sha}"
+
+          max_rebuilds=3        # extra build requests after the initial auto-build
+          poll_timeout=900      # seconds to wait for a single build to finish
+          poll_interval=15      # seconds between status polls
+
+          attempt=0
+          while : ; do
+            elapsed=0
+            status=""
+            commit=""
+            while [ "${elapsed}" -lt "${poll_timeout}" ]; do
+              resp="$(gh api "repos/${repo}/pages/builds/latest" --jq '[.status, .commit] | @tsv')"
+              status="$(printf '%s' "${resp}" | cut -f1)"
+              commit="$(printf '%s' "${resp}" | cut -f2)"
+              echo "Pages build: status=${status} commit=${commit} (waited ${elapsed}s)"
+              case "${status}" in
+                built)
+                  if [ "${commit}" = "${target_sha}" ]; then
+                    echo "Pages successfully published ${target_sha}"
+                    exit 0
+                  fi
+                  # Latest still points at a prior build; GitHub's auto-build for our
+                  # commit has not landed yet. Keep waiting rather than forcing a rebuild.
+                  ;;
+                errored)
+                  echo "Pages build errored for ${commit}"
+                  break
+                  ;;
+              esac
+              sleep "${poll_interval}"
+              elapsed=$((elapsed + poll_interval))
+            done
+
+            attempt=$((attempt + 1))
+            if [ "${attempt}" -gt "${max_rebuilds}" ]; then
+              echo "::error::Pages deployment did not succeed after ${max_rebuilds} rebuild attempts (last status=${status}, commit=${commit})"
+              exit 1
+            fi
+            echo "Requesting Pages rebuild (attempt ${attempt}/${max_rebuilds})..."
+            gh api -X POST "repos/${repo}/pages/builds" >/dev/null || true
+            sleep "${poll_interval}"
+          done
