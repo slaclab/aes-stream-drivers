@@ -388,17 +388,10 @@ static void runSimpleLoop(TestSession& s) {
             }
         }
 
-        /* Clear handshake space on the GPU side ("GPU's doorbell"). */
-        assertOk(cuStreamWriteValue32(s.stream,
-            (CUdeviceptr)s.rxBuffers[curBuff] + 4, 0, 0));
-
-        /* Return the buffer index back to the FPGA side ("FPGA's free list"). */
-        assertOk(cuStreamWriteValue32(s.stream,
-            s.regs.dptr + s.coreRegs->freeListOffset(curBuff), 1, 0));
-
+        // Dump header data when requested
         if (s_verbose > 1) {
             printf("hdr{size=%u, firstUser=%u, lastUser=%u, cont=%u, overflow=%u, result=%u}\n",
-                hdr.size, hdr.firstUser, hdr.lastUser, hdr.cont, hdr.overflow, hdr.result);
+                hdr.size, hdr.firstUser(), hdr.lastUser(), hdr.cont(), hdr.overflow(), hdr.result());
         }
 
         /* Dump first N bytes when requested. Clamp the copy size to the
@@ -444,6 +437,14 @@ static void runSimpleLoop(TestSession& s) {
                 s_dumpToFile = 1;
             }
         }
+
+        /* Clear handshake space on the GPU side ("GPU's doorbell"). */
+        assertOk(cuStreamWriteValue32(s.stream,
+            (CUdeviceptr)s.rxBuffers[curBuff] + 4, 0, 0));
+
+        /* Return the buffer index back to the FPGA side ("FPGA's free list"). */
+        assertOk(cuStreamWriteValue32(s.stream,
+            s.regs.dptr + s.coreRegs->freeListOffset(curBuff), 1, 0));
 
         totalEvents++;
         totalRecv += (uint64_t)hdr.size;

@@ -38,30 +38,50 @@
  * it, and associates it with the given DmaDevice. It sets up
  * the base address for GPU operations and initializes buffer counts.
  */
-void Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
+int32_t Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
    struct GpuData *gpuData;
 
+   uint32_t maxBuffers = 0;
    uint8_t* gpuBase = dev->base + offset;
    uint8_t version = readGpuAsyncReg(gpuBase, &GpuAsyncReg_Version);
    dev->gpuEn = !!version;
+
+   /* GPU not enabled, avoid allocating GPU data */
+   if (!dev->gpuEn)
+      return 0;
 
    /* warn on unsupported version */
    if (version > DATAGPU_MAX_VERSION) {
       dev_err(dev->device, "Gpu_Init: Unsupported GpuAsyncCore version: %d. Max supported is version %d\n",
             version, DATAGPU_MAX_VERSION);
       dev->gpuEn = 0;
+      return 0;  /* allow fallback to CPU DMA */
    }
 
-   /* GPU not enabled, avoid allocating GPU data */
-   if (!dev->gpuEn)
-      return;
+   /* Read the firmware buffer count before allocating any GPU state */
+   if (version < 4) {
+      maxBuffers = readGpuAsyncReg(gpuBase, &GpuAsyncReg_MaxBuffersV1);
+   } else {
+      maxBuffers = readGpuAsyncReg(gpuBase, &GpuAsyncReg_MaxBuffersV4);
+   }
+
+   /* The writeBuffers/readBuffers list[] arrays are statically sized to
+    * MAX_GPU_BUFFERS. If firmware reports more than we can hold, Gpu_AddNvidia
+    * would index past the array and corrupt kernel memory. Refuse to enable
+    * GPU in that case; the device still works via the CPU DMA path. */
+   if (maxBuffers > MAX_GPU_BUFFERS) {
+      dev_err(dev->device, "Gpu_Init: Firmware reports unsupported buffer count: %u > %d\n",
+         maxBuffers, MAX_GPU_BUFFERS);
+      dev->gpuEn = 0;
+      return 0;  /* allow fallback to CPU DMA */
+   }
 
    /* Allocate memory for GPU utility data */
    gpuData = (struct GpuData *)kzalloc(sizeof(struct GpuData), GFP_KERNEL);
    if (!gpuData) {
       dev_err(dev->device, "Gpu_Init: Failed to allocate GpuData space of size %ld bytes\n",
          (ulong)(sizeof(struct GpuData)));
-      return;  // Handle memory allocation failure if necessary
+      return -ENOMEM;  /* allocation failure aborts probe */
    }
 
    /* Associate GPU utility data with the device */
@@ -73,14 +93,10 @@ void Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
    gpuData->readBuffers.count = 0;
    gpuData->offset = offset;
    gpuData->version = version;
-
-   if (version < 4) {
-      gpuData->maxBuffers = readGpuAsyncReg(gpuData->base, &GpuAsyncReg_MaxBuffersV1);
-   } else {
-      gpuData->maxBuffers = readGpuAsyncReg(gpuData->base, &GpuAsyncReg_MaxBuffersV4);
-   }
+   gpuData->maxBuffers = maxBuffers;
 
    dev_info(dev->device, "Gpu_Init: Configured for GpuAsyncCore version %d\n", version);
+   return 0;
 }
 
 /**
@@ -97,6 +113,15 @@ void Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
  */
 int32_t Gpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    struct GpuData* data = dev->utilData;
+
+   /* Guard against an uninitialized GPU context. Gpu_Init() can leave the
+    * device marked GPU-enabled while utilData stays NULL (e.g. the GpuData
+    * allocation failed), so reject commands here instead of dereferencing a
+    * NULL pointer in the handlers below. */
+   if (data == NULL) {
+      dev_err(dev->device, "Gpu_Command: GPU not initialized (utilData is NULL), cmd=%u\n", cmd);
+      return -1;
+   }
 
    switch (cmd) {
       // Add NVIDIA Memory
@@ -322,12 +347,16 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
 int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
    uint32_t x;
    u64 virt_start;
+   u64 offset;
 
    struct GpuData *data;
    struct GpuBuffer *buffer;
 
    // Retrieve the GPU specific data from the DMA device
    data = (struct GpuData *)dev->utilData;
+
+   // Disable reads and writes before freeing underlying buffers.
+   writel(0, data->base + 0x008);
 
    // Unmap and release pages for all write buffers
    for (x = 0; x < data->writeBuffers.count; x++) {
@@ -336,6 +365,20 @@ int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
 
       nvidia_p2p_dma_unmap_pages(dev->pcidev, buffer->pageTable, buffer->dmaMapping);
       nvidia_p2p_free_page_table(buffer->pageTable);
+
+      // Compute version specific offsets
+      if (data->version < 4) {
+         offset = GPU_ASYNC_REG_WRITE_BASE_V1 + x * 16;
+      } else {
+         offset = GPU_ASYNC_REG_WRITE_BASE_V4 + x * 8;
+      }
+
+      // Clear address register; firmware may initiate an rdma transaction even when dropEn=1, which
+      // typically leads to a hang in the GPU software under some circumstances. This is usually a problem
+      // when 2 or more FPGAs end up with the same physical addresses in these registers (e.g. if you're running
+      // an application against multiple different FPGAs and one GPU)
+      writel(0, data->base + offset);
+      writel(0, data->base + offset + 0x4);
 
       dev_warn(dev->device, "Gpu_RemNvidia: unmapped write memory with address=0x%llx\n", buffer->address);
    }
@@ -348,6 +391,17 @@ int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
       nvidia_p2p_dma_unmap_pages(dev->pcidev, buffer->pageTable, buffer->dmaMapping);
       nvidia_p2p_free_page_table(buffer->pageTable);
 
+      // Compute version specific offsets
+      if (data->version < 4) {
+         offset = GPU_ASYNC_REG_READ_BASE_V1 + data->readBuffers.count * 16;
+      } else {
+         offset = GPU_ASYNC_REG_READ_BASE_V4 + data->readBuffers.count * 8;
+      }
+
+      // See comment in the previous for loop for why this is done.
+      writel(0, data->base + offset);
+      writel(0, data->base + offset + 0x4);
+
       dev_warn(dev->device, "Gpu_RemNvidia: unmapped read memory with address=0x%llx\n", buffer->address);
    }
 
@@ -356,10 +410,9 @@ int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
       writeGpuAsyncReg(data->base, &GpuAsyncReg_RemoteWriteMaxSizeV4, 0);
    }
 
-   // Reset the buffer counts and disable specific functionality by writing to a register
+   // Reset the buffer counts
    data->writeBuffers.count = 0;
    data->readBuffers.count = 0;
-   writel(0, data->base + 0x008);
 
    return 0;
 }
