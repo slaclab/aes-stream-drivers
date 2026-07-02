@@ -1,0 +1,1422 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GPU Async API &mdash; aes-stream-drivers 7.4.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=f3c1914a"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=4be73c2b"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Ioctl Command Code Reference" href="ioctl-table.html" />
+    <link rel="prev" title="AXIS Driver API" href="axis-api.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            aes-stream-drivers
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/index.html">Tutorials</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/first-transfer.html">Your First Data Transfer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-1-detect-the-hardware">Step 1 — Detect the Hardware</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-2-build-the-driver-and-utilities">Step 2 — Build the Driver and Utilities</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-3-load-the-driver">Step 3 — Load the Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-4-inspect-the-proc-interface">Step 4 — Inspect the /proc Interface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-5-run-the-loopback-test">Step 5 — Run the Loopback Test</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-6-unload-the-driver">Step 6 — Unload the Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/gpudirect-first.html">Your First GPUDirect Transfer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-1-disable-the-display-manager">Step 1 — Disable the Display Manager</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-2-install-nvidia-open-kernel-modules">Step 2 — Install NVIDIA Open Kernel Modules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-3-configure-grub">Step 3 — Configure GRUB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-4-build-and-load-all-drivers">Step 4 — Build and Load All Drivers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-5-verify-gpudirect-support">Step 5 — Verify GPUDirect Support</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-6-run-rdmatest">Step 6 — Run rdmaTest</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../how-to/index.html">How-to Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../how-to/build-and-load.html">Build and Load the Driver</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/build-and-load.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/build-and-load.html#build-the-driver">Build the Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/build-and-load.html#load-the-driver">Load the Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/build-and-load.html#configure-persistent-loading-modprobe-d">Configure Persistent Loading (modprobe.d)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/build-and-load.html#unload-the-driver">Unload the Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/build-and-load.html#parameter-reference">Parameter Reference</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how-to/cross-compile-rce.html">Cross-Compile for RCE (ARM/Zynq)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/cross-compile-rce.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/cross-compile-rce.html#build-at-slac-shortcut">Build at SLAC (Shortcut)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/cross-compile-rce.html#build-outside-slac">Build Outside SLAC</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/cross-compile-rce.html#arm-zynq-target">ARM/Zynq Target</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/cross-compile-rce.html#x86-buildroot-target">x86 Buildroot Target</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/cross-compile-rce.html#output-location">Output Location</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how-to/yocto-integration.html">Integrate into a Yocto Project</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#step-1-create-or-identify-your-layer">Step 1 — Create or Identify Your Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#step-2-copy-the-recipe">Step 2 — Copy the Recipe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#step-3-enable-the-module-in-your-build">Step 3 — Enable the Module in Your Build</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#step-4-set-buffer-parameters">Step 4 — Set Buffer Parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#step-5-add-the-device-tree-node">Step 5 — Add the Device Tree Node</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#step-6-build">Step 6 — Build</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#aximemorymap-variant">aximemorymap Variant</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how-to/dkms-install.html">Install via DKMS</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/dkms-install.html#prerequisites">Prerequisites</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#ubuntu-debian">Ubuntu / Debian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#rocky-linux-9-rhel-9">Rocky Linux 9 / RHEL 9</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#centos-7-rhel-7">CentOS 7 / RHEL 7</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#rhel-with-subscription">RHEL with Subscription</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/dkms-install.html#installation-methods">Installation Methods</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#method-1-install-from-release-tarball-recommended">Method 1: Install from Release Tarball (Recommended)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#method-2-manual-source-installation">Method 2: Manual Source Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/dkms-install.html#verification">Verification</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#check-installation-status">Check Installation Status</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#verify-module-information">Verify Module Information</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#load-the-module">Load the Module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#auto-load-on-boot">Auto-load on Boot</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/dkms-install.html#uninstallation">Uninstallation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#remove-dkms-module">Remove DKMS Module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/dkms-install.html#platform-specific-notes">Platform-Specific Notes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#ubuntu-22-04-24-04">Ubuntu 22.04 / 24.04</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#rocky-linux-9">Rocky Linux 9</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#centos-7">CentOS 7</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#debian-testing-experimental">Debian Testing / Experimental</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/dkms-install.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#dkms-build-failures">DKMS Build Failures</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#missing-kernel-headers">Missing Kernel Headers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#epel-not-available">EPEL Not Available</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#module-load-failures">Module Load Failures</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#kernel-version-mismatch">Kernel Version Mismatch</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/dkms-install.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how-to/gpudirect-setup.html">Set Up GPUDirect RDMA</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#step-1-disable-display-manager-services">Step 1 — Disable Display Manager Services</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#step-2-remove-existing-nvidia-drivers">Step 2 — Remove Existing NVIDIA Drivers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#step-3-install-nvidia-open-kernel-modules">Step 3 — Install NVIDIA Open Kernel Modules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#step-4-configure-grub">Step 4 — Configure GRUB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#step-5-build-and-load-both-drivers">Step 5 — Build and Load Both Drivers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#verify">Verify</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how-to/multi-channel.html">Route Multiple DMA Channels</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/multi-channel.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/multi-channel.html#subscribe-to-a-single-channel">Subscribe to a Single Channel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/multi-channel.html#subscribe-to-multiple-channels">Subscribe to Multiple Channels</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/multi-channel.html#send-to-a-specific-channel">Send to a Specific Channel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/multi-channel.html#receive-and-return-buffers">Receive and Return Buffers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/multi-channel.html#multiple-clients-on-one-device">Multiple Clients on One Device</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Reference</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="dma-api.html">DMA Driver API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_VERSION"><code class="docutils literal notranslate"><span class="pre">DMA_VERSION</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_ERR_FIFO"><code class="docutils literal notranslate"><span class="pre">DMA_ERR_FIFO</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_ERR_LEN"><code class="docutils literal notranslate"><span class="pre">DMA_ERR_LEN</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_ERR_MAX"><code class="docutils literal notranslate"><span class="pre">DMA_ERR_MAX</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_ERR_BUS"><code class="docutils literal notranslate"><span class="pre">DMA_ERR_BUS</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Get_Buff_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_Buff_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Get_Buff_Size"><code class="docutils literal notranslate"><span class="pre">DMA_Get_Buff_Size</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Set_Debug"><code class="docutils literal notranslate"><span class="pre">DMA_Set_Debug</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Set_Mask"><code class="docutils literal notranslate"><span class="pre">DMA_Set_Mask</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Ret_Index"><code class="docutils literal notranslate"><span class="pre">DMA_Ret_Index</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Get_Index"><code class="docutils literal notranslate"><span class="pre">DMA_Get_Index</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Read_Ready"><code class="docutils literal notranslate"><span class="pre">DMA_Read_Ready</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Set_MaskBytes"><code class="docutils literal notranslate"><span class="pre">DMA_Set_MaskBytes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Get_Version"><code class="docutils literal notranslate"><span class="pre">DMA_Get_Version</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Write_Register"><code class="docutils literal notranslate"><span class="pre">DMA_Write_Register</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Read_Register"><code class="docutils literal notranslate"><span class="pre">DMA_Read_Register</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Get_RxBuff_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuff_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Get_TxBuff_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuff_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Get_TxBuffinUser_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuffinUser_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Get_TxBuffinHW_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuffinHW_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Get_TxBuffinPreHWQ_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuffinPreHWQ_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Get_TxBuffinSWQ_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuffinSWQ_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Get_TxBuffMiss_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuffMiss_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Get_RxBuffinUser_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuffinUser_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Get_RxBuffinHW_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuffinHW_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Get_RxBuffinPreHWQ_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuffinPreHWQ_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Get_RxBuffinSWQ_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuffinSWQ_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Get_RxBuffMiss_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuffMiss_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_Get_GITV"><code class="docutils literal notranslate"><span class="pre">DMA_Get_GITV</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DMA_MASK_SIZE"><code class="docutils literal notranslate"><span class="pre">DMA_MASK_SIZE</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaWrite"><code class="docutils literal notranslate"><span class="pre">dmaWrite()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaWriteIndex"><code class="docutils literal notranslate"><span class="pre">dmaWriteIndex()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaWriteVector"><code class="docutils literal notranslate"><span class="pre">dmaWriteVector()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaWriteIndexVector"><code class="docutils literal notranslate"><span class="pre">dmaWriteIndexVector()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaRead"><code class="docutils literal notranslate"><span class="pre">dmaRead()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaReadIndex"><code class="docutils literal notranslate"><span class="pre">dmaReadIndex()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaReadBulkIndex"><code class="docutils literal notranslate"><span class="pre">dmaReadBulkIndex()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaRetIndex"><code class="docutils literal notranslate"><span class="pre">dmaRetIndex()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaRetIndexes"><code class="docutils literal notranslate"><span class="pre">dmaRetIndexes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaGetIndex"><code class="docutils literal notranslate"><span class="pre">dmaGetIndex()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaReadReady"><code class="docutils literal notranslate"><span class="pre">dmaReadReady()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaGetRxBuffCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaGetRxBuffinUserCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffinUserCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaGetRxBuffinHwCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffinHwCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaGetRxBuffinPreHwQCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffinPreHwQCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaGetRxBuffinSwQCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffinSwQCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaGetRxBuffMissCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffMissCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaGetTxBuffCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaGetTxBuffinUserCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffinUserCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaGetTxBuffinHwCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffinHwCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaGetTxBuffinPreHwQCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffinPreHwQCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaGetTxBuffinSwQCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffinSwQCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaGetTxBuffMissCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffMissCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaGetBuffSize"><code class="docutils literal notranslate"><span class="pre">dmaGetBuffSize()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaGetBuffCount"><code class="docutils literal notranslate"><span class="pre">dmaGetBuffCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaMapDma"><code class="docutils literal notranslate"><span class="pre">dmaMapDma()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaUnMapDma"><code class="docutils literal notranslate"><span class="pre">dmaUnMapDma()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaSetDebug"><code class="docutils literal notranslate"><span class="pre">dmaSetDebug()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaAssignHandler"><code class="docutils literal notranslate"><span class="pre">dmaAssignHandler()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaSetMask"><code class="docutils literal notranslate"><span class="pre">dmaSetMask()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaInitMaskBytes"><code class="docutils literal notranslate"><span class="pre">dmaInitMaskBytes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaAddMaskBytes"><code class="docutils literal notranslate"><span class="pre">dmaAddMaskBytes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaSetMaskBytes"><code class="docutils literal notranslate"><span class="pre">dmaSetMaskBytes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaCheckVersion"><code class="docutils literal notranslate"><span class="pre">dmaCheckVersion()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaGetApiVersion"><code class="docutils literal notranslate"><span class="pre">dmaGetApiVersion()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaWriteRegister"><code class="docutils literal notranslate"><span class="pre">dmaWriteRegister()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaReadRegister"><code class="docutils literal notranslate"><span class="pre">dmaReadRegister()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaMapRegister"><code class="docutils literal notranslate"><span class="pre">dmaMapRegister()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.dmaUnMapRegister"><code class="docutils literal notranslate"><span class="pre">dmaUnMapRegister()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DmaWriteData"><code class="docutils literal notranslate"><span class="pre">DmaWriteData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="dma-api.html#c.DmaWriteData.data"><code class="docutils literal notranslate"><span class="pre">data</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dma-api.html#c.DmaWriteData.dest"><code class="docutils literal notranslate"><span class="pre">dest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dma-api.html#c.DmaWriteData.flags"><code class="docutils literal notranslate"><span class="pre">flags</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dma-api.html#c.DmaWriteData.index"><code class="docutils literal notranslate"><span class="pre">index</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dma-api.html#c.DmaWriteData.size"><code class="docutils literal notranslate"><span class="pre">size</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dma-api.html#c.DmaWriteData.is32"><code class="docutils literal notranslate"><span class="pre">is32</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dma-api.html#c.DmaWriteData.pad"><code class="docutils literal notranslate"><span class="pre">pad</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DmaReadData"><code class="docutils literal notranslate"><span class="pre">DmaReadData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="dma-api.html#c.DmaReadData.data"><code class="docutils literal notranslate"><span class="pre">data</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dma-api.html#c.DmaReadData.dest"><code class="docutils literal notranslate"><span class="pre">dest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dma-api.html#c.DmaReadData.flags"><code class="docutils literal notranslate"><span class="pre">flags</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dma-api.html#c.DmaReadData.index"><code class="docutils literal notranslate"><span class="pre">index</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dma-api.html#c.DmaReadData.error"><code class="docutils literal notranslate"><span class="pre">error</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dma-api.html#c.DmaReadData.size"><code class="docutils literal notranslate"><span class="pre">size</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dma-api.html#c.DmaReadData.is32"><code class="docutils literal notranslate"><span class="pre">is32</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dma-api.html#c.DmaReadData.ret"><code class="docutils literal notranslate"><span class="pre">ret</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="dma-api.html#c.DmaRegisterData"><code class="docutils literal notranslate"><span class="pre">DmaRegisterData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="dma-api.html#c.DmaRegisterData.address"><code class="docutils literal notranslate"><span class="pre">address</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="dma-api.html#c.DmaRegisterData.data"><code class="docutils literal notranslate"><span class="pre">data</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="axis-api.html">AXIS Driver API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="axis-api.html#c.AXIS_Read_Ack"><code class="docutils literal notranslate"><span class="pre">AXIS_Read_Ack</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="axis-api.html#c.AXIS_Write_ReqMissed"><code class="docutils literal notranslate"><span class="pre">AXIS_Write_ReqMissed</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="axis-api.html#c.axisSetFlags"><code class="docutils literal notranslate"><span class="pre">axisSetFlags()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="axis-api.html#c.axisGetFuser"><code class="docutils literal notranslate"><span class="pre">axisGetFuser()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="axis-api.html#c.axisGetLuser"><code class="docutils literal notranslate"><span class="pre">axisGetLuser()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="axis-api.html#c.axisGetCont"><code class="docutils literal notranslate"><span class="pre">axisGetCont()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="axis-api.html#c.axisReadAck"><code class="docutils literal notranslate"><span class="pre">axisReadAck()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="axis-api.html#c.axisWriteReqMissed"><code class="docutils literal notranslate"><span class="pre">axisWriteReqMissed()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">GPU Async API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#ioctl-wrappers-gpuasync-h">Ioctl Wrappers (GpuAsync.h)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#c.GPU_Add_Nvidia_Memory"><code class="docutils literal notranslate"><span class="pre">GPU_Add_Nvidia_Memory</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.GPU_Rem_Nvidia_Memory"><code class="docutils literal notranslate"><span class="pre">GPU_Rem_Nvidia_Memory</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.GPU_Set_Write_Enable"><code class="docutils literal notranslate"><span class="pre">GPU_Set_Write_Enable</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.GPU_Is_Gpu_Async_Supp"><code class="docutils literal notranslate"><span class="pre">GPU_Is_Gpu_Async_Supp</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.GPU_Get_Gpu_Async_Ver"><code class="docutils literal notranslate"><span class="pre">GPU_Get_Gpu_Async_Ver</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.GPU_Get_Max_Buffers"><code class="docutils literal notranslate"><span class="pre">GPU_Get_Max_Buffers</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.gpuAddNvidiaMemory"><code class="docutils literal notranslate"><span class="pre">gpuAddNvidiaMemory()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.gpuRemNvidiaMemory"><code class="docutils literal notranslate"><span class="pre">gpuRemNvidiaMemory()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.gpuSetWriteEn"><code class="docutils literal notranslate"><span class="pre">gpuSetWriteEn()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.gpuIsGpuAsyncSupported"><code class="docutils literal notranslate"><span class="pre">gpuIsGpuAsyncSupported()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.gpuGetGpuAsyncVersion"><code class="docutils literal notranslate"><span class="pre">gpuGetGpuAsyncVersion()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.gpuGetMaxBuffers"><code class="docutils literal notranslate"><span class="pre">gpuGetMaxBuffers()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.GpuNvidiaData"><code class="docutils literal notranslate"><span class="pre">GpuNvidiaData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#register-wrapper-gpuasyncuser-h">Register Wrapper (GpuAsyncUser.h)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv416GpuAsyncCoreRegs"><code class="docutils literal notranslate"><span class="pre">GpuAsyncCoreRegs</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="#cuda-helpers-gpuasynclib-h">CUDA Helpers (GpuAsyncLib.h)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#c.deviceFunc"><code class="docutils literal notranslate"><span class="pre">deviceFunc</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.globalFunc"><code class="docutils literal notranslate"><span class="pre">globalFunc</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#c.hostFunc"><code class="docutils literal notranslate"><span class="pre">hostFunc</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv410checkError8CUresult"><code class="docutils literal notranslate"><span class="pre">checkError()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv410checkError11cudaError_t"><code class="docutils literal notranslate"><span class="pre">checkError()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv48wasError8CUresult"><code class="docutils literal notranslate"><span class="pre">wasError()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv417gpuMapHostFpgaMemP14GpuDmaBuffer_ti8uint64_t6size_t"><code class="docutils literal notranslate"><span class="pre">gpuMapHostFpgaMem()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv413gpuMapFpgaMemP14GpuDmaBuffer_ti8uint64_t6size_ti"><code class="docutils literal notranslate"><span class="pre">gpuMapFpgaMem()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv415gpuUnmapFpgaMemP14GpuDmaBuffer_t"><code class="docutils literal notranslate"><span class="pre">gpuUnmapFpgaMem()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv418gpuInitBufferStateP16GpuBufferState_ti6size_t"><code class="docutils literal notranslate"><span class="pre">gpuInitBufferState()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv421gpuDestroyBufferStateP16GpuBufferState_t"><code class="docutils literal notranslate"><span class="pre">gpuDestroyBufferState()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv424UnpackAxiWriteDescriptorPKv"><code class="docutils literal notranslate"><span class="pre">UnpackAxiWriteDescriptor()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv47DataGPU"><code class="docutils literal notranslate"><span class="pre">DataGPU</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv411CudaContext"><code class="docutils literal notranslate"><span class="pre">CudaContext</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv414GpuDmaBuffer_t"><code class="docutils literal notranslate"><span class="pre">GpuDmaBuffer_t</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv416GpuBufferState_t"><code class="docutils literal notranslate"><span class="pre">GpuBufferState_t</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="#_CPPv413AxiWrDesc64_t"><code class="docutils literal notranslate"><span class="pre">AxiWrDesc64_t</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ioctl-table.html">Ioctl Command Code Reference</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ioctl-table.html#dmadriver-h-commands">DmaDriver.h Commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ioctl-table.html#axisdriver-h-commands">AxisDriver.h Commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ioctl-table.html#axiversion-h-commands">AxiVersion.h Commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ioctl-table.html#gpuasync-h-commands">GpuAsync.h Commands</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="module-parameters.html">Module Parameters — datadev</a></li>
+<li class="toctree-l2"><a class="reference internal" href="device-nodes.html">Device Nodes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="device-nodes.html#dev-character-devices">/dev/ — Character Devices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="device-nodes.html#proc-diagnostic-interface">/proc/ — Diagnostic Interface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="device-nodes.html#multi-device-systems">Multi-Device Systems</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="test-applications.html">Test Applications</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="test-applications.html#dma-loopback-and-throughput">DMA Loopback and Throughput</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="test-applications.html#dmalooptest">dmaLoopTest</a></li>
+<li class="toctree-l4"><a class="reference internal" href="test-applications.html#dmarate">dmaRate</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="test-applications.html#ioctl-and-file-operations">Ioctl and File Operations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="test-applications.html#dmaioctltest">dmaIoctlTest</a></li>
+<li class="toctree-l4"><a class="reference internal" href="test-applications.html#dmafileopstest">dmaFileOpsTest</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="test-applications.html#error-path-testing">Error Path Testing</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="test-applications.html#dmaerrortest">dmaErrorTest</a></li>
+<li class="toctree-l4"><a class="reference internal" href="test-applications.html#dmasmallframetest">dmaSmallFrameTest</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="test-applications.html#gpu-specific-testing">GPU-Specific Testing</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="test-applications.html#dmagpuioctltest">dmaGpuIoctlTest</a></li>
+<li class="toctree-l4"><a class="reference internal" href="test-applications.html#rdmatestemu">rdmaTestEmu</a></li>
+<li class="toctree-l4"><a class="reference internal" href="test-applications.html#dmagputoggletest">dmaGpuToggleTest</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="test-applications.html#shell-based-test-harness">Shell-Based Test Harness</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="dma-legacy.html">User Space DMA API</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../explanation/index.html">Explanation</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../explanation/architecture.html">Driver Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/architecture.html#the-hardware-abstraction-vtable">The Hardware Abstraction Vtable</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/architecture.html#component-relationships">Component Relationships</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/architecture.html#pcie-bar0-memory-map">PCIe BAR0 Memory Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/architecture.html#pci-device-identification">PCI Device Identification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/architecture.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../explanation/dma-modes.html">DMA Buffer Modes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/dma-modes.html#the-three-buffer-modes">The Three Buffer Modes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/dma-modes.html#why-cfgmode-4-is-rejected-for-data-dev">Why cfgMode=4 Is Rejected for data_dev</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/dma-modes.html#buffer-pool-pre-allocation">Buffer Pool Pre-Allocation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/dma-modes.html#buffer-state-machine">Buffer State Machine</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/dma-modes.html#zero-copy-data-path">Zero-Copy Data Path</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/dma-modes.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../explanation/axi-stream-protocol.html">AXI Stream Protocol</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/axi-stream-protocol.html#frame-boundaries-and-tlast">Frame Boundaries and TLAST</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/axi-stream-protocol.html#the-flags-field-fuser-luser-and-cont">The Flags Field: fuser, luser, and cont</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/axi-stream-protocol.html#channel-routing-via-tdest">Channel Routing via TDEST</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/axi-stream-protocol.html#axisg2-engine-overview">AxisG2 Engine Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/axi-stream-protocol.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../explanation/kernel-compatibility.html">Kernel Compatibility</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/kernel-compatibility.html#how-the-guards-work">How the Guards Work</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/kernel-compatibility.html#compatibility-matrix">Compatibility Matrix</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/kernel-compatibility.html#rhel-backport-detection">RHEL Backport Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/kernel-compatibility.html#minimum-and-maximum-tested-kernels">Minimum and Maximum Tested Kernels</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/kernel-compatibility.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../explanation/ci-pipeline.html">CI Pipeline and Test Coverage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/ci-pipeline.html#pipeline-phases">Pipeline Phases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/ci-pipeline.html#distribution-matrix">Distribution Matrix</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/ci-pipeline.html#phase-2-cpu-test-coverage">Phase 2: CPU Test Coverage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/ci-pipeline.html#phase-3-gpu-test-coverage">Phase 3: GPU Test Coverage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/ci-pipeline.html#emulator-architecture">Emulator Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/ci-pipeline.html#emulator-gpu-poll-thread">Emulator GPU Poll Thread</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/ci-pipeline.html#dkms-packaging">DKMS Packaging</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/ci-pipeline.html#local-ci-testing">Local CI Testing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../explanation/ci-pipeline.html#test-coverage-summary">Test Coverage Summary</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">aes-stream-drivers</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Reference</a></li>
+      <li class="breadcrumb-item active">GPU Async API</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/slaclab/aes-stream-drivers/blob/main/docs/reference/gpu-async-api.rst" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="gpu-async-api">
+<h1>GPU Async API<a class="headerlink" href="#gpu-async-api" title="Link to this heading"></a></h1>
+<p>User-space API reference for GPU asynchronous (GPUDirect RDMA) support.
+The interface is split across three headers in <code class="docutils literal notranslate"><span class="pre">include/</span></code>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">GpuAsync.h</span></code>     — low-level ioctl wrappers (C-callable).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">GpuAsyncUser.h</span></code> — <code class="docutils literal notranslate"><span class="pre">GpuAsyncCoreRegs</span></code>: a thin C++ wrapper over the
+mapped GpuAsyncCore register block. Hides offset and behaviour
+differences between V1 and V4 firmware.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">GpuAsyncLib.h</span></code>  — CUDA + GpuAsync helpers: <code class="docutils literal notranslate"><span class="pre">DataGPU</span></code>,
+<code class="docutils literal notranslate"><span class="pre">CudaContext</span></code>, <code class="docutils literal notranslate"><span class="pre">GpuDmaBuffer_t</span></code>, <code class="docutils literal notranslate"><span class="pre">gpuMapHostFpgaMem</span></code>,
+<code class="docutils literal notranslate"><span class="pre">gpuMapFpgaMem</span></code>, paired <code class="docutils literal notranslate"><span class="pre">GpuBufferState_t</span></code>, plus the
+<code class="docutils literal notranslate"><span class="pre">AxiWrDesc64_t</span></code> AXI stream descriptor.</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ioctl wrappers in <code class="docutils literal notranslate"><span class="pre">GpuAsync.h</span></code> are <code class="docutils literal notranslate"><span class="pre">static</span> <span class="pre">inline</span></code> and compile
+into the calling application. The <code class="docutils literal notranslate"><span class="pre">GpuAsyncLib</span></code> helpers
+(<code class="docutils literal notranslate"><span class="pre">DataGPU</span></code>, <code class="docutils literal notranslate"><span class="pre">CudaContext</span></code>, <code class="docutils literal notranslate"><span class="pre">gpuMapFpgaMem</span></code>, etc.) are declared
+in the header and defined in <code class="docutils literal notranslate"><span class="pre">data_dev/app/src/GpuAsyncLib.cpp</span></code> —
+link that translation unit into your application.</p>
+<p>The caller must call <code class="docutils literal notranslate"><span class="pre">cuInit(0)</span></code> before constructing any
+<code class="docutils literal notranslate"><span class="pre">CudaContext</span></code>. The <code class="docutils literal notranslate"><span class="pre">CudaContext</span></code> constructor calls <code class="docutils literal notranslate"><span class="pre">cuInit(0)</span></code>
+itself, so direct application use is straightforward.</p>
+</div>
+<section id="ioctl-wrappers-gpuasync-h">
+<h2>Ioctl Wrappers (GpuAsync.h)<a class="headerlink" href="#ioctl-wrappers-gpuasync-h" title="Link to this heading"></a></h2>
+<p>C wrappers around the GpuAsync ioctls (<code class="docutils literal notranslate"><span class="pre">GPU_Add_Nvidia_Memory</span></code>,
+<code class="docutils literal notranslate"><span class="pre">GPU_Is_Gpu_Async_Supp</span></code>, <code class="docutils literal notranslate"><span class="pre">GPU_Get_Gpu_Async_Ver</span></code>,
+<code class="docutils literal notranslate"><span class="pre">GPU_Get_Max_Buffers</span></code>, etc.; see <a class="reference internal" href="ioctl-table.html"><span class="doc">Ioctl Command Code Reference</span></a>). Safe to use from
+either C or C++ code. <code class="docutils literal notranslate"><span class="pre">gpuGetGpuAsyncVersion</span></code> and <code class="docutils literal notranslate"><span class="pre">gpuGetMaxBuffers</span></code>
+return <code class="docutils literal notranslate"><span class="pre">ssize_t</span></code> so kernel-level ioctl failures (<code class="docutils literal notranslate"><span class="pre">-1</span></code> with <code class="docutils literal notranslate"><span class="pre">errno</span></code>
+set) are representable without wraparound; callers must check for a
+negative return before using the value.</p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-defines">Defines</p>
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.GPU_Add_Nvidia_Memory">
+<span class="target" id="GpuAsync_8h_1a81d20f5490e2d6551af7bdd52bcf9443"></span><span class="sig-name descname"><span class="n"><span class="pre">GPU_Add_Nvidia_Memory</span></span></span><a class="headerlink" href="#c.GPU_Add_Nvidia_Memory" title="Link to this definition"></a><br /></dt>
+<dd><p>GPU command codes. </p>
+</dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.GPU_Rem_Nvidia_Memory">
+<span class="target" id="GpuAsync_8h_1afec3ecec0c51b0a4c7c978896e804f98"></span><span class="sig-name descname"><span class="n"><span class="pre">GPU_Rem_Nvidia_Memory</span></span></span><a class="headerlink" href="#c.GPU_Rem_Nvidia_Memory" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.GPU_Set_Write_Enable">
+<span class="target" id="GpuAsync_8h_1aaa8277dd1f441dd7fff2724c11abaabf"></span><span class="sig-name descname"><span class="n"><span class="pre">GPU_Set_Write_Enable</span></span></span><a class="headerlink" href="#c.GPU_Set_Write_Enable" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.GPU_Is_Gpu_Async_Supp">
+<span class="target" id="GpuAsync_8h_1a677ecd6336ae52d95b4951f1873a8fd7"></span><span class="sig-name descname"><span class="n"><span class="pre">GPU_Is_Gpu_Async_Supp</span></span></span><a class="headerlink" href="#c.GPU_Is_Gpu_Async_Supp" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.GPU_Get_Gpu_Async_Ver">
+<span class="target" id="GpuAsync_8h_1a61bd88fdfb95aa80de12c85fc5bda103"></span><span class="sig-name descname"><span class="n"><span class="pre">GPU_Get_Gpu_Async_Ver</span></span></span><a class="headerlink" href="#c.GPU_Get_Gpu_Async_Ver" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="c macro">
+<dt class="sig sig-object c" id="c.GPU_Get_Max_Buffers">
+<span class="target" id="GpuAsync_8h_1a5cc7d82fea6d8151715bfc8363fcc39f"></span><span class="sig-name descname"><span class="n"><span class="pre">GPU_Get_Max_Buffers</span></span></span><a class="headerlink" href="#c.GPU_Get_Max_Buffers" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-functions">Functions</p>
+<dl class="c function">
+<dt class="sig sig-object c" id="c.gpuAddNvidiaMemory">
+<span class="target" id="GpuAsync_8h_1a1bfb0e57025ded3ef713ded072b02199"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpuAddNvidiaMemory</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">write</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n"><span class="pre">address</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.gpuAddNvidiaMemory" title="Link to this definition"></a><br /></dt>
+<dd><p>Adds an NVIDIA GPU memory region. </p>
+<p>This function adds a specified memory region to the NVIDIA GPU, allowing for the region to be accessed as specified by the write flag.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for the device. </p></li>
+<li><p><strong>write</strong> – Write access flag (1 for write access, 0 for read-only). </p></li>
+<li><p><strong>address</strong> – Memory address of the GPU region to add. </p></li>
+<li><p><strong>size</strong> – Size of the memory region to add. Must be a multiple of 64 KB.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>On success, returns the result of the ioctl call. On failure, returns a negative error code. Returns -ENOTSUPP if the firmware does not support GPUDirect. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.gpuRemNvidiaMemory">
+<span class="target" id="GpuAsync_8h_1a37892169ef64a1df6edfcedcd3aa9efa"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpuRemNvidiaMemory</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.gpuRemNvidiaMemory" title="Link to this definition"></a><br /></dt>
+<dd><p>Removes an NVIDIA GPU memory region. </p>
+<p>This function removes a previously added memory region from the NVIDIA GPU, ceasing its accessibility.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for the device.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>On success, returns the result of the ioctl call. On failure, returns a negative error code. Returns -ENOTSUPP if the firmware does not support GPUDirect. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.gpuSetWriteEn">
+<span class="target" id="GpuAsync_8h_1af0252dcedddfd20e367b614c672820e9"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpuSetWriteEn</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n"><span class="pre">idx</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.gpuSetWriteEn" title="Link to this definition"></a><br /></dt>
+<dd><p>Set write enable for buffer. </p>
+<p>This function enables a DMA buffer for DMA operations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for the device. </p></li>
+<li><p><strong>idx</strong> – Buffer index to enable.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>0 on success, negative error code on failure. Returns -ENOTSUPP if the firmware does not support GPUDirect. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.gpuIsGpuAsyncSupported">
+<span class="target" id="GpuAsync_8h_1af1fbab548c0e2937fe06b6dd6b41dbcf"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpuIsGpuAsyncSupported</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.gpuIsGpuAsyncSupported" title="Link to this definition"></a><br /></dt>
+<dd><p>Check if the firmware supports GPU Async. </p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The ioctl returns <code class="docutils literal notranslate"><span class="pre">1</span></code> (supported), <code class="docutils literal notranslate"><span class="pre">0</span></code> (not supported), or a negative errno on failure. We must compare against <code class="docutils literal notranslate"><span class="pre">&gt;0</span></code> because casting <code class="docutils literal notranslate"><span class="pre">-1</span></code> directly to <code class="docutils literal notranslate"><span class="pre">bool</span></code> yields <code class="docutils literal notranslate"><span class="pre">true</span></code> and would produce a false-positive “supported” result on driver/fd errors. </p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for the device.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><code class="docutils literal notranslate"><span class="pre">true</span></code> if the firmware and driver support GPU Async, <code class="docutils literal notranslate"><span class="pre">false</span></code> otherwise (including when the driver was built without GPUAsync support and returns <code class="docutils literal notranslate"><span class="pre">-ENOTSUPP</span></code>, or when the ioctl itself fails with <code class="docutils literal notranslate"><span class="pre">-1</span></code> and <code class="docutils literal notranslate"><span class="pre">errno</span></code> set, e.g. <code class="docutils literal notranslate"><span class="pre">ENOTTY</span></code> or <code class="docutils literal notranslate"><span class="pre">ENOTSUPP</span></code>). Callers should treat a <code class="docutils literal notranslate"><span class="pre">false</span></code> return as “not supported” without attempting any further GPU Async ioctls.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.gpuGetGpuAsyncVersion">
+<span class="target" id="GpuAsync_8h_1ab412dd3da33550125d7bf85995277e28"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpuGetGpuAsyncVersion</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.gpuGetGpuAsyncVersion" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the version of GpuAsyncCore in the firmware. </p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The return type is <code class="docutils literal notranslate"><span class="pre">ssize_t</span></code> (signed) so the <code class="docutils literal notranslate"><span class="pre">-1</span></code> failure case is representable without wraparound. Callers must explicitly check for a negative return before using the value. </p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for the device.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>On success, the version of GpuAsyncCore (<code class="docutils literal notranslate"><span class="pre">&gt;=</span></code> 0). On failure, <code class="docutils literal notranslate"><span class="pre">-1</span></code> with <code class="docutils literal notranslate"><span class="pre">errno</span></code> set to indicate the cause (for example <code class="docutils literal notranslate"><span class="pre">ENOTSUPP</span></code> or <code class="docutils literal notranslate"><span class="pre">ENOTTY</span></code> if the driver was compiled without GPUAsync support, or another ioctl error).</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="c function">
+<dt class="sig sig-object c" id="c.gpuGetMaxBuffers">
+<span class="target" id="GpuAsync_8h_1ac2dc6437f36caffd92430e2f777cc29b"></span><span class="k"><span class="pre">static</span></span><span class="w"> </span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">ssize_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpuGetMaxBuffers</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">int32_t</span></span><span class="w"> </span><span class="n"><span class="pre">fd</span></span><span class="sig-paren">)</span><a class="headerlink" href="#c.gpuGetMaxBuffers" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the maximum number of DMA buffers. </p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Same signed-return rationale as gpuGetGpuAsyncVersion() — callers must explicitly check for a negative return before using the value. </p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>fd</strong> – File descriptor for the device.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>On success, the number of DMA buffers available for use (<code class="docutils literal notranslate"><span class="pre">&gt;=</span></code> 0). On failure, <code class="docutils literal notranslate"><span class="pre">-1</span></code> with <code class="docutils literal notranslate"><span class="pre">errno</span></code> set to indicate the cause (for example <code class="docutils literal notranslate"><span class="pre">ENOTSUPP</span></code> or <code class="docutils literal notranslate"><span class="pre">ENOTTY</span></code> if the driver was compiled without GPUAsync support, or another ioctl error).</p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<dl class="c struct">
+<dt class="sig sig-object c" id="c.GpuNvidiaData">
+<span class="target" id="structGpuNvidiaData"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">GpuNvidiaData</span></span></span><a class="headerlink" href="#c.GpuNvidiaData" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;GpuAsync.h&gt;</em></div>
+<p>Represents NVIDIA GPU memory data. </p>
+<p>This structure is used for managing memory regions in NVIDIA GPUs, specifically for adding or removing access to these regions. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="c var">
+<dt class="sig sig-object c" id="c.GpuNvidiaData.write">
+<span class="target" id="structGpuNvidiaData_1ab6b873ed4770507668a3f1c25faa5060"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">write</span></span></span><a class="headerlink" href="#c.GpuNvidiaData.write" title="Link to this definition"></a><br /></dt>
+<dd><p>Write permission flag (non-zero for write access). </p>
+</dd></dl>
+
+<dl class="c var">
+<dt class="sig sig-object c" id="c.GpuNvidiaData.address">
+<span class="target" id="structGpuNvidiaData_1a1aac0b701dafadb750bfbc1daae9a38e"></span><span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">address</span></span></span><a class="headerlink" href="#c.GpuNvidiaData.address" title="Link to this definition"></a><br /></dt>
+<dd><p>GPU memory address. </p>
+</dd></dl>
+
+<dl class="c var">
+<dt class="sig sig-object c" id="c.GpuNvidiaData.size">
+<span class="target" id="structGpuNvidiaData_1af2b66bb0a92c10b810de5f97e0e57b12"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">size</span></span></span><a class="headerlink" href="#c.GpuNvidiaData.size" title="Link to this definition"></a><br /></dt>
+<dd><p>Size of the memory region in bytes. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+<section id="register-wrapper-gpuasyncuser-h">
+<h2>Register Wrapper (GpuAsyncUser.h)<a class="headerlink" href="#register-wrapper-gpuasyncuser-h" title="Link to this heading"></a></h2>
+<p>C++11 wrapper class <code class="docutils literal notranslate"><span class="pre">GpuAsyncCoreRegs</span></code> over the mapped GpuAsyncCore
+register block. The lifetime of a <code class="docutils literal notranslate"><span class="pre">GpuAsyncCoreRegs</span></code> instance must be
+within the lifetime of the memory mapping it was constructed over.
+Code calling into the class does not need to be aware of register
+offsets or the underlying GpuAsyncCore version (V1 vs V4).</p>
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv416GpuAsyncCoreRegs">
+<span id="_CPPv316GpuAsyncCoreRegs"></span><span id="_CPPv216GpuAsyncCoreRegs"></span><span id="GpuAsyncCoreRegs"></span><span class="target" id="classGpuAsyncCoreRegs"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">GpuAsyncCoreRegs</span></span></span><a class="headerlink" href="#_CPPv416GpuAsyncCoreRegs" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;GpuAsyncUser.h&gt;</em></div>
+<p>Thin wrapper around the C API and definitions in GpuAsyncRegs.h The lifetime of this object must be within the lifetime of the memory mapped registers provided in the constructor. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuAsyncCoreRegs16GpuAsyncCoreRegsEv">
+<span id="_CPPv3N16GpuAsyncCoreRegs16GpuAsyncCoreRegsEv"></span><span id="_CPPv2N16GpuAsyncCoreRegs16GpuAsyncCoreRegsEv"></span><span id="GpuAsyncCoreRegs::GpuAsyncCoreRegs"></span><span class="target" id="classGpuAsyncCoreRegs_1acd32166a782a38968373ea56b6b56d13"></span><span class="sig-name descname"><span class="n"><span class="pre">GpuAsyncCoreRegs</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">delete</span></span><a class="headerlink" href="#_CPPv4N16GpuAsyncCoreRegs16GpuAsyncCoreRegsEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuAsyncCoreRegs16GpuAsyncCoreRegsEPVvi">
+<span id="_CPPv3N16GpuAsyncCoreRegs16GpuAsyncCoreRegsEPVvi"></span><span id="_CPPv2N16GpuAsyncCoreRegs16GpuAsyncCoreRegsEPVvi"></span><span id="GpuAsyncCoreRegs::GpuAsyncCoreRegs__voidVP.i"></span><span class="target" id="classGpuAsyncCoreRegs_1a948e0a514e7b21014a4151b9720fd092"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">explicit</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">GpuAsyncCoreRegs</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">volatile</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">regs</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">versionOverride</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="o"><span class="pre">-</span></span><span class="m"><span class="pre">1</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N16GpuAsyncCoreRegs16GpuAsyncCoreRegsEPVvi" title="Link to this definition"></a><br /></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>regs</strong> – Pointer to the memory mapped GpuAsyncCore registers. </p></li>
+<li><p><strong>versionOverride</strong> – Force this specific version of GpuAsyncCore, instead of reading from the GpuAsyncReg_Version </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs9registersEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs9registersEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs9registersEv"></span><span id="GpuAsyncCoreRegs::registersC"></span><span class="target" id="classGpuAsyncCoreRegs_1a1e2af760045df7fbc0c1e6189b1295cc"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">volatile</span></span><span class="w"> </span><span class="n"><span class="pre">uint8_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">registers</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs9registersEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs7readRegERK16GpuAsyncRegister">
+<span id="_CPPv3NK16GpuAsyncCoreRegs7readRegERK16GpuAsyncRegister"></span><span id="_CPPv2NK16GpuAsyncCoreRegs7readRegERK16GpuAsyncRegister"></span><span id="GpuAsyncCoreRegs::readReg__GpuAsyncRegisterCRC"></span><span class="target" id="classGpuAsyncCoreRegs_1aefa29872193155fa43018640228b3fac"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">readReg</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">GpuAsyncRegister</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">reg</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs7readRegERK16GpuAsyncRegister" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs7readRegE8uint32_t">
+<span id="_CPPv3NK16GpuAsyncCoreRegs7readRegE8uint32_t"></span><span id="_CPPv2NK16GpuAsyncCoreRegs7readRegE8uint32_t"></span><span id="GpuAsyncCoreRegs::readReg__uint32_tC"></span><span class="target" id="classGpuAsyncCoreRegs_1ab35ea5a70fc0ac7be9e1c4009bfe8b00"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">readReg</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">offset</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs7readRegE8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Read register at a specific offset, instead of using the GpuAsyncRegister struct. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuAsyncCoreRegs8writeRegERK16GpuAsyncRegister8uint32_t">
+<span id="_CPPv3N16GpuAsyncCoreRegs8writeRegERK16GpuAsyncRegister8uint32_t"></span><span id="_CPPv2N16GpuAsyncCoreRegs8writeRegERK16GpuAsyncRegister8uint32_t"></span><span id="GpuAsyncCoreRegs::writeReg__GpuAsyncRegisterCR.uint32_t"></span><span class="target" id="classGpuAsyncCoreRegs_1ae4bfce7f9dcbc28ad37c06b002c1880a"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">writeReg</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">GpuAsyncRegister</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">reg</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">value</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N16GpuAsyncCoreRegs8writeRegERK16GpuAsyncRegister8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuAsyncCoreRegs8writeRegE8uint32_t8uint32_t">
+<span id="_CPPv3N16GpuAsyncCoreRegs8writeRegE8uint32_t8uint32_t"></span><span id="_CPPv2N16GpuAsyncCoreRegs8writeRegE8uint32_t8uint32_t"></span><span id="GpuAsyncCoreRegs::writeReg__uint32_t.uint32_t"></span><span class="target" id="classGpuAsyncCoreRegs_1a18d27c25ca5c0b4b54d31aff1659e5a8"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">writeReg</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">offset</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">value</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N16GpuAsyncCoreRegs8writeRegE8uint32_t8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs7versionEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs7versionEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs7versionEv"></span><span id="GpuAsyncCoreRegs::versionC"></span><span class="target" id="classGpuAsyncCoreRegs_1a86b2410b3543178a50d51632ae25aa66"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">version</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs7versionEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns the version of GpuAsyncCore this firmware is running. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs10maxBuffersEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs10maxBuffersEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs10maxBuffersEv"></span><span id="GpuAsyncCoreRegs::maxBuffersC"></span><span class="target" id="classGpuAsyncCoreRegs_1a5c7e2d6f99418df8a4ea487c5f3211c7"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">maxBuffers</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs10maxBuffersEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns the max number of buffers supported by the firmware. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs7arCacheEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs7arCacheEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs7arCacheEv"></span><span id="GpuAsyncCoreRegs::arCacheC"></span><span class="target" id="classGpuAsyncCoreRegs_1a427c2a0cdc7701adea33b43a66c44c9e"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">arCache</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs7arCacheEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs7awCacheEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs7awCacheEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs7awCacheEv"></span><span id="GpuAsyncCoreRegs::awCacheC"></span><span class="target" id="classGpuAsyncCoreRegs_1ad46cefa265967029deab5d5e6e797dd8"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">awCache</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs7awCacheEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs12dmaDataBytesEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs12dmaDataBytesEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs12dmaDataBytesEv"></span><span id="GpuAsyncCoreRegs::dmaDataBytesC"></span><span class="target" id="classGpuAsyncCoreRegs_1af38a651279d0b7eb376a87842052ae67"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dmaDataBytes</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs12dmaDataBytesEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns the number of dma header bytes, DMA_AXI_CONFIG_G.DATA_BYTES_C. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs10writeCountEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs10writeCountEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs10writeCountEv"></span><span id="GpuAsyncCoreRegs::writeCountC"></span><span class="target" id="classGpuAsyncCoreRegs_1a348f5ddf40eb5762c96a66d45016be54"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">writeCount</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs10writeCountEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuAsyncCoreRegs13setWriteCountE8uint32_t">
+<span id="_CPPv3N16GpuAsyncCoreRegs13setWriteCountE8uint32_t"></span><span id="_CPPv2N16GpuAsyncCoreRegs13setWriteCountE8uint32_t"></span><span id="GpuAsyncCoreRegs::setWriteCount__uint32_t"></span><span class="target" id="classGpuAsyncCoreRegs_1a538b1102ce8993849acc4cccba1716db"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">setWriteCount</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">val</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N16GpuAsyncCoreRegs13setWriteCountE8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs11writeEnableEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs11writeEnableEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs11writeEnableEv"></span><span id="GpuAsyncCoreRegs::writeEnableC"></span><span class="target" id="classGpuAsyncCoreRegs_1a4da8d2258a8e8a0dbb8f4f4c8f0af86b"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">writeEnable</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs11writeEnableEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuAsyncCoreRegs14setWriteEnableE8uint32_t">
+<span id="_CPPv3N16GpuAsyncCoreRegs14setWriteEnableE8uint32_t"></span><span id="_CPPv2N16GpuAsyncCoreRegs14setWriteEnableE8uint32_t"></span><span id="GpuAsyncCoreRegs::setWriteEnable__uint32_t"></span><span class="target" id="classGpuAsyncCoreRegs_1a89f158643f2b82363cea331983e76095"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">setWriteEnable</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">val</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N16GpuAsyncCoreRegs14setWriteEnableE8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs9readCountEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs9readCountEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs9readCountEv"></span><span id="GpuAsyncCoreRegs::readCountC"></span><span class="target" id="classGpuAsyncCoreRegs_1a3d391bf68d2350a4f4dfceb081280427"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">readCount</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs9readCountEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuAsyncCoreRegs12setReadCountE8uint32_t">
+<span id="_CPPv3N16GpuAsyncCoreRegs12setReadCountE8uint32_t"></span><span id="_CPPv2N16GpuAsyncCoreRegs12setReadCountE8uint32_t"></span><span id="GpuAsyncCoreRegs::setReadCount__uint32_t"></span><span class="target" id="classGpuAsyncCoreRegs_1ab39cfd5d2841e068499fb6bcb3f5410d"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">setReadCount</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">val</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N16GpuAsyncCoreRegs12setReadCountE8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs10readEnableEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs10readEnableEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs10readEnableEv"></span><span id="GpuAsyncCoreRegs::readEnableC"></span><span class="target" id="classGpuAsyncCoreRegs_1a19f53dcd9e1078ce9019da0e2152e74e"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">readEnable</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs10readEnableEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuAsyncCoreRegs13setReadEnableE8uint32_t">
+<span id="_CPPv3N16GpuAsyncCoreRegs13setReadEnableE8uint32_t"></span><span id="_CPPv2N16GpuAsyncCoreRegs13setReadEnableE8uint32_t"></span><span id="GpuAsyncCoreRegs::setReadEnable__uint32_t"></span><span class="target" id="classGpuAsyncCoreRegs_1a08afcc4b323b4549e22ac31308a35115"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">setReadEnable</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">val</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N16GpuAsyncCoreRegs13setReadEnableE8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuAsyncCoreRegs10countResetEv">
+<span id="_CPPv3N16GpuAsyncCoreRegs10countResetEv"></span><span id="_CPPv2N16GpuAsyncCoreRegs10countResetEv"></span><span id="GpuAsyncCoreRegs::countReset"></span><span class="target" id="classGpuAsyncCoreRegs_1a763a84274ecb357cf038f9d5af5eaac8"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">countReset</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N16GpuAsyncCoreRegs10countResetEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs12rxFrameCountEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs12rxFrameCountEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs12rxFrameCountEv"></span><span id="GpuAsyncCoreRegs::rxFrameCountC"></span><span class="target" id="classGpuAsyncCoreRegs_1ae0a87cd85dd8f5e2a00b1ee73c3149a3"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">rxFrameCount</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs12rxFrameCountEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs12txFrameCountEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs12txFrameCountEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs12txFrameCountEv"></span><span id="GpuAsyncCoreRegs::txFrameCountC"></span><span class="target" id="classGpuAsyncCoreRegs_1ad7ba8ad511c7525899599e971f60d691"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">txFrameCount</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs12txFrameCountEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs18axiWriteErrorCountEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs18axiWriteErrorCountEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs18axiWriteErrorCountEv"></span><span id="GpuAsyncCoreRegs::axiWriteErrorCountC"></span><span class="target" id="classGpuAsyncCoreRegs_1aef7da75f2b9cd768c74bacc73d23a55d"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">axiWriteErrorCount</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs18axiWriteErrorCountEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs17axiReadErrorCountEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs17axiReadErrorCountEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs17axiReadErrorCountEv"></span><span id="GpuAsyncCoreRegs::axiReadErrorCountC"></span><span class="target" id="classGpuAsyncCoreRegs_1ab6abaa7be4c4cda3ba10d161f7633218"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">axiReadErrorCount</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs17axiReadErrorCountEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs16axiWriteErrorValEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs16axiWriteErrorValEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs16axiWriteErrorValEv"></span><span id="GpuAsyncCoreRegs::axiWriteErrorValC"></span><span class="target" id="classGpuAsyncCoreRegs_1a5dda22cdae13e5ec120af06a3297296b"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">axiWriteErrorVal</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs16axiWriteErrorValEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs15axiReadErrorValEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs15axiReadErrorValEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs15axiReadErrorValEv"></span><span id="GpuAsyncCoreRegs::axiReadErrorValC"></span><span class="target" id="classGpuAsyncCoreRegs_1a19295073a4bca31e3fd1780c71c5acdc"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">axiReadErrorVal</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs15axiReadErrorValEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs20axiWriteTimeoutCountEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs20axiWriteTimeoutCountEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs20axiWriteTimeoutCountEv"></span><span id="GpuAsyncCoreRegs::axiWriteTimeoutCountC"></span><span class="target" id="classGpuAsyncCoreRegs_1aa15169f4a74496e1e2b9f0706ef3ebe9"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">axiWriteTimeoutCount</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs20axiWriteTimeoutCountEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs15axisDeMuxSelectEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs15axisDeMuxSelectEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs15axisDeMuxSelectEv"></span><span id="GpuAsyncCoreRegs::axisDeMuxSelectC"></span><span class="target" id="classGpuAsyncCoreRegs_1a9952d9f241df0f56d784e70492a37214"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">axisDeMuxSelect</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs15axisDeMuxSelectEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuAsyncCoreRegs18setAxisDeMuxSelectE8uint32_t">
+<span id="_CPPv3N16GpuAsyncCoreRegs18setAxisDeMuxSelectE8uint32_t"></span><span id="_CPPv2N16GpuAsyncCoreRegs18setAxisDeMuxSelectE8uint32_t"></span><span id="GpuAsyncCoreRegs::setAxisDeMuxSelect__uint32_t"></span><span class="target" id="classGpuAsyncCoreRegs_1af26e7765b12bc40a2c7fe6dc1ff2d254"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">setAxisDeMuxSelect</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">val</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N16GpuAsyncCoreRegs18setAxisDeMuxSelectE8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs14minWriteBufferEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs14minWriteBufferEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs14minWriteBufferEv"></span><span id="GpuAsyncCoreRegs::minWriteBufferC"></span><span class="target" id="classGpuAsyncCoreRegs_1a774d3e844e7e97432b78758bc1ab0b4f"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">minWriteBuffer</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs14minWriteBufferEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs13minReadBufferEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs13minReadBufferEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs13minReadBufferEv"></span><span id="GpuAsyncCoreRegs::minReadBufferC"></span><span class="target" id="classGpuAsyncCoreRegs_1a35dc336469ba65f2cc79307028ec291f"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">minReadBuffer</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs13minReadBufferEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs12totalLatencyE8uint32_t">
+<span id="_CPPv3NK16GpuAsyncCoreRegs12totalLatencyE8uint32_t"></span><span id="_CPPv2NK16GpuAsyncCoreRegs12totalLatencyE8uint32_t"></span><span id="GpuAsyncCoreRegs::totalLatency__uint32_tC"></span><span class="target" id="classGpuAsyncCoreRegs_1a4c58848acae4173e5e0e7215a6b9aa75"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">totalLatency</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">buffer</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs12totalLatencyE8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns the total round-trip latency, in clock cycles, reported for the buffer. </p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For V4+, the buffer argument is ignored and should be 0. </p>
+</div>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs18totalLatencyOffsetE8uint32_t">
+<span id="_CPPv3NK16GpuAsyncCoreRegs18totalLatencyOffsetE8uint32_t"></span><span id="_CPPv2NK16GpuAsyncCoreRegs18totalLatencyOffsetE8uint32_t"></span><span id="GpuAsyncCoreRegs::totalLatencyOffset__uint32_tC"></span><span class="target" id="classGpuAsyncCoreRegs_1a8c0c73b224ebd93314ad1a2580fef1d7"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">totalLatencyOffset</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">buffer</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs18totalLatencyOffsetE8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs10gpuLatencyE8uint32_t">
+<span id="_CPPv3NK16GpuAsyncCoreRegs10gpuLatencyE8uint32_t"></span><span id="_CPPv2NK16GpuAsyncCoreRegs10gpuLatencyE8uint32_t"></span><span id="GpuAsyncCoreRegs::gpuLatency__uint32_tC"></span><span class="target" id="classGpuAsyncCoreRegs_1adf70da1b5782203e2ef25a15e4816851"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpuLatency</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">buffer</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs10gpuLatencyE8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns the GPU processing latency, in clock cycles, reported for the buffer. </p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For V4+, the buffer argument is ignored and should be 0. </p>
+</div>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs16gpuLatencyOffsetE8uint32_t">
+<span id="_CPPv3NK16GpuAsyncCoreRegs16gpuLatencyOffsetE8uint32_t"></span><span id="_CPPv2NK16GpuAsyncCoreRegs16gpuLatencyOffsetE8uint32_t"></span><span id="GpuAsyncCoreRegs::gpuLatencyOffset__uint32_tC"></span><span class="target" id="classGpuAsyncCoreRegs_1a8ddbcf212ac5bd1ba62e69aecfd06c69"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpuLatencyOffset</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">buffer</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs16gpuLatencyOffsetE8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs12writeLatencyE8uint32_t">
+<span id="_CPPv3NK16GpuAsyncCoreRegs12writeLatencyE8uint32_t"></span><span id="_CPPv2NK16GpuAsyncCoreRegs12writeLatencyE8uint32_t"></span><span id="GpuAsyncCoreRegs::writeLatency__uint32_tC"></span><span class="target" id="classGpuAsyncCoreRegs_1ab3e1e58273c39ba3eb3dd7baf3bf712c"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">writeLatency</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">buffer</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs12writeLatencyE8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns the FPGA -&gt; GPU write latency, in clock cycles, reported for the buffer. </p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>For V4+, the buffer argument is ignored and should be 0. </p>
+</div>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs18writeLatencyOffsetE8uint32_t">
+<span id="_CPPv3NK16GpuAsyncCoreRegs18writeLatencyOffsetE8uint32_t"></span><span id="_CPPv2NK16GpuAsyncCoreRegs18writeLatencyOffsetE8uint32_t"></span><span id="GpuAsyncCoreRegs::writeLatencyOffset__uint32_tC"></span><span class="target" id="classGpuAsyncCoreRegs_1af358be0efe51be97c5d8e4f22e51ea30"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">writeLatencyOffset</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">buffer</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs18writeLatencyOffsetE8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs15remoteWriteSizeE8uint32_t">
+<span id="_CPPv3NK16GpuAsyncCoreRegs15remoteWriteSizeE8uint32_t"></span><span id="_CPPv2NK16GpuAsyncCoreRegs15remoteWriteSizeE8uint32_t"></span><span id="GpuAsyncCoreRegs::remoteWriteSize__uint32_tC"></span><span class="target" id="classGpuAsyncCoreRegs_1a685923111a789dd9d0d0f720a5b11b94"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">remoteWriteSize</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">buffer</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs15remoteWriteSizeE8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Gets the remote write max size, used for FPGA -&gt; GPU transfers. </p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>buffer is ignored when <a class="reference internal" href="#classGpuAsyncCoreRegs_1a86b2410b3543178a50d51632ae25aa66"><span class="std std-ref">version()</span></a> &gt;= 4, since in V4 all buffers share the same register </p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>buffer</strong> – The buffer to set the remote size for. Ignored in version &gt;= 4 </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuAsyncCoreRegs21setRemoteWriteMaxSizeE8uint32_t8uint32_t">
+<span id="_CPPv3N16GpuAsyncCoreRegs21setRemoteWriteMaxSizeE8uint32_t8uint32_t"></span><span id="_CPPv2N16GpuAsyncCoreRegs21setRemoteWriteMaxSizeE8uint32_t8uint32_t"></span><span id="GpuAsyncCoreRegs::setRemoteWriteMaxSize__uint32_t.uint32_t"></span><span class="target" id="classGpuAsyncCoreRegs_1ac0ab5503954116a5c1099b2508ee1b0c"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">setRemoteWriteMaxSize</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">buffer</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N16GpuAsyncCoreRegs21setRemoteWriteMaxSizeE8uint32_t8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Sets the remote write max size, used for FPGA -&gt; GPU transfers. </p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>buffer is ignored when <a class="reference internal" href="#classGpuAsyncCoreRegs_1a86b2410b3543178a50d51632ae25aa66"><span class="std std-ref">version()</span></a> &gt;= 4, since in V4 all buffers share the same register </p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>buffer</strong> – The buffer to set the remote size for. Ignored in version &gt;= 4 </p></li>
+<li><p><strong>size</strong> – The size </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuAsyncCoreRegs21setRemoteWriteAddressE8uint32_t8uint64_t">
+<span id="_CPPv3N16GpuAsyncCoreRegs21setRemoteWriteAddressE8uint32_t8uint64_t"></span><span id="_CPPv2N16GpuAsyncCoreRegs21setRemoteWriteAddressE8uint32_t8uint64_t"></span><span id="GpuAsyncCoreRegs::setRemoteWriteAddress__uint32_t.uint64_t"></span><span class="target" id="classGpuAsyncCoreRegs_1ab0d154a35b0d43a5244fc0d2ba81ae4b"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">setRemoteWriteAddress</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">buffer</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">addr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N16GpuAsyncCoreRegs21setRemoteWriteAddressE8uint32_t8uint64_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Sets the remote write address for the specified buffer. </p>
+<p>Used for FPGA -&gt; GPU transfers </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>buffer</strong> – The buffer index. Must be &lt; 16 for V1, and &lt; 1024 for V4 </p></li>
+<li><p><strong>addr</strong> – 64-bit address in GPU device memory </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuAsyncCoreRegs20setRemoteReadAddressE8uint32_t8uint64_t">
+<span id="_CPPv3N16GpuAsyncCoreRegs20setRemoteReadAddressE8uint32_t8uint64_t"></span><span id="_CPPv2N16GpuAsyncCoreRegs20setRemoteReadAddressE8uint32_t8uint64_t"></span><span id="GpuAsyncCoreRegs::setRemoteReadAddress__uint32_t.uint64_t"></span><span class="target" id="classGpuAsyncCoreRegs_1a291888c85572432ec3be4e551a441b5e"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">setRemoteReadAddress</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">buffer</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">addr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N16GpuAsyncCoreRegs20setRemoteReadAddressE8uint32_t8uint64_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Sets the remote read address for the specified buffer. </p>
+<p>Used for GPU -&gt; FPGA transfers </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>buffer</strong> – The buffer index. Must be &lt; 16 for V1, and &lt; 1024 for V4 </p></li>
+<li><p><strong>addr</strong> – 64-bit address in GPU device memory </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuAsyncCoreRegs19returnFreeListIndexE8uint32_t">
+<span id="_CPPv3N16GpuAsyncCoreRegs19returnFreeListIndexE8uint32_t"></span><span id="_CPPv2N16GpuAsyncCoreRegs19returnFreeListIndexE8uint32_t"></span><span id="GpuAsyncCoreRegs::returnFreeListIndex__uint32_t"></span><span class="target" id="classGpuAsyncCoreRegs_1a779f9e9b54e041474a2c2f75987cc798"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">returnFreeListIndex</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">buffer</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N16GpuAsyncCoreRegs19returnFreeListIndexE8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Arms free list buffer for remote write from FPGA -&gt; GPU. </p>
+<p><div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#classGpuAsyncCoreRegs_1a3f91a12194e8960155cbf67b7544a748"><span class="std std-ref">freeListOffset()</span></a> for something usable with CUDA </p>
+</div>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>buffer</strong> – Buffer index to trigger. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs14freeListOffsetE8uint32_t">
+<span id="_CPPv3NK16GpuAsyncCoreRegs14freeListOffsetE8uint32_t"></span><span id="_CPPv2NK16GpuAsyncCoreRegs14freeListOffsetE8uint32_t"></span><span id="GpuAsyncCoreRegs::freeListOffset__uint32_tC"></span><span class="target" id="classGpuAsyncCoreRegs_1a3f91a12194e8960155cbf67b7544a748"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">freeListOffset</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">buffer</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs14freeListOffsetE8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns the offset of the free list register from the start of the GpuAsyncCore registers. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>buffer</strong> – The buffer index. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs20remoteReadSizeOffsetE8uint32_t">
+<span id="_CPPv3NK16GpuAsyncCoreRegs20remoteReadSizeOffsetE8uint32_t"></span><span id="_CPPv2NK16GpuAsyncCoreRegs20remoteReadSizeOffsetE8uint32_t"></span><span id="GpuAsyncCoreRegs::remoteReadSizeOffset__uint32_tC"></span><span class="target" id="classGpuAsyncCoreRegs_1affe5f296047a7e7408323d16bc5800da"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">remoteReadSizeOffset</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">buffer</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs20remoteReadSizeOffsetE8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns the offset of the remote read size register from the start of the GpuAsyncCore registers. </p>
+<p>This is usable in CUDA kernels. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>buffer</strong> – the buffer index. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs14remoteReadSizeE8uint32_t">
+<span id="_CPPv3NK16GpuAsyncCoreRegs14remoteReadSizeE8uint32_t"></span><span id="_CPPv2NK16GpuAsyncCoreRegs14remoteReadSizeE8uint32_t"></span><span id="GpuAsyncCoreRegs::remoteReadSize__uint32_tC"></span><span class="target" id="classGpuAsyncCoreRegs_1a0a9b921fbdbd41a5c45027330a8d7281"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">remoteReadSize</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">buffer</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs14remoteReadSizeE8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Get the remote read size for the specified buffer. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuAsyncCoreRegs17setRemoteReadSizeE8uint32_t8uint32_t">
+<span id="_CPPv3N16GpuAsyncCoreRegs17setRemoteReadSizeE8uint32_t8uint32_t"></span><span id="_CPPv2N16GpuAsyncCoreRegs17setRemoteReadSizeE8uint32_t8uint32_t"></span><span id="GpuAsyncCoreRegs::setRemoteReadSize__uint32_t.uint32_t"></span><span class="target" id="classGpuAsyncCoreRegs_1a4d48f784f99f2c4bac74347a960373a5"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">setRemoteReadSize</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">buffer</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N16GpuAsyncCoreRegs17setRemoteReadSizeE8uint32_t8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Set the remote read size for the buffer. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>buffer</strong> – Buffer index </p></li>
+<li><p><strong>size</strong> – Size of the GPU -&gt; FPGA transfer </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-protected-functions">Protected Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs13versionSwitchEv">
+<span id="_CPPv3NK16GpuAsyncCoreRegs13versionSwitchEv"></span><span id="_CPPv2NK16GpuAsyncCoreRegs13versionSwitchEv"></span><span id="GpuAsyncCoreRegs::versionSwitchC"></span><span class="target" id="classGpuAsyncCoreRegs_1a4583380cd1ff44a3a869fd41ff5042a9"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">versionSwitch</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs13versionSwitchEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK16GpuAsyncCoreRegs11readRegV1V4ERK16GpuAsyncRegisterRK16GpuAsyncRegister">
+<span id="_CPPv3NK16GpuAsyncCoreRegs11readRegV1V4ERK16GpuAsyncRegisterRK16GpuAsyncRegister"></span><span id="_CPPv2NK16GpuAsyncCoreRegs11readRegV1V4ERK16GpuAsyncRegisterRK16GpuAsyncRegister"></span><span id="GpuAsyncCoreRegs::readRegV1V4__GpuAsyncRegisterCR.GpuAsyncRegisterCRC"></span><span class="target" id="classGpuAsyncCoreRegs_1ad46aa33923b650e606214b23b5eadf47"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">readRegV1V4</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">GpuAsyncRegister</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">v1</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">GpuAsyncRegister</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">v4</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK16GpuAsyncCoreRegs11readRegV1V4ERK16GpuAsyncRegisterRK16GpuAsyncRegister" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuAsyncCoreRegs12writeRegV1V4ERK16GpuAsyncRegisterRK16GpuAsyncRegister8uint32_t">
+<span id="_CPPv3N16GpuAsyncCoreRegs12writeRegV1V4ERK16GpuAsyncRegisterRK16GpuAsyncRegister8uint32_t"></span><span id="_CPPv2N16GpuAsyncCoreRegs12writeRegV1V4ERK16GpuAsyncRegisterRK16GpuAsyncRegister8uint32_t"></span><span id="GpuAsyncCoreRegs::writeRegV1V4__GpuAsyncRegisterCR.GpuAsyncRegisterCR.uint32_t"></span><span class="target" id="classGpuAsyncCoreRegs_1afff97efe9d97cb3166eeec336a8951f9"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">writeRegV1V4</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">GpuAsyncRegister</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">v1</span></span>, <span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="n"><span class="pre">GpuAsyncRegister</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">v4</span></span>, <span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">val</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N16GpuAsyncCoreRegs12writeRegV1V4ERK16GpuAsyncRegisterRK16GpuAsyncRegister8uint32_t" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-protected-attributes">Protected Attributes</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuAsyncCoreRegs5regs_E">
+<span id="_CPPv3N16GpuAsyncCoreRegs5regs_E"></span><span id="_CPPv2N16GpuAsyncCoreRegs5regs_E"></span><span id="GpuAsyncCoreRegs::regs___uint8_tVP"></span><span class="target" id="classGpuAsyncCoreRegs_1a21e4331df5ef111bb56b573440dc2854"></span><span class="k"><span class="pre">volatile</span></span><span class="w"> </span><span class="n"><span class="pre">uint8_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">regs_</span></span></span><a class="headerlink" href="#_CPPv4N16GpuAsyncCoreRegs5regs_E" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuAsyncCoreRegs8version_E">
+<span id="_CPPv3N16GpuAsyncCoreRegs8version_E"></span><span id="_CPPv2N16GpuAsyncCoreRegs8version_E"></span><span id="GpuAsyncCoreRegs::version___uint32_t"></span><span class="target" id="classGpuAsyncCoreRegs_1a46a43547685002c042b47a15db65c6fe"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">version_</span></span></span><a class="headerlink" href="#_CPPv4N16GpuAsyncCoreRegs8version_E" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+<section id="cuda-helpers-gpuasynclib-h">
+<h2>CUDA Helpers (GpuAsyncLib.h)<a class="headerlink" href="#cuda-helpers-gpuasynclib-h" title="Link to this heading"></a></h2>
+<p>Thin C++ helpers for the boilerplate CUDA + GpuAsync setup:
+<code class="docutils literal notranslate"><span class="pre">DataGPU</span></code> (RAII for <code class="docutils literal notranslate"><span class="pre">/dev/datadev_X</span></code>), <code class="docutils literal notranslate"><span class="pre">CudaContext</span></code> (cuInit /
+device select / context create), <code class="docutils literal notranslate"><span class="pre">GpuDmaBuffer_t</span></code> and
+<code class="docutils literal notranslate"><span class="pre">GpuBufferState_t</span></code> (FPGA-mapped GPU memory), and the <code class="docutils literal notranslate"><span class="pre">gpuMapFpgaMem</span></code>
+/ <code class="docutils literal notranslate"><span class="pre">gpuMapHostFpgaMem</span></code> / <code class="docutils literal notranslate"><span class="pre">gpuUnmapFpgaMem</span></code> helpers. The library is
+deliberately scope-narrow — it does not own a CUDA stream or prescribe
+a session lifecycle, leaving stream / buffer-pool / arming policy to
+the calling application.</p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-defines">Defines</p>
+<dl class="cpp macro">
+<dt class="sig sig-object cpp" id="c.deviceFunc">
+<span class="target" id="GpuAsyncLib_8h_1addf539da272aa0e45377fae54625a60e"></span><span class="sig-name descname"><span class="n"><span class="pre">deviceFunc</span></span></span><a class="headerlink" href="#c.deviceFunc" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp macro">
+<dt class="sig sig-object cpp" id="c.globalFunc">
+<span class="target" id="GpuAsyncLib_8h_1a239504d9111793ef8148656729755676"></span><span class="sig-name descname"><span class="n"><span class="pre">globalFunc</span></span></span><a class="headerlink" href="#c.globalFunc" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp macro">
+<dt class="sig sig-object cpp" id="c.hostFunc">
+<span class="target" id="GpuAsyncLib_8h_1a2b795f8564ee4dee1bad64f7ec0179e2"></span><span class="sig-name descname"><span class="n"><span class="pre">hostFunc</span></span></span><a class="headerlink" href="#c.hostFunc" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-functions">Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv410checkError8CUresult">
+<span id="_CPPv310checkError8CUresult"></span><span id="_CPPv210checkError8CUresult"></span><span id="checkError__CUresult"></span><span class="target" id="GpuAsyncLib_8h_1a6367bddb9bffa83d7bcf228def049b49"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">checkError</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">CUresult</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">status</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv410checkError8CUresult" title="Link to this definition"></a><br /></dt>
+<dd><p>Print + abort if <code class="docutils literal notranslate"><span class="pre">status</span></code> is not CUDA_SUCCESS. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv410checkError11cudaError_t">
+<span id="_CPPv310checkError11cudaError_t"></span><span id="_CPPv210checkError11cudaError_t"></span><span id="checkError__cudaError_t"></span><span class="target" id="GpuAsyncLib_8h_1a8903d65d8bf8711517400a3d5055e1d8"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">checkError</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">cudaError_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">status</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv410checkError11cudaError_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Print + abort if <code class="docutils literal notranslate"><span class="pre">status</span></code> is not cudaSuccess. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv48wasError8CUresult">
+<span id="_CPPv38wasError8CUresult"></span><span id="_CPPv28wasError8CUresult"></span><span id="wasError__CUresult"></span><span class="target" id="GpuAsyncLib_8h_1a122aefe5eab9c7fdf0d6710df7eefae5"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">wasError</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">CUresult</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">status</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv48wasError8CUresult" title="Link to this definition"></a><br /></dt>
+<dd><p>Return true (and print) if <code class="docutils literal notranslate"><span class="pre">status</span></code> is not CUDA_SUCCESS. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv417gpuMapHostFpgaMemP14GpuDmaBuffer_ti8uint64_t6size_t">
+<span id="_CPPv317gpuMapHostFpgaMemP14GpuDmaBuffer_ti8uint64_t6size_t"></span><span id="_CPPv217gpuMapHostFpgaMemP14GpuDmaBuffer_ti8uint64_t6size_t"></span><span id="gpuMapHostFpgaMem__GpuDmaBuffer_tP.i.uint64_t.s"></span><span class="target" id="GpuAsyncLib_8h_1a05e2afb4bd2d9d15b8bd8461eb8a9f74"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpuMapHostFpgaMem</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv414GpuDmaBuffer_t" title="GpuDmaBuffer_t"><span class="n"><span class="pre">GpuDmaBuffer_t</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">outmem</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">fd</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">offset</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">size</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv417gpuMapHostFpgaMemP14GpuDmaBuffer_ti8uint64_t6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Map an FPGA register block to host + GPU via cuMemHostRegister. </p>
+<p>Use for control / register access — not high-throughput data. Backed by dmaMapRegister(). The caller must call gpuUnmapFpgaMem() to release.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>outmem</strong> – Output buffer descriptor (zero-initialised on entry). </p></li>
+<li><p><strong>fd</strong> – DMA device fd. </p></li>
+<li><p><strong>offset</strong> – Register-block offset within the device. </p></li>
+<li><p><strong>size</strong> – Register-block size in bytes. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>0 on success, -1 on failure. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv413gpuMapFpgaMemP14GpuDmaBuffer_ti8uint64_t6size_ti">
+<span id="_CPPv313gpuMapFpgaMemP14GpuDmaBuffer_ti8uint64_t6size_ti"></span><span id="_CPPv213gpuMapFpgaMemP14GpuDmaBuffer_ti8uint64_t6size_ti"></span><span id="gpuMapFpgaMem__GpuDmaBuffer_tP.i.uint64_t.s.i"></span><span class="target" id="GpuAsyncLib_8h_1a407cc8e6fe6128d8505fbe48272ceffd"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpuMapFpgaMem</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv414GpuDmaBuffer_t" title="GpuDmaBuffer_t"><span class="n"><span class="pre">GpuDmaBuffer_t</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">outmem</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">fd</span></span>, <span class="n"><span class="pre">uint64_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">offset</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">size</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">write</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv413gpuMapFpgaMemP14GpuDmaBuffer_ti8uint64_t6size_ti" title="Link to this definition"></a><br /></dt>
+<dd><p>Allocate a GPU buffer and register it with the FPGA via RDMA. </p>
+<p>Backed by cudaMalloc + cuPointerSetAttribute + gpuAddNvidiaMemory.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>outmem</strong> – Output buffer descriptor (zero-initialised on entry). </p></li>
+<li><p><strong>fd</strong> – DMA device fd. </p></li>
+<li><p><strong>offset</strong> – Currently unused; reserved for future use. </p></li>
+<li><p><strong>size</strong> – Buffer size in bytes (must be a multiple of 64 KiB). </p></li>
+<li><p><strong>write</strong> – Non-zero if this buffer is for FPGA-&gt;GPU writes; zero for GPU-&gt;FPGA reads. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>0 on success, -1 on failure. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv415gpuUnmapFpgaMemP14GpuDmaBuffer_t">
+<span id="_CPPv315gpuUnmapFpgaMemP14GpuDmaBuffer_t"></span><span id="_CPPv215gpuUnmapFpgaMemP14GpuDmaBuffer_t"></span><span id="gpuUnmapFpgaMem__GpuDmaBuffer_tP"></span><span class="target" id="GpuAsyncLib_8h_1a24d76a99f2fc023697281514727169db"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpuUnmapFpgaMem</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv414GpuDmaBuffer_t" title="GpuDmaBuffer_t"><span class="n"><span class="pre">GpuDmaBuffer_t</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">mem</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv415gpuUnmapFpgaMemP14GpuDmaBuffer_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Release a buffer previously returned by gpuMapHostFpgaMem / gpuMapFpgaMem. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv418gpuInitBufferStateP16GpuBufferState_ti6size_t">
+<span id="_CPPv318gpuInitBufferStateP16GpuBufferState_ti6size_t"></span><span id="_CPPv218gpuInitBufferStateP16GpuBufferState_ti6size_t"></span><span id="gpuInitBufferState__GpuBufferState_tP.i.s"></span><span class="target" id="GpuAsyncLib_8h_1a651b5a35e8a7f1cc233b61644221bbba"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpuInitBufferState</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv416GpuBufferState_t" title="GpuBufferState_t"><span class="n"><span class="pre">GpuBufferState_t</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">b</span></span>, <span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">fd</span></span>, <span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">bufSize</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv418gpuInitBufferStateP16GpuBufferState_ti6size_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Allocate paired rx + tx GPU buffers and register them with the FPGA. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>0 on success, -1 on error (rx already cleaned up if tx failed). </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv421gpuDestroyBufferStateP16GpuBufferState_t">
+<span id="_CPPv321gpuDestroyBufferStateP16GpuBufferState_t"></span><span id="_CPPv221gpuDestroyBufferStateP16GpuBufferState_t"></span><span id="gpuDestroyBufferState__GpuBufferState_tP"></span><span class="target" id="GpuAsyncLib_8h_1ab633773a45a1556575a49678717687ec"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpuDestroyBufferState</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv416GpuBufferState_t" title="GpuBufferState_t"><span class="n"><span class="pre">GpuBufferState_t</span></span></a><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">b</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv421gpuDestroyBufferStateP16GpuBufferState_t" title="Link to this definition"></a><br /></dt>
+<dd><p>Tear down state allocated by gpuInitBufferState. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv424UnpackAxiWriteDescriptorPKv">
+<span id="_CPPv324UnpackAxiWriteDescriptorPKv"></span><span id="_CPPv224UnpackAxiWriteDescriptorPKv"></span><span id="UnpackAxiWriteDescriptor__voidCP"></span><span class="target" id="GpuAsyncLib_8h_1ab1b0eab9b98fe6066b25199a3767f160"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv413AxiWrDesc64_t" title="AxiWrDesc64_t"><span class="n"><span class="pre">AxiWrDesc64_t</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">UnpackAxiWriteDescriptor</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">data</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv424UnpackAxiWriteDescriptorPKv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+</div>
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv47DataGPU">
+<span id="_CPPv37DataGPU"></span><span id="_CPPv27DataGPU"></span><span id="DataGPU"></span><span class="target" id="classDataGPU"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DataGPU</span></span></span><a class="headerlink" href="#_CPPv47DataGPU" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;GpuAsyncLib.h&gt;</em></div>
+<p>RAII wrapper around an opened /dev/datadev_X file descriptor. </p>
+<p>The constructor opens the device with O_RDWR and throws on failure. The destructor closes the descriptor. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N7DataGPU7DataGPUEPKc">
+<span id="_CPPv3N7DataGPU7DataGPUEPKc"></span><span id="_CPPv2N7DataGPU7DataGPUEPKc"></span><span id="DataGPU::DataGPU__cCP"></span><span class="target" id="classDataGPU_1a0459ceb92c1d9ff376c85bf4cc044725"></span><span class="k"><span class="pre">explicit</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">DataGPU</span></span></span><span class="sig-paren">(</span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="kt"><span class="pre">char</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">path</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N7DataGPU7DataGPUEPKc" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N7DataGPUD0Ev">
+<span id="_CPPv3N7DataGPUD0Ev"></span><span id="_CPPv2N7DataGPUD0Ev"></span><span id="DataGPU::~DataGPU"></span><span class="target" id="classDataGPU_1a56ba8f079589d045f307fc84e71e6edf"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">~DataGPU</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N7DataGPUD0Ev" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK7DataGPU2fdEv">
+<span id="_CPPv3NK7DataGPU2fdEv"></span><span id="_CPPv2NK7DataGPU2fdEv"></span><span id="DataGPU::fdC"></span><span class="target" id="classDataGPU_1a69c974d42cf382edb369f952af2aafb1"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">fd</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK7DataGPU2fdEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Returns the underlying file descriptor (or -1 if closed). </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-protected-attributes">Protected Attributes</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N7DataGPU3fd_E">
+<span id="_CPPv3N7DataGPU3fd_E"></span><span id="_CPPv2N7DataGPU3fd_E"></span><span id="DataGPU::fd___i"></span><span class="target" id="classDataGPU_1a6ba317247ab1c7be4317f1f44da48a10"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">fd_</span></span></span><a class="headerlink" href="#_CPPv4N7DataGPU3fd_E" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv411CudaContext">
+<span id="_CPPv311CudaContext"></span><span id="_CPPv211CudaContext"></span><span id="CudaContext"></span><span class="target" id="classCudaContext"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">CudaContext</span></span></span><a class="headerlink" href="#_CPPv411CudaContext" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;GpuAsyncLib.h&gt;</em></div>
+<p>Wraps cuInit + cuDeviceGet + cuCtxCreate. </p>
+<p>The constructor calls cuInit(0) and throws on failure. <a class="reference internal" href="#classCudaContext_1a6617f96441e3fa811844cd5d758b39ad"><span class="std std-ref">init()</span></a> selects a device, verifies stream-memory-ops, and creates a CUDA context. The resulting context and device are exposed via context() and device(). </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N11CudaContext11CudaContextEv">
+<span id="_CPPv3N11CudaContext11CudaContextEv"></span><span id="_CPPv2N11CudaContext11CudaContextEv"></span><span id="CudaContext::CudaContext"></span><span class="target" id="classCudaContext_1a952918bddb4856965a5edbf9218e81ad"></span><span class="sig-name descname"><span class="n"><span class="pre">CudaContext</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N11CudaContext11CudaContextEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N11CudaContext4initEib">
+<span id="_CPPv3N11CudaContext4initEib"></span><span id="_CPPv2N11CudaContext4initEib"></span><span id="CudaContext::init__i.b"></span><span class="target" id="classCudaContext_1a6617f96441e3fa811844cd5d758b39ad"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">init</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">device</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="o"><span class="pre">-</span></span><span class="m"><span class="pre">1</span></span>, <span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">quiet</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">false</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N11CudaContext4initEib" title="Link to this definition"></a><br /></dt>
+<dd><p>Select a CUDA device and create a context. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>device</strong> – CUDA device index. &lt; 0 selects device 0. </p></li>
+<li><p><strong>quiet</strong> – Suppress informational stderr output. </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>true on success. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N11CudaContext11listDevicesEv">
+<span id="_CPPv3N11CudaContext11listDevicesEv"></span><span id="_CPPv2N11CudaContext11listDevicesEv"></span><span id="CudaContext::listDevices"></span><span class="target" id="classCudaContext_1a28f648244b8289234ebcad2dc43cf6bd"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">listDevices</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N11CudaContext11listDevicesEv" title="Link to this definition"></a><br /></dt>
+<dd><p>Print all visible CUDA devices to stdout. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N11CudaContext12getAttributeE18CUdevice_attribute">
+<span id="_CPPv3N11CudaContext12getAttributeE18CUdevice_attribute"></span><span id="_CPPv2N11CudaContext12getAttributeE18CUdevice_attribute"></span><span id="CudaContext::getAttribute__CUdevice_attribute"></span><span class="target" id="classCudaContext_1a4e4ed6609c99ebf2b34549a497bdb0cd"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">getAttribute</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">CUdevice_attribute</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">attr</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N11CudaContext12getAttributeE18CUdevice_attribute" title="Link to this definition"></a><br /></dt>
+<dd><p>Convenience wrapper around cuDeviceGetAttribute (returns 0 on failure). </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK11CudaContext6deviceEv">
+<span id="_CPPv3NK11CudaContext6deviceEv"></span><span id="_CPPv2NK11CudaContext6deviceEv"></span><span id="CudaContext::deviceC"></span><span class="target" id="classCudaContext_1af8eeeafcd203bfe0c8d3e43b1ef5d76b"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">CUdevice</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">device</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK11CudaContext6deviceEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK11CudaContext7contextEv">
+<span id="_CPPv3NK11CudaContext7contextEv"></span><span id="_CPPv2NK11CudaContext7contextEv"></span><span id="CudaContext::contextC"></span><span class="target" id="classCudaContext_1a3a92fba8f5b1d14ac19e51d04441bde6"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">CUcontext</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">context</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK11CudaContext7contextEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-protected-attributes">Protected Attributes</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N11CudaContext8context_E">
+<span id="_CPPv3N11CudaContext8context_E"></span><span id="_CPPv2N11CudaContext8context_E"></span><span id="CudaContext::context___CUcontext"></span><span class="target" id="classCudaContext_1a23e610ee503f94149c53a264f75d2c59"></span><span class="n"><span class="pre">CUcontext</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">context_</span></span></span><a class="headerlink" href="#_CPPv4N11CudaContext8context_E" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N11CudaContext7device_E">
+<span id="_CPPv3N11CudaContext7device_E"></span><span id="_CPPv2N11CudaContext7device_E"></span><span id="CudaContext::device___CUdevice"></span><span class="target" id="classCudaContext_1a19cec8821c71aaef8ef9862899f1b84b"></span><span class="n"><span class="pre">CUdevice</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">device_</span></span></span><a class="headerlink" href="#_CPPv4N11CudaContext7device_E" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv414GpuDmaBuffer_t">
+<span id="_CPPv314GpuDmaBuffer_t"></span><span id="_CPPv214GpuDmaBuffer_t"></span><span id="GpuDmaBuffer_t"></span><span class="target" id="structGpuDmaBuffer__t"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">GpuDmaBuffer_t</span></span></span><a class="headerlink" href="#_CPPv414GpuDmaBuffer_t" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;GpuAsyncLib.h&gt;</em></div>
+<p>FPGA memory mapped for GPU access (host-mapped or RDMA). </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N14GpuDmaBuffer_t2fdE">
+<span id="_CPPv3N14GpuDmaBuffer_t2fdE"></span><span id="_CPPv2N14GpuDmaBuffer_t2fdE"></span><span id="GpuDmaBuffer_t::fd__i"></span><span class="target" id="structGpuDmaBuffer__t_1a85090c5131c287ff68293ce58397f403"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">fd</span></span></span><a class="headerlink" href="#_CPPv4N14GpuDmaBuffer_t2fdE" title="Link to this definition"></a><br /></dt>
+<dd><p>Owning DMA device fd. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N14GpuDmaBuffer_t3ptrE">
+<span id="_CPPv3N14GpuDmaBuffer_t3ptrE"></span><span id="_CPPv2N14GpuDmaBuffer_t3ptrE"></span><span id="GpuDmaBuffer_t::ptr__uint8_tP"></span><span class="target" id="structGpuDmaBuffer__t_1aca52c3cfed4f930f778ed3e7757966a4"></span><span class="n"><span class="pre">uint8_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">ptr</span></span></span><a class="headerlink" href="#_CPPv4N14GpuDmaBuffer_t3ptrE" title="Link to this definition"></a><br /></dt>
+<dd><p>Host-accessible pointer (NULL when gpuOnly == 1). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N14GpuDmaBuffer_t4sizeE">
+<span id="_CPPv3N14GpuDmaBuffer_t4sizeE"></span><span id="_CPPv2N14GpuDmaBuffer_t4sizeE"></span><span id="GpuDmaBuffer_t::size__s"></span><span class="target" id="structGpuDmaBuffer__t_1a8c419b8529db9553060ab876d9b03944"></span><span class="n"><span class="pre">size_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">size</span></span></span><a class="headerlink" href="#_CPPv4N14GpuDmaBuffer_t4sizeE" title="Link to this definition"></a><br /></dt>
+<dd><p>Size of the block in bytes. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N14GpuDmaBuffer_t4dptrE">
+<span id="_CPPv3N14GpuDmaBuffer_t4dptrE"></span><span id="_CPPv2N14GpuDmaBuffer_t4dptrE"></span><span id="GpuDmaBuffer_t::dptr__CUdeviceptr"></span><span class="target" id="structGpuDmaBuffer__t_1a663b1cac35628100244f2d62eca31f49"></span><span class="n"><span class="pre">CUdeviceptr</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">dptr</span></span></span><a class="headerlink" href="#_CPPv4N14GpuDmaBuffer_t4dptrE" title="Link to this definition"></a><br /></dt>
+<dd><p>Device pointer for the block. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N14GpuDmaBuffer_t7gpuOnlyE">
+<span id="_CPPv3N14GpuDmaBuffer_t7gpuOnlyE"></span><span id="_CPPv2N14GpuDmaBuffer_t7gpuOnlyE"></span><span id="GpuDmaBuffer_t::gpuOnly__i"></span><span class="target" id="structGpuDmaBuffer__t_1ad442d3501c742e0d9da789dcef33fd09"></span><span class="kt"><span class="pre">int</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">gpuOnly</span></span></span><a class="headerlink" href="#_CPPv4N14GpuDmaBuffer_t7gpuOnlyE" title="Link to this definition"></a><br /></dt>
+<dd><p>1 if FPGA&lt;-&gt;GPU only (no host mapping). </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv416GpuBufferState_t">
+<span id="_CPPv316GpuBufferState_t"></span><span id="_CPPv216GpuBufferState_t"></span><span id="GpuBufferState_t"></span><span class="target" id="structGpuBufferState__t"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">GpuBufferState_t</span></span></span><a class="headerlink" href="#_CPPv416GpuBufferState_t" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;GpuAsyncLib.h&gt;</em></div>
+<p>A pair of FPGA-mapped GPU buffers: one for FPGA writes, one for FPGA reads. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuBufferState_t10swFpgaRegsE">
+<span id="_CPPv3N16GpuBufferState_t10swFpgaRegsE"></span><span id="_CPPv2N16GpuBufferState_t10swFpgaRegsE"></span><span id="GpuBufferState_t::swFpgaRegs__uint8_tP"></span><span class="target" id="structGpuBufferState__t_1aba04adfdfdf26c04b6ea12a6a26e46f3"></span><span class="n"><span class="pre">uint8_t</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">swFpgaRegs</span></span></span><a class="headerlink" href="#_CPPv4N16GpuBufferState_t10swFpgaRegsE" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuBufferState_t5breadE">
+<span id="_CPPv3N16GpuBufferState_t5breadE"></span><span id="_CPPv2N16GpuBufferState_t5breadE"></span><span id="GpuBufferState_t::bread__GpuDmaBuffer_t"></span><span class="target" id="structGpuBufferState__t_1a4d553a452759e457ae89756780e91a01"></span><a class="reference internal" href="#_CPPv414GpuDmaBuffer_t" title="GpuDmaBuffer_t"><span class="n"><span class="pre">GpuDmaBuffer_t</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bread</span></span></span><a class="headerlink" href="#_CPPv4N16GpuBufferState_t5breadE" title="Link to this definition"></a><br /></dt>
+<dd><p>FPGA -&gt; GPU read buffer (GPU is the destination of FPGA reads). </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N16GpuBufferState_t6bwriteE">
+<span id="_CPPv3N16GpuBufferState_t6bwriteE"></span><span id="_CPPv2N16GpuBufferState_t6bwriteE"></span><span id="GpuBufferState_t::bwrite__GpuDmaBuffer_t"></span><span class="target" id="structGpuBufferState__t_1a7065e02e2b79dc368b90c7ea700fa989"></span><a class="reference internal" href="#_CPPv414GpuDmaBuffer_t" title="GpuDmaBuffer_t"><span class="n"><span class="pre">GpuDmaBuffer_t</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bwrite</span></span></span><a class="headerlink" href="#_CPPv4N16GpuBufferState_t6bwriteE" title="Link to this definition"></a><br /></dt>
+<dd><p>FPGA -&gt; GPU write buffer (GPU is the destination of FPGA writes). </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv413AxiWrDesc64_t">
+<span id="_CPPv313AxiWrDesc64_t"></span><span id="_CPPv213AxiWrDesc64_t"></span><span id="AxiWrDesc64_t"></span><span class="target" id="structAxiWrDesc64__t"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">AxiWrDesc64_t</span></span></span><a class="headerlink" href="#_CPPv413AxiWrDesc64_t" title="Link to this definition"></a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;GpuAsyncLib.h&gt;</em></div>
+<p>64-bit AXI stream write descriptor as emitted by the FPGA. </p>
+<p>Layout matches AxiStreamDmaV2Write.vhd. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK13AxiWrDesc64_t6resultEv">
+<span id="_CPPv3NK13AxiWrDesc64_t6resultEv"></span><span id="_CPPv2NK13AxiWrDesc64_t6resultEv"></span><span id="AxiWrDesc64_t::resultC"></span><span class="target" id="structAxiWrDesc64__t_1a3b6364d9c5699b9134ea4e66b3f42c78"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">result</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK13AxiWrDesc64_t6resultEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK13AxiWrDesc64_t8overflowEv">
+<span id="_CPPv3NK13AxiWrDesc64_t8overflowEv"></span><span id="_CPPv2NK13AxiWrDesc64_t8overflowEv"></span><span id="AxiWrDesc64_t::overflowC"></span><span class="target" id="structAxiWrDesc64__t_1ad90df9df3086de5d1611027393787439"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">overflow</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK13AxiWrDesc64_t8overflowEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK13AxiWrDesc64_t4contEv">
+<span id="_CPPv3NK13AxiWrDesc64_t4contEv"></span><span id="_CPPv2NK13AxiWrDesc64_t4contEv"></span><span id="AxiWrDesc64_t::contC"></span><span class="target" id="structAxiWrDesc64__t_1a5699dbc7611edf4b91ab07734ed7a275"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">cont</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK13AxiWrDesc64_t4contEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK13AxiWrDesc64_t8lastUserEv">
+<span id="_CPPv3NK13AxiWrDesc64_t8lastUserEv"></span><span id="_CPPv2NK13AxiWrDesc64_t8lastUserEv"></span><span id="AxiWrDesc64_t::lastUserC"></span><span class="target" id="structAxiWrDesc64__t_1a677602a2d03c9691d5f072ae3e0a661c"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">lastUser</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK13AxiWrDesc64_t8lastUserEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK13AxiWrDesc64_t9firstUserEv">
+<span id="_CPPv3NK13AxiWrDesc64_t9firstUserEv"></span><span id="_CPPv2NK13AxiWrDesc64_t9firstUserEv"></span><span id="AxiWrDesc64_t::firstUserC"></span><span class="target" id="structAxiWrDesc64__t_1a71f9499a765436a5df7f60198240683b"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">firstUser</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK13AxiWrDesc64_t9firstUserEv" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N13AxiWrDesc64_t5flagsE">
+<span id="_CPPv3N13AxiWrDesc64_t5flagsE"></span><span id="_CPPv2N13AxiWrDesc64_t5flagsE"></span><span id="AxiWrDesc64_t::flags__uint32_t"></span><span class="target" id="structAxiWrDesc64__t_1a78187d0d19435af03443fcd65d911a9c"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">flags</span></span></span><a class="headerlink" href="#_CPPv4N13AxiWrDesc64_t5flagsE" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N13AxiWrDesc64_t4sizeE">
+<span id="_CPPv3N13AxiWrDesc64_t4sizeE"></span><span id="_CPPv2N13AxiWrDesc64_t4sizeE"></span><span id="AxiWrDesc64_t::size__uint32_t"></span><span class="target" id="structAxiWrDesc64__t_1a8987d5ab3edf97b4173b4cbbc2d359c8"></span><span class="n"><span class="pre">uint32_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">size</span></span></span><a class="headerlink" href="#_CPPv4N13AxiWrDesc64_t4sizeE" title="Link to this definition"></a><br /></dt>
+<dd></dd></dl>
+
+</div>
+</dd></dl>
+
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="axis-api.html" class="btn btn-neutral float-left" title="AXIS Driver API" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="ioctl-table.html" class="btn btn-neutral float-right" title="Ioctl Command Code Reference" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, SLAC National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

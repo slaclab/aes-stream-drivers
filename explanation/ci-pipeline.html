@@ -1,0 +1,941 @@
+
+
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="../">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CI Pipeline and Test Coverage &mdash; aes-stream-drivers 7.4.0 documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=b86133f3" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=e59714d7" />
+      <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+
+  
+      <script src="../_static/jquery.js?v=5d32c60e"></script>
+      <script src="../_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+      <script src="../_static/documentation_options.js?v=f3c1914a"></script>
+      <script src="../_static/doctools.js?v=9bcbadda"></script>
+      <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+      <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+      <script src="../_static/copybutton.js?v=4be73c2b"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="Kernel Compatibility" href="kernel-compatibility.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            aes-stream-drivers
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/index.html">Tutorials</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/first-transfer.html">Your First Data Transfer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-1-detect-the-hardware">Step 1 — Detect the Hardware</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-2-build-the-driver-and-utilities">Step 2 — Build the Driver and Utilities</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-3-load-the-driver">Step 3 — Load the Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-4-inspect-the-proc-interface">Step 4 — Inspect the /proc Interface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-5-run-the-loopback-test">Step 5 — Run the Loopback Test</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#step-6-unload-the-driver">Step 6 — Unload the Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/first-transfer.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/gpudirect-first.html">Your First GPUDirect Transfer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-1-disable-the-display-manager">Step 1 — Disable the Display Manager</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-2-install-nvidia-open-kernel-modules">Step 2 — Install NVIDIA Open Kernel Modules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-3-configure-grub">Step 3 — Configure GRUB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-4-build-and-load-all-drivers">Step 4 — Build and Load All Drivers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-5-verify-gpudirect-support">Step 5 — Verify GPUDirect Support</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#step-6-run-rdmatest">Step 6 — Run rdmaTest</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tutorials/gpudirect-first.html#next-steps">Next Steps</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../how-to/index.html">How-to Guides</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../how-to/build-and-load.html">Build and Load the Driver</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/build-and-load.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/build-and-load.html#build-the-driver">Build the Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/build-and-load.html#load-the-driver">Load the Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/build-and-load.html#configure-persistent-loading-modprobe-d">Configure Persistent Loading (modprobe.d)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/build-and-load.html#unload-the-driver">Unload the Driver</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/build-and-load.html#parameter-reference">Parameter Reference</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how-to/cross-compile-rce.html">Cross-Compile for RCE (ARM/Zynq)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/cross-compile-rce.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/cross-compile-rce.html#build-at-slac-shortcut">Build at SLAC (Shortcut)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/cross-compile-rce.html#build-outside-slac">Build Outside SLAC</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/cross-compile-rce.html#arm-zynq-target">ARM/Zynq Target</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/cross-compile-rce.html#x86-buildroot-target">x86 Buildroot Target</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/cross-compile-rce.html#output-location">Output Location</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how-to/yocto-integration.html">Integrate into a Yocto Project</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#step-1-create-or-identify-your-layer">Step 1 — Create or Identify Your Layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#step-2-copy-the-recipe">Step 2 — Copy the Recipe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#step-3-enable-the-module-in-your-build">Step 3 — Enable the Module in Your Build</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#step-4-set-buffer-parameters">Step 4 — Set Buffer Parameters</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#step-5-add-the-device-tree-node">Step 5 — Add the Device Tree Node</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#step-6-build">Step 6 — Build</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/yocto-integration.html#aximemorymap-variant">aximemorymap Variant</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how-to/dkms-install.html">Install via DKMS</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/dkms-install.html#prerequisites">Prerequisites</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#ubuntu-debian">Ubuntu / Debian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#rocky-linux-9-rhel-9">Rocky Linux 9 / RHEL 9</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#centos-7-rhel-7">CentOS 7 / RHEL 7</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#rhel-with-subscription">RHEL with Subscription</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/dkms-install.html#installation-methods">Installation Methods</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#method-1-install-from-release-tarball-recommended">Method 1: Install from Release Tarball (Recommended)</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#method-2-manual-source-installation">Method 2: Manual Source Installation</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/dkms-install.html#verification">Verification</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#check-installation-status">Check Installation Status</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#verify-module-information">Verify Module Information</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#load-the-module">Load the Module</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#auto-load-on-boot">Auto-load on Boot</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/dkms-install.html#uninstallation">Uninstallation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#remove-dkms-module">Remove DKMS Module</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/dkms-install.html#platform-specific-notes">Platform-Specific Notes</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#ubuntu-22-04-24-04">Ubuntu 22.04 / 24.04</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#rocky-linux-9">Rocky Linux 9</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#centos-7">CentOS 7</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#debian-testing-experimental">Debian Testing / Experimental</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/dkms-install.html#troubleshooting">Troubleshooting</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#dkms-build-failures">DKMS Build Failures</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#missing-kernel-headers">Missing Kernel Headers</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#epel-not-available">EPEL Not Available</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#module-load-failures">Module Load Failures</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../how-to/dkms-install.html#kernel-version-mismatch">Kernel Version Mismatch</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/dkms-install.html#see-also">See Also</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how-to/gpudirect-setup.html">Set Up GPUDirect RDMA</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#step-1-disable-display-manager-services">Step 1 — Disable Display Manager Services</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#step-2-remove-existing-nvidia-drivers">Step 2 — Remove Existing NVIDIA Drivers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#step-3-install-nvidia-open-kernel-modules">Step 3 — Install NVIDIA Open Kernel Modules</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#step-4-configure-grub">Step 4 — Configure GRUB</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#step-5-build-and-load-both-drivers">Step 5 — Build and Load Both Drivers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/gpudirect-setup.html#verify">Verify</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../how-to/multi-channel.html">Route Multiple DMA Channels</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/multi-channel.html#overview">Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/multi-channel.html#subscribe-to-a-single-channel">Subscribe to a Single Channel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/multi-channel.html#subscribe-to-multiple-channels">Subscribe to Multiple Channels</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/multi-channel.html#send-to-a-specific-channel">Send to a Specific Channel</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/multi-channel.html#receive-and-return-buffers">Receive and Return Buffers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../how-to/multi-channel.html#multiple-clients-on-one-device">Multiple Clients on One Device</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../reference/index.html">Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../reference/dma-api.html">DMA Driver API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_VERSION"><code class="docutils literal notranslate"><span class="pre">DMA_VERSION</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_ERR_FIFO"><code class="docutils literal notranslate"><span class="pre">DMA_ERR_FIFO</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_ERR_LEN"><code class="docutils literal notranslate"><span class="pre">DMA_ERR_LEN</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_ERR_MAX"><code class="docutils literal notranslate"><span class="pre">DMA_ERR_MAX</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_ERR_BUS"><code class="docutils literal notranslate"><span class="pre">DMA_ERR_BUS</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_Buff_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_Buff_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_Buff_Size"><code class="docutils literal notranslate"><span class="pre">DMA_Get_Buff_Size</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Set_Debug"><code class="docutils literal notranslate"><span class="pre">DMA_Set_Debug</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Set_Mask"><code class="docutils literal notranslate"><span class="pre">DMA_Set_Mask</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Ret_Index"><code class="docutils literal notranslate"><span class="pre">DMA_Ret_Index</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_Index"><code class="docutils literal notranslate"><span class="pre">DMA_Get_Index</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Read_Ready"><code class="docutils literal notranslate"><span class="pre">DMA_Read_Ready</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Set_MaskBytes"><code class="docutils literal notranslate"><span class="pre">DMA_Set_MaskBytes</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_Version"><code class="docutils literal notranslate"><span class="pre">DMA_Get_Version</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Write_Register"><code class="docutils literal notranslate"><span class="pre">DMA_Write_Register</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Read_Register"><code class="docutils literal notranslate"><span class="pre">DMA_Read_Register</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_RxBuff_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuff_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_TxBuff_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuff_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_TxBuffinUser_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuffinUser_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_TxBuffinHW_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuffinHW_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_TxBuffinPreHWQ_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuffinPreHWQ_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_TxBuffinSWQ_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuffinSWQ_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_TxBuffMiss_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_TxBuffMiss_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_RxBuffinUser_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuffinUser_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_RxBuffinHW_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuffinHW_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_RxBuffinPreHWQ_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuffinPreHWQ_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_RxBuffinSWQ_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuffinSWQ_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_RxBuffMiss_Count"><code class="docutils literal notranslate"><span class="pre">DMA_Get_RxBuffMiss_Count</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_Get_GITV"><code class="docutils literal notranslate"><span class="pre">DMA_Get_GITV</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DMA_MASK_SIZE"><code class="docutils literal notranslate"><span class="pre">DMA_MASK_SIZE</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaWrite"><code class="docutils literal notranslate"><span class="pre">dmaWrite()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaWriteIndex"><code class="docutils literal notranslate"><span class="pre">dmaWriteIndex()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaWriteVector"><code class="docutils literal notranslate"><span class="pre">dmaWriteVector()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaWriteIndexVector"><code class="docutils literal notranslate"><span class="pre">dmaWriteIndexVector()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaRead"><code class="docutils literal notranslate"><span class="pre">dmaRead()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaReadIndex"><code class="docutils literal notranslate"><span class="pre">dmaReadIndex()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaReadBulkIndex"><code class="docutils literal notranslate"><span class="pre">dmaReadBulkIndex()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaRetIndex"><code class="docutils literal notranslate"><span class="pre">dmaRetIndex()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaRetIndexes"><code class="docutils literal notranslate"><span class="pre">dmaRetIndexes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetIndex"><code class="docutils literal notranslate"><span class="pre">dmaGetIndex()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaReadReady"><code class="docutils literal notranslate"><span class="pre">dmaReadReady()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetRxBuffCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetRxBuffinUserCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffinUserCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetRxBuffinHwCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffinHwCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetRxBuffinPreHwQCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffinPreHwQCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetRxBuffinSwQCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffinSwQCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetRxBuffMissCount"><code class="docutils literal notranslate"><span class="pre">dmaGetRxBuffMissCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetTxBuffCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetTxBuffinUserCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffinUserCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetTxBuffinHwCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffinHwCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetTxBuffinPreHwQCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffinPreHwQCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetTxBuffinSwQCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffinSwQCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetTxBuffMissCount"><code class="docutils literal notranslate"><span class="pre">dmaGetTxBuffMissCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetBuffSize"><code class="docutils literal notranslate"><span class="pre">dmaGetBuffSize()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetBuffCount"><code class="docutils literal notranslate"><span class="pre">dmaGetBuffCount()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaMapDma"><code class="docutils literal notranslate"><span class="pre">dmaMapDma()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaUnMapDma"><code class="docutils literal notranslate"><span class="pre">dmaUnMapDma()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaSetDebug"><code class="docutils literal notranslate"><span class="pre">dmaSetDebug()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaAssignHandler"><code class="docutils literal notranslate"><span class="pre">dmaAssignHandler()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaSetMask"><code class="docutils literal notranslate"><span class="pre">dmaSetMask()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaInitMaskBytes"><code class="docutils literal notranslate"><span class="pre">dmaInitMaskBytes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaAddMaskBytes"><code class="docutils literal notranslate"><span class="pre">dmaAddMaskBytes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaSetMaskBytes"><code class="docutils literal notranslate"><span class="pre">dmaSetMaskBytes()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaCheckVersion"><code class="docutils literal notranslate"><span class="pre">dmaCheckVersion()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaGetApiVersion"><code class="docutils literal notranslate"><span class="pre">dmaGetApiVersion()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaWriteRegister"><code class="docutils literal notranslate"><span class="pre">dmaWriteRegister()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaReadRegister"><code class="docutils literal notranslate"><span class="pre">dmaReadRegister()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaMapRegister"><code class="docutils literal notranslate"><span class="pre">dmaMapRegister()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.dmaUnMapRegister"><code class="docutils literal notranslate"><span class="pre">dmaUnMapRegister()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DmaWriteData"><code class="docutils literal notranslate"><span class="pre">DmaWriteData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaWriteData.data"><code class="docutils literal notranslate"><span class="pre">data</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaWriteData.dest"><code class="docutils literal notranslate"><span class="pre">dest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaWriteData.flags"><code class="docutils literal notranslate"><span class="pre">flags</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaWriteData.index"><code class="docutils literal notranslate"><span class="pre">index</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaWriteData.size"><code class="docutils literal notranslate"><span class="pre">size</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaWriteData.is32"><code class="docutils literal notranslate"><span class="pre">is32</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaWriteData.pad"><code class="docutils literal notranslate"><span class="pre">pad</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DmaReadData"><code class="docutils literal notranslate"><span class="pre">DmaReadData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaReadData.data"><code class="docutils literal notranslate"><span class="pre">data</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaReadData.dest"><code class="docutils literal notranslate"><span class="pre">dest</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaReadData.flags"><code class="docutils literal notranslate"><span class="pre">flags</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaReadData.index"><code class="docutils literal notranslate"><span class="pre">index</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaReadData.error"><code class="docutils literal notranslate"><span class="pre">error</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaReadData.size"><code class="docutils literal notranslate"><span class="pre">size</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaReadData.is32"><code class="docutils literal notranslate"><span class="pre">is32</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaReadData.ret"><code class="docutils literal notranslate"><span class="pre">ret</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/dma-api.html#c.DmaRegisterData"><code class="docutils literal notranslate"><span class="pre">DmaRegisterData</span></code></a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaRegisterData.address"><code class="docutils literal notranslate"><span class="pre">address</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/dma-api.html#c.DmaRegisterData.data"><code class="docutils literal notranslate"><span class="pre">data</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/axis-api.html">AXIS Driver API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reference/axis-api.html#c.AXIS_Read_Ack"><code class="docutils literal notranslate"><span class="pre">AXIS_Read_Ack</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/axis-api.html#c.AXIS_Write_ReqMissed"><code class="docutils literal notranslate"><span class="pre">AXIS_Write_ReqMissed</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/axis-api.html#c.axisSetFlags"><code class="docutils literal notranslate"><span class="pre">axisSetFlags()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/axis-api.html#c.axisGetFuser"><code class="docutils literal notranslate"><span class="pre">axisGetFuser()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/axis-api.html#c.axisGetLuser"><code class="docutils literal notranslate"><span class="pre">axisGetLuser()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/axis-api.html#c.axisGetCont"><code class="docutils literal notranslate"><span class="pre">axisGetCont()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/axis-api.html#c.axisReadAck"><code class="docutils literal notranslate"><span class="pre">axisReadAck()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/axis-api.html#c.axisWriteReqMissed"><code class="docutils literal notranslate"><span class="pre">axisWriteReqMissed()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/gpu-async-api.html">GPU Async API</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reference/gpu-async-api.html#ioctl-wrappers-gpuasync-h">Ioctl Wrappers (GpuAsync.h)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#c.GPU_Add_Nvidia_Memory"><code class="docutils literal notranslate"><span class="pre">GPU_Add_Nvidia_Memory</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#c.GPU_Rem_Nvidia_Memory"><code class="docutils literal notranslate"><span class="pre">GPU_Rem_Nvidia_Memory</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#c.GPU_Set_Write_Enable"><code class="docutils literal notranslate"><span class="pre">GPU_Set_Write_Enable</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#c.GPU_Is_Gpu_Async_Supp"><code class="docutils literal notranslate"><span class="pre">GPU_Is_Gpu_Async_Supp</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#c.GPU_Get_Gpu_Async_Ver"><code class="docutils literal notranslate"><span class="pre">GPU_Get_Gpu_Async_Ver</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#c.GPU_Get_Max_Buffers"><code class="docutils literal notranslate"><span class="pre">GPU_Get_Max_Buffers</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#c.gpuAddNvidiaMemory"><code class="docutils literal notranslate"><span class="pre">gpuAddNvidiaMemory()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#c.gpuRemNvidiaMemory"><code class="docutils literal notranslate"><span class="pre">gpuRemNvidiaMemory()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#c.gpuSetWriteEn"><code class="docutils literal notranslate"><span class="pre">gpuSetWriteEn()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#c.gpuIsGpuAsyncSupported"><code class="docutils literal notranslate"><span class="pre">gpuIsGpuAsyncSupported()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#c.gpuGetGpuAsyncVersion"><code class="docutils literal notranslate"><span class="pre">gpuGetGpuAsyncVersion()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#c.gpuGetMaxBuffers"><code class="docutils literal notranslate"><span class="pre">gpuGetMaxBuffers()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#c.GpuNvidiaData"><code class="docutils literal notranslate"><span class="pre">GpuNvidiaData</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/gpu-async-api.html#register-wrapper-gpuasyncuser-h">Register Wrapper (GpuAsyncUser.h)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#_CPPv416GpuAsyncCoreRegs"><code class="docutils literal notranslate"><span class="pre">GpuAsyncCoreRegs</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/gpu-async-api.html#cuda-helpers-gpuasynclib-h">CUDA Helpers (GpuAsyncLib.h)</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#c.deviceFunc"><code class="docutils literal notranslate"><span class="pre">deviceFunc</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#c.globalFunc"><code class="docutils literal notranslate"><span class="pre">globalFunc</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#c.hostFunc"><code class="docutils literal notranslate"><span class="pre">hostFunc</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#_CPPv410checkError8CUresult"><code class="docutils literal notranslate"><span class="pre">checkError()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#_CPPv410checkError11cudaError_t"><code class="docutils literal notranslate"><span class="pre">checkError()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#_CPPv48wasError8CUresult"><code class="docutils literal notranslate"><span class="pre">wasError()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#_CPPv417gpuMapHostFpgaMemP14GpuDmaBuffer_ti8uint64_t6size_t"><code class="docutils literal notranslate"><span class="pre">gpuMapHostFpgaMem()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#_CPPv413gpuMapFpgaMemP14GpuDmaBuffer_ti8uint64_t6size_ti"><code class="docutils literal notranslate"><span class="pre">gpuMapFpgaMem()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#_CPPv415gpuUnmapFpgaMemP14GpuDmaBuffer_t"><code class="docutils literal notranslate"><span class="pre">gpuUnmapFpgaMem()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#_CPPv418gpuInitBufferStateP16GpuBufferState_ti6size_t"><code class="docutils literal notranslate"><span class="pre">gpuInitBufferState()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#_CPPv421gpuDestroyBufferStateP16GpuBufferState_t"><code class="docutils literal notranslate"><span class="pre">gpuDestroyBufferState()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#_CPPv424UnpackAxiWriteDescriptorPKv"><code class="docutils literal notranslate"><span class="pre">UnpackAxiWriteDescriptor()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#_CPPv47DataGPU"><code class="docutils literal notranslate"><span class="pre">DataGPU</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#_CPPv411CudaContext"><code class="docutils literal notranslate"><span class="pre">CudaContext</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#_CPPv414GpuDmaBuffer_t"><code class="docutils literal notranslate"><span class="pre">GpuDmaBuffer_t</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#_CPPv416GpuBufferState_t"><code class="docutils literal notranslate"><span class="pre">GpuBufferState_t</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/gpu-async-api.html#_CPPv413AxiWrDesc64_t"><code class="docutils literal notranslate"><span class="pre">AxiWrDesc64_t</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/ioctl-table.html">Ioctl Command Code Reference</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reference/ioctl-table.html#dmadriver-h-commands">DmaDriver.h Commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/ioctl-table.html#axisdriver-h-commands">AxisDriver.h Commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/ioctl-table.html#axiversion-h-commands">AxiVersion.h Commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/ioctl-table.html#gpuasync-h-commands">GpuAsync.h Commands</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/module-parameters.html">Module Parameters — datadev</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/device-nodes.html">Device Nodes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reference/device-nodes.html#dev-character-devices">/dev/ — Character Devices</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/device-nodes.html#proc-diagnostic-interface">/proc/ — Diagnostic Interface</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/device-nodes.html#multi-device-systems">Multi-Device Systems</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/test-applications.html">Test Applications</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../reference/test-applications.html#dma-loopback-and-throughput">DMA Loopback and Throughput</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/test-applications.html#dmalooptest">dmaLoopTest</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/test-applications.html#dmarate">dmaRate</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/test-applications.html#ioctl-and-file-operations">Ioctl and File Operations</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/test-applications.html#dmaioctltest">dmaIoctlTest</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/test-applications.html#dmafileopstest">dmaFileOpsTest</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/test-applications.html#error-path-testing">Error Path Testing</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/test-applications.html#dmaerrortest">dmaErrorTest</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/test-applications.html#dmasmallframetest">dmaSmallFrameTest</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/test-applications.html#gpu-specific-testing">GPU-Specific Testing</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../reference/test-applications.html#dmagpuioctltest">dmaGpuIoctlTest</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/test-applications.html#rdmatestemu">rdmaTestEmu</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../reference/test-applications.html#dmagputoggletest">dmaGpuToggleTest</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../reference/test-applications.html#shell-based-test-harness">Shell-Based Test Harness</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../reference/dma-legacy.html">User Space DMA API</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="reference internal" href="index.html">Explanation</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="architecture.html">Driver Architecture</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="architecture.html#the-hardware-abstraction-vtable">The Hardware Abstraction Vtable</a></li>
+<li class="toctree-l3"><a class="reference internal" href="architecture.html#component-relationships">Component Relationships</a></li>
+<li class="toctree-l3"><a class="reference internal" href="architecture.html#pcie-bar0-memory-map">PCIe BAR0 Memory Map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="architecture.html#pci-device-identification">PCI Device Identification</a></li>
+<li class="toctree-l3"><a class="reference internal" href="architecture.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="dma-modes.html">DMA Buffer Modes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="dma-modes.html#the-three-buffer-modes">The Three Buffer Modes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-modes.html#why-cfgmode-4-is-rejected-for-data-dev">Why cfgMode=4 Is Rejected for data_dev</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-modes.html#buffer-pool-pre-allocation">Buffer Pool Pre-Allocation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-modes.html#buffer-state-machine">Buffer State Machine</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-modes.html#zero-copy-data-path">Zero-Copy Data Path</a></li>
+<li class="toctree-l3"><a class="reference internal" href="dma-modes.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="axi-stream-protocol.html">AXI Stream Protocol</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="axi-stream-protocol.html#frame-boundaries-and-tlast">Frame Boundaries and TLAST</a></li>
+<li class="toctree-l3"><a class="reference internal" href="axi-stream-protocol.html#the-flags-field-fuser-luser-and-cont">The Flags Field: fuser, luser, and cont</a></li>
+<li class="toctree-l3"><a class="reference internal" href="axi-stream-protocol.html#channel-routing-via-tdest">Channel Routing via TDEST</a></li>
+<li class="toctree-l3"><a class="reference internal" href="axi-stream-protocol.html#axisg2-engine-overview">AxisG2 Engine Overview</a></li>
+<li class="toctree-l3"><a class="reference internal" href="axi-stream-protocol.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="kernel-compatibility.html">Kernel Compatibility</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="kernel-compatibility.html#how-the-guards-work">How the Guards Work</a></li>
+<li class="toctree-l3"><a class="reference internal" href="kernel-compatibility.html#compatibility-matrix">Compatibility Matrix</a></li>
+<li class="toctree-l3"><a class="reference internal" href="kernel-compatibility.html#rhel-backport-detection">RHEL Backport Detection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="kernel-compatibility.html#minimum-and-maximum-tested-kernels">Minimum and Maximum Tested Kernels</a></li>
+<li class="toctree-l3"><a class="reference internal" href="kernel-compatibility.html#further-reading">Further Reading</a></li>
+</ul>
+</li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">CI Pipeline and Test Coverage</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#pipeline-phases">Pipeline Phases</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#distribution-matrix">Distribution Matrix</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#phase-2-cpu-test-coverage">Phase 2: CPU Test Coverage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#phase-3-gpu-test-coverage">Phase 3: GPU Test Coverage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#emulator-architecture">Emulator Architecture</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#emulator-gpu-poll-thread">Emulator GPU Poll Thread</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#dkms-packaging">DKMS Packaging</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#local-ci-testing">Local CI Testing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#test-coverage-summary">Test Coverage Summary</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">aes-stream-drivers</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+          <li class="breadcrumb-item"><a href="index.html">Explanation</a></li>
+      <li class="breadcrumb-item active">CI Pipeline and Test Coverage</li>
+      <li class="wy-breadcrumbs-aside">
+              <a href="https://github.com/slaclab/aes-stream-drivers/blob/main/docs/explanation/ci-pipeline.rst" class="fa fa-github"> Edit on GitHub</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="ci-pipeline-and-test-coverage">
+<h1>CI Pipeline and Test Coverage<a class="headerlink" href="#ci-pipeline-and-test-coverage" title="Link to this heading"></a></h1>
+<p>The aes-stream-drivers CI pipeline validates every push across five Linux
+distributions, two driver configurations (CPU and GPU), and multiple test
+dimensions. The pipeline runs on GitHub Actions using the <code class="docutils literal notranslate"><span class="pre">ubuntu-24.04</span></code>
+runner with its <code class="docutils literal notranslate"><span class="pre">6.17.0-xxxx-azure</span></code> kernel, and can be reproduced locally
+using KVM virtual machines.</p>
+<section id="pipeline-phases">
+<h2>Pipeline Phases<a class="headerlink" href="#pipeline-phases" title="Link to this heading"></a></h2>
+<p>The CI pipeline (<code class="docutils literal notranslate"><span class="pre">ci_pipeline.yml</span></code>) executes five sequential phases, each
+gating the next:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 8.0%" />
+<col style="width: 22.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Phase</p></th>
+<th class="head"><p>Name</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1</p></td>
+<td><p>Documentation &amp; Linting</p></td>
+<td><p>Sphinx + Doxygen doc build, trailing-whitespace check, cpplint
+C/C++ lint, gpu_async.c change guard</p></td>
+</tr>
+<tr class="row-odd"><td><p>2</p></td>
+<td><p>CPU Testing</p></td>
+<td><p>Build and test the CPU-only driver across 5 distros in parallel</p></td>
+</tr>
+<tr class="row-even"><td><p>3</p></td>
+<td><p>GPU Testing</p></td>
+<td><p>Build and test the GPU driver (with emulator + p2p stub) across
+5 distros in parallel</p></td>
+</tr>
+<tr class="row-odd"><td><p>4</p></td>
+<td><p>Release Generation</p></td>
+<td><p>Creates GitHub Release artifacts (tags only)</p></td>
+</tr>
+<tr class="row-even"><td><p>5</p></td>
+<td><p>DKMS Package Generation</p></td>
+<td><p>Builds <code class="docutils literal notranslate"><span class="pre">datadev-dkms-*.tar.gz</span></code> and <code class="docutils literal notranslate"><span class="pre">datadev-gpu-dkms-*.tar.gz</span></code>
+DKMS tarballs (tags only)</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="distribution-matrix">
+<h2>Distribution Matrix<a class="headerlink" href="#distribution-matrix" title="Link to this heading"></a></h2>
+<p>Both Phase 2 (CPU) and Phase 3 (GPU) run against five container images.
+Each container runs <code class="docutils literal notranslate"><span class="pre">--privileged</span></code> with the host kernel’s <code class="docutils literal notranslate"><span class="pre">/lib/modules</span></code>
+and <code class="docutils literal notranslate"><span class="pre">/usr/src</span></code> bind-mounted, so <code class="docutils literal notranslate"><span class="pre">insmod</span></code> loads against the live Azure
+kernel regardless of the userspace distribution.</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 22.0%" />
+<col style="width: 12.0%" />
+<col style="width: 12.0%" />
+<col style="width: 54.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Distribution</p></th>
+<th class="head"><p>CPU Load Test</p></th>
+<th class="head"><p>GPU Load Test</p></th>
+<th class="head"><p>Purpose</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">ubuntu:24.04</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>Yes</p></td>
+<td><p>Primary platform; matches the GitHub Actions runner</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">ubuntu:22.04</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>Yes</p></td>
+<td><p>LTS compatibility; older glibc and toolchain</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">rockylinux:9</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>Yes</p></td>
+<td><p>RHEL 9 family; dnf package manager, different header layout</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">debian:experimental</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>Yes</p></td>
+<td><p>Bleeding-edge packages; catches API deprecations early</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">fedora:rawhide</span></code></p></td>
+<td><p>Yes</p></td>
+<td><p>Yes</p></td>
+<td><p>Rawhide gcc/glibc; most aggressive compiler warnings</p></td>
+</tr>
+</tbody>
+</table>
+<p>All five distros run the full build + load + test + unload + DKMS
+sequence in both phases. Load/test is gated at runtime on
+<code class="docutils literal notranslate"><span class="pre">CI_HOST_MATCH=1</span></code> (container has the running host’s kernel headers,
+either via bind-mount or package install); distros that cannot satisfy
+that condition fall back to a DKMS smoke path (<code class="docutils literal notranslate"><span class="pre">dkms</span> <span class="pre">ldtarball</span></code> with
+<code class="docutils literal notranslate"><span class="pre">--no-prepare-kernel</span></code>) in the same cell.</p>
+</section>
+<section id="phase-2-cpu-test-coverage">
+<h2>Phase 2: CPU Test Coverage<a class="headerlink" href="#phase-2-cpu-test-coverage" title="Link to this heading"></a></h2>
+<p>Each CPU load-test cell executes the following sequence after building
+the emulator, datadev driver, and test applications:</p>
+<p><strong>Module loading</strong> (<code class="docutils literal notranslate"><span class="pre">load-modules-cpu.sh</span></code>):</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">insmod</span> <span class="pre">nvidia_p2p_stub.ko</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">insmod</span> <span class="pre">datadev_emulator.ko</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">insmod</span> <span class="pre">datadev.ko</span> <span class="pre">cfgTxCount=64</span> <span class="pre">cfgRxCount=64</span> <span class="pre">cfgSize=65536</span> <span class="pre">cfgDebug=1</span></code></p></li>
+<li><p>Verify <code class="docutils literal notranslate"><span class="pre">/dev/datadev_0</span></code> and <code class="docutils literal notranslate"><span class="pre">/proc/datadev_0</span></code> exist</p></li>
+</ol>
+<p><strong>Test execution</strong> (<code class="docutils literal notranslate"><span class="pre">test-cpu.sh</span></code>):</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 5.0%" />
+<col style="width: 25.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>#</p></th>
+<th class="head"><p>Test</p></th>
+<th class="head"><p>What it validates</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1</p></td>
+<td><p>DMA loopback (30s)</p></td>
+<td><p>Sustained bidirectional DMA throughput with PRBS integrity;
+random frame size per run (2000–20000 bytes)</p></td>
+</tr>
+<tr class="row-odd"><td><p>2</p></td>
+<td><p>Test suite (13 sub-tests)</p></td>
+<td><p>Ioctl coverage, file operations, error paths, multi-channel
+routing, /proc interface, data integrity, index-based zero-copy,
+tuser flag sweep, frame size sweep, small frames (1-4 byte
+payload), concurrent opens, backpressure recovery, IRQ mode sweep</p></td>
+</tr>
+<tr class="row-even"><td><p>3</p></td>
+<td><p>Module parameters</p></td>
+<td><p>Reload with custom cfgTxCount=256/cfgRxCount=256/cfgSize=65536,
+verify /proc reflects the new values</p></td>
+</tr>
+<tr class="row-odd"><td><p>4</p></td>
+<td><p>cfgMode=2 reload</p></td>
+<td><p>Unload/reload with BUFF_STREAM mode, run data integrity check
+(&gt;= 100 transfers, zero PRBS errors)</p></td>
+</tr>
+<tr class="row-even"><td><p>5</p></td>
+<td><p>rmmod-under-load</p></td>
+<td><p>Start <code class="docutils literal notranslate"><span class="pre">dmaLoopTest</span></code> in background, <code class="docutils literal notranslate"><span class="pre">rmmod</span> <span class="pre">datadev</span></code> while DMA
+is active, verify no kernel oops or hang</p></td>
+</tr>
+<tr class="row-odd"><td><p>6</p></td>
+<td><p>Load/unload cycles</p></td>
+<td><p>3 rapid insmod/rmmod cycles to detect use-after-free races</p></td>
+</tr>
+<tr class="row-even"><td><p>7</p></td>
+<td><p>DKMS</p></td>
+<td><p>Build DKMS tarball, <code class="docutils literal notranslate"><span class="pre">dkms</span> <span class="pre">ldtarball</span></code>, <code class="docutils literal notranslate"><span class="pre">dkms</span> <span class="pre">install</span></code>, verify
+module is installed, <code class="docutils literal notranslate"><span class="pre">dkms</span> <span class="pre">remove</span></code></p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Post-test</strong> (<code class="docutils literal notranslate"><span class="pre">check-dmesg.sh</span></code>):</p>
+<p>Baseline-delta dmesg analysis: compares kernel log after the test baseline
+marker against known-benign patterns. Fails on any <code class="docutils literal notranslate"><span class="pre">oops</span></code>, <code class="docutils literal notranslate"><span class="pre">panic</span></code>,
+<code class="docutils literal notranslate"><span class="pre">BUG:</span></code>, or <code class="docutils literal notranslate"><span class="pre">WARNING:</span></code> in the driver-induced delta.</p>
+</section>
+<section id="phase-3-gpu-test-coverage">
+<h2>Phase 3: GPU Test Coverage<a class="headerlink" href="#phase-3-gpu-test-coverage" title="Link to this heading"></a></h2>
+<p>Each GPU load-test cell executes the full CPU test suite <strong>plus</strong> GPU-specific
+tests:</p>
+<p><strong>Module loading</strong> (<code class="docutils literal notranslate"><span class="pre">load-modules-gpu.sh</span></code>):</p>
+<ol class="arabic simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">insmod</span> <span class="pre">nvidia_p2p_stub.ko</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">insmod</span> <span class="pre">datadev_emulator.ko</span></code></p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">insmod</span> <span class="pre">datadev.ko</span></code> (GPU build with <code class="docutils literal notranslate"><span class="pre">NVIDIA_DRIVERS</span></code> path)</p></li>
+<li><p>Create <code class="docutils literal notranslate"><span class="pre">/dev/nvidia_p2p_stub_mem</span></code> miscdevice node</p></li>
+</ol>
+<p><strong>Additional GPU tests</strong> (<code class="docutils literal notranslate"><span class="pre">test-gpu.sh</span></code>):</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 5.0%" />
+<col style="width: 25.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>#</p></th>
+<th class="head"><p>Test</p></th>
+<th class="head"><p>What it validates</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>1</p></td>
+<td><p>GPU ioctl test</p></td>
+<td><p>All 6 GPU ioctls: <code class="docutils literal notranslate"><span class="pre">GPU_Is_Gpu_Async_Supp</span></code> (returns 1),
+<code class="docutils literal notranslate"><span class="pre">GPU_Get_Gpu_Async_Ver</span></code>, <code class="docutils literal notranslate"><span class="pre">GPU_Get_Max_Buffers</span></code>,
+<code class="docutils literal notranslate"><span class="pre">GPU_Add_Nvidia_Memory</span></code>, <code class="docutils literal notranslate"><span class="pre">GPU_Set_Write_Enable</span></code>,
+<code class="docutils literal notranslate"><span class="pre">GPU_Rem_Nvidia_Memory</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p>2</p></td>
+<td><p>GPU proc interface</p></td>
+<td><p>Validates GPU-specific fields in <code class="docutils literal notranslate"><span class="pre">/proc/datadev_0</span></code></p></td>
+</tr>
+<tr class="row-even"><td><p>3</p></td>
+<td><p>GPU DMA loopback</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">rdmaTestEmu</span></code> sweep + 10k-frame soak + <code class="docutils literal notranslate"><span class="pre">dmaGpuToggleTest</span></code>
+(enable-toggle and max-buffers 4→2 mid-stream), all through the
+emulator’s GPU Async V4 engine</p></td>
+</tr>
+<tr class="row-odd"><td><p>4</p></td>
+<td><p>GPU DKMS</p></td>
+<td><p>Full DKMS build/install/remove cycle for GPU variant</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="emulator-architecture">
+<h2>Emulator Architecture<a class="headerlink" href="#emulator-architecture" title="Link to this heading"></a></h2>
+<p>All CI testing runs against the <code class="docutils literal notranslate"><span class="pre">datadev_emulator</span></code> kernel module, which
+creates a virtual PCI device that the real <code class="docutils literal notranslate"><span class="pre">datadev</span></code> driver can probe
+without physical FPGA hardware. This enables full end-to-end DMA testing
+in any environment with a Linux kernel.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>User Space          Kernel Space
+──────────         ──────────────────────────────────────────
+dmaLoopTest   ──&gt;  datadev.ko  ──&gt;  DMA ring  ──&gt;  datadev_emulator.ko
+    ^                                                    |
+    |                                                    | memcpy loopback
+    +──────────────────────  DMA ring  &lt;─────────────────+
+</pre></div>
+</div>
+<p>The emulator provides:</p>
+<ul class="simple">
+<li><p><strong>Virtual PCI host bridge</strong> with BAR0 register space</p></li>
+<li><p><strong>DMA engine</strong> that captures TX descriptors from the read ring,
+<code class="docutils literal notranslate"><span class="pre">memcpy</span></code>-loops the payload into an RX buffer, and writes RX completion
+descriptors to the write ring</p></li>
+<li><p><strong>PRBS generator</strong> for data integrity seeding</p></li>
+<li><p><strong>GPU Async V4</strong> register interface for GPU DMA testing</p></li>
+<li><p><strong>Virtual IRQ</strong> (<code class="docutils literal notranslate"><span class="pre">virq</span></code>) for interrupt-driven processing</p></li>
+</ul>
+<p>The emulator is hard-wired to 128-bit descriptor mode
+(<code class="docutils literal notranslate"><span class="pre">Desc128En=1</span></code>) and handles the full <code class="docutils literal notranslate"><span class="pre">AxisG2</span></code> descriptor format
+including fuser, luser, continuation, and multi-destination routing.
+64-bit descriptor mode is <strong>not</strong> emulated and is not a supported
+configuration for this project.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">enableVer</span></code> register (BAR0 + <code class="docutils literal notranslate"><span class="pre">0x0000</span></code>) mirrors the
+<code class="docutils literal notranslate"><span class="pre">AxiStreamDmaV2Desc</span></code> VHDL field layout:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 15.0%" />
+<col style="width: 15.0%" />
+<col style="width: 70.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Bits</p></th>
+<th class="head"><p>Field</p></th>
+<th class="head"><p>Access</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">0</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">enable</span></code></p></td>
+<td><p>R/W – toggled by <code class="docutils literal notranslate"><span class="pre">AxisG2_Enable</span></code> / <code class="docutils literal notranslate"><span class="pre">AxisG2_Clear</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">15:8</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">enableCnt</span></code></p></td>
+<td><p>R/O – counts 0→1 transitions of <code class="docutils literal notranslate"><span class="pre">enable</span></code> (driver load count)</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="docutils literal notranslate"><span class="pre">16</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">Desc128En</span></code></p></td>
+<td><p>R/O constant, always <code class="docutils literal notranslate"><span class="pre">1</span></code></p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="docutils literal notranslate"><span class="pre">31:24</span></code></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">version</span></code></p></td>
+<td><p>R/O constant</p></td>
+</tr>
+</tbody>
+</table>
+<p>Because BAR0 is backed by ordinary RAM, a naïve <code class="docutils literal notranslate"><span class="pre">writel(0x0,</span>
+<span class="pre">enableVer)</span></code> from the driver’s <code class="docutils literal notranslate"><span class="pre">AxisG2_Clear</span></code> path would zero the R/O
+fields and make the next <code class="docutils literal notranslate"><span class="pre">insmod</span></code> read <code class="docutils literal notranslate"><span class="pre">Desc128En=0</span></code> / <code class="docutils literal notranslate"><span class="pre">version=0</span></code>
+– silently disabling 128-bit completion processing.  The emulator’s
+DMA poll thread closes this reload hazard by re-asserting the R/O
+fields on every cycle (<code class="docutils literal notranslate"><span class="pre">emu_enforce_enablever_ro()</span></code> in
+<code class="docutils literal notranslate"><span class="pre">dma_engine.c</span></code>): it preserves whatever bit 0 the driver just wrote,
+increments <code class="docutils literal notranslate"><span class="pre">enableCnt</span></code> on a 0→1 edge, and rewrites the word with
+<code class="docutils literal notranslate"><span class="pre">version</span></code> and <code class="docutils literal notranslate"><span class="pre">Desc128En</span></code> reasserted.  The counter persists for the
+lifetime of the emulator module, matching the VHDL’s
+load-counter semantics across driver reloads.</p>
+</section>
+<section id="emulator-gpu-poll-thread">
+<h2>Emulator GPU Poll Thread<a class="headerlink" href="#emulator-gpu-poll-thread" title="Link to this heading"></a></h2>
+<p>The emulator’s GPU Async engine is driven by a dedicated kthread
+(<code class="docutils literal notranslate"><span class="pre">emu_gpu_poll</span></code> in <code class="docutils literal notranslate"><span class="pre">gpu_engine.c</span></code>) that mirrors what the FPGA
+<code class="docutils literal notranslate"><span class="pre">AxiPcieGpuAsyncControl</span></code> FSM does in hardware: it drains the free-list
+and read-request slots, writes doorbells into GPU-side buffers, and
+bumps <code class="docutils literal notranslate"><span class="pre">rxFrameCnt</span></code> / <code class="docutils literal notranslate"><span class="pre">txFrameCnt</span></code>. Two aspects of how this kthread
+is scheduled are load-bearing for CI reliability.</p>
+<p><strong>Tick cadence (</strong> <code class="docutils literal notranslate"><span class="pre">emu_gpu_poll_interval_us</span></code> <strong>).</strong> The kthread
+paces itself with <code class="docutils literal notranslate"><span class="pre">usleep_range</span></code> between ticks. The module parameter
+defaults to <code class="docutils literal notranslate"><span class="pre">1000</span></code> µs for developer workflow (cheap CPU cost, plenty
+of margin for interactive testing). <code class="docutils literal notranslate"><span class="pre">scripts/ci/load-modules-gpu.sh</span></code>
+overrides this to <code class="docutils literal notranslate"><span class="pre">100</span></code> µs on every CI insmod so the kthread keeps up
+with userspace’s per-doorbell 10-second deadline during the 10 k-frame
+soak. The param is read on every iteration, so sysfs late-binds without
+a module reload.</p>
+<p><strong>Scheduling class (SCHED_FIFO).</strong> After <code class="docutils literal notranslate"><span class="pre">kthread_run</span></code>, the poll
+thread is promoted to <code class="docutils literal notranslate"><span class="pre">SCHED_FIFO(1)</span></code> via <code class="docutils literal notranslate"><span class="pre">sched_set_fifo_low()</span></code>.
+The test binary (<code class="docutils literal notranslate"><span class="pre">rdmaTestEmu</span></code>) busy-spins on a volatile doorbell
+word in userspace; on a 2-vCPU Azure runner that spin can peg the CFS
+share and defer the kthread’s <code class="docutils literal notranslate"><span class="pre">usleep_range</span></code> wakeup for many seconds.
+<code class="docutils literal notranslate"><span class="pre">SCHED_FIFO</span></code> real-time tasks preempt CFS, so the wakeup is honored
+promptly regardless of how much time userspace is burning. Priority 1
+(“fifo_low”) is low enough that the kernel’s own critical RT tasks
+still outrank it. The <code class="docutils literal notranslate"><span class="pre">usleep_range</span></code> inside the loop remains — it is
+the CPU-relief valve that keeps the kthread from pinning a core.</p>
+<p>Both mechanisms matter. Without the tighter poll interval, a cold CFS
+wakeup can drift several hundred microseconds between ticks and never
+catch up to the soak’s throughput. Without <code class="docutils literal notranslate"><span class="pre">SCHED_FIFO</span></code>, a contended
+vCPU lets that drift balloon into the 10-second doorbell budget.
+Together they keep the soak green across all five CI distributions
+including fedora:rawhide and ubuntu:22.04, which were previously
+intermittently failing with <code class="docutils literal notranslate"><span class="pre">rdmaTestEmu:</span> <span class="pre">rx</span> <span class="pre">doorbell</span> <span class="pre">timeout</span></code> on
+the GHA runner’s nested-KVM scheduler.</p>
+</section>
+<section id="dkms-packaging">
+<h2>DKMS Packaging<a class="headerlink" href="#dkms-packaging" title="Link to this heading"></a></h2>
+<p>The pipeline produces two DKMS tarballs for distribution:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">datadev-cpu-&lt;version&gt;.tar.gz</span></code> — CPU-only driver (no NVIDIA dependency)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">datadev-gpu-&lt;version&gt;.tar.gz</span></code> — GPU driver (requires NVIDIA kernel modules)</p></li>
+</ul>
+<p>Both are tested via <code class="docutils literal notranslate"><span class="pre">dkms</span> <span class="pre">ldtarball</span></code> / <code class="docutils literal notranslate"><span class="pre">dkms</span> <span class="pre">install</span></code> / <code class="docutils literal notranslate"><span class="pre">dkms</span> <span class="pre">remove</span></code>
+in CI. On tagged releases, the tarballs are uploaded to the GitHub Release page.</p>
+</section>
+<section id="local-ci-testing">
+<h2>Local CI Testing<a class="headerlink" href="#local-ci-testing" title="Link to this heading"></a></h2>
+<p>The CI pipeline can be reproduced locally using KVM virtual machines. This
+is essential for iterating on kernel module changes before pushing to GitHub.</p>
+<p><strong>Single-cell validation</strong> (fastest feedback loop):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bash<span class="w"> </span>scripts/ci-local/run_cell.sh<span class="w"> </span><span class="se">\</span>
+<span class="w">   </span>--container<span class="w"> </span>ubuntu:24.04<span class="w"> </span>--load-test<span class="w"> </span><span class="m">1</span><span class="w"> </span>--phase<span class="w"> </span>cpu
+</pre></div>
+</div>
+<p><strong>Full matrix</strong> (sequential, one VM):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bash<span class="w"> </span>scripts/ci-local/run_matrix.sh<span class="w"> </span>--phase<span class="w"> </span>cpu
+bash<span class="w"> </span>scripts/ci-local/run_matrix.sh<span class="w"> </span>--phase<span class="w"> </span>gpu
+</pre></div>
+</div>
+<p><strong>Parallel matrix</strong> (one VM per cell, requires multi-core host):</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">export</span><span class="w"> </span><span class="nv">AES_CI_PARALLEL_VM_MEMORY</span><span class="o">=</span><span class="m">3072</span>
+<span class="nb">export</span><span class="w"> </span><span class="nv">AES_CI_PARALLEL_VM_VCPUS</span><span class="o">=</span><span class="m">2</span>
+bash<span class="w"> </span>scripts/ci-local/run_matrix.sh<span class="w"> </span>--phase<span class="w"> </span>cpu<span class="w"> </span>--parallel
+bash<span class="w"> </span>scripts/ci-local/run_matrix.sh<span class="w"> </span>--phase<span class="w"> </span>gpu<span class="w"> </span>--parallel
+</pre></div>
+</div>
+<p>Each local KVM runs the same Azure kernel family as the GitHub Actions
+runner, the same Docker container images, and the same <code class="docutils literal notranslate"><span class="pre">scripts/ci/*.sh</span></code>
+test scripts. Results are directly comparable.</p>
+<p>See <code class="docutils literal notranslate"><span class="pre">scripts/ci-local/AI_LOCAL_CI_TESTING.md</span></code> for the complete local
+CI reference, including VM provisioning, virtiofs repo sync, and
+diagnostic workflows.</p>
+</section>
+<section id="test-coverage-summary">
+<h2>Test Coverage Summary<a class="headerlink" href="#test-coverage-summary" title="Link to this heading"></a></h2>
+<p>The combined Phase 2 + Phase 3 coverage across all distributions:</p>
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 15.0%" />
+<col style="width: 55.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Category</p></th>
+<th class="head"><p>Tests</p></th>
+<th class="head"><p>Coverage</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p>DMA data path</p></td>
+<td><p>5</p></td>
+<td><p>Loopback, throughput, PRBS integrity, small frames, index-based
+zero-copy</p></td>
+</tr>
+<tr class="row-odd"><td><p>Ioctl interface</p></td>
+<td><p>28</p></td>
+<td><p>24 DMA + 2 AXIS + 1 AxiVersion + 1 GPU readiness ioctls validated</p></td>
+</tr>
+<tr class="row-even"><td><p>GPU ioctls</p></td>
+<td><p>6</p></td>
+<td><p>All 6 GPU async ioctls including memory registration</p></td>
+</tr>
+<tr class="row-odd"><td><p>File operations</p></td>
+<td><p>8</p></td>
+<td><p>open, multi-open, select(read), select(write), mmap, read, ioctl,
+close</p></td>
+</tr>
+<tr class="row-even"><td><p>Error handling</p></td>
+<td><p>3</p></td>
+<td><p>Buffer exhaustion, oversized write, invalid index</p></td>
+</tr>
+<tr class="row-odd"><td><p>Channel routing</p></td>
+<td><p>3</p></td>
+<td><p>Multi-destination (0, 7, 8), cross-contamination check</p></td>
+</tr>
+<tr class="row-even"><td><p>IRQ modes</p></td>
+<td><p>12</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">emu_irq_mode</span></code> {intx, msi, msix} sweep (CPU phase). Each mode
+runs cfgIrqHold=1, cfgIrqHold=100000, and polled (cfgIrqDis=1),
+plus a probe-cascade assertion that <code class="docutils literal notranslate"><span class="pre">datadev</span></code> selected the
+matching INTx / MSI / MSI-X path. GPU phase runs the single-mode
+legacy pass</p></td>
+</tr>
+<tr class="row-odd"><td><p>Module lifecycle</p></td>
+<td><p>4</p></td>
+<td><p>3 rapid reload cycles, rmmod-under-load, cfgMode=1/2 transitions</p></td>
+</tr>
+<tr class="row-even"><td><p>Module parameters</p></td>
+<td><p>3</p></td>
+<td><p>Custom buffer counts, custom sizes, /proc reflection</p></td>
+</tr>
+<tr class="row-odd"><td><p>Buffer modes</p></td>
+<td><p>2</p></td>
+<td><p>BUFF_COHERENT (cfgMode=1), BUFF_STREAM (cfgMode=2)</p></td>
+</tr>
+<tr class="row-even"><td><p>DKMS packaging</p></td>
+<td><p>2</p></td>
+<td><p>CPU build/install/remove, GPU build/install/remove (full
+tarball cycle on every distro with matching kernel headers;
+<code class="docutils literal notranslate"><span class="pre">dkms</span> <span class="pre">ldtarball</span></code> smoke fallback when headers can’t be matched)</p></td>
+</tr>
+<tr class="row-odd"><td><p>GPU DMA loopback</p></td>
+<td><p>3</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">rdmaTestEmu</span> <span class="pre">--sweep</span></code> payload sweep, 10000-frame soak at 64 KiB,
+<code class="docutils literal notranslate"><span class="pre">dmaGpuToggleTest</span></code> (enable-toggle + maxBuffers 4→2 mid-stream
+reduction). Mirrors the test_gpu_dma_loopback.sh subtest list.</p></td>
+</tr>
+<tr class="row-even"><td><p>Concurrent access</p></td>
+<td><p>2</p></td>
+<td><p>Two-process loopback, backpressure/recovery</p></td>
+</tr>
+<tr class="row-odd"><td><p>AXI stream flags</p></td>
+<td><p>2</p></td>
+<td><p>Two extreme fuser/luser combinations (0x00 + 0xFF, 0xFF + 0x00)
+to catch bit-shifting / masking bugs in axisSetFlags /
+axisGetFuser / axisGetLuser</p></td>
+</tr>
+<tr class="row-even"><td><p>/proc interface</p></td>
+<td><p>9</p></td>
+<td><p>Buffer count, size, Desc128En, IRQ, API version, buffer mode,
+GPU fields, buffer states</p></td>
+</tr>
+<tr class="row-odd"><td><p>Documentation</p></td>
+<td><p>3</p></td>
+<td><p>Sphinx build, Doxygen XML, HTML output validation</p></td>
+</tr>
+<tr class="row-even"><td><p>Code quality</p></td>
+<td><p>3</p></td>
+<td><p>Trailing whitespace, tab detection, cpplint</p></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Total: ~95 individual test checks across 5 distributions x 2 phases = 10 CI cells.</strong></p>
+</section>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="kernel-compatibility.html" class="btn btn-neutral float-left" title="Kernel Compatibility" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2026, SLAC National Accelerator Laboratory.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
