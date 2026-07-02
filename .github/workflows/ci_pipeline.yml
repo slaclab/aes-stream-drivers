@@ -3,10 +3,11 @@
 # ----------------------------------------------------------------------------
 # Complete CI/CD pipeline with sequential phases:
 #  Phase 1: Documentation & Linting
-#  Phase 2: CPU Testing (4 distros in parallel) → waits for Phase 1
-#  Phase 3: GPU Testing (4 distros in parallel) → waits for Phase 2
+#  Phase 2: CPU Testing (5 distros in parallel) → waits for Phase 1
+#  Phase 3: GPU Testing (5 distros in parallel) → waits for Phase 2
 #  Phase 4: Release Generation → waits for Phase 3
-#  Phase 5: DKMS Package Generation → waits for Phase 4
+#  Phase 5: DKMS Source Tarball Builds + Uploads (cpu, gpu) → waits for Phase 4
+#  Phase 6: Distribution Packages (.deb/.rpm) + Uploads → waits for Phase 5
 #
 # All phases visible in a single GitHub Actions run page.
 #
@@ -155,8 +156,8 @@ jobs:
           echo "ARTIFACT_NAME=cpu-ci-diag-${{ github.job }}-${SANITIZED}" >> $GITHUB_ENV
 
       - name: Upload diagnostics on failure
-        if: failure()
         uses: actions/upload-artifact@v4
+        if: failure()
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: diag/
@@ -262,8 +263,8 @@ jobs:
           echo "ARTIFACT_NAME=gpu-ci-diag-${{ github.job }}-${SANITIZED}" >> $GITHUB_ENV
 
       - name: Upload diagnostics on failure
-        if: failure()
         uses: actions/upload-artifact@v4
+        if: failure()
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: diag/
@@ -288,57 +289,181 @@ jobs:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
   # ==========================================================================
-  # Phase 5: DKMS Package Generation
-  # Waits for Phase 4 (release) to complete
-  # Only runs on tagged releases
+  # Phase 5: Parallel Package Generation (DKMS, DEB Loop, RPM)
   # ==========================================================================
-  generate_dkms:
-    name: "Phase 5: Generate DKMS Packages"
+  generate_packages:
+    name: "Phase 5: Build DKMS Tarball (${{ matrix.driver_type }})"
     needs: [gen_release]
     runs-on: ubuntu-24.04
     if: startsWith(github.ref, 'refs/tags/')
     strategy:
+      fail-fast: false
       matrix:
-        mod:
-          - datadev
+        driver_type: [cpu, gpu]
     steps:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v6
+      - name: Setup Host Python Environment
+        uses: actions/setup-python@v6
         with:
           python-version: 3.12
 
-      - name: Install dependencies
+      - name: Install Host Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install debhelper dkms fakeroot rpm
-          python -m pip install --upgrade pip
-          pip install -r pip_requirements.txt
+          sudo apt-get install -y dkms
+          python3 -m pip install --upgrade pip
+          pip3 install -r pip_requirements.txt
 
-      - name: Get Image Information
-        id: get_image_info
-        env:
-          MOD: ${{ matrix.mod }}
+      - name: Parse Packaging Metadata
+        id: meta
         run: |
-          echo ::set-output name=tag::`git describe --tags`
-
-          if [ $MOD == "datadev" ]
-          then
-             echo ::set-output name=module::"datadev"
-             echo ::set-output name=dir::"data_dev/driver"
+          TAG_VERSION=$(git describe --tags)
+          echo "tag=${TAG_VERSION}" >> $GITHUB_OUTPUT
+          if [ "${{ matrix.driver_type }}" = "gpu" ]; then
+            echo "suffix=-gpu" >> $GITHUB_OUTPUT
+          else
+            echo "suffix=" >> $GITHUB_OUTPUT
           fi
 
-      - name: Build DKMS Tarballs
+      - name: Build Source DKMS Tarball
         run: |
           make -C data_dev/driver dkms
 
-      - name: Upload Assets
+      - name: Assert DKMS tarball was produced
         env:
-          VERSION: ${{ steps.get_image_info.outputs.tag }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          SUFFIX: ${{ steps.meta.outputs.suffix }}
+        run: |
+          TARBALL="data_dev/driver/datadev${SUFFIX}-dkms-${TAG}.tar.gz"
+          if [ ! -f "${TARBALL}" ]; then
+            echo "ERROR: expected DKMS tarball not found: ${TARBALL}" >&2
+            exit 1
+          fi
+
+      - name: Upload DKMS Source Tarball
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          SUFFIX: ${{ steps.meta.outputs.suffix }}
           GIT_REPO: ${{ github.repository }}
           GH_REPO_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          python scripts/uploadTag.py --tag=$VERSION --repo=$GIT_REPO --file=data_dev/driver/datadev-dkms-${VERSION}.tar.gz
-          python scripts/uploadTag.py --tag=$VERSION --repo=$GIT_REPO --file=data_dev/driver/datadev-gpu-dkms-${VERSION}.tar.gz
+          python3 scripts/uploadTag.py --tag=$TAG --repo=$GIT_REPO --file=data_dev/driver/datadev${SUFFIX}-dkms-${TAG}.tar.gz
+
+  # ==========================================================================
+  # Phase 6: Real Distribution Packages (.deb & .rpm)
+  # ==========================================================================
+  # Builds real installable DKMS packages per target:
+  #   * ubuntu-22.04  -> .deb
+  #   * ubuntu-24.04  -> .deb
+  #   * rockylinux-9  -> .rpm
+  # for both the CPU (datadev) and GPU (datadev-gpu) driver variants, then
+  # uploads each built package to the GitHub release.
+  #
+  # The build runs inside the target distro via `docker run`, mounting the
+  # already-checked-out repo (which keeps its .git, so the Makefile's
+  # `git describe` versioning works correctly). Each package ships the DKMS
+  # source tree under /usr/src and registers it with dkms on install.
+  # ==========================================================================
+  dist_packages:
+    name: "Phase 6: Dist Package (${{ matrix.driver_type }} - ${{ matrix.target_env }})"
+    needs: [generate_packages]
+    runs-on: ubuntu-24.04
+    if: startsWith(github.ref, 'refs/tags/')
+    strategy:
+      fail-fast: false
+      matrix:
+        driver_type: [cpu, gpu]
+        target_env: [ubuntu-22.04, ubuntu-24.04, rockylinux-9]
+        include:
+          - target_env: ubuntu-22.04
+            container_image: "ubuntu:22.04"
+            pkg_format: "deb"
+          - target_env: ubuntu-24.04
+            container_image: "ubuntu:24.04"
+            pkg_format: "deb"
+          - target_env: rockylinux-9
+            container_image: "rockylinux:9"
+            pkg_format: "rpm"
+    steps:
+      # Checkout on the HOST runner so the full .git history is present and
+      # gets mounted into the build container (needed by the Makefile's
+      # `git describe` versioning).
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Host Python Environment
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.12
+
+      - name: Install Host Dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install -r pip_requirements.txt
+
+      - name: Parse release tag
+        id: meta
+        run: |
+          TAG_VERSION=$(git describe --tags)
+          echo "tag=${TAG_VERSION}" >> $GITHUB_OUTPUT
+
+      # ----------------------------------------------------------------------
+      # Build .deb (Ubuntu targets)
+      # ----------------------------------------------------------------------
+      - name: Build Debian package
+        if: matrix.pkg_format == 'deb'
+        env:
+          IMAGE: ${{ matrix.container_image }}
+          DRIVER_TYPE: ${{ matrix.driver_type }}
+          TARGET_ENV: ${{ matrix.target_env }}
+        run: |
+          docker run --rm \
+            -e DRIVER_TYPE -e TARGET_ENV \
+            -v "${PWD}":/ws -w /ws "${IMAGE}" \
+            bash /ws/scripts/ci/build-deb.sh
+
+      # ----------------------------------------------------------------------
+      # Build .rpm (Rocky Linux 9 target)
+      # ----------------------------------------------------------------------
+      - name: Build RPM package
+        if: matrix.pkg_format == 'rpm'
+        env:
+          IMAGE: ${{ matrix.container_image }}
+          DRIVER_TYPE: ${{ matrix.driver_type }}
+          TARGET_ENV: ${{ matrix.target_env }}
+        run: |
+          docker run --rm \
+            -e DRIVER_TYPE -e TARGET_ENV \
+            -v "${PWD}":/ws -w /ws "${IMAGE}" \
+            bash /ws/scripts/ci/build-rpm.sh
+
+      # ----------------------------------------------------------------------
+      # Upload the built package(s) to the GitHub release
+      # ----------------------------------------------------------------------
+      - name: Assert and upload package to release
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          GIT_REPO: ${{ github.repository }}
+          GH_REPO_TOKEN: ${{ secrets.GH_TOKEN }}
+          PKG_FORMAT: ${{ matrix.pkg_format }}
+          DRIVER_TYPE: ${{ matrix.driver_type }}
+          TARGET_ENV: ${{ matrix.target_env }}
+        run: |
+          shopt -s nullglob
+          if [ "${PKG_FORMAT}" = "deb" ]; then
+            FILES=(data_dev/driver/*.deb)
+          else
+            FILES=(data_dev/driver/*.rpm)
+          fi
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "ERROR: no .${PKG_FORMAT} package found for ${DRIVER_TYPE}/${TARGET_ENV}" >&2
+            exit 1
+          fi
+          for pkg in "${FILES[@]}"; do
+            echo "Uploading built asset: $pkg"
+            python3 scripts/uploadTag.py --tag="$TAG" --repo="$GIT_REPO" --file="$pkg"
+          done
