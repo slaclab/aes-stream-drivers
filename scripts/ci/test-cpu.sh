@@ -66,6 +66,7 @@ FAILED=0
 # concurrent-collision is not a concern.
 PHASE3_LOG=/tmp/phase3_tests.log
 PARAMS_LOG=/tmp/test_params.log
+ADDRW_LOG=/tmp/test_addr_width.log
 # GAP13_LOOP_LOG is internal-only (no workflow reference); mktemp + trap
 # so reruns on a shared host don't reuse stale state.
 GAP13_LOOP_LOG=$(mktemp -t gap13_loop.XXXXXX)
@@ -175,6 +176,26 @@ if [ "$PARAMS_RC" -ne 0 ]; then
    grep '^\[FAIL\]' "$PARAMS_LOG" || true
    $SUDO dmesg | tail -100
    FAILED=$((FAILED + PARAMS_RC))
+fi
+
+# ============================================================================
+# Test 4.5: DMA address-width clamp + reachability-guard test
+# ============================================================================
+# Verifies the driver clamps the emulator's advertised 64-bit AXI width to the
+# 40-bit AxiStreamDmaV2 descriptor limit, and that the dmaAllocBuffers()
+# reachability guard fails the probe cleanly when a buffer is unreachable.
+# Reloads datadev (emulator stays loaded from above), so it runs here with the
+# module-reload tests rather than in run_tests.sh (which assumes a live device).
+echo_step "Running DMA address-width clamp + guard test"
+DEV=$DEV \
+DATADEV_KO=data_dev/driver/datadev.ko \
+  bash $TESTS_DIR/test_addr_width.sh 2>&1 | tee "$ADDRW_LOG"
+ADDRW_RC=${PIPESTATUS[0]}
+
+if [ "$ADDRW_RC" -ne 0 ]; then
+   echo_fail "${ADDRW_RC} address-width check(s) failed"
+   $SUDO dmesg | tail -100
+   FAILED=$((FAILED + ADDRW_RC))
 fi
 
 # ============================================================================

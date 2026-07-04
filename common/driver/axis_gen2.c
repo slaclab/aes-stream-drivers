@@ -133,6 +133,14 @@ inline uint8_t AxisG2_MapReturn(struct DmaDevice * dev, struct AxisG2Return *ret
 inline void AxisG2_WriteFree(struct DmaBuffer *buff, __iomem struct AxisG2Reg *reg, uint32_t desc128En) {
    uint32_t wrData[2];
 
+   // The descriptor encodes only AXIS_G2_DESC_ADDR_WIDTH_MAX address bits; a
+   // handle above that would be silently truncated to a wrong physical address.
+   // This should never fire (the DMA mask is clamped and buffers are validated
+   // at allocation) -- warn loudly if an out-of-range handle ever reaches here.
+   WARN_ONCE(((uint64_t)buff->buffHandle >> AXIS_G2_DESC_ADDR_WIDTH_MAX) != 0,
+             "AxisG2_WriteFree: DMA handle 0x%llx exceeds %d-bit descriptor limit; address truncated\n",
+             (uint64_t)buff->buffHandle, AXIS_G2_DESC_ADDR_WIDTH_MAX);
+
    // Mask the buffer index to fit within the 28-bit field
    wrData[0] = buff->index & 0x0FFFFFFF;
 
@@ -173,6 +181,14 @@ inline void AxisG2_WriteTx(struct DmaBuffer *buff, __iomem struct AxisG2Reg *reg
    uint32_t rdData[4];
    uint32_t dest;
    uint32_t chan;
+
+   // The descriptor encodes only AXIS_G2_DESC_ADDR_WIDTH_MAX address bits; a
+   // handle above that would be silently truncated to a wrong physical address.
+   // This should never fire (the DMA mask is clamped and buffers are validated
+   // at allocation) -- warn loudly if an out-of-range handle ever reaches here.
+   WARN_ONCE(((uint64_t)buff->buffHandle >> AXIS_G2_DESC_ADDR_WIDTH_MAX) != 0,
+             "AxisG2_WriteTx: DMA handle 0x%llx exceeds %d-bit descriptor limit; address truncated\n",
+             (uint64_t)buff->buffHandle, AXIS_G2_DESC_ADDR_WIDTH_MAX);
 
    // Configure buffer flags for transmission
    rdData[0]  = (buff->flags >> 13) & 0x00000008;  // bit[3] = continue = flags[16]

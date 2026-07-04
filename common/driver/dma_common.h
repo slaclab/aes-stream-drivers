@@ -120,6 +120,12 @@ struct DmaDevice {
    uint32_t cfgIrqDis;
    uint32_t cfgTimeout;
 
+   // Debug/test only: when non-zero, dmaAllocBuffers() validates each buffer's
+   // DMA handle against DMA_BIT_MASK(cfgAddrTestWidth) instead of the device DMA
+   // mask. Lets the >max-address reachability guard be exercised on a normal
+   // host (no >1 TiB RAM needed). 0 = disabled (use the real device DMA mask).
+   uint32_t cfgAddrTestWidth;
+
    // Device tracking
    uint32_t        index;
    uint32_t        major;

@@ -67,6 +67,11 @@ static int cfgDevName  = 0;
 static int cfgTimeout  = 0xFFFF;
 static int cfgDebug    = 0;
 
+// Debug/test only: force dmaAllocBuffers() to validate DMA handles against this
+// address width (bits) instead of the device DMA mask, so the >max-address
+// reachability guard can be exercised without a >1 TiB-memory host. 0 = off.
+static int cfgAddrTestWidth = 0;
+
 // Probe failure global flag used in driver init
 // function to unregister driver
 static int probeReturn = 0;
@@ -287,6 +292,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->cfgBgThold[7] = cfgBgThold7;   // Background threshold 7
    dev->cfgTimeout = cfgTimeout;
    dev->debug = cfgDebug;
+   dev->cfgAddrTestWidth = cfgAddrTestWidth;  // Debug/test: DMA reachability guard override
 
    // Allocate IRQ vectors: try MSI-X first, then MSI, then legacy INTx.
    // pci_alloc_irq_vectors() walks the requested types in priority order
@@ -354,6 +360,19 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    // Configure DMA based on AXI address width: 128bit desc, = 64-bit address map
    if ((readl(dev->reg) & 0x10000) != 0) {
       axiWidth = (readl(dev->reg + 0x34) >> 8) & 0xFF;  // Extract AXI address width
+
+      // Clamp to the descriptor engine's hard limit. The AxiStreamDmaV2 CPU-path
+      // descriptor encodes only AXIS_G2_DESC_ADDR_WIDTH_MAX (40) address bits
+      // (surf AxiStreamDmaV2Desc.vhd asserts ADDR_WIDTH_C <= 40). Never set a DMA
+      // mask wider than the descriptor can represent, otherwise the kernel could
+      // hand back a buffer above the 40-bit boundary that the descriptor would
+      // silently truncate into the wrong physical address.
+      if (axiWidth > AXIS_G2_DESC_ADDR_WIDTH_MAX) {
+         dev_warn(dev->device,
+                  "Init: FW reports %u-bit AXI width; clamping to %d-bit descriptor limit.\n",
+                  axiWidth, AXIS_G2_DESC_ADDR_WIDTH_MAX);
+         axiWidth = AXIS_G2_DESC_ADDR_WIDTH_MAX;
+      }
 
       // Attempt to set DMA and coherent DMA masks based on AXI width
       if (!dma_set_mask(dev->device, DMA_BIT_MASK(axiWidth))) {
@@ -605,6 +624,9 @@ MODULE_PARM_DESC(cfgRxCount, "RX buffer count");
 
 module_param(cfgSize, int, 0);
 MODULE_PARM_DESC(cfgSize, "Rx/TX Buffer size");
+
+module_param(cfgAddrTestWidth, int, 0);
+MODULE_PARM_DESC(cfgAddrTestWidth, "Debug/test: validate DMA handles against this address width (bits); 0=off");
 
 module_param(cfgMode, int, 0);
 MODULE_PARM_DESC(cfgMode, "RX buffer mode");

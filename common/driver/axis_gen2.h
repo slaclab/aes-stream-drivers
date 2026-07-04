@@ -31,6 +31,14 @@
 #define AXIS2_RING_ACP 0x10
 #define BUFF_LIST_SIZE 1000
 
+// Maximum DMA address width, in bits, that the AxiStreamDmaV2 CPU-path
+// descriptor can encode. Mirrors the surf AxiStreamDmaV2Desc.vhd assertion
+// "AXI_CONFIG_G.ADDR_WIDTH_C <= 40" (axi-pcie-core AxiPcieDma.vhd sets
+// ADDR_WIDTH_C => 40). The GPU/crossbar path is 64-bit and is unaffected. The
+// driver must never set a DMA mask wider than this, nor program a DMA handle
+// beyond it into a descriptor, or the upper address bits are silently dropped.
+#define AXIS_G2_DESC_ADDR_WIDTH_MAX 40
+
 /**
  * struct AxisG2Reg - AXIS Gen2 Register Map.
  * @enableVer: Version and enable register (0x0000).

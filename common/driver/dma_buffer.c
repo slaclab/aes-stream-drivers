@@ -50,6 +50,7 @@ size_t dmaAllocBuffers(struct DmaDevice *dev, struct DmaBufferList *list,
    uint32_t x;
    uint32_t sl;
    uint32_t sli;
+   uint64_t dmaMask;
 
    struct DmaBuffer * buff;
 
@@ -153,6 +154,25 @@ size_t dmaAllocBuffers(struct DmaDevice *dev, struct DmaBufferList *list,
       // Populate entry in sorted list for later sort
       if ( list->sorted != NULL ) list->sorted[sli] = buff;
       list->count++;
+
+      // Reject any buffer the DMA descriptor cannot reach. The device DMA mask
+      // is clamped to the AxiStreamDmaV2 40-bit descriptor limit at probe, so
+      // coherent/streaming allocations are already bounded -- but the
+      // BUFF_ARM_ACP path uses virt_to_phys() and bypasses the DMA mapping API
+      // entirely. Validating handle+size against the mask here catches that
+      // case (and any future regression) and fails the probe cleanly instead of
+      // letting the encoder silently truncate the upper address bits. The
+      // buffer is already in the list, so cleanup_buffers frees it correctly.
+      // cfgAddrTestWidth overrides the ceiling for fault-injection testing.
+      dmaMask = list->dev->cfgAddrTestWidth
+                   ? DMA_BIT_MASK(list->dev->cfgAddrTestWidth)
+                   : dma_get_mask(list->dev->device);
+      if (((uint64_t)buff->buffHandle + list->dev->cfgSize - 1) > dmaMask) {
+         dev_err(dev->device,
+                 "dmaAllocBuffers: buffer %u handle 0x%llx size 0x%x exceeds DMA mask 0x%llx\n",
+                 buff->index, (uint64_t)buff->buffHandle, list->dev->cfgSize, dmaMask);
+         goto cleanup_buffers;
+      }
    }
 
    // Sort the buffers
