@@ -357,7 +357,7 @@ static void Gpu_ClearBufferRegs(struct DmaDevice* dev) {
 
    // Disable reads and writes before freeing underlying buffers.
    writel(0, data->base + 0x008);
-   
+
    // GpuAsyncV4 has no "DMA complete" indicator, so we need to delay for a bit while pending transactions complete.
    // This is far from scientific; I'm just choosing a value (50ms) that *should* prevent crashes...
    if (data->version < 5) {
