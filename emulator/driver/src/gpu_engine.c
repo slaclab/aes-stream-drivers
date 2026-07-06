@@ -156,6 +156,23 @@ static u64 emu_gpu_read_buf_addr(struct emu_gpu_engine *eng,
    return ((u64)hi << 32) | lo;
 }
 
+/* V5 write/read "active" readback (register 0x44). Mirror the FW's
+ * r.writeActive/r.readActive (AxiPcieGpuAsyncControl.vhd: v.writeActive :=
+ * r.writeEnable in RX IDLE_S; v.readActive := r.readEnable in TX IDLE_S).
+ * The emulator processes a frame atomically per tick and has no multi-tick
+ * in-flight state, so sampling the CTRL enable bits once per poll iteration
+ * is the faithful equivalent. When the driver disables the engines (writel 0
+ * to CTRL) during teardown, the next tick clears 0x44, releasing the driver's
+ * V5 drain spin (gpu_async.c:370). */
+static void emu_gpu_update_active(struct emu_gpu_engine *eng)
+{
+   u32 ctrl = ioread32(eng->reg_base + EMU_GPU_REG_CTRL);
+   u32 active = ((ctrl & BIT(15)) ? 0x1u : 0x0u) |   /* writeEnable -> writeActive */
+                ((ctrl & BIT(31)) ? 0x2u : 0x0u);    /* readEnable  -> readActive  */
+
+   iowrite32(active, eng->reg_base + EMU_GPU_REG_ACTIVE);
+}
+
 /* ----------------------------------------------------------------
  * Engine lifecycle
  * ---------------------------------------------------------------- */
@@ -439,6 +456,7 @@ static int emu_gpu_poll_thread_fn(void *data)
            EMU_GPU_MOD, emu_gpu_poll_interval_us);
    while (!kthread_should_stop()) {
       emu_gpu_service_cnt_rst(eng);
+      emu_gpu_update_active(eng);
       emu_gpu_rx_tick(eng);
       emu_gpu_tx_tick(eng);
       /* Read the param every tick so late-binding sysfs writes take

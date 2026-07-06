@@ -369,11 +369,36 @@ static int stub_release(struct inode *inode, struct file *file)
    mutex_unlock(&fs->lock);
 
    list_for_each_entry_safe(hold, tmp, &to_free, node) {
+      struct emu_gpu_addr_entry *entry = hold->entry;
+      void (*free_cb)(void *) = NULL;
+      void *free_cb_data = NULL;
+
       list_del(&hold->node);
-      /* Drop the sole refcount for this FD-owned entry (single-holder
-       * lineage: alloc_and_register sets refcount=1; FD closure drops
-       * it to 0 -> __free_pages + drain-cb). */
-      emu_gpu_addr_table_release(hold->entry);
+
+      /* Emulate NVIDIA revocation: if the datadev driver mapped this
+       * buffer (registered a free_callback via nvidia_p2p_get_pages),
+       * the app-side owner going away (this FD closing) is the analog of
+       * the app freeing its GPU allocation. Invoke the callback so the
+       * driver's Gpu_FreeNvidia runs nvidia_p2p_free_page_table, which
+       * drops the driver-holder refcount (2 -> 1); the release below then
+       * drops the FD-holder (1 -> 0) and the entry is freed. Fire at most
+       * once. Snapshot the fields, then invoke OUTSIDE any lock: the
+       * callback re-enters emu_gpu_addr_table_release (via
+       * free_page_table) and may block (synchronize_rcu on the final put
+       * happens in the release below, not the driver-holder decrement). */
+      if (entry->free_cb && !entry->free_cb_fired) {
+         entry->free_cb_fired = true;
+         free_cb              = entry->free_cb;
+         free_cb_data         = entry->free_cb_data;
+      }
+      if (free_cb)
+         free_cb(free_cb_data);
+
+      /* Drop the FD-owned refcount. For app-only reservations (no driver
+       * mapping, free_cb == NULL) this is the sole holder -> __free_pages
+       * + drain-cb. For driver-mapped buffers the callback above already
+       * dropped the driver-holder, so this drops the last reference. */
+      emu_gpu_addr_table_release(entry);
       kfree(hold);
    }
 

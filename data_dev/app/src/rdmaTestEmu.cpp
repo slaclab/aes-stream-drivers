@@ -22,7 +22,7 @@
  *       - nvidia_p2p_stub.ko loaded (provides nvidia_p2p_* + addr table)
  *       - datadev.ko built with NVIDIA_DRIVERS=$(pwd)/emulator/gpu_stub,
  *         loaded against the emulator
- *       - /dev/datadev_0 present, BAR0 GpuAsync version == 4
+ *       - /dev/datadev_0 present, BAR0 GpuAsync version >= 4 (v5 emulated)
  *       - /dev/nvidia_p2p_stub_mem present
  *
  *    Exit code: 0 on full success; 1 on any failure (ioctl/mmap error,
@@ -698,12 +698,13 @@ int main(int argc, char **argv) {
       return 1;
    }
 
-   /* V4-only gate (project_gpu_v4_only.md). gpuGetGpuAsyncVersion's return
-    * type is uint32_t for ABI reasons (see include/GpuAsync.h), so a -1
-    * ioctl error becomes 0xFFFFFFFFu. A naive `(uint32_t)ver < 4` check
-    * would be vacuously false and let the test proceed against a driver
-    * that never reported a version. Cast to int32_t and reject negatives
-    * explicitly before the version comparison. */
+   /* Minimum-version gate (V4 register layout or newer; the emulator now
+    * reports V5). gpuGetGpuAsyncVersion's return type is uint32_t for ABI
+    * reasons (see include/GpuAsync.h), so a -1 ioctl error becomes
+    * 0xFFFFFFFFu. A naive `(uint32_t)ver < 4` check would be vacuously false
+    * and let the test proceed against a driver that never reported a
+    * version. Cast to int32_t and reject negatives explicitly before the
+    * version comparison. */
    int32_t ver = static_cast<int32_t>(gpuGetGpuAsyncVersion(fd));
    if (ver < 0) {
       fprintf(stderr,
@@ -714,7 +715,7 @@ int main(int argc, char **argv) {
    }
    if (static_cast<uint32_t>(ver) < kRequiredGpuAsyncVersion) {
       fprintf(stderr,
-         "rdmaTestEmu: unsupported GPU Async version %d (V4 required)\n", ver);
+         "rdmaTestEmu: unsupported GPU Async version %d (v4+ required)\n", ver);
       ::close(fd);
       return 1;
    }
