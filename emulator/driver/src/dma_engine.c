@@ -37,6 +37,7 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/kthread.h>
+#include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/jiffies.h>
 #include <asm/barrier.h>
@@ -690,6 +691,18 @@ int emu_dma_init(struct emu_dma_engine *eng, struct emu_bar0 *bar,
       pr_err("emu: failed to create DMA poll thread (%d)\n", ret);
       return ret;
    }
+
+   /* Promote to SCHED_FIFO(1). The WriteFree FIFO is modelled as a single
+    * shadow register (EMU_REG_WRITEFIFOA); the driver bursts ~addrCount
+    * WriteFree writes during insmod and each overwrites the previous, so
+    * the poll thread must drain between writes or entries are lost. Under
+    * CFS contention the usleep_range poll cadence is subject to scheduler
+    * oversleep (observed on kernel 7.0.0 nested-KVM runners: only 1 of 64
+    * free buffers captured -> RX buffer lookups all fail). SCHED_FIFO gets
+    * the wakeup honored promptly because RT tasks preempt CFS; priority 1
+    * ("fifo_low") is low enough that the kernel's own critical RT tasks
+    * still dominate. Mirrors the emu_gpu_poll promotion in gpu_engine.c. */
+   sched_set_fifo_low(eng->poll_thread);
 
    pr_info("emu: DMA engine initialized\n");
    return 0;
