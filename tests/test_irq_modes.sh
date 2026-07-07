@@ -105,10 +105,15 @@ run_irq_cycle() {
 
    # Capture the "Probe: using <kind> interrupts" line BEFORE dmaLoopTest
    # runs with cfgDebug=1 -- the per-frame Process/MapReturn lines flood
-   # dmesg fast enough to evict the probe line out of any reasonable tail
-   # window within ~5 seconds. The outer mode-sweep reads this back via
-   # CYCLE_PROBE_LINE.
-   CYCLE_PROBE_LINE=$($SUDO dmesg | tail -n 80 | \
+   # dmesg fast enough to evict the probe line out of any fixed tail window
+   # within ~5 seconds. Scan the dmesg delta produced by THIS cycle (from
+   # DMESG_BEFORE, captured at cycle start before the rmmod/insmod) rather
+   # than a fixed `tail -n N`: on fast/noisy kernels (e.g. 7.0.0) the probe
+   # line is emitted during insmod init and pushed well past 80 lines before
+   # this runs, so a fixed window captured an empty string. The delta is
+   # bounded to this cycle, so the last match is unambiguously the current
+   # probe line. The outer mode-sweep reads this back via CYCLE_PROBE_LINE.
+   CYCLE_PROBE_LINE=$($SUDO dmesg | tail -n "+$((DMESG_BEFORE + 1))" | \
                       grep -oE 'Probe: using [A-Za-z0-9-]+([ -]+[A-Za-z]+)* interrupts' | \
                       tail -1 || echo "")
 
