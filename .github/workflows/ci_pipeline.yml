@@ -26,11 +26,11 @@ jobs:
     name: "Phase 1: Documentation & Linting"
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: 3.12
 
@@ -99,7 +99,7 @@ jobs:
       image: ${{ matrix.container }}
       options: "--privileged -v /lib/modules:/lib/modules -v /usr/src:/usr/src"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
@@ -156,7 +156,7 @@ jobs:
           echo "ARTIFACT_NAME=cpu-ci-diag-${{ github.job }}-${SANITIZED}" >> $GITHUB_ENV
 
       - name: Upload diagnostics on failure
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
           name: ${{ env.ARTIFACT_NAME }}
@@ -207,7 +207,7 @@ jobs:
       image: ${{ matrix.container }}
       options: "--privileged -v /lib/modules:/lib/modules -v /usr/src:/usr/src"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
@@ -263,7 +263,7 @@ jobs:
           echo "ARTIFACT_NAME=gpu-ci-diag-${{ github.job }}-${SANITIZED}" >> $GITHUB_ENV
 
       - name: Upload diagnostics on failure
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
         with:
           name: ${{ env.ARTIFACT_NAME }}
@@ -301,12 +301,12 @@ jobs:
       matrix:
         driver_type: [cpu, gpu]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
       - name: Setup Host Python Environment
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: 3.12
 
@@ -391,12 +391,12 @@ jobs:
       # Checkout on the HOST runner so the full .git history is present and
       # gets mounted into the build container (needed by the Makefile's
       # `git describe` versioning).
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
       - name: Setup Host Python Environment
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: 3.12
 
