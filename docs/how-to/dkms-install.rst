@@ -269,8 +269,8 @@ Remove DKMS Module
 Platform-Specific Notes
 -----------------------
 
-Ubuntu 22.04 / 24.04
-~~~~~~~~~~~~~~~~~~~~
+Ubuntu 22.04 / 24.04 / 26.04
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Works out of the box with the standard ``linux-headers-$(uname -r)`` package.
 

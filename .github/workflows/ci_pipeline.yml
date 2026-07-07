@@ -81,20 +81,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Only ubuntu:24.04 has the running host's Azure kernel headers in its
+          # Only ubuntu:26.04 has the running host's Azure kernel headers in its
           # --privileged: CAP_SYS_MODULE for insmod
           # bind-mounts: host kernel headers visible inside every container
-          - container: "ubuntu:24.04"
+          - container: "ubuntu:26.04"   # full test — matches the ubuntu-26.04 runner kernel
             load_test: true
-          - container: "ubuntu:22.04"
-            load_test: true
+          - container: "ubuntu:24.04"   # smoke: build + DKMS ldtarball only
+            load_test: false
+          - container: "ubuntu:22.04"   # smoke: build + DKMS ldtarball only
+            load_test: false
           - container: "rockylinux:9"
             load_test: true
           - container: "debian:experimental"
             load_test: true
           - container: "fedora:rawhide"
             load_test: true
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     container:
       image: ${{ matrix.container }}
       options: "--privileged -v /lib/modules:/lib/modules -v /usr/src:/usr/src"
@@ -190,19 +192,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Only ubuntu:26.04 has the running host's Azure kernel headers in its
           # --privileged: CAP_SYS_MODULE for insmod
           # bind-mounts: host kernel headers visible inside every container
-          - container: "ubuntu:24.04"
+          - container: "ubuntu:26.04"   # full test — matches the ubuntu-26.04 runner kernel
             load_test: true
-          - container: "ubuntu:22.04"
-            load_test: true
+          - container: "ubuntu:24.04"   # smoke: build + DKMS ldtarball only
+            load_test: false
+          - container: "ubuntu:22.04"   # smoke: build + DKMS ldtarball only
+            load_test: false
           - container: "rockylinux:9"
             load_test: true
           - container: "debian:experimental"
             load_test: true
           - container: "fedora:rawhide"
             load_test: true
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     container:
       image: ${{ matrix.container }}
       options: "--privileged -v /lib/modules:/lib/modules -v /usr/src:/usr/src"
@@ -358,6 +363,7 @@ jobs:
   # Builds real installable DKMS packages per target:
   #   * ubuntu-22.04  -> .deb
   #   * ubuntu-24.04  -> .deb
+  #   * ubuntu-26.04  -> .deb
   #   * rockylinux-9  -> .rpm
   # for both the CPU (datadev) and GPU (datadev-gpu) driver variants, then
   # uploads each built package to the GitHub release.
@@ -376,13 +382,16 @@ jobs:
       fail-fast: false
       matrix:
         driver_type: [cpu, gpu]
-        target_env: [ubuntu-22.04, ubuntu-24.04, rockylinux-9]
+        target_env: [ubuntu-22.04, ubuntu-24.04, ubuntu-26.04, rockylinux-9]
         include:
           - target_env: ubuntu-22.04
             container_image: "ubuntu:22.04"
             pkg_format: "deb"
           - target_env: ubuntu-24.04
             container_image: "ubuntu:24.04"
+            pkg_format: "deb"
+          - target_env: ubuntu-26.04
+            container_image: "ubuntu:26.04"
             pkg_format: "deb"
           - target_env: rockylinux-9
             container_image: "rockylinux:9"

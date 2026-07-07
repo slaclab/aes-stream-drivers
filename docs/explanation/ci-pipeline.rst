@@ -44,7 +44,7 @@ gating the next:
 Distribution Matrix
 -------------------
 
-Both Phase 2 (CPU) and Phase 3 (GPU) run against five container images.
+Both Phase 2 (CPU) and Phase 3 (GPU) run against six container images.
 Each container runs ``--privileged`` with the host kernel's ``/lib/modules``
 and ``/usr/src`` bind-mounted, so ``insmod`` loads against the live Azure
 kernel regardless of the userspace distribution.
@@ -57,14 +57,18 @@ kernel regardless of the userspace distribution.
      - CPU Load Test
      - GPU Load Test
      - Purpose
-   * - ``ubuntu:24.04``
+   * - ``ubuntu:26.04``
      - Yes
      - Yes
      - Primary platform; matches the GitHub Actions runner
+   * - ``ubuntu:24.04``
+     - No
+     - No
+     - LTS compatibility; build + DKMS smoke only
    * - ``ubuntu:22.04``
-     - Yes
-     - Yes
-     - LTS compatibility; older glibc and toolchain
+     - No
+     - No
+     - LTS compatibility; older glibc and toolchain; build + DKMS smoke only
    * - ``rockylinux:9``
      - Yes
      - Yes
@@ -78,12 +82,15 @@ kernel regardless of the userspace distribution.
      - Yes
      - Rawhide gcc/glibc; most aggressive compiler warnings
 
-All five distros run the full build + load + test + unload + DKMS
-sequence in both phases. Load/test is gated at runtime on
-``CI_HOST_MATCH=1`` (container has the running host's kernel headers,
-either via bind-mount or package install); distros that cannot satisfy
-that condition fall back to a DKMS smoke path (``dkms ldtarball`` with
-``--no-prepare-kernel``) in the same cell.
+Only the ``ubuntu:26.04`` cell — which matches the GitHub Actions runner
+kernel — runs the full build + load + test + unload + DKMS sequence. The
+``ubuntu:24.04`` and ``ubuntu:22.04`` cells set ``load_test: false`` and run
+build + DKMS smoke only. The remaining distros keep ``load_test: true`` but
+their load/test steps are gated at runtime on ``CI_HOST_MATCH=1`` (container
+has the running host's kernel headers, either via bind-mount or package
+install); distros that cannot satisfy that condition fall back to a DKMS
+smoke path (``dkms ldtarball`` with ``--no-prepare-kernel``) in the same
+cell.
 
 
 Phase 2: CPU Test Coverage

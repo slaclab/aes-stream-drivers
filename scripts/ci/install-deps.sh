@@ -131,7 +131,23 @@ ensure_kernel_gcc() {
    # awk extraction (not grep -oP): PCRE is GNU-grep-specific and the prior
    # Copilot review flagged the equivalent pattern in tests/test_data_integrity.sh
    # as a portability hazard on musl/BusyBox minimal images.
-   kgcc=$(awk 'match($0, /gcc-[0-9]+/) { print substr($0, RSTART+4, RLENGTH-4); exit }' /proc/version 2>/dev/null)
+   #
+   # Two /proc/version spellings are handled:
+   #   1. Legacy "gcc-NN" token (older Azure kernels), e.g. "...gcc-13...".
+   #   2. Newer form with no "gcc-NN" token (Ubuntu 26.04 / kernel 7.0.0):
+   #      "...gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld...". Grab the major
+   #      version that follows "gcc (<vendor> ". Without this fallback the
+   #      extraction returns empty, ensure_kernel_gcc bails, and CI_HOST_MATCH
+   #      is forced to 0 — silently demoting the intended full-test cell to
+   #      build-only.
+   kgcc=$(awk '
+      match($0, /gcc-[0-9]+/) { print substr($0, RSTART+4, RLENGTH-4); exit }
+      match($0, /gcc \([A-Za-z]+ [0-9]+/) {
+         s = substr($0, RSTART, RLENGTH)
+         if (match(s, /[0-9]+$/)) print substr(s, RSTART, RLENGTH)
+         exit
+      }
+   ' /proc/version 2>/dev/null)
    if [ -z "$kgcc" ]; then
       echo_warn "Cannot determine kernel build GCC version from /proc/version"
       return 1
