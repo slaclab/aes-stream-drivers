@@ -81,25 +81,35 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Only ubuntu:26.04 has the running host's Azure kernel headers in its
+          # host_mounts bind-mounts the runner's kernel tree into the container
+          # so install-deps.sh host-matches the ubuntu-26.04 (7.0.0) kernel and
+          # can insmod into it. rockylinux:9 omits the mounts: its default gcc
+          # cannot build against the 7.0.0 kernel (rejects -ftrivial-auto-var-
+          # init=zero / -fmin-function-alignment=16), so it builds against its
+          # own distro kernel instead (build-only, CI_HOST_MATCH=0).
           # --privileged: CAP_SYS_MODULE for insmod
-          # bind-mounts: host kernel headers visible inside every container
           - container: "ubuntu:26.04"   # full test — matches the ubuntu-26.04 runner kernel
             load_test: true
+            host_mounts: "-v /lib/modules:/lib/modules -v /usr/src:/usr/src"
           - container: "ubuntu:24.04"   # smoke: build + DKMS ldtarball only
             load_test: false
+            host_mounts: "-v /lib/modules:/lib/modules -v /usr/src:/usr/src"
           - container: "ubuntu:22.04"   # smoke: build + DKMS ldtarball only
             load_test: false
-          - container: "rockylinux:9"
+            host_mounts: "-v /lib/modules:/lib/modules -v /usr/src:/usr/src"
+          - container: "rockylinux:9"   # build-only vs own kernel (gcc too old for 7.0.0)
             load_test: true
+            host_mounts: ""
           - container: "debian:experimental"
             load_test: true
+            host_mounts: "-v /lib/modules:/lib/modules -v /usr/src:/usr/src"
           - container: "fedora:rawhide"
             load_test: true
+            host_mounts: "-v /lib/modules:/lib/modules -v /usr/src:/usr/src"
     runs-on: ubuntu-26.04
     container:
       image: ${{ matrix.container }}
-      options: "--privileged -v /lib/modules:/lib/modules -v /usr/src:/usr/src"
+      options: "--privileged ${{ matrix.host_mounts }}"
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -192,25 +202,35 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Only ubuntu:26.04 has the running host's Azure kernel headers in its
+          # host_mounts bind-mounts the runner's kernel tree into the container
+          # so install-deps.sh host-matches the ubuntu-26.04 (7.0.0) kernel and
+          # can insmod into it. rockylinux:9 omits the mounts: its default gcc
+          # cannot build against the 7.0.0 kernel (rejects -ftrivial-auto-var-
+          # init=zero / -fmin-function-alignment=16), so it builds against its
+          # own distro kernel instead (build-only, CI_HOST_MATCH=0).
           # --privileged: CAP_SYS_MODULE for insmod
-          # bind-mounts: host kernel headers visible inside every container
           - container: "ubuntu:26.04"   # full test — matches the ubuntu-26.04 runner kernel
             load_test: true
+            host_mounts: "-v /lib/modules:/lib/modules -v /usr/src:/usr/src"
           - container: "ubuntu:24.04"   # smoke: build + DKMS ldtarball only
             load_test: false
+            host_mounts: "-v /lib/modules:/lib/modules -v /usr/src:/usr/src"
           - container: "ubuntu:22.04"   # smoke: build + DKMS ldtarball only
             load_test: false
-          - container: "rockylinux:9"
+            host_mounts: "-v /lib/modules:/lib/modules -v /usr/src:/usr/src"
+          - container: "rockylinux:9"   # build-only vs own kernel (gcc too old for 7.0.0)
             load_test: true
+            host_mounts: ""
           - container: "debian:experimental"
             load_test: true
+            host_mounts: "-v /lib/modules:/lib/modules -v /usr/src:/usr/src"
           - container: "fedora:rawhide"
             load_test: true
+            host_mounts: "-v /lib/modules:/lib/modules -v /usr/src:/usr/src"
     runs-on: ubuntu-26.04
     container:
       image: ${{ matrix.container }}
-      options: "--privileged -v /lib/modules:/lib/modules -v /usr/src:/usr/src"
+      options: "--privileged ${{ matrix.host_mounts }}"
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
