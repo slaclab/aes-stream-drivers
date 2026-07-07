@@ -266,6 +266,43 @@ void emu_gpu_addr_table_release(struct emu_gpu_addr_entry *entry)
 }
 
 /* ----------------------------------------------------------------------- */
+/* Internal helper: stub_fire_free_cb_once                                   */
+/* ----------------------------------------------------------------------- */
+
+/* Emulate the NVIDIA free_callback (revocation) exactly once per entry.
+ * The datadev driver registers this callback via nvidia_p2p_get_pages and
+ * frees its page table ONLY from here (Gpu_FreeNvidia ->
+ * nvidia_p2p_free_page_table); Gpu_RemNvidia and the datadev fd-release path
+ * never free it. The real-hardware trigger is the app freeing its GPU
+ * allocation, whose stub analog is the /dev/nvidia_p2p_stub_mem mapping going
+ * away (munmap or process exit) — fired from stub_vm_close. stub_release
+ * fires it too, as a fallback for a stub fd closed while a mapping is still
+ * live or a buffer reserved but never mapped. The one-shot claim is done
+ * under addr_ht_lock so the vm_close and fd-release paths cannot both invoke
+ * the callback. The callback runs OUTSIDE the lock: it re-enters
+ * emu_gpu_addr_table_release (via free_page_table) and may sleep. */
+static void stub_fire_free_cb_once(struct emu_gpu_addr_entry *entry)
+{
+   void (*free_cb)(void *) = NULL;
+   void *free_cb_data = NULL;
+   unsigned long flags;
+
+   if (!entry)
+      return;
+
+   spin_lock_irqsave(&addr_ht_lock, flags);
+   if (entry->free_cb && !entry->free_cb_fired) {
+      entry->free_cb_fired = true;
+      free_cb              = entry->free_cb;
+      free_cb_data         = entry->free_cb_data;
+   }
+   spin_unlock_irqrestore(&addr_ht_lock, flags);
+
+   if (free_cb)
+      free_cb(free_cb_data);
+}
+
+/* ----------------------------------------------------------------------- */
 /* Internal API: emu_gpu_addr_table_find_by_idx                              */
 /* ----------------------------------------------------------------------- */
 
@@ -370,34 +407,21 @@ static int stub_release(struct inode *inode, struct file *file)
 
    list_for_each_entry_safe(hold, tmp, &to_free, node) {
       struct emu_gpu_addr_entry *entry = hold->entry;
-      void (*free_cb)(void *) = NULL;
-      void *free_cb_data = NULL;
 
       list_del(&hold->node);
 
-      /* Emulate NVIDIA revocation: if the datadev driver mapped this
-       * buffer (registered a free_callback via nvidia_p2p_get_pages),
-       * the app-side owner going away (this FD closing) is the analog of
-       * the app freeing its GPU allocation. Invoke the callback so the
-       * driver's Gpu_FreeNvidia runs nvidia_p2p_free_page_table, which
-       * drops the driver-holder refcount (2 -> 1); the release below then
-       * drops the FD-holder (1 -> 0) and the entry is freed. Fire at most
-       * once. Snapshot the fields, then invoke OUTSIDE any lock: the
-       * callback re-enters emu_gpu_addr_table_release (via
-       * free_page_table) and may block (synchronize_rcu on the final put
-       * happens in the release below, not the driver-holder decrement). */
-      if (entry->free_cb && !entry->free_cb_fired) {
-         entry->free_cb_fired = true;
-         free_cb              = entry->free_cb;
-         free_cb_data         = entry->free_cb_data;
-      }
-      if (free_cb)
-         free_cb(free_cb_data);
+      /* Fallback revocation. Normally stub_vm_close already fired the
+       * driver's free_callback when the mapping went away (dropping the
+       * driver-holder), but a stub fd closed while its mapping is still
+       * live — or a buffer reserved but never mapped — reaches the
+       * driver-holder drop only from here. The one-shot claim inside
+       * makes this a no-op if vm_close already ran. */
+      stub_fire_free_cb_once(entry);
 
       /* Drop the FD-owned refcount. For app-only reservations (no driver
-       * mapping, free_cb == NULL) this is the sole holder -> __free_pages
-       * + drain-cb. For driver-mapped buffers the callback above already
-       * dropped the driver-holder, so this drops the last reference. */
+       * mapping, free_cb == NULL) and unmapped reservations this is the
+       * sole/last holder -> __free_pages + drain-cb; otherwise the
+       * mapping-holder released in stub_vm_close takes the entry to zero. */
       emu_gpu_addr_table_release(entry);
       kfree(hold);
    }
@@ -473,6 +497,45 @@ static long stub_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 }
 
 /* ----------------------------------------------------------------------- */
+/* Miscdevice vm_operations: per-mapping lifecycle                           */
+/* ----------------------------------------------------------------------- */
+
+/* A stub mmap models a GPU buffer visible to userspace. Its teardown
+ * (munmap or process exit) is the stub analog of the app freeing its GPU
+ * allocation, which on real hardware fires the NVIDIA free_callback. Firing
+ * it here — rather than only at stub-fd close — runs the datadev driver's
+ * Gpu_FreeNvidia while its per-buffer page-table pointer is still valid,
+ * BEFORE a sweep/toggle test reuses the same driver buffer slot for the next
+ * size. Firing only at fd close let old-size entries leak (their free_cb ran
+ * against a reused slot), tripping WARN_ON in emu_gpu_addr_table_exit.
+ * vm_private_data pins the addr-table entry (reference taken in stub_mmap) so
+ * the entry outlives the mapping regardless of stub-fd vs mm teardown order. */
+static void stub_vm_open(struct vm_area_struct *vma)
+{
+   /* VMA split/fork: the new VMA needs its own reference so its eventual
+    * stub_vm_close has something to release. */
+   emu_gpu_addr_table_get(vma->vm_private_data);
+}
+
+static void stub_vm_close(struct vm_area_struct *vma)
+{
+   struct emu_gpu_addr_entry *entry = vma->vm_private_data;
+
+   if (!entry)
+      return;
+
+   /* Revoke (fire the driver free_callback) once, then drop the mapping's
+    * reference. */
+   stub_fire_free_cb_once(entry);
+   emu_gpu_addr_table_release(entry);
+}
+
+static const struct vm_operations_struct stub_vm_ops = {
+   .open  = stub_vm_open,
+   .close = stub_vm_close,
+};
+
+/* ----------------------------------------------------------------------- */
 /* Miscdevice fops: stub_mmap                                                */
 /* ----------------------------------------------------------------------- */
 
@@ -484,7 +547,7 @@ static int stub_mmap(struct file *file, struct vm_area_struct *vma)
    int ret;
 
    (void)file;
-   entry = emu_gpu_addr_table_find_by_idx(buf_id);
+   entry = emu_gpu_addr_table_find_by_idx(buf_id);   /* refcount: +1 mapping-holder */
    if (!entry) {
       pr_err("nvidia_p2p_stub: mmap buf_id=%u not found\n", buf_id);
       return -EINVAL;
@@ -499,18 +562,22 @@ static int stub_mmap(struct file *file, struct vm_area_struct *vma)
    /* Pitfall D: vm_flags_set BEFORE the range mapping call. */
    vm_flags_set(vma, VM_IO | VM_PFNMAP | VM_DONTDUMP);
 
-   /* find_by_idx bumped the refcount; release it now that we are done
-    * accessing entry->backing_pages.  remap_pfn_range pins the pages
-    * via the VMA pte, so the underlying memory stays mapped. */
    ret = remap_pfn_range(vma, vma->vm_start,
                          page_to_pfn(entry->backing_pages),
                          size, vma->vm_page_prot);
-   emu_gpu_addr_table_release(entry);
    if (ret) {
       pr_err("nvidia_p2p_stub: remap_pfn_range buf_id=%u failed (%d)\n",
              buf_id, ret);
+      emu_gpu_addr_table_release(entry);
       return ret;
    }
+
+   /* Retain the find_by_idx reference as the mapping-holder; stub_vm_close
+    * releases it (and fires the driver revocation callback) when the mapping
+    * goes away. remap_pfn_range pins the pages via the VMA pte, so the
+    * underlying memory stays mapped for the life of the VMA. */
+   vma->vm_private_data = entry;
+   vma->vm_ops          = &stub_vm_ops;
    return 0;
 }
 

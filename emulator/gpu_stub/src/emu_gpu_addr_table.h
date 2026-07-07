@@ -65,7 +65,7 @@ struct emu_gpu_addr_entry {
     unsigned int      order;           /* alloc_pages order                  */
     size_t            size;            /* bytes: (size_t)PAGE_SIZE << order  */
     u32               idx;             /* buf_id: miscdevice mmap offset     */
-    refcount_t        refcount;        /* 1 driver-holder + 0..1 FD-holder   */
+    refcount_t        refcount;        /* FD-holder + mapping-holder + driver-holder */
     struct hlist_node node;            /* embedded in addr_ht                */
 
     /* NVIDIA free_callback registered by the datadev driver via
