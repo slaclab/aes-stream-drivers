@@ -38,7 +38,7 @@
 #include <linux/spinlock.h>
 #include "bar0_regs.h"
 
-/* V4 register offsets inside the GPU Async window (EMU_GPU_ASYNC_OFF +
+/* V4/V5 register offsets inside the GPU Async window (EMU_GPU_ASYNC_OFF +
  * these offsets, all from AxiPcieGpuAsyncControl.vhd). */
 #define EMU_GPU_REG_MAX_BUFFERS   0x0000  /* [10:0]                     */
 #define EMU_GPU_REG_CTRL          0x0008  /* writeCount [14:0],         */
@@ -50,6 +50,12 @@
 #define EMU_GPU_REG_CNT_RST       0x0020  /* write any non-zero => clear */
                                           /* rx/tx frame counts          */
 #define EMU_GPU_REG_VERSION       0x0030
+/* Write/read "active" readback (V5, axi-pcie-core v6.8.1). Mirrors the FW's
+ * r.writeActive/r.readActive: bit0 = writeActive, bit1 = readActive. The
+ * driver's V5 teardown (gpu_async.c:370) disables the engines then spins on
+ * this until it reads 0, guaranteeing no in-flight RDMA before it frees
+ * buffers. The poll thread keeps it in sync with the CTRL enable bits. */
+#define EMU_GPU_REG_ACTIVE        0x0044  /* bit0 writeActive, bit1 readActive */
 #define EMU_GPU_REG_RW_MAX_SIZE   0x0060
 
 #define EMU_GPU_FREELIST_BASE     0x2000  /* writeFreeList[i] @ +i*4    */

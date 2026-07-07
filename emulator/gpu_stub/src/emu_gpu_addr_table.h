@@ -65,8 +65,19 @@ struct emu_gpu_addr_entry {
     unsigned int      order;           /* alloc_pages order                  */
     size_t            size;            /* bytes: (size_t)PAGE_SIZE << order  */
     u32               idx;             /* buf_id: miscdevice mmap offset     */
-    refcount_t        refcount;        /* 1 driver-holder + 0..1 FD-holder   */
+    refcount_t        refcount;        /* FD-holder + mapping-holder + driver-holder */
     struct hlist_node node;            /* embedded in addr_ht                */
+
+    /* NVIDIA free_callback registered by the datadev driver via
+     * nvidia_p2p_get_pages(). Real NVIDIA fires this when the GPU
+     * allocation is freed/revoked; the stub's analog is the app-side
+     * owner (the STUB_RESERVE_BUF FD) going away. Invoked once from
+     * stub_release so the driver's Gpu_FreeNvidia -> nvidia_p2p_free_
+     * page_table drops its holder reference and the table can drain.
+     * NULL for app-only reservations the driver never mapped. */
+    void            (*free_cb)(void *);
+    void             *free_cb_data;
+    bool              free_cb_fired;   /* idempotency guard (fire at most once) */
 };
 
 /* --- EXPORT_SYMBOL_GPL surface ---

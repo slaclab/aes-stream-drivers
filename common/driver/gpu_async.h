@@ -56,6 +56,7 @@
  * @size: Size of the buffer in bytes
  * @pageTable: Pointer to the NVIDIA-specific page table
  * @dmaMapping: Pointer to the DMA mapping structure for this buffer
+ * @dev: Pointer to the DMA device; needed by unpin callback.
  *
  * This structure defines a single buffer's properties, including its
  * memory address, size, and associated NVIDIA page table and DMA mapping.
@@ -66,6 +67,7 @@ struct GpuBuffer {
    uint64_t address;
    nvidia_p2p_page_table_t *pageTable;
    struct nvidia_p2p_dma_mapping *dmaMapping;
+   struct DmaDevice* dev;
 };
 
 /**
@@ -84,6 +86,9 @@ struct GpuBuffers {
 /**
  * struct GpuData - High-level structure representing GPU-related data
  * @base: Base pointer to the GPU data in memory
+ * @disabled: Bool indicating we cleared FPGA state (a hack for V4)
+ * @bufferDataCount: Index of next free entry in bufferData
+ * @bufferData: Slab of memory for per-buffer private data. Total size is MaxReadBuffs + MaxWriteBuffs
  * @writeBuffers: GpuBuffers structure for write operations
  * @readBuffers: GpuBuffers structure for read operations
  *
@@ -95,6 +100,7 @@ struct GpuData {
    uint32_t offset;
    int32_t version;
    uint32_t maxBuffers;
+   uint32_t disabled;
    struct GpuBuffers writeBuffers;
    struct GpuBuffers readBuffers;
 };
