@@ -77,12 +77,25 @@ run_irq_cycle() {
    CYCLE_PROBE_LINE=""
 
    echo "--- IRQ sub-test: $label ---"
-   DMESG_BEFORE=$($SUDO dmesg | wc -l)
    CYCLE_FAIL=0
 
    # Unload datadev to establish known state.
    $SUDO rmmod datadev 2>/dev/null || true
    for _ in $(seq 1 15); do [ ! -e "$DEV" ] && break; sleep 0.5; done
+
+   # Stream new kernel messages to a file for the duration of the reload.
+   # `dmesg --follow` captures each line as it is emitted, so the
+   # "Probe: using <kind> interrupts" line is recorded the instant the
+   # driver logs it during insmod -- immune to kernel-ring-buffer wrap. On
+   # the 2-vCPU CI runner the cfgDebug=1 seed-phase flood can evict old
+   # lines from the *entire* ring (not just a tail window) before a
+   # post-hoc `dmesg | grep` runs, which left CYCLE_PROBE_LINE empty and
+   # failed the mode-selection assertion even though datadev logged the
+   # correct kind. Streaming avoids the offset/eviction problem entirely.
+   local FOLLOW_LOG FOLLOW_PID
+   FOLLOW_LOG=$(mktemp)
+   $SUDO dmesg --follow-new > "$FOLLOW_LOG" 2>/dev/null &
+   FOLLOW_PID=$!
 
    # Reload with IRQ params.
    # shellcheck disable=SC2086
@@ -92,6 +105,9 @@ run_irq_cycle() {
    timeout $TIMEOUT_SEC bash -c "until [ \"\$(cat /sys/module/datadev/initstate 2>/dev/null)\" = live ]; do sleep 0.5; done" || {
       echo "[FAIL] irq_modes $label -- datadev did not reach live state"
       CYCLE_FAIL=1
+      $SUDO kill "$FOLLOW_PID" 2>/dev/null || true
+      wait "$FOLLOW_PID" 2>/dev/null || true
+      rm -f "$FOLLOW_LOG"
       return
    }
 
@@ -103,19 +119,13 @@ run_irq_cycle() {
    fi
    $SUDO chmod 666 "$DEV"
 
-   # Capture the "Probe: using <kind> interrupts" line BEFORE dmaLoopTest
-   # runs with cfgDebug=1 -- the per-frame Process/MapReturn lines flood
-   # dmesg fast enough to evict the probe line out of any fixed tail window
-   # within ~5 seconds. Scan the dmesg delta produced by THIS cycle (from
-   # DMESG_BEFORE, captured at cycle start before the rmmod/insmod) rather
-   # than a fixed `tail -n N`: on fast/noisy kernels (e.g. 7.0.0) the probe
-   # line is emitted during insmod init and pushed well past 80 lines before
-   # this runs, so a fixed window captured an empty string. The delta is
-   # bounded to this cycle, so the last match is unambiguously the current
-   # probe line. The outer mode-sweep reads this back via CYCLE_PROBE_LINE.
-   CYCLE_PROBE_LINE=$($SUDO dmesg | tail -n "+$((DMESG_BEFORE + 1))" | \
-                      grep -oE 'Probe: using [A-Za-z0-9-]+([ -]+[A-Za-z]+)* interrupts' | \
-                      tail -1 || echo "")
+   # Capture the "Probe: using <kind> interrupts" line from the streamed
+   # follow log (started before insmod). The line was recorded at emission
+   # time, so it survives even if the cfgDebug=1 seed-phase flood later
+   # wraps it out of the kernel ring buffer. The follower keeps running so
+   # the same log also backs the kernel-error scan after dmaLoopTest below.
+   CYCLE_PROBE_LINE=$(grep -oE 'Probe: using [A-Za-z0-9-]+([ -]+[A-Za-z]+)* interrupts' \
+                      "$FOLLOW_LOG" | tail -1 || echo "")
 
    sleep 2
 
@@ -157,11 +167,19 @@ run_irq_cycle() {
    # that produces few transfers is acceptable as long as the kernel is clean
    # and PRBS integrity (above) is intact.
 
-   # Kernel error check against dmesg delta. Use printf '%s\n' instead of
-   # echo for variable data: echo's option/escape parsing is implementation-
-   # defined for leading -n/-e or backslash sequences; printf is the
-   # defensive default (matches scripts/ci/check-dmesg.sh).
-   DMESG_DELTA=$($SUDO dmesg | tail -n "+$((DMESG_BEFORE + 1))")
+   # Kernel error check over this cycle's streamed messages. Reads the
+   # follow log (all kernel output since just before insmod) rather than a
+   # `dmesg | tail -n +N` offset: under ring-buffer wrap on the CI runner
+   # the absolute line offset is meaningless (the ring holds fewer lines
+   # than were counted at cycle start), which both missed errors and broke
+   # the probe capture. Now stop the follower and scan its log. Use
+   # printf '%s\n' instead of echo for variable data: echo's option/escape
+   # parsing is implementation-defined for leading -n/-e or backslash
+   # sequences; printf is the defensive default (matches check-dmesg.sh).
+   $SUDO kill "$FOLLOW_PID" 2>/dev/null || true
+   wait "$FOLLOW_PID" 2>/dev/null || true
+   DMESG_DELTA=$(cat "$FOLLOW_LOG" 2>/dev/null)
+   rm -f "$FOLLOW_LOG"
    if printf '%s\n' "$DMESG_DELTA" | grep -iE 'oops|panic|BUG:|WARNING:'; then
       echo "[FAIL] irq_modes $label -- kernel error in dmesg"
       CYCLE_FAIL=1
