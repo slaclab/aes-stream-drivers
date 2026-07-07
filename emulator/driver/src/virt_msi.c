@@ -40,27 +40,232 @@
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 19, 0)
 
 /*
- * pci_msi_create_irq_domain() was removed in Linux 6.19 (the global PCI-MSI
- * domain model was replaced by per-device msi_create_parent_irq_domain()).
- * The emulator's virtual MSI/MSI-X path has not been ported to that API, so
- * emulated MSI/MSI-X is unsupported on these kernels. INTx mode -- the default
- * and the only mode exercised by the load/test phase of CI -- is unaffected,
- * and emu_main.c only calls emu_msi_create() when emu_irq_mode != intx.
+ * Linux 6.19 removed pci_msi_create_irq_domain() and the global PCI-MSI
+ * domain model. A controller now creates only a single MSI *parent* domain
+ * via msi_create_parent_irq_domain(); the PCI core auto-creates the
+ * per-device MSI/MSI-X child from its built-in templates when
+ * dev_set_msi_domain() points a pdev at the parent. This is the ported
+ * equivalent of the pre-6.19 parent+child construction below.
+ *
+ * The bottom-domain alloc/free, the software irq_chip, the recycled hwirq
+ * bitmap, and the generic_handle_irq() delivery path are unchanged from the
+ * legacy implementation -- only the domain plumbing differs.
  */
+
+/*
+ * Software-only MSI message composer. msi_domain_activate() walks the irq
+ * hierarchy via irq_chip_compose_msi_msg() and requires a composer somewhere
+ * in the chain; the PCI-core child chip only supplies irq_write_msi_msg, so
+ * the parent must provide this. We fill zeros: the kernel writes the result
+ * into the device's MSI cap / MSI-X table, but the emulator never observes
+ * those writes -- delivery is via generic_handle_irq() from emu_msi_fire_safe().
+ */
+static void emu_msi_compose_msg(struct irq_data *d, struct msi_msg *msg)
+{
+   msg->address_lo = 0;
+   msg->address_hi = 0;
+   msg->data       = 0;
+}
+
+/*
+ * Minimal parent irq_chip. With MSI_FLAG_NO_AFFINITY in the parent ops the
+ * core never dereferences a set_affinity slot, so the legacy affinity/ack/
+ * mask noop stubs are unnecessary here.
+ */
+static struct irq_chip emu_msi_parent_chip = {
+   .name                = "EMU-MSI-PARENT",
+   .irq_compose_msi_msg = emu_msi_compose_msg,
+};
+
+/**
+ * emu_msi_parent_alloc - Allocate hwirqs in the parent (bottom) domain.
+ *
+ * Called (recursively, via the PCI-core child) when datadev calls
+ * pci_alloc_irq_vectors(). Identical bitmap logic to the pre-6.19 path:
+ * hwirqs come from a recycled bitmap so repeated datadev reloads within one
+ * emulator lifetime cannot leak the pool. On -ENOSPC no bits are set.
+ */
+static int emu_msi_parent_alloc(struct irq_domain *d, unsigned int virq,
+                                unsigned int nr_irqs, void *arg)
+{
+   struct emu_msi *m = d->host_data;
+   unsigned int i;
+   unsigned long flags;
+   unsigned long hw_base;
+
+   if (m == NULL)
+      return -EINVAL;
+
+   spin_lock_irqsave(&m->hwirq_lock, flags);
+   hw_base = bitmap_find_next_zero_area(m->hwirq_map, EMU_MSI_HWIRQ_COUNT,
+                                        0, nr_irqs, 0);
+   if (hw_base >= EMU_MSI_HWIRQ_COUNT) {
+      spin_unlock_irqrestore(&m->hwirq_lock, flags);
+      pr_err("emu_msi: hwirq pool exhausted (req=%u cap=%d)\n",
+             nr_irqs, EMU_MSI_HWIRQ_COUNT);
+      return -ENOSPC;
+   }
+   bitmap_set(m->hwirq_map, hw_base, nr_irqs);
+   spin_unlock_irqrestore(&m->hwirq_lock, flags);
+
+   for (i = 0; i < nr_irqs; i++)
+      irq_domain_set_info(d, virq + i, hw_base + i,
+                          &emu_msi_parent_chip,
+                          NULL,                /* chip_data */
+                          handle_simple_irq,
+                          NULL, NULL);
+
+   /* datadev always allocates a single vector, so virq ends up in
+    * pdev->irq via pci_irq_vector(pdev, 0). */
+   m->alloc_virq = virq;
+   return 0;
+}
+
+static void emu_msi_parent_free(struct irq_domain *d, unsigned int virq,
+                                unsigned int nr_irqs)
+{
+   struct emu_msi *m = d->host_data;
+   struct irq_data *irqd = irq_get_irq_data(virq);
+   unsigned long flags;
+   unsigned int i;
+
+   if (m != NULL && irqd != NULL) {
+      spin_lock_irqsave(&m->hwirq_lock, flags);
+      bitmap_clear(m->hwirq_map, irqd->hwirq, nr_irqs);
+      spin_unlock_irqrestore(&m->hwirq_lock, flags);
+   }
+
+   for (i = 0; i < nr_irqs; i++)
+      irq_domain_reset_irq_data(irq_get_irq_data(virq + i));
+
+   if (m != NULL && m->alloc_virq >= virq && m->alloc_virq < virq + nr_irqs)
+      m->alloc_virq = 0;
+}
+
+static const struct irq_domain_ops emu_msi_parent_ops = {
+   .alloc = emu_msi_parent_alloc,
+   .free  = emu_msi_parent_free,
+};
+
+/*
+ * Per-device child initializer. The PCI core calls this to build each
+ * device's MSI/MSI-X child domain from the parent. Modeled on
+ * msi_lib_init_dev_msi_info() but supplied locally so the module depends
+ * only on CONFIG_PCI_MSI, not CONFIG_IRQ_MSI_LIB (a hidden bool that stock
+ * x86_64 kernels do not select -- msi_lib_init_dev_msi_info would be an
+ * unresolved symbol at load time).
+ */
+static bool emu_msi_init_dev_msi_info(struct device *dev,
+                                      struct irq_domain *domain,
+                                      struct irq_domain *real_parent,
+                                      struct msi_domain_info *info)
+{
+   const struct msi_parent_ops *pops = real_parent->msi_parent_ops;
+
+   switch (info->bus_token) {
+   case DOMAIN_BUS_PCI_DEVICE_MSI:
+   case DOMAIN_BUS_PCI_DEVICE_MSIX:
+      break;
+   default:
+      return false;
+   }
+
+   info->flags &= pops->supported_flags;   /* clamp to what we support */
+   info->flags |= pops->required_flags;     /* enforce USE_DEF_*_OPS etc. */
+   return true;
+}
+
+/*
+ * USE_DEF_DOM_OPS | USE_DEF_CHIP_OPS are mandatory: without them the
+ * auto-created child domain has no alloc/activate/chip ops and allocation
+ * crashes. NO_AFFINITY lets us omit a parent set_affinity. PCI_MSIX permits
+ * MSI-X mode.
+ */
+#define EMU_MSI_FLAGS_REQUIRED  (MSI_FLAG_USE_DEF_DOM_OPS  | \
+                                 MSI_FLAG_USE_DEF_CHIP_OPS | \
+                                 MSI_FLAG_NO_AFFINITY)
+#define EMU_MSI_FLAGS_SUPPORTED (MSI_GENERIC_FLAGS_MASK | MSI_FLAG_PCI_MSIX)
+
+static const struct msi_parent_ops emu_msi_parent_msi_ops = {
+   .required_flags    = EMU_MSI_FLAGS_REQUIRED,
+   .supported_flags   = EMU_MSI_FLAGS_SUPPORTED,
+   .bus_select_token  = DOMAIN_BUS_PCI_MSI,
+   .prefix            = "EMU-",
+   .init_dev_msi_info = emu_msi_init_dev_msi_info,
+};
+
+/* Deferred fire helper: runs generic_handle_irq() on the allocated child
+ * virq in hardirq context via self-IPI. Identical to the pre-6.19 copy. */
+static void emu_msi_work_fn(struct irq_work *work)
+{
+   struct emu_msi *m = container_of(work, struct emu_msi, irq_work);
+
+   if (m->alloc_virq != 0)
+      generic_handle_irq(m->alloc_virq);
+}
+
 int emu_msi_create(struct emu_msi *m)
 {
-   m->alloc_virq    = 0;
-   m->fwnode        = NULL;
-   m->parent_domain = NULL;
-   m->msi_domain    = NULL;
-   pr_warn("emu_msi: virtual PCI-MSI/MSI-X unsupported on Linux >= 6.19 "
-           "(pci_msi_create_irq_domain removed); use emu_irq_mode=intx\n");
-   return -EOPNOTSUPP;
+   struct irq_domain_info info;
+
+   m->alloc_virq = 0;
+   spin_lock_init(&m->hwirq_lock);
+   bitmap_zero(m->hwirq_map, EMU_MSI_HWIRQ_COUNT);
+
+   m->fwnode = irq_domain_alloc_named_fwnode("emu-msi");
+   if (m->fwnode == NULL) {
+      pr_err("emu_msi: irq_domain_alloc_named_fwnode failed\n");
+      return -ENOMEM;
+   }
+
+   /* msi_create_parent_irq_domain() sets IRQ_DOMAIN_FLAG_MSI_PARENT and
+    * bus_token internally from the parent ops -- do not set them here. size
+    * becomes hwirq_max inside the helper. */
+   info = (struct irq_domain_info){
+      .fwnode    = m->fwnode,
+      .ops       = &emu_msi_parent_ops,
+      .host_data = m,
+      .size      = EMU_MSI_HWIRQ_COUNT,
+   };
+
+   m->parent_domain = msi_create_parent_irq_domain(&info,
+                                                   &emu_msi_parent_msi_ops);
+   if (m->parent_domain == NULL) {
+      pr_err("emu_msi: msi_create_parent_irq_domain failed\n");
+      irq_domain_free_fwnode(m->fwnode);
+      m->fwnode = NULL;
+      return -ENOMEM;
+   }
+
+   /* Single domain now: the PCI core auto-creates the per-device child from
+    * the parent when dev_set_msi_domain() attaches it. emu_msi_get_domain()
+    * hands this to the host bridge just as before. */
+   m->msi_domain = m->parent_domain;
+
+   init_irq_work(&m->irq_work, emu_msi_work_fn);
+
+   pr_info("emu_msi: PCI-MSI parent domain ready (parent=%p)\n",
+           m->parent_domain);
+   return 0;
 }
 
 void emu_msi_destroy(struct emu_msi *m)
 {
-   /* emu_msi_create() allocates nothing on this kernel; nothing to free. */
+   /* Stop new fires, then drain any irq_work queued by a last-gasp
+    * emu_msi_fire_safe() before tearing the domain down (see the pre-6.19
+    * emu_msi_destroy for the full rationale). */
+   m->alloc_virq = 0;
+   irq_work_sync(&m->irq_work);
+
+   if (m->parent_domain != NULL) {
+      irq_domain_remove(m->parent_domain);   /* single domain now */
+      m->parent_domain = NULL;
+      m->msi_domain    = NULL;
+   }
+   if (m->fwnode != NULL) {
+      irq_domain_free_fwnode(m->fwnode);
+      m->fwnode = NULL;
+   }
 }
 
 #else  /* LINUX_VERSION_CODE < KERNEL_VERSION(6, 19, 0) */
