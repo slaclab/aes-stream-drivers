@@ -44,10 +44,11 @@ gating the next:
 Distribution Matrix
 -------------------
 
-Both Phase 2 (CPU) and Phase 3 (GPU) run against six container images.
-Each container runs ``--privileged`` with the host kernel's ``/lib/modules``
-and ``/usr/src`` bind-mounted, so ``insmod`` loads against the live Azure
-kernel regardless of the userspace distribution.
+Both Phase 2 (CPU) and Phase 3 (GPU) run against six container images on an
+``ubuntu-24.04`` runner. Load-test cells run ``--privileged`` with the host
+kernel's ``/lib/modules`` and ``/usr/src`` bind-mounted, so ``insmod`` loads
+against the live Azure kernel; build-only (smoke) cells omit the mounts and
+compile against their own distro kernel headers.
 
 .. list-table::
    :header-rows: 1
@@ -57,14 +58,14 @@ kernel regardless of the userspace distribution.
      - CPU Load Test
      - GPU Load Test
      - Purpose
-   * - ``ubuntu:26.04``
+   * - ``ubuntu:24.04``
      - Yes
      - Yes
      - Primary platform; matches the GitHub Actions runner
-   * - ``ubuntu:24.04``
+   * - ``ubuntu:26.04``
      - No
      - No
-     - LTS compatibility; build + DKMS smoke only
+     - Next LTS; build + DKMS smoke only
    * - ``ubuntu:22.04``
      - No
      - No
@@ -82,15 +83,19 @@ kernel regardless of the userspace distribution.
      - Yes
      - Rawhide gcc/glibc; most aggressive compiler warnings
 
-Only the ``ubuntu:26.04`` cell — which matches the GitHub Actions runner
+Only the ``ubuntu:24.04`` cell — which matches the GitHub Actions runner
 kernel — runs the full build + load + test + unload + DKMS sequence. The
-``ubuntu:24.04`` and ``ubuntu:22.04`` cells set ``load_test: false`` and run
-build + DKMS smoke only. The remaining distros keep ``load_test: true`` but
-their load/test steps are gated at runtime on ``CI_HOST_MATCH=1`` (container
-has the running host's kernel headers, either via bind-mount or package
-install); distros that cannot satisfy that condition fall back to a DKMS
-smoke path (``dkms ldtarball`` with ``--no-prepare-kernel``) in the same
-cell.
+``ubuntu:26.04`` and ``ubuntu:22.04`` cells set ``load_test: false`` and run
+build + DKMS smoke only (compiling against their own distro kernel headers).
+The remaining distros keep ``load_test: true`` but their load/test steps are
+gated at runtime on ``CI_HOST_MATCH=1`` (container has the running host's
+kernel headers, either via bind-mount or package install); distros that
+cannot satisfy that condition fall back to a DKMS smoke path (``dkms
+ldtarball`` with ``--no-prepare-kernel``) in the same cell.
+
+``ubuntu:26.04`` full load-testing is deferred: its 7.0.0 kernel exposes a
+flaky emulator DMA-capture race under the 2-vCPU runner's CPU contention.
+The ``.deb`` package for 26.04 is still built and published (Phase 6).
 
 
 Phase 2: CPU Test Coverage
