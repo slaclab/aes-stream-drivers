@@ -425,7 +425,7 @@ elif [[ "$DISTRO_ID" == "rocky" || "$DISTRO_ID" == "rhel" || \
 else
    echo_fail "Unsupported distribution: $DISTRO_ID $DISTRO_VERSION"
    echo "Supported distributions:"
-   echo "  - Ubuntu 22.04, 24.04"
+   echo "  - Ubuntu 22.04, 24.04, 26.04"
    echo "  - Debian (experimental)"
    echo "  - Rocky Linux 9"
    echo "  - Fedora (rawhide)"

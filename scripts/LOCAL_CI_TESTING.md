@@ -49,6 +49,7 @@ cell whose kernel matches the parity VM host (driven by
 |-----------|-----|-----|------------------|
 | ubuntu:24.04 | yes | yes | Runs load+test when `CI_HOST_MATCH=1` (normally the matching cell) |
 | ubuntu:22.04 | yes | yes | Build + DKMS smoke unless `CI_HOST_MATCH=1` |
+| ubuntu:26.04 | yes | yes | Build + DKMS smoke unless `CI_HOST_MATCH=1` |
 | rockylinux:9 | yes | yes | Build + DKMS smoke unless `CI_HOST_MATCH=1` |
 | debian:experimental | yes | yes | Build + DKMS smoke unless `CI_HOST_MATCH=1` |
 | fedora:rawhide | yes | yes | Build + DKMS smoke unless `CI_HOST_MATCH=1` |

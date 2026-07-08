@@ -47,13 +47,14 @@ source "$SCRIPT_DIR/lib/common.sh"
 # Matrix definitions — mirror ci_pipeline.yml include: arrays.
 # CPU: ci_pipeline.yml Phase 2 (cpu_test) matrix.
 # GPU: ci_pipeline.yml Phase 3 (gpu_test) matrix.
-# Both matrices share the same 5-distro shape; only ubuntu:24.04 has
+# Both matrices share the same 6-distro shape; only ubuntu:24.04 has
 # load_test=true (the others are build-only).
 # ----------------------------------------------------------------------------
 CPU_CELLS=(
    "ubuntu:24.04|0"
    "ubuntu:24.04|1"
    "ubuntu:22.04|1"
+   "ubuntu:26.04|1"
    "rockylinux:9|1"
    "debian:experimental|1"
    "fedora:rawhide|1"
@@ -63,6 +64,7 @@ GPU_CELLS=(
    "ubuntu:24.04|0"
    "ubuntu:24.04|1"
    "ubuntu:22.04|0"
+   "ubuntu:26.04|0"
    "rockylinux:9|0"
    "debian:experimental|1"
    "fedora:rawhide|1"

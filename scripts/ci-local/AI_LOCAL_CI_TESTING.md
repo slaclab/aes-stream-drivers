@@ -552,14 +552,14 @@ sequential).
 
 ### Sequential mode (single VM, lower resource usage)
 
-To cover all 5 distros × 2 phases (CPU + GPU) = 10 cells sequentially:
+To cover all 6 distros × 2 phases (CPU + GPU) = 12 cells sequentially:
 
 ```bash
 # Sequential CPU matrix:
 bash scripts/ci-local/run_matrix.sh --phase cpu
 
 # Or manual loop for custom distro selection:
-DISTROS=("ubuntu:24.04" "ubuntu:22.04" "rockylinux:9" "debian:experimental" "fedora:rawhide")
+DISTROS=("ubuntu:24.04" "ubuntu:22.04" "ubuntu:26.04" "rockylinux:9" "debian:experimental" "fedora:rawhide")
 for phase in cpu gpu; do
    for distro in "${DISTROS[@]}"; do
       echo "=== $distro ($phase) ==="
@@ -568,7 +568,7 @@ for phase in cpu gpu; do
 done
 ```
 
-Each cell takes ~5-10 minutes; the full 10-cell matrix takes ~60-90
+Each cell takes ~5-10 minutes; the full 12-cell matrix takes ~60-90
 minutes sequentially.
 
 ### Why can't a single VM parallelize load-test cells?

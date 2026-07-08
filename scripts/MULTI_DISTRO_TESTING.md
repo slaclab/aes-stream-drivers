@@ -20,11 +20,12 @@ container inside that guest:
 
 1. **ubuntu:24.04** — build + load + test + DKMS (CPU and GPU)
 2. **ubuntu:22.04** — build + DKMS smoke (CPU and GPU)
-3. **rockylinux:9** — build + DKMS smoke (CPU and GPU)
-4. **debian:experimental** — build + DKMS smoke (CPU and GPU)
-5. **fedora:rawhide** — build + DKMS smoke (CPU and GPU)
+3. **ubuntu:26.04** — build + DKMS smoke (CPU and GPU)
+4. **rockylinux:9** — build + DKMS smoke (CPU and GPU)
+5. **debian:experimental** — build + DKMS smoke (CPU and GPU)
+6. **fedora:rawhide** — build + DKMS smoke (CPU and GPU)
 
-All five cells declare `load_test: true`, but the actual module
+All six cells declare `load_test: true`, but the actual module
 load/test/unload steps are gated by the `CI_HOST_MATCH` environment
 variable. Only the cell whose kernel matches the parity VM host kernel
 (normally `ubuntu:24.04`) runs the full load/test/unload/DKMS-install

@@ -3,8 +3,8 @@
 # ----------------------------------------------------------------------------
 # Complete CI/CD pipeline with sequential phases:
 #  Phase 1: Documentation & Linting
-#  Phase 2: CPU Testing (5 distros in parallel) → waits for Phase 1
-#  Phase 3: GPU Testing (5 distros in parallel) → waits for Phase 2
+#  Phase 2: CPU Testing (6 distros in parallel) → waits for Phase 1
+#  Phase 3: GPU Testing (6 distros in parallel) → waits for Phase 2
 #  Phase 4: Release Generation → waits for Phase 3
 #  Phase 5: DKMS Source Tarball Builds + Uploads (cpu, gpu) → waits for Phase 4
 #  Phase 6: Distribution Packages (.deb/.rpm) + Uploads → waits for Phase 5
@@ -65,7 +65,7 @@ jobs:
           find . -name '*.h' -o -name '*.cpp' -o -name '*.c' | xargs cpplint
 
   # ==========================================================================
-  # Phase 2: CPU Testing (5 distros in parallel)
+  # Phase 2: CPU Testing (6 distros in parallel)
   # Waits for Phase 1 to complete
   # Uses modular scripts from scripts/ci/
   # ==========================================================================
@@ -87,6 +87,8 @@ jobs:
           - container: "ubuntu:24.04"
             load_test: true
           - container: "ubuntu:22.04"
+            load_test: true
+          - container: "ubuntu:26.04"
             load_test: true
           - container: "rockylinux:9"
             load_test: true
@@ -169,7 +171,7 @@ jobs:
         run: dmesg || echo "dmesg not available (expected in container)"
 
   # ==========================================================================
-  # Phase 3: GPU Testing (5 distros in parallel)
+  # Phase 3: GPU Testing (6 distros in parallel)
   # Waits for Phase 2 (all CPU tests) to complete
   # Uses modular scripts from scripts/ci/
   # ==========================================================================
@@ -195,6 +197,8 @@ jobs:
           - container: "ubuntu:24.04"
             load_test: true
           - container: "ubuntu:22.04"
+            load_test: true
+          - container: "ubuntu:26.04"
             load_test: true
           - container: "rockylinux:9"
             load_test: true
@@ -358,6 +362,7 @@ jobs:
   # Builds real installable DKMS packages per target:
   #   * ubuntu-22.04  -> .deb
   #   * ubuntu-24.04  -> .deb
+  #   * ubuntu-26.04  -> .deb
   #   * rockylinux-9  -> .rpm
   # for both the CPU (datadev) and GPU (datadev-gpu) driver variants, then
   # uploads each built package to the GitHub release.
@@ -376,13 +381,16 @@ jobs:
       fail-fast: false
       matrix:
         driver_type: [cpu, gpu]
-        target_env: [ubuntu-22.04, ubuntu-24.04, rockylinux-9]
+        target_env: [ubuntu-22.04, ubuntu-24.04, ubuntu-26.04, rockylinux-9]
         include:
           - target_env: ubuntu-22.04
             container_image: "ubuntu:22.04"
             pkg_format: "deb"
           - target_env: ubuntu-24.04
             container_image: "ubuntu:24.04"
+            pkg_format: "deb"
+          - target_env: ubuntu-26.04
+            container_image: "ubuntu:26.04"
             pkg_format: "deb"
           - target_env: rockylinux-9
             container_image: "rockylinux:9"

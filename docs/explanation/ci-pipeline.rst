@@ -27,11 +27,11 @@ gating the next:
        C/C++ lint, gpu_async.c change guard
    * - 2
      - CPU Testing
-     - Build and test the CPU-only driver across 5 distros in parallel
+     - Build and test the CPU-only driver across 6 distros in parallel
    * - 3
      - GPU Testing
      - Build and test the GPU driver (with emulator + p2p stub) across
-       5 distros in parallel
+       6 distros in parallel
    * - 4
      - Release Generation
      - Creates GitHub Release artifacts (tags only)
@@ -44,7 +44,7 @@ gating the next:
 Distribution Matrix
 -------------------
 
-Both Phase 2 (CPU) and Phase 3 (GPU) run against five container images.
+Both Phase 2 (CPU) and Phase 3 (GPU) run against six container images.
 Each container runs ``--privileged`` with the host kernel's ``/lib/modules``
 and ``/usr/src`` bind-mounted, so ``insmod`` loads against the live Azure
 kernel regardless of the userspace distribution.
@@ -65,6 +65,10 @@ kernel regardless of the userspace distribution.
      - Yes
      - Yes
      - LTS compatibility; older glibc and toolchain
+   * - ``ubuntu:26.04``
+     - Yes
+     - Yes
+     - Latest LTS; newest kernel and toolchain
    * - ``rockylinux:9``
      - Yes
      - Yes
@@ -78,7 +82,7 @@ kernel regardless of the userspace distribution.
      - Yes
      - Rawhide gcc/glibc; most aggressive compiler warnings
 
-All five distros run the full build + load + test + unload + DKMS
+All six distros run the full build + load + test + unload + DKMS
 sequence in both phases. Load/test is gated at runtime on
 ``CI_HOST_MATCH=1`` (container has the running host's kernel headers,
 either via bind-mount or package install); distros that cannot satisfy
