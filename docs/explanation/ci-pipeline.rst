@@ -66,9 +66,9 @@ kernel regardless of the userspace distribution.
      - Yes
      - LTS compatibility; older glibc and toolchain
    * - ``ubuntu:26.04``
-     - Yes
-     - Yes
-     - Latest LTS; newest kernel and toolchain
+     - No
+     - No
+     - Latest LTS; build + DKMS smoke only (newer toolchain would otherwise run the full suite)
    * - ``rockylinux:9``
      - Yes
      - Yes
@@ -82,12 +82,14 @@ kernel regardless of the userspace distribution.
      - Yes
      - Rawhide gcc/glibc; most aggressive compiler warnings
 
-All six distros run the full build + load + test + unload + DKMS
-sequence in both phases. Load/test is gated at runtime on
-``CI_HOST_MATCH=1`` (container has the running host's kernel headers,
-either via bind-mount or package install); distros that cannot satisfy
-that condition fall back to a DKMS smoke path (``dkms ldtarball`` with
-``--no-prepare-kernel``) in the same cell.
+Every distro builds the driver in both phases. The load + test + unload
++ DKMS-install sequence is gated on both the ``load_test`` matrix flag
+and ``CI_HOST_MATCH=1`` (container has a toolchain matching the running
+host kernel); cells that do not satisfy both fall back to a DKMS smoke
+path (``dkms ldtarball`` with ``--no-prepare-kernel``) in the same cell.
+``ubuntu:26.04`` sets ``load_test: false`` so it stays build + DKMS
+smoke only -- its newer toolchain matches the host kernel and would
+otherwise pull it into the full suite.
 
 
 Phase 2: CPU Test Coverage

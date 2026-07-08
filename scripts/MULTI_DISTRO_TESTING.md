@@ -25,9 +25,11 @@ container inside that guest:
 5. **debian:experimental** — build + DKMS smoke (CPU and GPU)
 6. **fedora:rawhide** — build + DKMS smoke (CPU and GPU)
 
-All six cells declare `load_test: true`, but the actual module
-load/test/unload steps are gated by the `CI_HOST_MATCH` environment
-variable. Only the cell whose kernel matches the parity VM host kernel
+Five of the six cells declare `load_test: true`; `ubuntu:26.04` uses
+`load_test: false` to stay build + DKMS smoke only (its newer toolchain
+would otherwise satisfy `CI_HOST_MATCH`). For the load-test cells, the
+actual module load/test/unload steps are gated by the `CI_HOST_MATCH`
+environment variable. Only the cell whose kernel matches the parity VM host kernel
 (normally `ubuntu:24.04`) runs the full load/test/unload/DKMS-install
 cycle; the other cells stop after compile + DKMS tarball smoke. This
 mirrors the gating used in `.github/workflows/ci_pipeline.yml`.

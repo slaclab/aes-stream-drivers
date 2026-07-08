@@ -88,8 +88,13 @@ jobs:
             load_test: true
           - container: "ubuntu:22.04"
             load_test: true
+          # ubuntu:26.04 is newer than the ubuntu-24.04 runner, so its gcc
+          # matches the host Azure kernel and CI_HOST_MATCH becomes 1 (unlike
+          # 22.04, whose older toolchain fails the match and stays build-only).
+          # Force load_test: false to keep this cell build + DKMS-smoke only
+          # and skip the full DMA suite.
           - container: "ubuntu:26.04"
-            load_test: true
+            load_test: false
           - container: "rockylinux:9"
             load_test: true
           - container: "debian:experimental"
@@ -198,8 +203,13 @@ jobs:
             load_test: true
           - container: "ubuntu:22.04"
             load_test: true
+          # ubuntu:26.04 is newer than the ubuntu-24.04 runner, so its gcc
+          # matches the host Azure kernel and CI_HOST_MATCH becomes 1 (unlike
+          # 22.04, whose older toolchain fails the match and stays build-only).
+          # Force load_test: false to keep this cell build + DKMS-smoke only
+          # and skip the full DMA suite.
           - container: "ubuntu:26.04"
-            load_test: true
+            load_test: false
           - container: "rockylinux:9"
             load_test: true
           - container: "debian:experimental"

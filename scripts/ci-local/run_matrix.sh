@@ -54,7 +54,7 @@ CPU_CELLS=(
    "ubuntu:24.04|0"
    "ubuntu:24.04|1"
    "ubuntu:22.04|1"
-   "ubuntu:26.04|1"
+   "ubuntu:26.04|0"
    "rockylinux:9|1"
    "debian:experimental|1"
    "fedora:rawhide|1"
