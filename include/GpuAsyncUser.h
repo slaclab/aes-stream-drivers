@@ -104,11 +104,13 @@ public:
 
    /**
     * @brief Sets the number of write buffers.
+    * @param val Number of write buffers.
     * @note gpuAddNvidiaMemory sets this for you.
     * @note This is an INTERNAL register, you should not use this unless you know what you're doing!
     */
    inline void setWriteCount(uint32_t val) {
-      writeRegV1V4(GpuAsyncReg_WriteCountV1, GpuAsyncReg_WriteCountV4, val-1);
+      // Count is zero inclusive, but we've made it cleaner for callers of this function.
+      writeRegV1V4(GpuAsyncReg_WriteCountV1, GpuAsyncReg_WriteCountV4, val ? val-1 : 0);
    }
 
    inline uint32_t writeEnable() const {
@@ -129,11 +131,13 @@ public:
 
    /**
     * @brief Sets the number of read buffers.
+    * @param val Number of read buffers.
     * @note gpuAddNvidiaMemory sets this for you.
     * @note This is an INTERNAL register, you should not use this unless you know what you're doing!
     */
    inline void setReadCount(uint32_t val) {
-      writeRegV1V4(GpuAsyncReg_ReadCountV1, GpuAsyncReg_ReadCountV4, val-1);
+      // Count is zero inclusive, but we've made it cleaner for callers of this function.
+      writeRegV1V4(GpuAsyncReg_ReadCountV1, GpuAsyncReg_ReadCountV4, val ? val-1 : 0);
    }
 
    inline uint32_t readEnable() const {
