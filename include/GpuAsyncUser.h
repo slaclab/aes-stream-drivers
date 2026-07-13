@@ -99,7 +99,8 @@ public:
    }
 
    inline uint32_t writeCount() const {
-      return readRegV1V4(GpuAsyncReg_WriteCountV1, GpuAsyncReg_WriteCountV4);
+      // Write count is zero-inclusive
+      return readRegV1V4(GpuAsyncReg_WriteCountV1, GpuAsyncReg_WriteCountV4) + 1;
    }
 
    /**
@@ -126,7 +127,8 @@ public:
    }
 
    inline uint32_t readCount() const {
-      return readRegV1V4(GpuAsyncReg_ReadCountV1, GpuAsyncReg_ReadCountV4);
+      // Read count is a zero-inclusive count
+      return readRegV1V4(GpuAsyncReg_ReadCountV1, GpuAsyncReg_ReadCountV4) + 1;
    }
 
    /**
