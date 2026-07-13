@@ -912,7 +912,10 @@ void AxisG2_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    seq_printf(s, "      Driver Load Count : %u\n", ((readl(&(reg->enableVer)))>>8)&0xFF);
    seq_printf(s, "               IRQ Hold : %u\n", (readl(&(reg->irqHoldOff))));
    seq_printf(s, "              BG Enable : 0x%x\n", hwData->bgEnable);
-   seq_printf(s, "           GPU Async En : %i\n", dev->gpuEn);
+   if (!dev->gpuEn && dev->gpuVer)  // Unsupported GpuAsyncCore version
+      seq_printf(s, "           GPU Async En : %i (Unsupported GpuAsyncCore Version: %d)\n", dev->gpuEn, dev->gpuVer);
+   else
+      seq_printf(s, "           GPU Async En : %i\n", dev->gpuEn);
    seq_printf(s, "            DMA Timeout : %u\n", readl(&(reg->timeout)));
 
    for ( x=0; x < 8; x++ ) {
