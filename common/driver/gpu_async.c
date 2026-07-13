@@ -146,6 +146,14 @@ int32_t Gpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
       case GPU_Get_Max_Buffers:
          return (int32_t)data->maxBuffers;
 
+      // Enable TX operations
+      case GPU_Enable_Tx:
+         return Gpu_EnableTx(dev, arg);
+
+      // Enable RX operations
+      case GPU_Enable_Rx:
+         return Gpu_EnableRx(dev, arg);
+
       default:
          dev_warn(dev->device, "Command: Invalid command=%u\n", cmd);
          return -1;
@@ -315,7 +323,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
          x |= 0x00000100;  // Set write-enable bit
          x |= (data->writeBuffers.count-1);  // Set the 0-based write buffer count
       } else {
-         x |= 1 << 15;  // Set write-enable bit
+         x &= ~(1 << 15);  // Clear write-enable bit; User space must call gpuEnableTx to set this.
          x |= (data->writeBuffers.count-1) & 0x7FFF;  // Set the 0-based write buffer count
       }
    }
@@ -325,7 +333,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
          x |= 0x01000000;  // Set read-enable bit
          x |= (data->readBuffers.count-1) << 16;  // Set the 0-based read buffer count
       } else {
-         x |= 1 << 31;  // Set read-enable bit
+         x &= ~(1 << 31);  // Clear read-enable bit; User space must call gpuEnableRx to set this.
          x |= (data->readBuffers.count-1) << 16;  // Set the 0-based read buffer count
       }
    }
@@ -636,4 +644,42 @@ void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
       seq_printf(s, "  Read Address : 0x%llX\n", ((u64)rah << 32) | ral);
       seq_printf(s, "     Read Size : 0x%X\n", rs);
    }
+}
+
+/**
+ * @brief Toggles the write enable bit
+ * @param dev The device
+ * @param enable Enable or disable. Treated as a boolean.
+ */
+int32_t Gpu_EnableTx(struct DmaDevice *dev, uint64_t enable) {
+   struct GpuData* data = (struct GpuData*)dev->utilData;
+
+   const struct GpuAsyncRegister* theReg = NULL;
+   if (data->version < 4) {
+      theReg = &GpuAsyncReg_WriteEnableV1;
+   } else {
+      theReg = &GpuAsyncReg_WriteEnableV4;
+   }
+
+   writeGpuAsyncReg(data->base, theReg, !!enable);
+   return 0;
+}
+
+/**
+ * @brief Toggles the read enable bit
+ * @param dev The device
+ * @param enable Enable or disable. Treated as a boolean.
+ */
+int32_t Gpu_EnableRx(struct DmaDevice *dev, uint64_t enable) {
+   struct GpuData* data = (struct GpuData*)dev->utilData;
+
+   const struct GpuAsyncRegister* theReg = NULL;
+   if (data->version < 4) {
+      theReg = &GpuAsyncReg_ReadEnableV1;
+   } else {
+      theReg = &GpuAsyncReg_ReadEnableV4;
+   }
+
+   writeGpuAsyncReg(data->base, theReg, !!enable);
+   return 0;
 }

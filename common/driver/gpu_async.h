@@ -114,5 +114,7 @@ void Gpu_FreeNvidia(void * data);
 int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg);
 void Gpu_Show(struct seq_file *s, struct DmaDevice *dev);
 int32_t Gpu_GetVersion(struct DmaDevice *dev);
+int32_t Gpu_EnableTx(struct DmaDevice *dev, uint64_t enable);
+int32_t Gpu_EnableRx(struct DmaDevice *dev, uint64_t enable);
 
 #endif  // __GPU_ASYNC_2_H__
