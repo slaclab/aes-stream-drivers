@@ -46,6 +46,7 @@ int32_t Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
    uint8_t* gpuBase = dev->base + offset;
    uint8_t version = readGpuAsyncReg(gpuBase, &GpuAsyncReg_Version);
    dev->gpuEn = !!version;
+   dev->gpuVer = version;
 
    // GPU not enabled, avoid allocating GPU data */
    if (!dev->gpuEn)
