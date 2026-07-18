@@ -68,6 +68,7 @@ struct TestSession {
     int bufSize = 0;
     uint32_t dmaHeaderSize = 0;
     bool loopback = false;
+    int fd = -1;
 };
 
 static void runSimpleLoop(TestSession& s);
@@ -167,6 +168,7 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
         return -1;
     }
     const int fd = s.dataGpu->fd();
+    s.fd = fd;
 
     if (!gpuIsGpuAsyncSupported(fd)) {
         fprintf(stderr, "Firmware or driver does not support GPUAsync\n");
@@ -280,9 +282,9 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
 }
 
 static void cleanupSession(TestSession& s) {
-    if (s.coreRegs) {
-        s.coreRegs->setWriteEnable(0);
-        s.coreRegs->setReadEnable(0);
+    if (s.fd > 0) {
+        gpuEnableTx(s.fd, 0);
+        gpuEnableRx(s.fd, 0);
     }
 
     if (s.stream) {

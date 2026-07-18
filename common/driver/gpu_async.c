@@ -138,10 +138,6 @@ int32_t Gpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
       case GPU_Set_Write_Enable:
          return Gpu_SetWriteEn(dev, arg);
 
-      // Get the async core version
-      case GPU_Get_Gpu_Async_Ver:
-         return Gpu_GetVersion(dev);
-
       // Get the max number of buffers
       case GPU_Get_Max_Buffers:
          return (int32_t)data->maxBuffers;
@@ -549,18 +545,6 @@ int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg) {
 
    writel(0x1, data->base + offset);
 
-   return 0;
-}
-
-/**
- * Gpu_GetVersion - Get the version of GpuAsyncCore
- * @dev: Pointer to the DmaDevice structure
- * Return: the version, or 0 if not supported/disabled
- */
-int32_t Gpu_GetVersion(struct DmaDevice *dev) {
-   struct GpuData* data = (struct GpuData *)dev->utilData;
-   if (data)
-      return data->version;
    return 0;
 }
 

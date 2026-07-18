@@ -139,9 +139,9 @@ static inline bool gpuIsGpuAsyncSupported(int32_t fd) {
  * @param fd File descriptor for the device.
  *
  * @return On success, the version of GpuAsyncCore (@c >= 0).  On failure,
- *         @c -1 with @c errno set to indicate the cause (for example
- *         @c ENOTSUPP or @c ENOTTY if the driver was compiled without
- *         GPUAsync support, or another ioctl error).
+ *         @c -1 with @c errno set to indicate the cause.
+ *         @c ENOTSUPP or @c ENOTTY indicates that the driver was compiled without
+ *         GpuAsync support.
  *
  * @note The return type is @c ssize_t (signed) so the @c -1 failure case is
  *       representable without wraparound.  Callers must explicitly check
