@@ -500,7 +500,6 @@ int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
       case GPU_Add_Nvidia_Memory:
       case GPU_Rem_Nvidia_Memory:
       case GPU_Set_Write_Enable:
-      case GPU_Get_Gpu_Async_Ver:
       case GPU_Get_Max_Buffers:
       case GPU_Enable_Rx:
       case GPU_Enable_Tx:
@@ -514,6 +513,12 @@ int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
          return dev->gpuEn ? 1 : 0;
 #else
          return 0;
+#endif
+      case GPU_Get_Gpu_Async_Ver:
+#ifdef DATA_GPU
+         return dev->gpuVer;
+#else
+         return -ENOTSUPP;
 #endif
       case AVER_Get:
          // AXI Version Read
