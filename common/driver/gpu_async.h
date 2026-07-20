@@ -101,6 +101,7 @@ struct GpuData {
    int32_t version;
    uint32_t maxBuffers;
    uint32_t disabled;
+   atomic64_t pid;
    struct GpuBuffers writeBuffers;
    struct GpuBuffers readBuffers;
 };
