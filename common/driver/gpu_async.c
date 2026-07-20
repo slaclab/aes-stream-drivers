@@ -447,7 +447,7 @@ static void Gpu_ClearBufferRegs(struct DmaDevice* dev) {
    // Reset the buffer counts
    data->writeBuffers.count = 0;
    data->readBuffers.count = 0;
-   
+
    // Release GpuAsyncCore to other processes
    atomic64_set(&data->pid, 0);
 

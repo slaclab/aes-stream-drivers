@@ -110,7 +110,7 @@ static inline ssize_t gpuRemNvidiaMemory(int32_t fd) {
  * @param fd  File descriptor for the device.
  * @param idx Buffer index to enable.
  *
- * @return On success, returns 0. On failure, returns a negative error code and 
+ * @return On success, returns 0. On failure, returns a negative error code and
  *         sets errno:
  *          * ENOTSUPP if the firmware does not support GPUDirect.
  *          * EBUSY if the GpuAsyncCore state is locked by another process.
