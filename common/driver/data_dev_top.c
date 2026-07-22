@@ -21,6 +21,7 @@
 #include <data_dev_top.h>
 #include <AxiVersion.h>
 #include <axi_version.h>
+#include <axi_hwmon.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/types.h>
@@ -385,6 +386,9 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
       goto err_unmap;
    }
 
+   // Register hwmon interface
+   AxiHwmon_Init(dev, AVER_OFF, ASYSMON_OFF);
+
    // Log memory mapping information
    dev_info(dev->device, "Init: Reg space mapped to 0x%p.\n", dev->reg);
    dev_info(dev->device, "Init: User space mapped to 0x%p with size 0x%x.\n", dev->rwBase, dev->rwSize);
@@ -455,6 +459,9 @@ void DataDev_Remove(struct pci_dev *pcidev) {
 
    // Decrement count
    gDmaDevCount--;
+
+   // Remove hwmon interface
+   AxiHwmon_Remove(dev);
 
 #ifdef DATA_GPU
    // Free GPU utility data allocated by Gpu_Init. gpu_async.c

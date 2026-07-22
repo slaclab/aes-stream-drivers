@@ -161,6 +161,9 @@ struct DmaDevice {
 
    // Transmit queue
    struct DmaQueue tq;
+
+   // For axi_hwmon.c
+   void* hwmonPrivate;
 };
 
 /**

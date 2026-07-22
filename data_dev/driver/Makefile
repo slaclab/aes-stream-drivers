@@ -84,7 +84,7 @@ $(info $(ccflags-y))
 
 # Object files that make up the module
 $(NAME)-objs := src/dma_buffer.o src/dma_common.o
-$(NAME)-objs += src/axi_version.o src/axis_gen2.o src/data_dev_top.o
+$(NAME)-objs += src/axi_version.o src/axis_gen2.o src/data_dev_top.o src/axi_hwmon.o
 
 ifneq ($(NVIDIA_DRIVERS),)
 $(NAME)-objs += src/gpu_async.o
