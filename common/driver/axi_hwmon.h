@@ -22,4 +22,4 @@
 void AxiHwmon_Init(struct DmaDevice* dev, off_t axiVerOffset, off_t axiSysMonOffset);
 void AxiHwmon_Remove(struct DmaDevice* dev);
 
-#endif // AXI_HWMON_H_
+#endif  // AXI_HWMON_H_

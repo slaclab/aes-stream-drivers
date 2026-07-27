@@ -15,14 +15,14 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
-#include "axi_hwmon.h"
-#include "dma_common.h"
 #include <linux/types.h>
 #include <linux/hwmon.h>
 #include <linux/math.h>
+#include <axi_hwmon.h>
+#include <dma_common.h>
 
 /**
- * Specific hardware types for the FPGA. This is used to choose specific ADC 
+ * Specific hardware types for the FPGA. This is used to choose specific ADC
  * conversion functions.
  */
 typedef enum {
@@ -46,17 +46,16 @@ static long convSYSMONE4_T(long raw);
 static long convSYSMONEx_T(struct AxiHwmonDrvPvt* pvt, long raw);
 static long convPS_ADC(struct AxiHwmonDrvPvt* pvt, long raw);
 
-static int AxiHwmon_Read(struct device *dev, enum hwmon_sensor_types type, 
+static int AxiHwmon_Read(struct device *dev, enum hwmon_sensor_types type,
                          u32 attr, int channel, long *val);
 static int AxiHwmon_ReadString(struct device *dev, enum hwmon_sensor_types type,
-		                         u32 attr, int channel, const char **str);
+                               u32 attr, int channel, const char **str);
 static umode_t AxiHwmon_IsVisible(const void *drvdata, enum hwmon_sensor_types type,
-			                         u32 attr, int channel);
+                                  u32 attr, int channel);
 
-enum AxiHwmonSensorInstance {   
-
+enum AxiHwmonSensorInstance {
    AXI_HWMON_CHIP = 0, /* Meta for hwmon, not real sensor */
-   
+
    /**
     * Temperature sensors.
     */
@@ -76,7 +75,7 @@ typedef enum {
    AXI_HWMON_TYPE_C, /* Chip */
    AXI_HWMON_TYPE_T, /* Temp */
    AXI_HWMON_TYPE_V, /* Voltage */
-   
+
    AXI_HWMON_TYPE_COUNT,
 } AxiHwmonSensorType_t;
 
@@ -97,7 +96,7 @@ typedef struct {
 /**
  * Sensor classes.
  */
-const static struct hwmon_channel_info* hwmon_ultrascale_channels[] = {
+static const struct hwmon_channel_info* hwmon_ultrascale_channels[] = {
    HWMON_CHANNEL_INFO(chip, HWMON_C_REGISTER_TZ | HWMON_C_UPDATE_INTERVAL),
    HWMON_CHANNEL_INFO(temp, AXI_HWMON_TEMP_FLAGS),
    HWMON_CHANNEL_INFO(in, AXI_HWMON_IN_FLAGS),
@@ -168,38 +167,22 @@ static const AxiHwmonSensor_t hwmon_ultrascale_sensors[][hwmon_max] = {
 };
 
 /**
- * @brief Maps a AxiHwmonSensorType_t to the equivalent hwmon subsystem type enum
- */
-static enum hwmon_sensor_types sensorTypeToHwmon(AxiHwmonSensorType_t type) {
-   switch(type) {
-   case AXI_HWMON_TYPE_C:
-      return hwmon_chip;
-   case AXI_HWMON_TYPE_T:
-      return hwmon_temp;
-   case AXI_HWMON_TYPE_V:
-      return hwmon_in;
-   default:
-      return hwmon_max;
-   }
-}
-
-/**
  * Initialize Hwmon sensors for this datadev device.
  * If the device is not supported, this prints a warning and returns. This function returns void
  * because it isn't considered critical in datadev initialization. We'll just eat the error and
  * continue anyways.
  * @param dev The datadev device to init for
  * @param axiVerOffset Offset of the AxiVersion register space
- * @param axiSysMonOffset Offset of the AxiSysMonUltrascale register space 
+ * @param axiSysMonOffset Offset of the AxiSysMonUltrascale register space
  */
 void AxiHwmon_Init(struct DmaDevice* dev, off_t axiVerOffset, off_t axiSysMonOffset) {
    AxiHwmonHwType_t hwtype;
 
    // Check for support
    switch (readl(dev->base + axiVerOffset + 0x40C)) {
-   case 0x0: // UltraScale/UltraScale+
+   case 0x0:  // UltraScale/UltraScale+
       break;
-   case 0x1: // 7SERIES (Unsupported)
+   case 0x1:  // 7SERIES (Unsupported)
       return;
    default:
       dev_info(dev->device, "AxiHwmon_Init: No SysMon IP block: hwmon integration will be disabled for this device\n");
@@ -207,7 +190,7 @@ void AxiHwmon_Init(struct DmaDevice* dev, off_t axiVerOffset, off_t axiSysMonOff
    }
 
    // Unfortunately need to case on this. 0x40C does not differentiate between US and US+
-   switch(readl(dev->base + axiVerOffset + 0x424)) {
+   switch (readl(dev->base + axiVerOffset + 0x424)) {
    case 0x00000006:  // XilinxAlveoU50
    case 0x00000007:  // XilinxAlveoU200
    case 0x00000008:  // XilinxAlveoU250
@@ -235,7 +218,7 @@ void AxiHwmon_Init(struct DmaDevice* dev, off_t axiVerOffset, off_t axiSysMonOff
 
    case 0x00000005:  // XilinxAc701
    case 0x0000000A:  // XilinxKc705
-      return; // Unsupported
+      return;  // Unsupported
 
    default:
       dev_warn(dev->device, "AxiHwmon_Init: Unknown PCIe hardware type\n");
@@ -259,8 +242,7 @@ void AxiHwmon_Init(struct DmaDevice* dev, off_t axiVerOffset, off_t axiSysMonOff
       "datadev",
       pvt,
       &hwmon_ultrascale_info,
-      NULL
-   );
+      NULL);
 
    // Check for error and clean up
    if (IS_ERR(pvt->hwmonDev)) {
@@ -363,7 +345,7 @@ static int AxiHwmon_Read(struct device *dev, enum hwmon_sensor_types type,
       dev_warn(dev, "AxiHwmon_Read: Invalid sensor: chan=%d, type=%d, attr=%d\n", channel, type, attr);
       return -ENOTSUPP;
    }
-   
+
    // Lookup the sensor based on the channel and type
    const AxiHwmonSensor_t* sens = &hwmon_ultrascale_sensors[type][channel];
 
@@ -388,7 +370,7 @@ static int AxiHwmon_Read(struct device *dev, enum hwmon_sensor_types type,
       needsHighest = (attr == hwmon_temp_highest);
       needsLowest = (attr == hwmon_temp_lowest);
       break;
-   case hwmon_in: // Voltage, despite the strange name
+   case hwmon_in:  // Voltage, despite the strange name
       needsValue = (attr == hwmon_in_input);
       needsMax = (attr == hwmon_in_max);
       needsCrit = (attr == hwmon_in_crit);
@@ -399,9 +381,9 @@ static int AxiHwmon_Read(struct device *dev, enum hwmon_sensor_types type,
       dev_warn(dev, "AxiHwmon_Read: Unknown sensor type\n");
       return -EOPNOTSUPP;
    }
-   
+
    offset = 0x0;
-   
+
    // Pick the correct offset
    if (needsValue)
       offset = sens->offset;
@@ -444,7 +426,7 @@ static int AxiHwmon_Read(struct device *dev, enum hwmon_sensor_types type,
  * @returns 0 on success, non-zero otherwise.
  */
 static int AxiHwmon_ReadString(struct device *dev, enum hwmon_sensor_types type,
-		                         u32 attr, int channel, const char **str)
+                               u32 attr, int channel, const char **str)
 {
    const char* ptr = NULL;
    const int typeCount = hwmon_ultrascale_chan_counts[type];
@@ -466,7 +448,7 @@ static int AxiHwmon_ReadString(struct device *dev, enum hwmon_sensor_types type,
    default:
       break;
    }
-   
+
    if (ptr)
       *str = ptr;
    else
@@ -479,7 +461,7 @@ static int AxiHwmon_ReadString(struct device *dev, enum hwmon_sensor_types type,
  * Always 0444 in our case because they're read-only.
  */
 static umode_t AxiHwmon_IsVisible(const void *drvdata, enum hwmon_sensor_types type,
-			                         u32 attr, int channel)
+                                  u32 attr, int channel)
 {
    return 0444;
 }
