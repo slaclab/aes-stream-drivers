@@ -89,6 +89,7 @@ typedef uint32_t __poll_t;
  * @txBuffers: List of transmit buffers.
  * @rxBuffers: List of receive buffers.
  * @tq: Transmit queue structure.
+ * @regMapVersion: The register map version.
  *
  * This structure defines a DMA device, including its configuration,
  * memory regions, buffer management, and associated locks.
@@ -164,6 +165,8 @@ struct DmaDevice {
 
    // For axi_hwmon.c
    void* hwmonPrivate;
+
+   uint32_t regMapVersion;
 };
 
 /**

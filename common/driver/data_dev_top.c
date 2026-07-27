@@ -34,6 +34,7 @@
 #include <linux/slab.h>
 #include <axis_gen2.h>
 #include <GpuAsync.h>
+#include <axi_pcie_regmap.h>
 
 #ifdef DATA_GPU
 #include <GpuAsyncRegs.h>
@@ -175,6 +176,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    int32_t x;
    uint32_t axiWidth;
    int ret;
+   uint32_t axiGen2Offset, phyOffset, axiSysMonOffset, gpuAsyncCoreOffset;
 
    // Validate buffer mode configuration
    if ( cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM ) {
@@ -270,6 +272,24 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
       goto err_post_en;
    }
 
+   // Init the PCIe memory map
+   if (AxiRegMap_Init(dev, dev->base + AVER_OFF) < 0) {
+      probeReturn = -EINVAL;
+      goto err_unmap;
+   }
+
+   // Grab required offsets
+   phyOffset = AxiRegMap_GetOffset(dev, REG_PHY);
+   axiGen2Offset = AxiRegMap_GetOffset(dev, REG_AXIS_GEN2);
+   if (phyOffset == INVALID_REG_OFFSET || axiGen2Offset == INVALID_REG_OFFSET) {
+      probeReturn = -EINVAL;
+      goto err_unmap;
+   }
+
+   // Optional offsets
+   axiSysMonOffset = AxiRegMap_GetOffset(dev, REG_AXI_SYSMON);
+   gpuAsyncCoreOffset = AxiRegMap_GetOffset(dev, REG_GPU_ASYNC);
+
    // Initialize device configuration parameters
    dev->cfgTxCount    = cfgTxCount;    // Transmit buffer count
    dev->cfgRxCount    = cfgRxCount;    // Receive buffer count
@@ -330,15 +350,15 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->hwFunc = hfunc;           // Hardware function pointer
 
    // Initialize device memory regions
-   dev->reg    = dev->base + AGEN2_OFF;    // Register base address
-   dev->rwBase = dev->base + PHY_OFF;      // Read/Write base address
-   dev->rwSize = (2*USER_SIZE) - PHY_OFF;  // Read/Write region size
+   dev->reg    = dev->base + axiGen2Offset;  // Register base address
+   dev->rwBase = dev->base + phyOffset;      // Read/Write base address
+   dev->rwSize = (2*USER_SIZE) - phyOffset;  // Read/Write region size
 
 #ifdef DATA_GPU
    // Skip GPU init if the module is not enabled
-   if (readl(dev->base + AVER_OFF + 0x428) == 1) {
+   if (readl(dev->base + AVER_OFF + 0x428) == 1 && gpuAsyncCoreOffset != INVALID_REG_OFFSET) {
       // GPU Init
-      probeReturn = Gpu_Init(dev, GPU_ASYNC_CORE_OFFSET);
+      probeReturn = Gpu_Init(dev, gpuAsyncCoreOffset);
       if (probeReturn < 0) {
          dev_err(dev->device, "Init: Gpu_Init returned error %i.\n", probeReturn);
          goto err_unmap;
@@ -386,8 +406,10 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
       goto err_unmap;
    }
 
-   // Register hwmon interface
-   AxiHwmon_Init(dev, AVER_OFF, ASYSMON_OFF);
+   // Register hwmon interface, if supported.
+   if (axiSysMonOffset != INVALID_REG_OFFSET) {
+      AxiHwmon_Init(dev, AVER_OFF, axiSysMonOffset);
+   }
 
    // Log memory mapping information
    dev_info(dev->device, "Init: Reg space mapped to 0x%p.\n", dev->reg);

@@ -83,7 +83,7 @@ endif
 $(info $(ccflags-y))
 
 # Object files that make up the module
-$(NAME)-objs := src/dma_buffer.o src/dma_common.o
+$(NAME)-objs := src/dma_buffer.o src/dma_common.o src/axi_pcie_regmap.o
 $(NAME)-objs += src/axi_version.o src/axis_gen2.o src/data_dev_top.o src/axi_hwmon.o
 
 ifneq ($(NVIDIA_DRIVERS),)
