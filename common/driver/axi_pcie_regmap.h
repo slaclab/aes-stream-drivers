@@ -19,7 +19,7 @@
 #include <linux/types.h>
 #include <dma_common.h>
 
-/** 
+/**
  * Register block indices.
  */
 typedef enum reg_block_index {

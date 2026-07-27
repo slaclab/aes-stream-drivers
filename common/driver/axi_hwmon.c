@@ -18,6 +18,7 @@
 #include <linux/types.h>
 #include <linux/hwmon.h>
 #include <linux/math.h>
+#include <linux/slab.h>
 #include <axi_hwmon.h>
 #include <dma_common.h>
 
