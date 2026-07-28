@@ -85,6 +85,7 @@ static struct pci_device_id DataDev_Ids[] = {
 
 MODULE_LICENSE("GPL");
 MODULE_DEVICE_TABLE(pci, DataDev_Ids);
+MODULE_DESCRIPTION("Driver for FPGAs running the SLAC DMA engine");
 module_init(DataDev_Init);
 module_exit(DataDev_Exit);
 
