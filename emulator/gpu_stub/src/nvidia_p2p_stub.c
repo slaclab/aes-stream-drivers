@@ -44,8 +44,6 @@ int nvidia_p2p_get_pages(uint64_t p2p_token, uint32_t va_space,
 
    (void)p2p_token;
    (void)va_space;
-   (void)free_callback;
-   (void)data;
 
    if (!page_table)
       return -EINVAL;
@@ -110,6 +108,15 @@ int nvidia_p2p_get_pages(uint64_t p2p_token, uint32_t va_space,
     * discipline is identical regardless of which path allocated. */
    pt->gpu_uuid = (uint8_t *)entry;
    pt->flags    = 0;
+
+   /* Record the driver's free_callback so stub_release can emulate the
+    * NVIDIA revocation that fires when the app frees its GPU allocation.
+    * Without this, the datadev driver's async free path (Gpu_FreeNvidia)
+    * never runs under the stub and addr-table entries leak, tripping the
+    * WARN_ON in emu_gpu_addr_table_exit at rmmod. */
+   entry->free_cb       = free_callback;
+   entry->free_cb_data  = data;
+   entry->free_cb_fired = false;
 
    *page_table = pt;
    return 0;

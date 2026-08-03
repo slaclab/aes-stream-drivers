@@ -214,10 +214,10 @@ void emu_bar0_init_regs(struct emu_bar0 *bar, u32 max_buffers)
     * PrbsData::processData reports "Bad size. exp=262148, got=65536". */
    iowrite32((u32)EMU_GPU_DATA_BYTES_C << 16, base + EMU_GPU_ASYNC_OFF + 0x4);
 
-   /* Version (0x0030, bits 7:0): 4 => V4 register layout */
+   /* Version (0x0030, bits 7:0): 5 => V5 register layout (V4 + 0x44 readback) */
    iowrite32(EMU_GPU_VERSION_INIT, base + EMU_GPU_ASYNC_OFF + 0x0030);
 
-   pr_info("emu: BAR0 GPU Async V4 initialized (version=4, maxBuffers=%u)\n",
+   pr_info("emu: BAR0 GPU Async V5 initialized (version=5, maxBuffers=%u)\n",
            max_buffers & 0x7FF);
 
    /* Verify init writes are readable back through UC mapping. The

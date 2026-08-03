@@ -24,10 +24,11 @@
 #include <linux/seq_file.h>
 #include <linux/signal.h>
 #include <linux/slab.h>
+#include <linux/delay.h>
 #include <nv-p2p.h>
 
 /* Update this when you add support for a new GpuAsyncCore version! */
-#define DATAGPU_MAX_VERSION 4
+#define DATAGPU_MAX_VERSION 5
 
 /**
  * Gpu_Init - Initialize GPU with given offset
@@ -45,20 +46,21 @@ int32_t Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
    uint8_t* gpuBase = dev->base + offset;
    uint8_t version = readGpuAsyncReg(gpuBase, &GpuAsyncReg_Version);
    dev->gpuEn = !!version;
+   dev->gpuVer = version;
 
-   /* GPU not enabled, avoid allocating GPU data */
+   // GPU not enabled, avoid allocating GPU data */
    if (!dev->gpuEn)
       return 0;
 
-   /* warn on unsupported version */
+   // warn on unsupported version
    if (version > DATAGPU_MAX_VERSION) {
       dev_err(dev->device, "Gpu_Init: Unsupported GpuAsyncCore version: %d. Max supported is version %d\n",
             version, DATAGPU_MAX_VERSION);
       dev->gpuEn = 0;
-      return 0;  /* allow fallback to CPU DMA */
+      return 0;  // allow fallback to CPU DMA
    }
 
-   /* Read the firmware buffer count before allocating any GPU state */
+   // Read the firmware buffer count before allocating any GPU state
    if (version < 4) {
       maxBuffers = readGpuAsyncReg(gpuBase, &GpuAsyncReg_MaxBuffersV1);
    } else {
@@ -76,7 +78,7 @@ int32_t Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
       return 0;  /* allow fallback to CPU DMA */
    }
 
-   /* Allocate memory for GPU utility data */
+   // Allocate memory for GPU utility data
    gpuData = (struct GpuData *)kzalloc(sizeof(struct GpuData), GFP_KERNEL);
    if (!gpuData) {
       dev_err(dev->device, "Gpu_Init: Failed to allocate GpuData space of size %ld bytes\n",
@@ -84,16 +86,17 @@ int32_t Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
       return -ENOMEM;  /* allocation failure aborts probe */
    }
 
-   /* Associate GPU utility data with the device */
+   // Associate GPU utility data with the device
    dev->utilData = gpuData;
 
-   /* Initialize GPU base address and buffer counts */
+   // Initialize GPU base address and buffer counts
    gpuData->base = dev->base + offset;
    gpuData->writeBuffers.count = 0;
    gpuData->readBuffers.count = 0;
    gpuData->offset = offset;
    gpuData->version = version;
    gpuData->maxBuffers = maxBuffers;
+   atomic64_set(&gpuData->pid, 0);
 
    dev_info(dev->device, "Gpu_Init: Configured for GpuAsyncCore version %d\n", version);
    return 0;
@@ -118,8 +121,8 @@ int32_t Gpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
     * device marked GPU-enabled while utilData stays NULL (e.g. the GpuData
     * allocation failed), so reject commands here instead of dereferencing a
     * NULL pointer in the handlers below. */
-   if (data == NULL) {
-      dev_err(dev->device, "Gpu_Command: GPU not initialized (utilData is NULL), cmd=%u\n", cmd);
+   if (unlikely(data == NULL)) {
+      BUG();
       return -1;
    }
 
@@ -136,13 +139,17 @@ int32_t Gpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
       case GPU_Set_Write_Enable:
          return Gpu_SetWriteEn(dev, arg);
 
-      // Get the async core version
-      case GPU_Get_Gpu_Async_Ver:
-         return Gpu_GetVersion(dev);
-
       // Get the max number of buffers
       case GPU_Get_Max_Buffers:
          return (int32_t)data->maxBuffers;
+
+      // Enable TX operations
+      case GPU_Enable_Tx:
+         return Gpu_EnableTx(dev, arg);
+
+      // Enable RX operations
+      case GPU_Enable_Rx:
+         return Gpu_EnableRx(dev, arg);
 
       default:
          dev_warn(dev->device, "Command: Invalid command=%u\n", cmd);
@@ -182,7 +189,10 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
       return -1;
    }
 
-   if (!dat.size) return -EINVAL;
+   if (!dat.size) {
+      dev_warn(dev->device, "Gpu_AddNvidia: error: Buffer has size of 0 bytes\n");
+      return -EINVAL;
+   }
 
    if ((dat.size & ~GPU_BOUND_MASK) != 0) {
       dev_warn(dev->device, "Gpu_AddNvidia: error: memory size (%u) is not a multiple of GPU page size (%llu)\n",
@@ -190,16 +200,26 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
       return -EINVAL;
    }
 
+   // Check if another PID already owns this GpuAsyncCore state
+   pid_t pid = atomic64_cmpxchg(&data->pid, 0, current->pid);
+   if (pid != 0 && pid != current->pid) {
+      dev_warn(dev->device, "Gpu_AddNvidia: error: Calling PID (%d) GpuAsyncCore state already locked by PID %d\n",
+               current->pid, pid);
+      return -EBUSY;
+   }
+
    // Set buffer pointers based on the operation mode (write/read)
    if (dat.write) {
       if (data->writeBuffers.count >= data->maxBuffers) {
          dev_warn(dev->device, "Gpu_AddNvidia: Too many write buffers: max %u\n", data->maxBuffers);
+         atomic64_set(&data->pid, 0);
          return -EINVAL;
       }
       buffer = &(data->writeBuffers.list[data->writeBuffers.count]);
    } else {
       if (data->readBuffers.count >= data->maxBuffers) {
          dev_warn(dev->device, "Gpu_AddNvidia: Too many read buffers: max %u\n", data->maxBuffers);
+         atomic64_set(&data->pid, 0);
          return -EINVAL;
       }
       buffer = &(data->readBuffers.list[data->readBuffers.count]);
@@ -211,6 +231,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
    buffer->size = dat.size;
    buffer->pageTable = 0;
    buffer->dmaMapping = 0;
+   buffer->dev = dev;
 
    // Align virtual start address as required by NVIDIA kernel driver
    virt_start = buffer->address & GPU_BOUND_MASK;
@@ -226,7 +247,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
          buffer->address, buffer->size, virt_start, pin_size, buffer->write);
 
    // Map GPU memory through NVIDIA P2P API
-   ret = nvidia_p2p_get_pages(0, 0, virt_start, pin_size, &(buffer->pageTable), Gpu_FreeNvidia, dev);
+   ret = nvidia_p2p_get_pages(0, 0, virt_start, pin_size, &(buffer->pageTable), Gpu_FreeNvidia, buffer);
 
    if (ret == 0) {
       dev_warn(dev->device, "Gpu_AddNvidia: mapped memory with address=0x%llx, size=%i, page count=%i, write=%i\n", buffer->address, buffer->size, buffer->pageTable->entries, buffer->write);
@@ -268,6 +289,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
             if (minSize > 1 && minSize != mapSize) {
                dev_warn(dev->device, "Gpu_AddNvidia: mapSize=%zu does not match last configured mapSize of %zu. Write buffers must all be identically sized\n",
                   minSize, mapSize);
+               atomic64_set(&data->pid, 0);
                return -EINVAL;
             }
 
@@ -302,6 +324,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
       }
    } else {
       dev_warn(dev->device, "Gpu_AddNvidia: failed to pin memory with address=0x%llx. ret=%i\n", dat.address, ret);
+      atomic64_set(&data->pid, 0);
       return -1;
    }
 
@@ -312,7 +335,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
          x |= 0x00000100;  // Set write-enable bit
          x |= (data->writeBuffers.count-1);  // Set the 0-based write buffer count
       } else {
-         x |= 1 << 15;  // Set write-enable bit
+         x &= ~(1 << 15);  // Clear write-enable bit; User space must call gpuEnableTx to set this.
          x |= (data->writeBuffers.count-1) & 0x7FFF;  // Set the 0-based write buffer count
       }
    }
@@ -322,13 +345,113 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
          x |= 0x01000000;  // Set read-enable bit
          x |= (data->readBuffers.count-1) << 16;  // Set the 0-based read buffer count
       } else {
-         x |= 1 << 31;  // Set read-enable bit
+         x &= ~(1 << 31);  // Clear read-enable bit; User space must call gpuEnableRx to set this.
          x |= (data->readBuffers.count-1) << 16;  // Set the 0-based read buffer count
       }
    }
 
+   data->disabled = 0;
    writel(x, data->base+0x008);
    return 0;
+}
+
+/**
+ * Gpu_ClearBufferRegs - Clear register state on the FPGA
+ * Safe to call multiple times.
+ *
+ * @dev: The underlying DMA device to free the buffers on
+ */
+static void Gpu_ClearBufferRegs(struct DmaDevice* dev) {
+   uint32_t x;
+   u64 offset;
+   ktime_t waitStart;
+
+   struct GpuData *data;
+   struct GpuBuffer *buffer;
+
+   // Retrieve the GPU specific data from the DMA device
+   data = (struct GpuData *)dev->utilData;
+
+   // Skip this code if this has already been disabled.
+   if (data->disabled)
+      return;
+
+   // Disable reads and writes before freeing underlying buffers.
+   writel(0, data->base + 0x008);
+
+   // GpuAsyncV4 has no "DMA complete" indicator, so we need to delay for a bit while pending transactions complete.
+   // This is far from scientific; I'm just choosing a value (50ms) that *should* prevent crashes...
+   if (data->version < 5) {
+      if (!data->disabled)
+         fsleep(50000);
+      data->disabled = 1;
+   } else {
+      // V5+: Spin on write/read enable readback. This will get cleared once the FPGA has completed all RDMA transactions to the GPU.
+      waitStart = ktime_get();
+      while (readl(data->base + 0x44) != 0) {
+         cpu_relax();
+
+         // Avoid hanging the system if there's a stalled transfer
+         if (ktime_to_ms(ktime_sub(ktime_get(), waitStart)) > 1000) {
+            dev_warn(dev->device, "Gpu_ClearBufferRegs: Possible stalled DMA; already waited for 1s\n");
+            break;
+         }
+      }
+      data->disabled = 1;
+   }
+
+   // Clear out remote write size register
+   if (data->version >= 4) {
+      writeGpuAsyncReg(data->base, &GpuAsyncReg_RemoteWriteMaxSizeV4, 0);
+   }
+
+   // Clear out the write buffer registers
+   for (x = 0; x < data->writeBuffers.count; x++) {
+      buffer = &(data->writeBuffers.list[x]);
+
+      // Compute version specific offsets
+      if (data->version < 4) {
+         offset = GPU_ASYNC_REG_WRITE_BASE_V1 + x * 16;
+      } else {
+         offset = GPU_ASYNC_REG_WRITE_BASE_V4 + x * 8;
+      }
+
+      // Clear address register; firmware may initiate an rdma transaction even when dropEn=1, which
+      // typically leads to a hang in the GPU software under some circumstances. This is usually a problem
+      // when 2 or more FPGAs end up with the same physical addresses in these registers (e.g. if you're running
+      // an application against multiple different FPGAs and one GPU)
+      writel(0, data->base + offset);
+      writel(0, data->base + offset + 0x4);
+
+      dev_warn(dev->device, "Gpu_ClearBufferRegs: unmapped write memory with address=0x%llx\n", buffer->address);
+   }
+
+   // Clear out the read buffer registers
+   for (x = 0; x < data->readBuffers.count; x++) {
+      buffer = &(data->readBuffers.list[x]);
+
+      // Compute version specific offsets
+      if (data->version < 4) {
+         offset = GPU_ASYNC_REG_READ_BASE_V1 + data->readBuffers.count * 16;
+      } else {
+         offset = GPU_ASYNC_REG_READ_BASE_V4 + data->readBuffers.count * 8;
+      }
+
+      // See comment in the previous for loop for why this is done.
+      writel(0, data->base + offset);
+      writel(0, data->base + offset + 0x4);
+
+      dev_warn(dev->device, "Gpu_ClearBufferRegs: unmapped read memory with address=0x%llx\n", buffer->address);
+   }
+
+   // Reset the buffer counts
+   data->writeBuffers.count = 0;
+   data->readBuffers.count = 0;
+
+   // Release GpuAsyncCore to other processes
+   atomic64_set(&data->pid, 0);
+
+   return;
 }
 
 /**
@@ -346,8 +469,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
  */
 int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
    uint32_t x;
-   u64 virt_start;
-   u64 offset;
+   int ret;
 
    struct GpuData *data;
    struct GpuBuffer *buffer;
@@ -355,80 +477,62 @@ int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
    // Retrieve the GPU specific data from the DMA device
    data = (struct GpuData *)dev->utilData;
 
-   // Disable reads and writes before freeing underlying buffers.
-   writel(0, data->base + 0x008);
+   dev_info(dev->device, "Gpu_RemNvidia: Called\n");
 
-   // Unmap and release pages for all write buffers
+   // Ensure the calling PID actually owns the state
+   pid_t pid = atomic64_cmpxchg(&data->pid, current->pid, 0);
+   if (pid != current->pid) {
+      dev_warn(dev->device, "Gpu_RemNvidia: Called by PID (%d) that doesn't own the GpuAsyncCore state!\n",
+               current->pid);
+      return -EBUSY;
+   }
+
+   // Clear out FPGA state, disable DMAs
+   Gpu_ClearBufferRegs(dev);
+
+   // Unmap write pages
    for (x = 0; x < data->writeBuffers.count; x++) {
       buffer = &(data->writeBuffers.list[x]);
-      virt_start = buffer->address & GPU_BOUND_MASK;
 
-      nvidia_p2p_dma_unmap_pages(dev->pcidev, buffer->pageTable, buffer->dmaMapping);
-      nvidia_p2p_free_page_table(buffer->pageTable);
-
-      // Compute version specific offsets
-      if (data->version < 4) {
-         offset = GPU_ASYNC_REG_WRITE_BASE_V1 + x * 16;
-      } else {
-         offset = GPU_ASYNC_REG_WRITE_BASE_V4 + x * 8;
+      ret = nvidia_p2p_dma_unmap_pages(dev->pcidev, buffer->pageTable, buffer->dmaMapping);
+      if (ret != 0) {
+         dev_warn(dev->device, "Gpu_RemNvidia: nvidia_p2p_dma_unmap_pages returned %d\n", ret);
       }
-
-      // Clear address register; firmware may initiate an rdma transaction even when dropEn=1, which
-      // typically leads to a hang in the GPU software under some circumstances. This is usually a problem
-      // when 2 or more FPGAs end up with the same physical addresses in these registers (e.g. if you're running
-      // an application against multiple different FPGAs and one GPU)
-      writel(0, data->base + offset);
-      writel(0, data->base + offset + 0x4);
-
-      dev_warn(dev->device, "Gpu_RemNvidia: unmapped write memory with address=0x%llx\n", buffer->address);
    }
 
-   // Unmap and release pages for all read buffers
+   // Unmap read pages
    for (x = 0; x < data->readBuffers.count; x++) {
       buffer = &(data->readBuffers.list[x]);
-      virt_start = buffer->address & GPU_BOUND_MASK;
 
-      nvidia_p2p_dma_unmap_pages(dev->pcidev, buffer->pageTable, buffer->dmaMapping);
-      nvidia_p2p_free_page_table(buffer->pageTable);
-
-      // Compute version specific offsets
-      if (data->version < 4) {
-         offset = GPU_ASYNC_REG_READ_BASE_V1 + data->readBuffers.count * 16;
-      } else {
-         offset = GPU_ASYNC_REG_READ_BASE_V4 + data->readBuffers.count * 8;
+      ret = nvidia_p2p_dma_unmap_pages(dev->pcidev, buffer->pageTable, buffer->dmaMapping);
+      if (ret != 0) {
+         dev_warn(dev->device, "Gpu_RemNvidia: nvidia_p2p_dma_unmap_pages returned %d\n", ret);
       }
-
-      // See comment in the previous for loop for why this is done.
-      writel(0, data->base + offset);
-      writel(0, data->base + offset + 0x4);
-
-      dev_warn(dev->device, "Gpu_RemNvidia: unmapped read memory with address=0x%llx\n", buffer->address);
    }
-
-   // Clear out remote write size register
-   if (data->version >= 4) {
-      writeGpuAsyncReg(data->base, &GpuAsyncReg_RemoteWriteMaxSizeV4, 0);
-   }
-
-   // Reset the buffer counts
-   data->writeBuffers.count = 0;
-   data->readBuffers.count = 0;
 
    return 0;
 }
 
 /**
- * Gpu_FreeNvidia - Release NVIDIA GPU resources
+ * Gpu_FreeNvidia - Release NVIDIA GPU resources.
  * @data: Pointer to the device-specific data
  *
- * This function is a callback for freeing NVIDIA GPU resources associated
- * with a DMA device. It logs a warning message and removes NVIDIA GPU
- * resources.
+ * This is called for each buffer by the unpin callback, and frees the page table.
+ * Pages are unmapped by explicit calls to Gpu_RemNvidia, or automatically when the
+ * device fd is closed/removed.
  */
 void Gpu_FreeNvidia(void *data) {
-   struct DmaDevice *dev = (struct DmaDevice *)data;
-   dev_warn(dev->device, "Gpu_FreeNvidia: Called\n");
-   Gpu_RemNvidia(dev, 0);
+   int r;
+   struct GpuBuffer *buffer = data;
+
+   // Disable DMAs, clear out registers on the FPGA side.
+   Gpu_ClearBufferRegs(buffer->dev);
+
+   // Free the underlying page table
+   if ((r = nvidia_p2p_free_page_table(buffer->pageTable)) != 0) {
+      dev_warn(buffer->dev->device, "Gpu_FreeNvidia: nvidia_p2p_free_page_table returned %d!\n", r);
+   }
+   buffer->pageTable = NULL;
 }
 
 /**
@@ -449,15 +553,23 @@ int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg) {
 
    data = (struct GpuData *)dev->utilData;
 
+   // Check for calling process ownership. Unlocked GpuAsyncCore is OK
+   pid_t pid = atomic64_read(&data->pid);
+   if (pid && pid != current->pid) {
+      dev_warn(dev->device, "Gpu_SetWriteEn: Called by non-owner PID (%d)\n",
+               current->pid);
+      return -EBUSY;
+   }
+
    // Copy data from user space
    if ((ret = copy_from_user(&idx, (void *)arg, sizeof(uint32_t)))) {
       dev_warn(dev->device, "Gpu_SetWriteEn: copy_from_user failed. ret=%i, user=%p\n", ret, (void *)arg);
-      return -1;
+      return -EINVAL;
    }
 
    if ( idx >= data->writeBuffers.count ) {
       dev_warn(dev->device, "Gpu_SetWriteEn: Invalid write buffer index idx=%i, count=%i\n", idx, data->writeBuffers.count);
-      return -1;
+      return -EINVAL;
    }
 
    if (data->version < 4) {
@@ -472,18 +584,6 @@ int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg) {
 }
 
 /**
- * Gpu_GetVersion - Get the version of GpuAsyncCore
- * @dev: Pointer to the DmaDevice structure
- * Return: the version, or 0 if not supported/disabled
- */
-int32_t Gpu_GetVersion(struct DmaDevice *dev) {
-   struct GpuData* data = (struct GpuData *)dev->utilData;
-   if (data)
-      return data->version;
-   return 0;
-}
-
-/**
  * Gpu_Show - Show information about DataGpu internal state
  * @s: Sequence file pointer to write to
  * @dev: Device to read from
@@ -491,6 +591,10 @@ int32_t Gpu_GetVersion(struct DmaDevice *dev) {
 void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
    u32 i;
    struct GpuData* data = (struct GpuData*)dev->utilData;
+   if (unlikely(!data)) {
+      BUG();
+      return;
+   }
 
    u32 readBuffCnt = 0;
    u32 writeBuffCnt = 0;
@@ -530,6 +634,7 @@ void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
       seq_printf(s, "       Min Read Buffers : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_MinReadBuffer));
    }
    seq_printf(s, "   AXI Read Error Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiReadErrorCnt));
+   seq_printf(s, "         Owning Process : %lu\n", atomic64_read(&data->pid));
 
    for (i = 0; i < writeBuffCnt && writeEnable; ++i) {
       u32 wal, wah, ws;
@@ -563,4 +668,58 @@ void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
       seq_printf(s, "  Read Address : 0x%llX\n", ((u64)rah << 32) | ral);
       seq_printf(s, "     Read Size : 0x%X\n", rs);
    }
+}
+
+/**
+ * @brief Toggles the write enable bit
+ * @param dev The device
+ * @param enable Enable or disable. Treated as a boolean.
+ */
+int32_t Gpu_EnableTx(struct DmaDevice *dev, uint64_t enable) {
+   struct GpuData* data = (struct GpuData*)dev->utilData;
+
+   // Check for calling process ownership. Unlocked GpuAsyncCore is OK
+   pid_t pid = atomic64_read(&data->pid);
+   if (pid && pid != current->pid) {
+      dev_warn(dev->device, "Gpu_SetWriteEn: Called by non-owner PID (%d)\n",
+               current->pid);
+      return -EBUSY;
+   }
+
+   const struct GpuAsyncRegister* theReg = NULL;
+   if (data->version < 4) {
+      theReg = &GpuAsyncReg_WriteEnableV1;
+   } else {
+      theReg = &GpuAsyncReg_WriteEnableV4;
+   }
+
+   writeGpuAsyncReg(data->base, theReg, !!enable);
+   return 0;
+}
+
+/**
+ * @brief Toggles the read enable bit
+ * @param dev The device
+ * @param enable Enable or disable. Treated as a boolean.
+ */
+int32_t Gpu_EnableRx(struct DmaDevice *dev, uint64_t enable) {
+   struct GpuData* data = (struct GpuData*)dev->utilData;
+
+   // Check for calling process ownership. Unlocked GpuAsyncCore is OK
+   pid_t pid = atomic64_read(&data->pid);
+   if (pid && pid != current->pid) {
+      dev_warn(dev->device, "Gpu_SetWriteEn: Called by non-owner PID (%d)\n",
+               current->pid);
+      return -EBUSY;
+   }
+
+   const struct GpuAsyncRegister* theReg = NULL;
+   if (data->version < 4) {
+      theReg = &GpuAsyncReg_ReadEnableV1;
+   } else {
+      theReg = &GpuAsyncReg_ReadEnableV4;
+   }
+
+   writeGpuAsyncReg(data->base, theReg, !!enable);
+   return 0;
 }

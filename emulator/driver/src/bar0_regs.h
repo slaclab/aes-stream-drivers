@@ -153,7 +153,7 @@
 #define EMU_REG_DATAGPU_EN_INIT   0x00000001
 
 /* ----------------------------------------------------------------
- * GPU Async Core V4 initial register values (offsets relative to
+ * GPU Async Core V5 initial register values (offsets relative to
  * EMU_GPU_ASYNC_OFF = 0x00028000)
  *
  * Only two registers must be non-zero at init.  The remaining 32KB
@@ -162,15 +162,18 @@
  * the driver's Gpu_AddNvidia / Gpu_RemNvidia / Gpu_SetWriteEn paths
  * write into and read from that region as ordinary memory.
  *
- * Only the V4 layout is emulated — V1/V2/V3 are not supported going forward.
+ * The V5 layout matches V4 (axi-pcie-core v6.8.1, AxiPcieGpuAsyncControl.vhd)
+ * plus the new write/read "active" readback at 0x44 (see gpu_engine.c).
+ * V1/V2/V3 are not supported going forward.
  * ---------------------------------------------------------------- */
 
 /*
  * Version register (offset 0x0030, bits 7:0):
- *   Must be 4 so Gpu_Init takes the V4 path and sets dev->gpuEn = 1.
- *   gpu_async.c:45 reads this via readGpuAsyncReg(..., &GpuAsyncReg_Version).
+ *   Must be 5 so Gpu_Init takes the V5 teardown path (spin on the 0x44
+ *   write/read active readback) and sets dev->gpuEn = 1. gpu_async.c:47
+ *   reads this via readGpuAsyncReg(..., &GpuAsyncReg_Version).
  */
-#define EMU_GPU_VERSION_INIT      0x00000004
+#define EMU_GPU_VERSION_INIT      0x00000005
 
 /*
  * MaxBuffersV4 register (offset 0x0000, bits 10:0):

@@ -34,6 +34,8 @@
 #define GPU_Is_Gpu_Async_Supp 0x8005   // Check if GPU Async is supported by firmware
 #define GPU_Get_Gpu_Async_Ver 0x8006   // Get the GpuAsyncCore version
 #define GPU_Get_Max_Buffers   0x8007   // Get the max number of DMA buffers
+#define GPU_Enable_Tx         0x8008   // Enable tx buffers (FPGA -> GPU)
+#define GPU_Enable_Rx         0x8009   // Enable rx buffers (GPU -> FPGA)
 
 /**
  * @brief Represents NVIDIA GPU memory data.
@@ -55,14 +57,23 @@ struct GpuNvidiaData {
  * This function adds a specified memory region to the NVIDIA GPU, allowing
  * for the region to be accessed as specified by the write flag.
  *
+ * For GpuAsyncCore V4 and later, this function will clear the "write enable"
+ * and "read enable" bits. Userspace must call gpuEnableRx/gpuEnableTx as needed
+ * after adding memory with this function.
+ *
+ * GpuAsyncCore state is exclusively owned by one process at a time. These IOCTLs
+ * will fail with EBUSY if GpuAsyncCore state is already being managed by another
+ * process.
+ *
  * @param fd       File descriptor for the device.
  * @param write    Write access flag (1 for write access, 0 for read-only).
  * @param address  Memory address of the GPU region to add.
  * @param size     Size of the memory region to add.  Must be a multiple of 64 KB.
  *
  * @return On success, returns the result of the ioctl call.  On failure,
- *         returns a negative error code.  Returns -ENOTSUPP if the firmware
- *         does not support GPUDirect.
+ *         returns a negative error code and sets errno:
+ *          * ENOTSUPP if the firmware does not support GPUDirect.
+ *          * EBUSY if the GpuAsyncCore state is locked by another process.
  **/
 static inline ssize_t gpuAddNvidiaMemory(int32_t fd, uint32_t write, uint64_t address, uint32_t size) {
    struct GpuNvidiaData dat;
@@ -83,8 +94,9 @@ static inline ssize_t gpuAddNvidiaMemory(int32_t fd, uint32_t write, uint64_t ad
  * @param fd File descriptor for the device.
  *
  * @return On success, returns the result of the ioctl call.  On failure,
- *         returns a negative error code.  Returns -ENOTSUPP if the firmware
- *         does not support GPUDirect.
+ *         returns a negative error code and sets errno:
+ *          * ENOTSUPP if the firmware does not support GPUDirect.
+ *          * EBUSY if the GpuAsyncCore state is locked by another process.
  **/
 static inline ssize_t gpuRemNvidiaMemory(int32_t fd) {
    return(ioctl(fd, GPU_Rem_Nvidia_Memory, 0));
@@ -98,8 +110,10 @@ static inline ssize_t gpuRemNvidiaMemory(int32_t fd) {
  * @param fd  File descriptor for the device.
  * @param idx Buffer index to enable.
  *
- * @return 0 on success, negative error code on failure.  Returns -ENOTSUPP
- *         if the firmware does not support GPUDirect.
+ * @return On success, returns 0. On failure, returns a negative error code and
+ *         sets errno:
+ *          * ENOTSUPP if the firmware does not support GPUDirect.
+ *          * EBUSY if the GpuAsyncCore state is locked by another process.
  */
 static inline ssize_t gpuSetWriteEn(int32_t fd, uint32_t idx) {
    uint32_t lidx = idx;
@@ -116,7 +130,7 @@ static inline ssize_t gpuSetWriteEn(int32_t fd, uint32_t idx) {
  *         support and returns @c -ENOTSUPP, or when the ioctl itself fails
  *         with @c -1 and @c errno set, e.g. @c ENOTTY or @c ENOTSUPP).
  *         Callers should treat a @c false return as "not supported" without
- *         attempting any further GPU Async ioctls.
+ *         attempting any further GPU Async ioctls, except for gpuGetGpuAsyncVersion.
  *
  * @note The ioctl returns @c 1 (supported), @c 0 (not supported), or a
  *       negative errno on failure.  We must compare against @c >0 because
@@ -133,9 +147,9 @@ static inline bool gpuIsGpuAsyncSupported(int32_t fd) {
  * @param fd File descriptor for the device.
  *
  * @return On success, the version of GpuAsyncCore (@c >= 0).  On failure,
- *         @c -1 with @c errno set to indicate the cause (for example
- *         @c ENOTSUPP or @c ENOTTY if the driver was compiled without
- *         GPUAsync support, or another ioctl error).
+ *         @c -1 with @c errno set to indicate the cause.
+ *         @c ENOTSUPP or @c ENOTTY indicates that the driver was compiled without
+ *         GpuAsync support.
  *
  * @note The return type is @c ssize_t (signed) so the @c -1 failure case is
  *       representable without wraparound.  Callers must explicitly check
@@ -160,6 +174,34 @@ static inline ssize_t gpuGetGpuAsyncVersion(int32_t fd) {
  */
 static inline ssize_t gpuGetMaxBuffers(int32_t fd) {
    return ioctl(fd, GPU_Get_Max_Buffers);
+}
+
+/**
+ * @brief Enables TX buffers, flowing from FPGA -> GPU
+ *
+ * @param fd File descriptor for the device.
+ * @param enable Disable tx if 0, enable tx if != 0
+ *
+ * @return On success, returns 0. On failure, returns -1 the sets errno:
+ *          * ENOTSUPP if the firmware does not support GPUDirect.
+ *          * EBUSY if the GpuAsyncCore state is locked by another process.
+ */
+static inline int32_t gpuEnableTx(int32_t fd, uint32_t enable) {
+   return ioctl(fd, GPU_Enable_Tx, enable);
+}
+
+/**
+ * @brief Enable RX buffers, flowing from GPU -> FPGA
+ *
+ * @param fd File descriptor for the device.
+ * @param enable Disable rx if 0, enable rx if != 0
+ *
+ * @return On success, returns 0. On failure, returns -1 and sets errno:
+ *          * ENOTSUPP if the firmware does not support GPUDirect.
+ *          * EBUSY if the GpuAsyncCore state is locked by another process.
+ */
+static inline int32_t gpuEnableRx(int32_t fd, uint32_t enable) {
+   return ioctl(fd, GPU_Enable_Rx, enable);
 }
 
 #endif  // !DMA_IN_KERNEL

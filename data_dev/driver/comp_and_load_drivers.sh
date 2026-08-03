@@ -8,7 +8,8 @@ if [ "$EUID" -ne 0 ]; then
 fi
 
 # Change directory to where this script is
-cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
+SCRIPTDIR="$(readlink -f "$(dirname "${BASH_SOURCE[0]}")")"
+cd "${SCRIPTDIR}" || exit 1
 
 # Determine the Linux distribution
 if [ -f /etc/os-release ]; then
@@ -71,6 +72,13 @@ done
 
 # Go to nvidia path and build Nvidia driver
 cd "$NVIDIA_PATH" || { echo "Error: Failed to change directory to $NVIDIA_PATH"; exit 1; }
+
+# Apply nvidia driver patches -- probably need a better way to manage this
+for p in "${SCRIPTDIR}/patches/"*-nvidia-*.patch ; do
+    echo "Attempting to apply ${p}"
+    patch -N -p1 --verbose < "${p}" || true
+done
+
 # Clean previous builds
 make clean
 # Build Nvidia driver
