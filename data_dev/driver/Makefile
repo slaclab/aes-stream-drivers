@@ -59,6 +59,14 @@ endif
 # core.fsmonitor / pager / credential helper there cannot ride along.
 GIT := GIT_CONFIG_SYSTEM=/dev/null GIT_CONFIG_GLOBAL=/dev/null git -c safe.directory='*'
 
+# Version frozen at package time by the `dkms` target below.  A packaged DKMS
+# source tree under /usr/src carries no git metadata, so the describe logic
+# below cannot work there; version.mk supplies GITV instead and short-circuits
+# it.  Absent in a git worktree, where describe applies as usual.
+# $(HOME)-qualified because kbuild re-reads this Makefile from a sub-make whose
+# working directory is $(KERNELDIR), where a bare relative path would miss.
+-include $(HOME)/version.mk
+
 # Automatically determine the git version
 ifndef GITV
     GITT := $(shell cd $(HOME); $(GIT) describe --tags 2>/dev/null)
@@ -66,7 +74,7 @@ ifndef GITV
         GITT := $(shell cd $(HOME); $(GIT) rev-parse --short HEAD 2>/dev/null)
     endif
     ifeq ($(GITT),)
-        GITT := emulator
+        GITT := unknown
     endif
     GITD := $(shell cd $(HOME); $(GIT) status --short -uno 2>/dev/null | wc -l)
     GITV := $(if $(filter $(GITD),0),$(GITT),$(GITT)-dirty)
@@ -119,6 +127,7 @@ define dkms_configure
 	$(if $(4),cp -vL $(4) $(1)/dkms_source_tree/)
 	cp -vL rc.local.in $(1)/dkms_source_tree/
 	echo "PACKAGE_VERSION=$(GITV)"	 					>> $(1)/dkms_source_tree/dkms.conf
+	echo "GITV := $(GITV)" 								 > $(1)/dkms_source_tree/version.mk
 	echo "$(NAME)" 										>> $(1)/dkms_source_tree/$(2)_load.conf
 	echo "#!/bin/bash" 									 > $(1)/dkms_source_tree/install.sh
 	echo "dkms add -m $(2)-dkms -v $(GITV)" 			>> $(1)/dkms_source_tree/install.sh
