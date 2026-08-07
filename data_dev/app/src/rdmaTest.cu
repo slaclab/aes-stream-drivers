@@ -53,7 +53,8 @@ static int str2int(const char* s) {
 /* CUDA Allocations must be aligned to this size */
 #define GPU_PAGE_SIZE 0x10000
 
-#define ALIGN_VALUE(_x, _align) (((_x) + (_align) + 1) & ~((_align)- 1))
+/* Aligns _x to a power-of-two boundary */
+#define ALIGN_VALUE(_x, _align) (((_x) + (_align) - 1) & ~((_align) - 1))
 
 /**
  * @brief Per-session state. Replaces the old GpuAsyncContext lifecycle wrapper
@@ -238,7 +239,7 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
         s.txBuffers.resize(bufCnt, 0);
         for (int i = 0; i < bufCnt; ++i) {
             if (cuMemAlloc(&s.txBuffers[i], ALIGN_VALUE(bufSize + s.dmaHeaderSize, GPU_PAGE_SIZE)) != CUDA_SUCCESS) {
-                fprintf(stderr, "cuMalloc(rxBuffers[%d]) failed\n", i);
+                fprintf(stderr, "cuMalloc(txBuffers[%d]) failed\n", i);
                 return -1;
             }
             if (gpuAddNvidiaMemory(fd, 0, (uint64_t)s.txBuffers[i], bufSize) < 0) {
