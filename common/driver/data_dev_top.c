@@ -35,11 +35,8 @@
 #include <axis_gen2.h>
 #include <GpuAsync.h>
 #include <axi_pcie_regmap.h>
-
-#ifdef DATA_GPU
+#include <rdma_common.h>
 #include <GpuAsyncRegs.h>
-#include <gpu_async.h>
-#endif
 
 // PCI_IRQ_LEGACY was renamed to PCI_IRQ_INTX in Linux 6.11; the old name was
 // kept as a deprecated alias for a few releases, then dropped. Provide the new
@@ -84,8 +81,10 @@ static struct pci_device_id DataDev_Ids[] = {
 #define MOD_NAME "datadev"
 
 MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("Driver for SLAC PCIe DMA devices");
 MODULE_DEVICE_TABLE(pci, DataDev_Ids);
 MODULE_DESCRIPTION("Driver for FPGAs running the SLAC DMA engine");
+MODULE_IMPORT_NS(DMA_BUF);
 module_init(DataDev_Init);
 module_exit(DataDev_Exit);
 
@@ -381,19 +380,16 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->rwBase = dev->base + phyOffset;      // Read/Write base address
    dev->rwSize = (2*USER_SIZE) - phyOffset;  // Read/Write region size
 
-#ifdef DATA_GPU
    uint32_t gpuAsyncCoreOffset = AxiRegMap_GetOffset(dev, REG_GPU_ASYNC);
 
    // Skip GPU init if the module is not enabled
    if (readl(dev->base + AVER_OFF + 0x428) == 1 && gpuAsyncCoreOffset != INVALID_REG_OFFSET) {
-      // GPU Init
-      probeReturn = Gpu_Init(dev, gpuAsyncCoreOffset);
+      probeReturn = Rdma_Init(dev, gpuAsyncCoreOffset);
       if (probeReturn < 0) {
-         dev_err(dev->device, "Init: Gpu_Init returned error %i.\n", probeReturn);
+         dev_err(dev->device, "Init: RdmaInit returned error %i.\n", probeReturn);
          goto err_unmap;
       }
    }
-#endif
 
    // Manage device reset cycle
    dev_info(dev->device, "Init: Setting user reset\n");
@@ -451,13 +447,9 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    return probeReturn;               // Return success
 
 err_unmap:
-#ifdef DATA_GPU
-   // Gpu_Init may have allocated utilData before we got here.
-   // kfree(NULL) is a no-op, so this stays safe even when
-   // Gpu_Init never ran.
-   kfree(dev->utilData);
-   dev->utilData = NULL;
-#endif
+   // Rdma_Init may have allocated utilData before we got here.
+   kfree(dev->rdmaData);
+   dev->rdmaData = NULL;
    Dma_UnmapReg(dev);               // Idempotent: safe even if Dma_MapReg never ran
    pci_free_irq_vectors(pcidev);    // Releases MSI/MSI-X/INTx allocation; no-op if
                                     // pci_alloc_irq_vectors failed or never ran
@@ -514,15 +506,15 @@ void DataDev_Remove(struct pci_dev *pcidev) {
    // Remove hwmon interface
    AxiHwmon_Remove(dev);
 
-#ifdef DATA_GPU
-   // Free GPU utility data allocated by Gpu_Init. gpu_async.c
-   // does not own its teardown path; release here so unload
-   // does not leak the kzalloc.
-   if (dev->utilData != NULL) {
-      kfree(dev->utilData);
-      dev->utilData = NULL;
+   // Free GPU utility data allocated by Rdma_Init
+   if (dev->rdmaData != NULL) {
+      kfree(dev->rdmaData);
+      dev->rdmaData = NULL;
    }
-#endif
+
+   if (dev->rdmaData) {
+      Rdma_Shutdown(dev);
+   }
 
    // Call common DMA clean function (calls free_irq() internally)
    Dma_Clean(dev);
@@ -553,31 +545,22 @@ void DataDev_Remove(struct pci_dev *pcidev) {
  */
 int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    switch (cmd) {
-      // GPU Commands
-      // Handles adding or removing Nvidia memory based on the command specified.
+      // RDMA related commands
       case GPU_Add_Nvidia_Memory:
       case GPU_Rem_Nvidia_Memory:
       case GPU_Set_Write_Enable:
-      case GPU_Get_Max_Buffers:
-      case GPU_Enable_Rx:
-      case GPU_Enable_Tx:
-#ifdef DATA_GPU
-         return dev->gpuEn ? Gpu_Command(dev, cmd, arg) : -ENOTSUPP;
-#else
-         return -ENOTSUPP;
-#endif
       case GPU_Is_Gpu_Async_Supp:
-#ifdef DATA_GPU
-         return dev->gpuEn ? 1 : 0;
-#else
-         return 0;
-#endif
       case GPU_Get_Gpu_Async_Ver:
-#ifdef DATA_GPU
-         return dev->gpuVer;
-#else
-         return -ENOTSUPP;
-#endif
+      case GPU_Get_Max_Buffers:
+      case GPU_Enable_Tx:
+      case GPU_Enable_Rx:
+      case GPU_Is_Dma_Buf_Supp:
+      case GPU_Is_GpuDirect_Supp:
+      case GPU_DmaBuf_Add_Wr_Buffer:
+      case GPU_DmaBuf_Add_Rd_Buffer:
+      case GPU_DmaBuf_Remove_Buffers:
+         return Rdma_Ioctl(dev, cmd, arg);
+
       case AVER_Get:
          // AXI Version Read
          return AxiVersion_Get(dev, dev->base + AVER_OFF, arg);
@@ -624,12 +607,10 @@ void DataDev_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    // Display additional device-specific information
    AxisG2_SeqShow(s, dev);
 
-#ifdef DATA_GPU
    if (dev->gpuEn) {
       // Display DataGPU-specific state information
-      Gpu_Show(s, dev);
+      Rdma_Show(s, dev);
    }
-#endif
 }
 
 /**

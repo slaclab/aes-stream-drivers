@@ -135,7 +135,7 @@ struct DmaDevice {
    struct hardware_functions * hwFunc;
    uint8_t destMask[DMA_MASK_SIZE];
    void *  hwData;
-   void *  utilData;
+   void *  rdmaData;
 
    // Debug flag
    uint8_t debug;

@@ -40,6 +40,7 @@ static int s_dumpToFile = 0;
 static int s_dumpBytes = 0;
 static int s_cnt = -1;
 static double s_warnSecs = 10.0;         ///< Complain if no event arrives within this; 0 = never.
+static int s_useDmaBuf = 0;
 static std::string s_dumpFile;
 
 static void assertOk(CUresult err);
@@ -69,6 +70,8 @@ struct TestSession {
     std::vector<CudaVMMAlloc> rxBuffers; ///< FPGA->GPU buffers (cuMalloc'd, registered with FPGA).
     std::vector<CudaVMMAlloc> txBuffers; ///< GPU->FPGA buffers, only populated when loopback is set.
     AxiWrDesc64_t* hdr = nullptr;        ///< Pinned, so the per-event header copy is truly async.
+    std::vector<int> rxDmaBuffs;
+    std::vector<int> txDmaBuffs;
     int bufCnt = 0;
     int bufSize = 0;
     uint32_t dmaHeaderSize = 0;
@@ -89,7 +92,7 @@ int main(int argc, char** argv) {
     std::string dev = "/dev/datadev_0";
 
     int opt;
-    while ((opt = getopt(argc, argv, "d:i:vhf:x:c:b:s:lT:")) != -1) {
+    while ((opt = getopt(argc, argv, "d:i:vhf:x:c:b:s:lT:z")) != -1) {
         switch (opt) {
         case 'd': dev = optarg;                 break;
         case 'b': bufCnt = str2int(optarg);     break;
@@ -102,6 +105,7 @@ int main(int argc, char** argv) {
         case 'T': s_warnSecs = atof(optarg);    break;
         case 'h': showHelp();                   return 0;
         case 'i': gpuIdx = atoi(optarg);        break;
+        case 'z': s_useDmaBuf = 1;              break;
         default:  showHelp();                   return 1;
         }
     }
@@ -124,9 +128,11 @@ int main(int argc, char** argv) {
  * @param write 1 if write
  * @param totalSize Total size of the buffer, aligned to 64k boundary
  * @param outBuffer Ref to a variable to hold the resulting allocation info
+ * @param outDmaBuf Ref to a variable to hold the resutling dma-buf fd (set to -1 for non-dma-buf)
  * @return True on succcess
  */
-static bool allocGpuMem(int fd, int write, size_t totalSize, CudaVMMAlloc& outBuffer) {
+static bool allocGpuMem(int fd, int write, size_t totalSize, CudaVMMAlloc& outBuffer, int& outDmaBuf) {
+    outDmaBuf = -1;
     CUresult result;
     if ((result = vmmCuAlloc(outBuffer, totalSize, GPU_PAGE_SIZE)) != CUDA_SUCCESS) {
         const char* str = nullptr;
@@ -135,12 +141,39 @@ static bool allocGpuMem(int fd, int write, size_t totalSize, CudaVMMAlloc& outBu
         return false;
     }
 
-    /* Register with FPGA */
-    if (gpuAddNvidiaMemory(fd, write, outBuffer.ptr, totalSize) < 0) {
-        perror("allocGpuMem: gpuAddNvidiaMemory");
+    /* Register with FPGA (w/GPUDirectRDMA API)*/
+    if (!s_useDmaBuf) {
+        if (gpuAddNvidiaMemory(fd, write, outBuffer.ptr, totalSize) < 0) {
+            perror("allocGpuMem: gpuAddNvidiaMemory");
+            vmmCuFree(outBuffer);
+            return false;
+        }
+    }
+
+    /* New dma-buf API */
+    result = cuMemGetHandleForAddressRange(
+        &outDmaBuf, outBuffer.ptr, totalSize,
+        CU_MEM_RANGE_HANDLE_TYPE_DMA_BUF_FD,
+        0
+    );
+
+    if (result != CUDA_SUCCESS) {
+        const char* str = nullptr;
+        cuGetErrorString(result, &str);
+        fprintf(stderr, "allocGpuMem: cuGetHandleForAddressRange failed: %s\n", str ? str : "<Unknown error>");
         vmmCuFree(outBuffer);
         return false;
     }
+
+    /* Add it! */
+    if (gpuAddDmaBuf(fd, outDmaBuf, write) < 0) {
+        perror("allocGpuMem: dmaBufAddBuffer");
+        vmmCuFree(outBuffer);
+        close(outDmaBuf);
+        outDmaBuf = -1;
+        return false;
+    }
+
     return true;
 }
 
@@ -186,6 +219,8 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
         fprintf(stderr, "CUDA context initialization failed\n");
         return -1;
     }
+
+    cuCtxSetCurrent(s.cuda.context());
 
     /* Stream-memory-ops are required for the cuStreamWriteValue32 / cuStreamWaitValue32
      * primitives this test uses. */
@@ -252,16 +287,19 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
 
     /* Allocate and register rx (and optionally tx) buffers */
     s.rxBuffers.resize(bufCnt, {});
+    s.rxDmaBuffs.resize(bufCnt, -1);
     for (int i = 0; i < bufCnt; ++i) {
-        if (!allocGpuMem(fd, 1, totalBufSize, s.rxBuffers[i])) {
+        if (!allocGpuMem(fd, 1, totalBufSize, s.rxBuffers[i]), s.rxDmaBuffs[i]) {
             fprintf(stderr, "Error while mapping RX buffer %d\n", i);
             return -1;
         }
     }
+
     if (loopback) {
         s.txBuffers.resize(bufCnt, {});
+        s.txDmaBuffs.resize(bufCnt, -1);
         for (int i = 0; i < bufCnt; ++i) {
-            if (!allocGpuMem(fd, 0, totalBufSize, s.txBuffers[i])) {
+            if (!allocGpuMem(fd, 0, totalBufSize, s.txBuffers[i], s.txDmaBuffs[i])) {
                 fprintf(stderr, "Error while mapping read buffer %d\n", i);
                 return -1;
             }
