@@ -26,16 +26,21 @@
 #include "DmaDriver.h"
 
 /**
- * GPU command codes
+ * IOCTL command codes
  **/
 #define GPU_Add_Nvidia_Memory 0x8002   // Command to add NVIDIA GPU memory
 #define GPU_Rem_Nvidia_Memory 0x8003   // Command to remove NVIDIA GPU memory
 #define GPU_Set_Write_Enable  0x8004   // Set Write Enable Flag
-#define GPU_Is_Gpu_Async_Supp 0x8005   // Check if GPU Async is supported by firmware
+#define GPU_Is_Gpu_Async_Supp 0x8005   // Check if GPU Async is supported by firmware (DEPRECATED!)
 #define GPU_Get_Gpu_Async_Ver 0x8006   // Get the GpuAsyncCore version
 #define GPU_Get_Max_Buffers   0x8007   // Get the max number of DMA buffers
 #define GPU_Enable_Tx         0x8008   // Enable tx buffers (FPGA -> GPU)
 #define GPU_Enable_Rx         0x8009   // Enable rx buffers (GPU -> FPGA)
+#define GPU_Is_Dma_Buf_Supp   0x800A   // Check if dma-buf is supported
+#define GPU_Is_GpuDirect_Supp 0x800B   // Check if GPUDirectRDMA is supported
+#define GPU_DmaBuf_Add_Wr_Buffer     0x800C   // Add a dma buf to the device
+#define GPU_DmaBuf_Add_Rd_Buffer     0x800D   // Add a dma buf to the device
+#define GPU_DmaBuf_Remove_Buffers    0x800E   // Remove all buffers
 
 /**
  * @brief Represents NVIDIA GPU memory data.
@@ -142,6 +147,33 @@ static inline bool gpuIsGpuAsyncSupported(int32_t fd) {
 }
 
 /**
+ * @brief Checks if dma-buf support is enabled in the driver.
+ *
+ * @param fd File descriptor for the device.
+ *
+ * @return @c true if the firmware supports GPU Async, and if the driver
+ *         has been built with dma-buf support. This should generally be
+ *         true for all builds of the driver against fairly new kernels (>4.0.0)
+ *         Call gpuGetGpuAsyncVersion to query the firmware support of GPUAsync
+ */
+static inline bool gpuIsDmaBufSupported(int32_t fd) {
+   return ioctl(fd, GPU_Is_Dma_Buf_Supp);
+}
+
+/**
+ * @brief Checks if GPUDirectRDMA is supported.
+ *
+ * @param fd File descriptor for the device.
+ *
+ * @return @c true if the firmware supports GPU Async, and if the driver
+ *         has been built against the NVIDIA driver and supports p2p DMA mappings.
+ *         Call gpuGetGpuAsyncVersion to query the firmware support of GPUAsync
+ */
+static inline bool gpuIsGpuDirectSupported(int32_t fd) {
+   return ioctl(fd, GPU_Is_GpuDirect_Supp);
+}
+
+/**
  * @brief Get the version of GpuAsyncCore in the firmware.
  *
  * @param fd File descriptor for the device.
@@ -202,6 +234,22 @@ static inline int32_t gpuEnableTx(int32_t fd, uint32_t enable) {
  */
 static inline int32_t gpuEnableRx(int32_t fd, uint32_t enable) {
    return ioctl(fd, GPU_Enable_Rx, enable);
+}
+
+/**
+ * @brief Adds a dma-buf file descriptor to the device.
+ */
+static inline int gpuAddDmaBuf(int fd, int dma_buf_fd, int write) {
+   int r = ioctl(fd, write ? GPU_DmaBuf_Add_Wr_Buffer : GPU_DmaBuf_Add_Rd_Buffer, dma_buf_fd);
+   return r ? -errno : 0;
+}
+
+/**
+ * @todo: needs to be changed
+ */
+static inline int gpuRemDmaBuf(int fd) {
+   int r = ioctl(fd, DmaBuf_Remove_Buffers);
+   return r ? -errno : 0;
 }
 
 #endif  // !DMA_IN_KERNEL

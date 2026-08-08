@@ -58,7 +58,7 @@ RET_DIR=$PWD
 echo "Using RET_DIR: $RET_DIR"
 
 # Remove existing Nvidia modules (if any)
-modules=("datadev" "nvidia_fs" "nvidia-drm" "nvidia-uvm" "nvidia-modeset" "nvidia" "nouveau")
+modules=("datadev" "nvidia_fs" "nvidia-peermem" "nvidia-drm" "nvidia-uvm" "nvidia-modeset" "nvidia" "nouveau")
 for module in "${modules[@]}"; do
     output=$(/usr/sbin/rmmod $module 2>&1)
     status=$?
@@ -105,6 +105,7 @@ fi
 /usr/sbin/insmod $DRIVER_PATH/nvidia-modeset.ko || { echo "Error: Failed to insert nvidia-modeset.ko."; exit 1; }
 /usr/sbin/insmod $DRIVER_PATH/nvidia-drm.ko modeset=1 || { echo "Error: Failed to insert nvidia-drm.ko."; exit 1; }
 /usr/sbin/insmod $DRIVER_PATH/nvidia-uvm.ko || { echo "Error: Failed to insert nvidia-uvm.ko."; exit 1; }
+/usr/sbin/insmod $DRIVER_PATH/nvidia-peermem.ko || { echo "Error: Failed to insert nvidia-peermem.ko."; exit 1; }
 
 # Go to nvidia path and build Nvidia driver
 cd "$RET_DIR" || { echo "Error: Failed to change directory to $RET_DIR"; exit 1; }

@@ -33,9 +33,10 @@
 #include <linux/slab.h>
 #include <axis_gen2.h>
 #include <GpuAsync.h>
+#include <rdma.h>
+#include <GpuAsyncRegs.h>
 
 #ifdef DATA_GPU
-#include <GpuAsyncRegs.h>
 #include <gpu_async.h>
 #endif
 
@@ -82,7 +83,9 @@ static struct pci_device_id DataDev_Ids[] = {
 #define MOD_NAME "datadev"
 
 MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("Driver for SLAC PCIe DMA devices");
 MODULE_DEVICE_TABLE(pci, DataDev_Ids);
+MODULE_IMPORT_NS(DMA_BUF);
 module_init(DataDev_Init);
 module_exit(DataDev_Exit);
 
@@ -333,17 +336,22 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->rwBase = dev->base + PHY_OFF;      // Read/Write base address
    dev->rwSize = (2*USER_SIZE) - PHY_OFF;  // Read/Write region size
 
-#ifdef DATA_GPU
    // Skip GPU init if the module is not enabled
    if (readl(dev->base + AVER_OFF + 0x428) == 1) {
       // GPU Init
+#ifdef DATA_GPU
       probeReturn = Gpu_Init(dev, GPU_ASYNC_CORE_OFFSET);
       if (probeReturn < 0) {
          dev_err(dev->device, "Init: Gpu_Init returned error %i.\n", probeReturn);
          goto err_unmap;
       }
-   }
 #endif
+      probeReturn = Rdma_Init(dev, GPU_ASYNC_CORE_OFFSET);
+      if (probeReturn < 0) {
+         dev_err(dev->device, "Init: RdmaInit returned error %i.\n", probeReturn);
+         goto err_unmap;
+      }
+   }
 
    // Manage device reset cycle
    dev_info(dev->device, "Init: Setting user reset\n");
@@ -466,6 +474,10 @@ void DataDev_Remove(struct pci_dev *pcidev) {
    }
 #endif
 
+   if (dev->rdmaData) {
+      Rdma_Shutdown(dev);
+   }
+
    // Call common DMA clean function (calls free_irq() internally)
    Dma_Clean(dev);
 
@@ -520,6 +532,11 @@ int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
 #else
          return -ENOTSUPP;
 #endif
+      case GPU_DmaBuf_Add_Wr_Buffer:
+      case GPU_DmaBuf_Add_Rd_Buffer:
+      case GPU_DmaBuf_Remove_Buffers:
+         return Rdma_Ioctl(dev, cmd, arg);
+
       case AVER_Get:
          // AXI Version Read
          return AxiVersion_Get(dev, dev->base + AVER_OFF, arg);

@@ -23,7 +23,10 @@
 #include <dma_common.h>
 #include <dma_buffer.h>
 #include <linux/interrupt.h>
+#ifdef DATA_GPU
 #include <nv-p2p.h>
+#endif
+
 /**
  * GPU_BOUND_SHIFT - Shift for GPU address boundary
  */
@@ -49,6 +52,7 @@
  */
 #define MAX_GPU_BUFFERS   1024
 
+#ifdef DATA_GPU
 /**
  * struct GpuBuffer - Represents a single GPU buffer
  * @write: Write flag indicating the buffer's usage
@@ -116,5 +120,6 @@ int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg);
 void Gpu_Show(struct seq_file *s, struct DmaDevice *dev);
 int32_t Gpu_EnableTx(struct DmaDevice *dev, uint64_t enable);
 int32_t Gpu_EnableRx(struct DmaDevice *dev, uint64_t enable);
+#endif // DATA_GPU
 
 #endif  // __GPU_ASYNC_2_H__
