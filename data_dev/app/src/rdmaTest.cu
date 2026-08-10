@@ -16,7 +16,6 @@
 **/
 
 #include <cuda.h>
-#include <cuda_runtime.h>
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,7 +32,6 @@
 #include "GpuAsyncRegs.h"
 #include "GpuAsyncUser.h"
 #include "GpuAsyncLib.h"
-#include "DmaBuf.h"
 
 static int s_verbose = 0;
 static int s_dumpToFile = 0;
@@ -55,7 +53,7 @@ static int str2int(const char* s) {
 /* CUDA Allocations must be aligned to this size */
 #define GPU_PAGE_SIZE 0x10000
 
-#define ALIGN_VALUE(_x, _align) (((_x) + (_align) + 1) & ~((_align)- 1))
+#define ALIGN_VALUE(_x, _align) (((_x) + (_align) - 1) & ~((_align) - 1))
 
 /**
  * @brief Per-session state. Replaces the old GpuAsyncContext lifecycle wrapper
@@ -68,8 +66,8 @@ struct TestSession {
     GpuDmaBuffer_t regs = {};            ///< FPGA register block (host-mapped + GPU-mapped).
     GpuAsyncCoreRegs* coreRegs = nullptr;///< View over regs, knows V1/V4 layout.
     CUstream stream = 0;                 ///< Single stream used for the simple-loop test.
-    std::vector<CUdeviceptr> rxBuffers;  ///< FPGA->GPU buffers (cuMalloc'd, registered with FPGA).
-    std::vector<CUdeviceptr> txBuffers;  ///< GPU->FPGA buffers, only populated when loopback is set.
+    std::vector<CudaVMMAlloc> rxBuffers; ///< FPGA->GPU buffers (cuMalloc'd, registered with FPGA).
+    std::vector<CudaVMMAlloc> txBuffers; ///< GPU->FPGA buffers, only populated when loopback is set.
     std::vector<int> rxDmaBuffs;
     std::vector<int> txDmaBuffs;
     int bufCnt = 0;
@@ -126,26 +124,25 @@ int main(int argc, char** argv) {
  * @param fd datadev file descriptor
  * @param write 1 if write
  * @param totalSize Total size of the buffer, aligned to 64k boundary
- * @param outBuffer Ref to a variable to hold the resulting device ptr
+ * @param outBuffer Ref to a variable to hold the resulting allocation info
  * @param outDmaBuf Ref to a variable to hold the resutling dma-buf fd (set to -1 for non-dma-buf)
  * @return True on succcess
  */
-static bool allocGpuMem(int fd, int write, size_t totalSize, CUdeviceptr& outBuffer, int& outDmaBuf) {
+static bool allocGpuMem(int fd, int write, size_t totalSize, CudaVMMAlloc& outBuffer, int& outDmaBuf) {
     outDmaBuf = -1;
     CUresult result;
-    if ((result = cuMemAlloc(&outBuffer, totalSize)) != CUDA_SUCCESS) {
+    if ((result = vmmCuAlloc(outBuffer, totalSize, GPU_PAGE_SIZE)) != CUDA_SUCCESS) {
         const char* str = nullptr;
         cuGetErrorString(result, &str);
-        fprintf(stderr, "allocGpuMem: cuMalloc failed: %s\n", str ? str : "<Unknown error>");
+        fprintf(stderr, "allocGpuMem: vmmCuAlloc failed: %s\n", str ? str : "<Unknown error>");
         return false;
     }
 
     /* GpuDirectRDMA API */
     if (!s_useDmaBuf) {
-        if (gpuAddNvidiaMemory(fd, write, outBuffer, totalSize) < 0) {
+        if (gpuAddNvidiaMemory(fd, write, outBuffer.ptr, totalSize) < 0) {
             perror("allocGpuMem: gpuAddNvidiaMemory");
-            cuMemFree(outBuffer);
-            outBuffer = 0;
+            vmmCuFree(outBuffer);
             return false;
         }
         return true;
@@ -153,7 +150,7 @@ static bool allocGpuMem(int fd, int write, size_t totalSize, CUdeviceptr& outBuf
 
     /* New dma-buf API */
     result = cuMemGetHandleForAddressRange(
-        &outDmaBuf, outBuffer, totalSize,
+        &outDmaBuf, outBuffer.ptr, totalSize,
         CU_MEM_RANGE_HANDLE_TYPE_DMA_BUF_FD,
         0
     );
@@ -162,16 +159,14 @@ static bool allocGpuMem(int fd, int write, size_t totalSize, CUdeviceptr& outBuf
         const char* str = nullptr;
         cuGetErrorString(result, &str);
         fprintf(stderr, "allocGpuMem: cuGetHandleForAddressRange failed: %s\n", str ? str : "<Unknown error>");
-        cuMemFree(outBuffer);
-        outBuffer = 0;
+        vmmCuFree(outBuffer);
         return false;
     }
 
     /* Add it! */
-    if (dmaBufAddBuffer(fd, outDmaBuf, write) < 0) {
+    if (gpuAddDmaBuf(fd, outDmaBuf, write) < 0) {
         perror("allocGpuMem: dmaBufAddBuffer");
-        cuMemFree(outBuffer);
-        outBuffer = 0;
+        vmmCuFree(outBuffer);
         close(outDmaBuf);
         outDmaBuf = -1;
         return false;
@@ -290,7 +285,7 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
 
     /* Allocate rx (and optionally tx) buffers sized bufSize + dmaHeaderSize for
      * descriptor headroom; only bufSize is registered with the FPGA. */
-    s.rxBuffers.resize(bufCnt, 0);
+    s.rxBuffers.resize(bufCnt, {});
     s.rxDmaBuffs.resize(bufCnt, -1);
     for (int i = 0; i < bufCnt; ++i) {
         if (!allocGpuMem(fd, 1, totalBufSize, s.rxBuffers[i], s.rxDmaBuffs[i])) {
@@ -299,7 +294,7 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
     }
 
     if (loopback) {
-        s.txBuffers.resize(bufCnt, 0);
+        s.txBuffers.resize(bufCnt, {});
         s.txDmaBuffs.resize(bufCnt, -1);
         for (int i = 0; i < bufCnt; ++i) {
             if (!allocGpuMem(fd, 0, totalBufSize, s.txBuffers[i], s.txDmaBuffs[i])) {
@@ -322,10 +317,10 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
         if ((cr = cuStreamWriteValue32(s.stream,
                   s.regs.dptr + s.coreRegs->freeListOffset(i), 1, 0)) != CUDA_SUCCESS ||
             (cr = cuStreamWriteValue32(s.stream,
-                  (CUdeviceptr)s.rxBuffers[i] + 4, 0, 0)) != CUDA_SUCCESS ||
+                  s.rxBuffers[i].ptr + 4, 0, 0)) != CUDA_SUCCESS ||
             (loopback &&
              (cr = cuStreamWriteValue32(s.stream,
-                  (CUdeviceptr)s.txBuffers[i], 1, 0)) != CUDA_SUCCESS)) {
+                  s.txBuffers[i].ptr, 1, 0)) != CUDA_SUCCESS)) {
             const char *en = nullptr;
             cuGetErrorName(cr, &en);
             fprintf(stderr, "cuStreamWriteValue32 (buffer %d) failed: %s\n",
@@ -360,9 +355,9 @@ static void cleanupSession(TestSession& s) {
     if (fd >= 0)
         gpuRemNvidiaMemory(fd);
 
-    for (auto p : s.txBuffers) if (p) cuMemFree(p);
+    for (auto& p : s.txBuffers) vmmCuFree(p);
     s.txBuffers.clear();
-    for (auto p : s.rxBuffers) if (p) cuMemFree(p);
+    for (auto& p : s.rxBuffers) vmmCuFree(p);
     s.rxBuffers.clear();
 
     delete s.coreRegs;
@@ -397,10 +392,10 @@ static void runSimpleLoop(TestSession& s) {
 
         /* Wait on handshake space on the GPU side (A.K.A. "GPU's doorbell"). */
         assertOk(cuStreamWaitValue32(s.stream,
-            (CUdeviceptr)s.rxBuffers[curBuff] + 4, 1, CU_STREAM_WAIT_VALUE_GEQ));
+            s.rxBuffers[curBuff].ptr + 4, 1, CU_STREAM_WAIT_VALUE_GEQ));
 
         /* Download header data immediately. */
-        assertOk(cuMemcpyDtoHAsync(&hdr, s.rxBuffers[curBuff], sizeof(hdr), s.stream));
+        assertOk(cuMemcpyDtoHAsync(&hdr, s.rxBuffers[curBuff].ptr, sizeof(hdr), s.stream));
 
         /* SYNC the stream so header data becomes available to the host. A failed
          * sync would leave hdr undefined and race the subsequent doorbell writes. */
@@ -423,20 +418,20 @@ static void runSimpleLoop(TestSession& s) {
             } else {
                 /* Wait for the FPGA to return the free list back to GPU. */
                 assertOk(cuStreamWaitValue32(s.stream,
-                    (CUdeviceptr)s.txBuffers[curBuff], 1, CU_STREAM_WAIT_VALUE_GEQ));
+                    s.txBuffers[curBuff].ptr, 1, CU_STREAM_WAIT_VALUE_GEQ));
 
                 /* Copy rxData to the txData buffer for this loopback mode at the
                  * dmaDataBytes() payload offset. Use the cached s.dmaHeaderSize
                  * (populated once at init) instead of re-reading the FPGA register
                  * every event. */
                 assertOk(cuMemcpyDtoDAsync(
-                    s.txBuffers[curBuff] + s.dmaHeaderSize,
-                    s.rxBuffers[curBuff] + s.dmaHeaderSize,
+                    s.txBuffers[curBuff].ptr + s.dmaHeaderSize,
+                    s.rxBuffers[curBuff].ptr + s.dmaHeaderSize,
                     hdr.size, s.stream));
 
                 /* Remove from free list on the GPU side ("GPU's free list"). */
                 assertOk(cuStreamWriteValue32(s.stream,
-                    (CUdeviceptr)s.txBuffers[curBuff], 0, 0));
+                    s.txBuffers[curBuff].ptr, 0, 0));
 
                 /* SYNC the stream for the data copy and GPU side free list update
                  * before triggering the FPGA's doorbell. */
@@ -464,7 +459,7 @@ static void runSimpleLoop(TestSession& s) {
                                     static_cast<size_t>(s.dmaHeaderSize);
             size_t count = std::min(std::min(static_cast<size_t>(hdr.size),
                                              dumpBytes), maxCount);
-            assertOk(cuMemcpyDtoH(tmpbuf.data(), s.rxBuffers[curBuff], count));
+            assertOk(cuMemcpyDtoH(tmpbuf.data(), s.rxBuffers[curBuff].ptr, count));
             for (size_t i = 0; i < count; ++i) {
                 printf("%02X ", tmpbuf[i]);
                 if (i && (i + 1) % 32 == 0)
@@ -483,7 +478,7 @@ static void runSimpleLoop(TestSession& s) {
                         hdr.size, maxBytes);
             } else {
                 std::vector<uint8_t> filebuf(hdr.size);
-                assertOk(cuMemcpyDtoH(filebuf.data(), s.rxBuffers[curBuff], hdr.size));
+                assertOk(cuMemcpyDtoH(filebuf.data(), s.rxBuffers[curBuff].ptr, hdr.size));
                 std::ofstream file;
                 file.open(s_dumpFile.c_str(), std::ios::binary | std::ios::out);
                 if (file.good()) {
@@ -499,7 +494,7 @@ static void runSimpleLoop(TestSession& s) {
 
         /* Clear handshake space on the GPU side ("GPU's doorbell"). */
         assertOk(cuStreamWriteValue32(s.stream,
-            (CUdeviceptr)s.rxBuffers[curBuff] + 4, 0, 0));
+            s.rxBuffers[curBuff].ptr + 4, 0, 0));
 
         /* Return the buffer index back to the FPGA side ("FPGA's free list"). */
         assertOk(cuStreamWriteValue32(s.stream,
