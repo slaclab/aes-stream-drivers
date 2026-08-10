@@ -85,17 +85,17 @@ ccflags-y += -I$(HOME)/src
 ccflags-y += -DDMA_IN_KERNEL=1 -DPCIE_DMA=1 -DGITV=\"$(GITV)\"
 
 ifneq ($(NVIDIA_DRIVERS),)
-ccflags-y += -I$(NVIDIA_DRIVERS)/nvidia -I$(NVIDIA_DRIVERS)/kernel-open/nvidia -DDATA_GPU=1
+ccflags-y += -I$(NVIDIA_DRIVERS)/nvidia -I$(NVIDIA_DRIVERS)/kernel-open/nvidia -DHAVE_NV_P2P=1
 endif
 
 $(info $(ccflags-y))
 
 # Object files that make up the module
 $(NAME)-objs := src/dma_buffer.o src/dma_common.o
-$(NAME)-objs += src/axi_version.o src/axis_gen2.o src/data_dev_top.o src/rdma.o
+$(NAME)-objs += src/axi_version.o src/axis_gen2.o src/data_dev_top.o src/rdma_dma_buf.o src/rdma_common.o
 
 ifneq ($(NVIDIA_DRIVERS),)
-$(NAME)-objs += src/gpu_async.o
+$(NAME)-objs += src/rdma_nv_p2p.o
 endif
 
 # Target module to be built

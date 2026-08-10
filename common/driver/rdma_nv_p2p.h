@@ -17,42 +17,19 @@
  * ----------------------------------------------------------------------------
 **/
 
-#ifndef __GPU_ASYNC_2_H__
-#define __GPU_ASYNC_2_H__
+#ifndef __RDMA_NV_P2P_H__
+#define __RDMA_NV_P2P_H__
 
 #include <dma_common.h>
 #include <dma_buffer.h>
+#include <rdma_common.h>
 #include <linux/interrupt.h>
-#ifdef DATA_GPU
+#ifdef HAVE_NV_P2P
 #include <nv-p2p.h>
 #endif
 
-/**
- * GPU_BOUND_SHIFT - Shift for GPU address boundary
- */
-#define GPU_BOUND_SHIFT   16
 
-/**
- * GPU_BOUND_SIZE - Size of GPU address boundary
- */
-#define GPU_BOUND_SIZE    ((u64)1 << GPU_BOUND_SHIFT)
-
-/**
- * GPU_BOUND_OFFSET - Offset for GPU address boundary calculation
- */
-#define GPU_BOUND_OFFSET  (GPU_BOUND_SIZE - 1)
-
-/**
- * GPU_BOUND_MASK - Mask for aligning addresses to GPU boundary
- */
-#define GPU_BOUND_MASK    (~GPU_BOUND_OFFSET)
-
-/**
- * MAX_GPU_BUFFERS - Maximum number of GPU buffers allowed
- */
-#define MAX_GPU_BUFFERS   1024
-
-#ifdef DATA_GPU
+#ifdef HAVE_NV_P2P
 /**
  * struct GpuBuffer - Represents a single GPU buffer
  * @write: Write flag indicating the buffer's usage
@@ -99,27 +76,19 @@ struct GpuBuffers {
  * This structure is designed to encapsulate all relevant data for
  * GPU operations, including pointers to read and write buffers.
  */
-struct GpuData {
-   uint8_t * base;
-   uint32_t offset;
-   int32_t version;
-   uint32_t maxBuffers;
-   uint32_t disabled;
-   atomic64_t pid;
+struct NvP2PData {
    struct GpuBuffers writeBuffers;
    struct GpuBuffers readBuffers;
 };
 
 // Function prototypes
-int32_t Gpu_Init(struct DmaDevice *dev, uint32_t offset);
-int32_t Gpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);
-int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg);
-int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg);
-void Gpu_FreeNvidia(void * data);
-int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg);
-void Gpu_Show(struct seq_file *s, struct DmaDevice *dev);
-int32_t Gpu_EnableTx(struct DmaDevice *dev, uint64_t enable);
-int32_t Gpu_EnableRx(struct DmaDevice *dev, uint64_t enable);
-#endif // DATA_GPU
+struct NvP2PData* NvP2P_Init(struct DmaDevice *dev, uint32_t offset);
+int32_t NvP2P_Ioctl(struct DmaDevice *dev, uint32_t cmd, uint64_t arg);
+int32_t NvP2P_AddNvidia(struct DmaDevice *dev, uint64_t arg);
+int32_t NvP2P_RemNvidia(struct DmaDevice *dev, uint64_t arg);
+void NvP2P_FreeNvidia(void * data);
+void NvP2P_Shutdown(struct DmaDevice* dev);
 
-#endif  // __GPU_ASYNC_2_H__
+#endif // HAVE_NV_P2P
+
+#endif  // __RDMA_NV_P2P_H__

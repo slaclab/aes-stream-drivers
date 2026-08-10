@@ -248,7 +248,7 @@ static inline int gpuAddDmaBuf(int fd, int dma_buf_fd, int write) {
  * @todo: needs to be changed
  */
 static inline int gpuRemDmaBuf(int fd) {
-   int r = ioctl(fd, DmaBuf_Remove_Buffers);
+   int r = ioctl(fd, GPU_DmaBuf_Remove_Buffers);
    return r ? -errno : 0;
 }
 

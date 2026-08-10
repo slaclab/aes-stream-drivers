@@ -33,7 +33,7 @@
 #include <linux/slab.h>
 #include <axis_gen2.h>
 #include <GpuAsync.h>
-#include <rdma.h>
+#include <rdma_common.h>
 #include <GpuAsyncRegs.h>
 
 #ifdef DATA_GPU
@@ -338,14 +338,6 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    // Skip GPU init if the module is not enabled
    if (readl(dev->base + AVER_OFF + 0x428) == 1) {
-      // GPU Init
-#ifdef DATA_GPU
-      probeReturn = Gpu_Init(dev, GPU_ASYNC_CORE_OFFSET);
-      if (probeReturn < 0) {
-         dev_err(dev->device, "Init: Gpu_Init returned error %i.\n", probeReturn);
-         goto err_unmap;
-      }
-#endif
       probeReturn = Rdma_Init(dev, GPU_ASYNC_CORE_OFFSET);
       if (probeReturn < 0) {
          dev_err(dev->device, "Init: RdmaInit returned error %i.\n", probeReturn);
@@ -507,31 +499,17 @@ void DataDev_Remove(struct pci_dev *pcidev) {
  */
 int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    switch (cmd) {
-      // GPU Commands
-      // Handles adding or removing Nvidia memory based on the command specified.
+      // RDMA related commands
       case GPU_Add_Nvidia_Memory:
       case GPU_Rem_Nvidia_Memory:
       case GPU_Set_Write_Enable:
-      case GPU_Get_Max_Buffers:
-      case GPU_Enable_Rx:
-      case GPU_Enable_Tx:
-#ifdef DATA_GPU
-         return dev->gpuEn ? Gpu_Command(dev, cmd, arg) : -ENOTSUPP;
-#else
-         return -ENOTSUPP;
-#endif
       case GPU_Is_Gpu_Async_Supp:
-#ifdef DATA_GPU
-         return dev->gpuEn ? 1 : 0;
-#else
-         return 0;
-#endif
       case GPU_Get_Gpu_Async_Ver:
-#ifdef DATA_GPU
-         return dev->gpuVer;
-#else
-         return -ENOTSUPP;
-#endif
+      case GPU_Get_Max_Buffers:
+      case GPU_Enable_Tx:
+      case GPU_Enable_Rx:
+      case GPU_Is_Dma_Buf_Supp:
+      case GPU_Is_GpuDirect_Supp:
       case GPU_DmaBuf_Add_Wr_Buffer:
       case GPU_DmaBuf_Add_Rd_Buffer:
       case GPU_DmaBuf_Remove_Buffers:

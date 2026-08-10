@@ -14,13 +14,13 @@
  * ----------------------------------------------------------------------------
 **/
 
-#ifndef _RDMA_H_
-#define _RDMA_H_
+#ifndef __RDMA_DMA_BUF_H__
+#define __RDMA_DMA_BUF_H__
 
 #include <dma_common.h>
 
-int Rdma_Init(struct DmaDevice* dev, uint32_t offset);
-void Rdma_Shutdown(struct DmaDevice* dev);
-int Rdma_Ioctl(struct DmaDevice* dev, uint32_t cmd, uint64_t arg0);
+void* DmaBuf_Init(struct DmaDevice* dev, uint32_t offset);
+void DmaBuf_Shutdown(struct DmaDevice* dev);
+int DmaBuf_Ioctl(struct DmaDevice* dev, uint32_t cmd, uint64_t arg0);
 
-#endif // _RDMA_H_
+#endif // __RDMA_DMA_BUF_H__

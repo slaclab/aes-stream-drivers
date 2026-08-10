@@ -19,17 +19,18 @@
 **/
 
 #include <dma_common.h>
+#include <rdma_common.h>
 #include <data_dev_top.h>
-#include <rdma.h>
-#include <linux/dma-buf.h>
+#include <rdma_dma_buf.h>
 #include <GpuAsyncRegs.h>
 #include <GpuAsync.h>
-#include <gpu_async.h>
+
+#include <linux/dma-buf.h>
 #include <linux/mutex.h>
 #include <linux/time.h>
 #include <linux/delay.h>
 
-struct RdmaBuffer {
+struct DmaBufBuffer {
    struct dma_buf* dma_buf;
    struct dma_buf_attachment* dma_attach;
    struct sg_table* tab;
@@ -37,67 +38,65 @@ struct RdmaBuffer {
    enum dma_data_direction dir;
 };
 
-struct RdmaInfo {
-   struct RdmaBuffer* writeBuffs;
-   struct RdmaBuffer* readBuffs;
-   uint32_t writeCount;
-   uint32_t readCount;
+struct DmaBufData {
+   struct DmaBufBuffer* writeBuffs;
+   struct DmaBufBuffer* readBuffs;
    struct mutex lock;
-   void* gpuBase;
-   uint8_t version;                 /* GpuAsyncCore version */
-   int disabled;
 };
 
-static int Rdma_RemoveBuf(struct DmaDevice* dev, struct RdmaBuffer* buffer);
+static int DmaBuf_RemoveBuf(struct DmaDevice* dev, struct DmaBufBuffer* buffer);
 
-int Rdma_Init(struct DmaDevice* dev, uint32_t offset) {
+static struct DmaBufData* DmaBuf_GetPvt(struct DmaDevice* dev) {
+   struct RdmaData* rd = dev->rdmaData;
+   if (!rd)
+      return NULL;
+   return rd->dmaBufData;
+}
+
+void* DmaBuf_Init(struct DmaDevice* dev, uint32_t offset) {
    void* gpuBase = dev->base + offset;
    uint8_t version = readGpuAsyncReg(gpuBase, &GpuAsyncReg_Version);
    if (!version)
       return 0; /* Not supported by firmware; not an error! */
 
-   struct RdmaInfo* info = kzalloc(sizeof(struct RdmaInfo), GFP_KERNEL);
+   struct DmaBufData* info = kzalloc(sizeof(struct DmaBufData), GFP_KERNEL);
    if (!info) {
-      dev_warn(dev->device, "Rdma_Init: RdmaInfo allocation failed\n");
-      return -ENOMEM;
+      dev_warn(dev->device, "DmaBuf_Init: DmaBufData allocation failed\n");
+      return NULL;
    }
-   info->version = version;
-   info->gpuBase = gpuBase;
 
-   info->writeBuffs = kzalloc(sizeof(struct RdmaBuffer) * MAX_GPU_BUFFERS, GFP_KERNEL);
-   info->readBuffs = kzalloc(sizeof(struct RdmaBuffer) * MAX_GPU_BUFFERS, GFP_KERNEL);
+   info->writeBuffs = kzalloc(sizeof(struct DmaBufBuffer) * MAX_GPU_BUFFERS, GFP_KERNEL);
+   info->readBuffs = kzalloc(sizeof(struct DmaBufBuffer) * MAX_GPU_BUFFERS, GFP_KERNEL);
    if (!info->writeBuffs || !info->readBuffs) {
-      dev_warn(dev->device, "Rdma_Init: Failed to allocate buffer lists\n");
+      dev_warn(dev->device, "DmaBuf_Init: Failed to allocate buffer lists\n");
       kfree(info->writeBuffs);
       kfree(info->readBuffs);
       kfree(info);
-      return -ENOMEM;
+      return NULL;
    }
 
    mutex_init(&info->lock);
 
-   dev->rdmaData = info;
-
-   dev_info(dev->device, "Rdma_Init: Initialized dma-buf support\n");
-
-   return 0;
+   return info;
 }
 
-void Rdma_Shutdown(struct DmaDevice* dev) {
-   struct RdmaInfo* info = dev->rdmaData;
+void DmaBuf_Shutdown(struct DmaDevice* dev) {
+   struct DmaBufData* info = DmaBuf_GetPvt(dev);
    if (!info) {
       return;
    }
+   
+   struct RdmaData* rdmaData = dev->rdmaData;
 
    mutex_lock(&info->lock);
 
    /* Release all remaining buffers */
-   for (int i = 0; i < info->writeCount; ++i) {
-      Rdma_RemoveBuf(dev, &info->writeBuffs[i]);
+   for (int i = 0; i < rdmaData->writeBufferCount; ++i) {
+      DmaBuf_RemoveBuf(dev, &info->writeBuffs[i]);
    }
 
-   for (int i = 0; i < info->readCount; ++i) {
-      Rdma_RemoveBuf(dev, &info->readBuffs[i]);
+   for (int i = 0; i < rdmaData->readBufferCount; ++i) {
+      DmaBuf_RemoveBuf(dev, &info->readBuffs[i]);
    }
 
    mutex_unlock(&info->lock);
@@ -118,22 +117,23 @@ static const struct dma_buf_attach_ops importer_ops = {
    .move_notify = axi_rdma_move_notify,
 };
 
-static int Rdma_AddBuf(struct DmaDevice* dev, int buffd, int write) {
+static int DmaBuf_AddBuf(struct DmaDevice* dev, int buffd, int write) {
    struct dma_buf* buf = ERR_PTR(-1);
    struct dma_buf_attachment* attach = ERR_PTR(-1);
    struct sg_table* tab = ERR_PTR(-1);
-   struct RdmaBuffer* buffer = ERR_PTR(-1);
+   struct DmaBufBuffer* buffer = ERR_PTR(-1);
    int ret = 0;
 
-   struct RdmaInfo* info = dev->rdmaData;
+   struct DmaBufData* info = DmaBuf_GetPvt(dev);
    if (!info) {
       return -ENOTSUPP;
    }
+   struct RdmaData* rdmaData = dev->rdmaData;
 
    mutex_lock(&info->lock);
 
    /* Ensure we don't have too many buffers */
-   uint32_t* count = write ? (&info->writeCount) : (&info->readCount);
+   uint32_t* count = write ? (&rdmaData->writeBufferCount) : (&rdmaData->readBufferCount);
    if (*count >= MAX_GPU_BUFFERS) {
       mutex_unlock(&info->lock);
       return -EAGAIN;
@@ -143,17 +143,17 @@ static int Rdma_AddBuf(struct DmaDevice* dev, int buffd, int write) {
 
    buf = dma_buf_get(buffd);
    if (IS_ERR(buf)) {
-      dev_warn(dev->device, "Rdma_AddBuf: Invalid dmabuf: %ld\n", PTR_ERR(buf));
+      dev_warn(dev->device, "DmaBuf_AddBuf: Invalid dmabuf: %ld\n", PTR_ERR(buf));
       ret = -EINVAL;
       goto error;
    }
 
-   dev_warn(dev->device, "Rdma_AddBuf: exporter=%s, size=0x%lX\n", buf->exp_name, buf->size);
+   dev_warn(dev->device, "DmaBuf_AddBuf: exporter=%s, size=0x%lX\n", buf->exp_name, buf->size);
 
    /* Attach to the buffer to get ready for DMA */
    attach = dma_buf_dynamic_attach(buf, dev->device, &importer_ops, info);
    if (IS_ERR(attach)) {
-      dev_warn(dev->device, "Rdma_AddBuf: Failed to attach to buffer: %ld\n", PTR_ERR(tab));
+      dev_warn(dev->device, "DmaBuf_AddBuf: Failed to attach to buffer: %ld\n", PTR_ERR(tab));
       ret = -EINVAL;
       goto error;
    }
@@ -161,7 +161,7 @@ static int Rdma_AddBuf(struct DmaDevice* dev, int buffd, int write) {
    /* Attempt to map the attachment for DMA access */
    buffer->dir = write ? DMA_TO_DEVICE : DMA_FROM_DEVICE;
    if (IS_ERR(tab = dma_buf_map_attachment(attach, buffer->dir))) {
-      dev_warn(dev->device, "Rdma_AddBuf: Unable to map attachment for access: %ld\n", PTR_ERR(tab));
+      dev_warn(dev->device, "DmaBuf_AddBuf: Unable to map attachment for access: %ld\n", PTR_ERR(tab));
       ret = -EFAULT;
       goto error;
    }
@@ -170,27 +170,20 @@ static int Rdma_AddBuf(struct DmaDevice* dev, int buffd, int write) {
     * memory that is contiguous, aligned to buffer size or GPU page size (maybe?) */
    struct sg_dma_page_iter iter;
    dma_addr_t addr = 0, phys_base = sg_dma_address(tab->sgl);
-   size_t size = 0;
+   size_t size = 0, nents = 0;
    for_each_sg_dma_page(tab->sgl, &iter, tab->nents, 0) {
       if (addr && addr + PAGE_SIZE != sg_page_iter_dma_address(&iter)) {
-         dev_warn(dev->device, "Rdma_AddBuf: Non-contiguous memory is not supported\n");
+         dev_warn(dev->device, "DmaBuf_AddBuf: Non-contiguous memory is not supported\n");
          goto error;
       }
       addr = sg_page_iter_dma_address(&iter);
       size += PAGE_SIZE;
-   }
-   
-   /* Did not map the full range? */
-   if (size != sg_dma_len(tab->sgl)) {
-      dev_warn(dev->device, "Rdma_AddBuf: Full DMA buffer range didn't map: 0x%lX != 0x%X\n", 
-               size, sg_dma_len(tab->sgl));
-      ret = -EINVAL;
-      goto error;
+      nents++;
    }
 
    /* We cannot support buffers > 4GiB */
    if (size > 0xFFFFFFFFULL) {
-      dev_warn(dev->device, "Rdma_AddBuf: DMA buffer too large: 0x%lX > 0xFFFFFFFF\n", size);
+      dev_warn(dev->device, "DmaBuf_AddBuf: DMA buffer too large: 0x%lX > 0xFFFFFFFF\n", size);
       ret = -EINVAL;
       goto error;
    }
@@ -198,7 +191,7 @@ static int Rdma_AddBuf(struct DmaDevice* dev, int buffd, int write) {
    /* Lookup registers based on the async core version */
    uint32_t offset = 0x0;
    const struct GpuAsyncRegister *countReg = NULL, *enableReg = NULL;
-   switch(info->version) {
+   switch(rdmaData->version) {
    case 0 ... 3:
       offset = write ? GPU_ASYNC_REG_WRITE_ADDR_L_OFFSET_V1(*count) : GPU_ASYNC_REG_READ_ADDR_L_OFFSET_V1(*count);
       countReg = write ? &GpuAsyncReg_WriteCountV1 : &GpuAsyncReg_ReadCountV1;
@@ -213,23 +206,23 @@ static int Rdma_AddBuf(struct DmaDevice* dev, int buffd, int write) {
    }
 
    /* Write out DMA address */
-   writel(phys_base & 0xFFFFFFFF, info->gpuBase + offset);
-   writel(((uint64_t)phys_base >> 32ULL) & 0xFFFFFFFF, info->gpuBase + offset + 0x4);
+   writel(phys_base & 0xFFFFFFFF, rdmaData->base + offset);
+   writel(((uint64_t)phys_base >> 32ULL) & 0xFFFFFFFF, rdmaData->base + offset + 0x4);
 
    /* Write out max size */
-   if (info->version >= 4) {
+   if (rdmaData->version >= 4) {
       if (write) {
-         writeGpuAsyncReg(info->gpuBase, &GpuAsyncReg_RemoteWriteMaxSizeV4, size);
+         writeGpuAsyncReg(rdmaData->base, &GpuAsyncReg_RemoteWriteMaxSizeV4, size);
       }
    } else if (write) {
-      writel(size, info->gpuBase + GPU_ASYNC_REG_WRITE_SIZE_OFFSET_V1(*count));
+      writel(size, rdmaData->base + GPU_ASYNC_REG_WRITE_SIZE_OFFSET_V1(*count));
    }
 
    (*count)++;
 
    /* Set counts and enable */
-   writeGpuAsyncReg(info->gpuBase, countReg, *count-1);
-   writeGpuAsyncReg(info->gpuBase, enableReg, 1);
+   writeGpuAsyncReg(rdmaData->base, countReg, *count-1);
+   writeGpuAsyncReg(rdmaData->base, enableReg, 1);
 
    buffer->dma_attach = attach;
    buffer->phys_base = phys_base;
@@ -237,7 +230,7 @@ static int Rdma_AddBuf(struct DmaDevice* dev, int buffd, int write) {
    buffer->dma_buf = buf;
 
    //if (dev->debug > 0)
-      dev_info(dev->device, "Rdma_AddBuf: Added DMA buffer %d: phys_addr=0x%llX, len=0x%lX\n", *count-1, phys_base, size);
+      dev_info(dev->device, "DmaBuf_AddBuf: Added DMA buffer %d: phys_addr=0x%llX, len=0x%lX\n", *count-1, phys_base, size);
 
    mutex_unlock(&info->lock);
    return 0;
@@ -252,12 +245,12 @@ error:
    return ret;
 }
 
-static int Rdma_RemoveBuf(struct DmaDevice* dev, struct RdmaBuffer* buffer) {
+static int DmaBuf_RemoveBuf(struct DmaDevice* dev, struct DmaBufBuffer* buffer) {
    if (!buffer || !buffer->dma_buf)
       return 0; /* Nothing to do */
 
    if (dev->debug > 0)
-      dev_info(dev->device, "Rdma_RemoveBuf: Releasing buffer phys_base=0x%llX\n", buffer->phys_base);
+      dev_info(dev->device, "DmaBuf_RemoveBuf: Releasing buffer phys_base=0x%llX\n", buffer->phys_base);
 
    dma_buf_unmap_attachment(buffer->dma_attach, buffer->tab, buffer->dir);
    dma_buf_put(buffer->dma_buf);
@@ -273,58 +266,39 @@ static int Rdma_RemoveBuf(struct DmaDevice* dev, struct RdmaBuffer* buffer) {
  * In theory, we could shuffle around buffer descriptions, however this would introduce some overhead as we need to disable DMAs,
  * wait for them to be disabled, shuffle, re-enable.
  */
-static int Rdma_RemoveBuffers(struct DmaDevice* dev) {
-   ktime_t waitStart = 0;
-   struct RdmaInfo* info = dev->rdmaData;
+static int DmaBuf_RemoveBuffers(struct DmaDevice* dev) {
+   struct DmaBufData* info = DmaBuf_GetPvt(dev);
    if (!info) {
       return -ENOTSUPP;
    }
+   
+   struct RdmaData* rdmaData = dev->rdmaData;
 
-   /* disable DMAs */
-   writel(0, info->gpuBase + 0x008);
-
-   /* GpuAsyncV4 has no "DMA complete" indicator, so we need to delay for a bit while pending transactions complete.
-    * This is far from scientific; I'm just choosing a value (50ms) that *should* prevent crashes... */
-   if (info->version < 5) {
-      if (!info->disabled)
-         fsleep(50000);
-      info->disabled = 1;
-   } else {
-      /* V5+: Spin on write/read enable readback. This will get cleared once the FPGA has completed all RDMA transactions to the GPU. */
-      waitStart = ktime_get();
-      while (readl(info->gpuBase + 0x44) != 0) {
-         cpu_relax();
-
-         /* Avoid hanging the system if there's a stalled transfer */
-         if (ktime_to_ms(ktime_sub(ktime_get(), waitStart)) > 1000) {
-            dev_warn(dev->device, "Gpu_ClearBufferRegs: Possible stalled DMA; already waited for 1s\n");
-            break;
-         }
-      }
-      info->disabled = 1;
-   }
+   /* Clear FPGA state */
+   Rdma_ClearBufferRegs(dev);
 
    /* Release each buffer now */
-   for (int i = 0; i < info->readCount; ++i)
-      Rdma_RemoveBuf(dev, &info->readBuffs[i]);
+   for (int i = 0; i < rdmaData->readBufferCount; ++i)
+      DmaBuf_RemoveBuf(dev, &info->readBuffs[i]);
 
-   for (int i = 0; i < info->writeCount; ++i)
-      Rdma_RemoveBuf(dev, &info->writeBuffs[i]);
+   for (int i = 0; i < rdmaData->writeBufferCount; ++i)
+      DmaBuf_RemoveBuf(dev, &info->writeBuffs[i]);
 
    return 0;
 }
 
-int Rdma_Ioctl(struct DmaDevice* dev, uint32_t cmd, uint64_t arg0) {
-   if (!dev->rdmaData)
+int DmaBuf_Ioctl(struct DmaDevice* dev, uint32_t cmd, uint64_t arg0) {
+   if (!DmaBuf_GetPvt(dev)) {
       return -ENOTSUPP;
+   }
 
    switch (cmd) {
       case GPU_DmaBuf_Add_Wr_Buffer:
-         return Rdma_AddBuf(dev, (int)arg0, 1);
+         return DmaBuf_AddBuf(dev, (int)arg0, 1);
       case GPU_DmaBuf_Add_Rd_Buffer:
-         return Rdma_AddBuf(dev, (int)arg0, 0);
+         return DmaBuf_AddBuf(dev, (int)arg0, 0);
       case GPU_DmaBuf_Remove_Buffers:
-         return Rdma_RemoveBuffers(dev);
+         return DmaBuf_RemoveBuffers(dev);
       default:
          break;
    }
