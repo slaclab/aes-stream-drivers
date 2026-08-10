@@ -405,7 +405,6 @@ static int AxiHwmon_Read(struct device *dev, enum hwmon_sensor_types type,
    }
 
    raw = readl(device->base + pvt->axiSysmonOffset + offset);
-   dev_info(device->device, "readl(0x%lX + 0x%lX) = %u\n", pvt->axiSysmonOffset, offset, raw);
 
    // Do conversions if necessary
    if (sens->convFunc)

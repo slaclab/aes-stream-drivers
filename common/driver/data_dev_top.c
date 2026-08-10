@@ -408,7 +408,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    }
 
    // Register hwmon interface, if supported.
-   if (axiSysMonOffset != INVALID_REG_OFFSET) {
+   if (axiSysMonOffset != INVALID_REG_OFFSET && readl(dev->base + AVER_OFF + 0x42C)) {
       AxiHwmon_Init(dev, AVER_OFF, axiSysMonOffset);
    }
 
