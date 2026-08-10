@@ -157,7 +157,7 @@ CUresult vmmCuAlloc(CudaVMMAlloc& alloc, size_t size, size_t alignment);
  * @brief Frees some memory allocated with the CUDA VMM API.
  * Clears @c alloc
  */
-void vmmCuFree(const CudaVMMAlloc& alloc);
+void vmmCuFree(CudaVMMAlloc& alloc);
 
 /* ----- DMA buffers ----------------------------------------------------- */
 
