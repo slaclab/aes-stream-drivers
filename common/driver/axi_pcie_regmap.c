@@ -85,7 +85,7 @@ int AxiRegMap_Init(struct DmaDevice* dev, __iomem void* axiVersion) {
       dev_warn(dev->device, "AxiRegMap_Init: Unsupported register map version %u. Maximum supported version is %d.\n",
                dev->regMapVersion, MAX_SUPPORTED_REG_VERSION);
       dev_warn(dev->device, "Please use a newer driver version, or contact a maintainer to update the software\n");
-      return -1;
+      return -EPFNOSUPPORT;
    }
    dev_info(dev->device, "AxiRegMap_Init: Using register map version %d\n", dev->regMapVersion);
    return 0;

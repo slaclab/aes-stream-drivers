@@ -177,7 +177,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    int32_t x;
    uint32_t axiWidth;
    int ret;
-   uint32_t axiGen2Offset, phyOffset, axiSysMonOffset, gpuAsyncCoreOffset;
+   uint32_t axiGen2Offset, phyOffset, axiSysMonOffset;
 
    // Validate buffer mode configuration
    if ( cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM ) {
@@ -289,7 +289,6 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    // Optional offsets
    axiSysMonOffset = AxiRegMap_GetOffset(dev, REG_AXI_SYSMON);
-   gpuAsyncCoreOffset = AxiRegMap_GetOffset(dev, REG_GPU_ASYNC);
 
    // Initialize device configuration parameters
    dev->cfgTxCount    = cfgTxCount;    // Transmit buffer count
@@ -356,6 +355,8 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->rwSize = (2*USER_SIZE) - phyOffset;  // Read/Write region size
 
 #ifdef DATA_GPU
+   uint32_t gpuAsyncCoreOffset = AxiRegMap_GetOffset(dev, REG_GPU_ASYNC);
+
    // Skip GPU init if the module is not enabled
    if (readl(dev->base + AVER_OFF + 0x428) == 1 && gpuAsyncCoreOffset != INVALID_REG_OFFSET) {
       // GPU Init

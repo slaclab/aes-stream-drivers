@@ -15,12 +15,15 @@
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
+#include <linux/version.h>
 #include <linux/types.h>
-#include <linux/hwmon.h>
-#include <linux/math.h>
-#include <linux/slab.h>
-#include <axi_hwmon.h>
 #include <dma_common.h>
+#include <axi_hwmon.h>
+#include <axi_version.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#include <linux/hwmon.h>
+#include <linux/slab.h>
 
 /**
  * Specific hardware types for the FPGA. This is used to choose specific ADC
@@ -72,14 +75,6 @@ enum AxiHwmonSensorInstance {
    AXI_HWMON_IN_COUNT,
 };
 
-typedef enum {
-   AXI_HWMON_TYPE_C, /* Chip */
-   AXI_HWMON_TYPE_T, /* Temp */
-   AXI_HWMON_TYPE_V, /* Voltage */
-
-   AXI_HWMON_TYPE_COUNT,
-} AxiHwmonSensorType_t;
-
 typedef struct {
    const char* label;
    u32 offset;         /* Offset of the main register (from the IP block base addr) */
@@ -98,7 +93,7 @@ typedef struct {
  * Sensor classes.
  */
 static const struct hwmon_channel_info* hwmon_ultrascale_channels[] = {
-   HWMON_CHANNEL_INFO(chip, HWMON_C_REGISTER_TZ | HWMON_C_UPDATE_INTERVAL),
+   HWMON_CHANNEL_INFO(chip, HWMON_C_REGISTER_TZ),
    HWMON_CHANNEL_INFO(temp, AXI_HWMON_TEMP_FLAGS),
    HWMON_CHANNEL_INFO(in, AXI_HWMON_IN_FLAGS),
    NULL,
@@ -159,7 +154,7 @@ static const AxiHwmonSensor_t hwmon_ultrascale_sensors[][hwmon_max] = {
          .label = "Temperature",
          .offset = 0x400,
          .maxOffset = 0x55C,
-         .critOffset = 0x54C,
+         .critOffset = 0x540,
          .highestOffset = 0x480,
          .lowestOffset = 0x490,
          .convFunc = convSYSMONEx_T,
@@ -190,8 +185,11 @@ void AxiHwmon_Init(struct DmaDevice* dev, off_t axiVerOffset, off_t axiSysMonOff
       return;
    }
 
+   // Read hardware type and mask off bifurcation index.
+   uint32_t htype = readl(dev->base + axiVerOffset + 0x400 + 4 * AxiVersion_Usr_HardwareType_Offset) & 0xFFF;
+
    // Unfortunately need to case on this. 0x40C does not differentiate between US and US+
-   switch (readl(dev->base + axiVerOffset + 0x424)) {
+   switch (htype) {
    case 0x00000006:  // XilinxAlveoU50
    case 0x00000007:  // XilinxAlveoU200
    case 0x00000008:  // XilinxAlveoU250
@@ -200,8 +198,6 @@ void AxiHwmon_Init(struct DmaDevice* dev, off_t axiVerOffset, off_t axiSysMonOff
    case 0x0000000E:  // XilinxVcu128
    case 0x0000000F:  // XilinxAlveoU55C
    case 0x00000010:  // XilinxVariumC1100
-   case 0x00001010:  // XilinxVariumC1100Extended
-   case 0x00000012:  // AbacoPc821Ku115
    case 0x00000013:  // BittWareXupVv8Vu9p
    case 0x00000002:  // BittWareXupVv8Vu13p
       hwtype = AXI_HWMON_HW_TYPE_ULTRASCALEPLUS;
@@ -209,8 +205,8 @@ void AxiHwmon_Init(struct DmaDevice* dev, off_t axiVerOffset, off_t axiSysMonOff
 
    case 0x0000000B:  // XilinxKcu105
    case 0x0000000D:  // XilinxKcu1500
-   case 0x0000100D:  // XilinxKcu1500Extended
    case 0x00000011:  // AbacoPc821Ku085
+   case 0x00000012:  // AbacoPc821Ku115
    case 0x00000001:  // AlphaDataKu3
    case 0x00000003:  // SlacPgpCardG3
    case 0x00000004:  // SlacPgpCardG4
@@ -238,6 +234,8 @@ void AxiHwmon_Init(struct DmaDevice* dev, off_t axiVerOffset, off_t axiSysMonOff
    pvt->hwtype = hwtype;
    pvt->dev = dev;
 
+   dev->hwmonPrivate = pvt;
+
    pvt->hwmonDev = hwmon_device_register_with_info(
       dev->device,
       "datadev",
@@ -253,8 +251,6 @@ void AxiHwmon_Init(struct DmaDevice* dev, off_t axiVerOffset, off_t axiSysMonOff
    }
 
    dev_info(dev->device, "AxiHwmon_Init: Registered hwmon device\n");
-
-   dev->hwmonPrivate = pvt;
 
    return;
 error_post_alloc:
@@ -337,14 +333,15 @@ static long convPS_ADC(struct AxiHwmonDrvPvt* pvt, long raw) {
 static int AxiHwmon_Read(struct device *dev, enum hwmon_sensor_types type,
                          u32 attr, int channel, long *val)
 {
-   uint32_t value, raw;
+   long value;
+   uint32_t raw;
    uintptr_t offset;
    int needsValue = 0, needsMax = 0, needsCrit = 0, needsHighest = 0, needsLowest = 0;
 
    const int typeCount = hwmon_ultrascale_chan_counts[type];
    if (typeCount == 0 || channel >= typeCount || channel < 0) {
       dev_warn(dev, "AxiHwmon_Read: Invalid sensor: chan=%d, type=%d, attr=%d\n", channel, type, attr);
-      return -ENOTSUPP;
+      return -EOPNOTSUPP;
    }
 
    // Lookup the sensor based on the channel and type
@@ -373,8 +370,6 @@ static int AxiHwmon_Read(struct device *dev, enum hwmon_sensor_types type,
       break;
    case hwmon_in:  // Voltage, despite the strange name
       needsValue = (attr == hwmon_in_input);
-      needsMax = (attr == hwmon_in_max);
-      needsCrit = (attr == hwmon_in_crit);
       needsHighest = (attr == hwmon_in_highest);
       needsLowest = (attr == hwmon_in_lowest);
       break;
@@ -432,7 +427,7 @@ static int AxiHwmon_ReadString(struct device *dev, enum hwmon_sensor_types type,
    const int typeCount = hwmon_ultrascale_chan_counts[type];
    if (typeCount == 0 || channel >= typeCount || channel < 0) {
       dev_warn(dev, "AxiHwmon_Read: Invalid sensor: chan=%d, type=%d, attr=%d\n", channel, type, attr);
-      return -ENOTSUPP;
+      return -EOPNOTSUPP;
    }
 
    const AxiHwmonSensor_t* sens = &hwmon_ultrascale_sensors[type][channel];
@@ -465,3 +460,13 @@ static umode_t AxiHwmon_IsVisible(const void *drvdata, enum hwmon_sensor_types t
 {
    return 0444;
 }
+#else
+
+/**
+ * Stubs for older kernels.
+ */
+
+void AxiHwmon_Init(struct DmaDevice* dev, off_t axiVerOffset, off_t axiSysMonOffset) {}
+void AxiHwmon_Remove(struct DmaDevice* dev) {}
+
+#endif // LINUX_VERSION_CODE >= KERNEL_VERSION(5,1,0)
