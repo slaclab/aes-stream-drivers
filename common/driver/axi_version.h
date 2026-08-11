@@ -26,6 +26,7 @@
 
 // Dword offset relative to the start of userValues
 static const int AxiVersion_Usr_HardwareType_Offset = 0x9;
+static const int AxiVersion_Usr_MemoryMapVer_Offset = 0x3F;
 
 /**
  * struct AxiVersion_Reg - AXI Version register space
