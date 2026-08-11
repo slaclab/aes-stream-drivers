@@ -466,4 +466,4 @@ static umode_t AxiHwmon_IsVisible(const void *drvdata, enum hwmon_sensor_types t
 void AxiHwmon_Init(struct DmaDevice* dev, off_t axiVerOffset, off_t axiSysMonOffset) {}
 void AxiHwmon_Remove(struct DmaDevice* dev) {}
 
-#endif // LINUX_VERSION_CODE >= KERNEL_VERSION(5,1,0)
+#endif  // LINUX_VERSION_CODE >= KERNEL_VERSION(5,1,0)
