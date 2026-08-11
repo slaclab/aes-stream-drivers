@@ -58,8 +58,6 @@ static umode_t AxiHwmon_IsVisible(const void *drvdata, enum hwmon_sensor_types t
                                   u32 attr, int channel);
 
 enum AxiHwmonSensorInstance {
-   AXI_HWMON_CHIP = 0, /* Meta for hwmon, not real sensor */
-
    /**
     * Temperature sensors.
     */
@@ -93,7 +91,6 @@ typedef struct {
  * Sensor classes.
  */
 static const struct hwmon_channel_info* hwmon_ultrascale_channels[] = {
-   HWMON_CHANNEL_INFO(chip, HWMON_C_REGISTER_TZ),
    HWMON_CHANNEL_INFO(temp, AXI_HWMON_TEMP_FLAGS),
    HWMON_CHANNEL_INFO(in, AXI_HWMON_IN_FLAGS),
    NULL,
