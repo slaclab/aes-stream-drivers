@@ -399,7 +399,8 @@ static void runSimpleLoop(TestSession& s) {
         if (dumpBytes != 0U) {
             const size_t maxCount = static_cast<size_t>(s.bufSize) +
                                     static_cast<size_t>(s.dmaHeaderSize);
-            size_t count = std::min(std::min(static_cast<size_t>(hdr.size),
+            size_t count = std::min(std::min(static_cast<size_t>(s.dmaHeaderSize) +
+                                             static_cast<size_t>(hdr.size),
                                              dumpBytes), maxCount);
             assertOk(cudaMemcpy(tmpbuf.data(), s.rxBuffers[curBuff], count,
                                 cudaMemcpyDeviceToHost));
