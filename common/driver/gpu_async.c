@@ -634,7 +634,7 @@ void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
       seq_printf(s, "       Min Read Buffers : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_MinReadBuffer));
    }
    seq_printf(s, "   AXI Read Error Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiReadErrorCnt));
-   seq_printf(s, "         Owning Process : %lu\n", atomic64_read(&data->pid));
+   seq_printf(s, "         Owning Process : %llu\n", atomic64_read(&data->pid));
 
    for (i = 0; i < writeBuffCnt && writeEnable; ++i) {
       u32 wal, wah, ws;
