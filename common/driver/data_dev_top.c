@@ -273,6 +273,33 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
       goto err_post_en;
    }
 
+   // Early PCIe liveness check, before any other register read or resource
+   // allocation. The AxiVersion uptime counter counts seconds since the FPGA
+   // left reset, so all-ones (2^32 - 1 seconds, roughly 136 years) is not a
+   // value real firmware can ever report. Reading it back means the PCIe read
+   // never reached the FPGA and was completed with an abort or a timeout
+   // instead. That is what happens when the FPGA is reprogrammed and neither a
+   // reboot nor a PCIe rescan was performed afterwards to bring the link back
+   // up. There is no point continuing: every register read past this point
+   // returns the same all-ones garbage, and the failure then surfaces far from
+   // its cause. AxiRegMap_Init() below would read 0xFF as the register map
+   // version and advise a driver upgrade, and a card that got past that would
+   // report a nonsensical DMA mask followed by a zero-sized descriptor ring
+   // allocation failing with -ENOMEM.
+   //
+   // Guarded by a bounds check because Dma_MapReg() ioremaps exactly baseSize
+   // bytes, and the emulator can shrink BAR0 under memory fragmentation.
+   if ( dev->baseSize >= (AVER_OFF + sizeof(struct AxiVersion_Reg)) ) {
+      if ( AxiVersion_GetUpTime(dev->base + AVER_OFF) == 0xFFFFFFFF ) {
+         dev_err(dev->device,
+                 "Init: AxiVersion uptime counter reads all-ones; the PCIe link to the "
+                 "FPGA is down. Reboot the host or rescan the PCIe bus to recover the "
+                 "link after reprogramming the FPGA.\n");
+         probeReturn = -EIO;
+         goto err_unmap;
+      }
+   }
+
    // Init the PCIe memory map
    if (AxiRegMap_Init(dev, dev->base + AVER_OFF) < 0) {
       probeReturn = -EINVAL;
