@@ -215,6 +215,22 @@ ensure_kernel_gcc() {
       done < <(find -L "$kbuild/scripts" "$kbuild/tools" -type f -executable -print0 2>/dev/null)
    fi
    if [ "$need_rebuild" -eq 1 ]; then
+      # objtool has to run for real, so check it before touching anything.
+      # On x86 with CONFIG_MITIGATION_RETHUNK the compiler emits
+      # `jmp __x86_return_thunk` in place of every `ret`, and objtool is what
+      # records those sites in .return_sites so the kernel can rewrite them
+      # to the live thunk at module load. A stubbed objtool yields a module
+      # whose return thunks are never patched, and the first return through
+      # one raises "Unpatched return thunk in use" (WARNING at
+      # arch/x86/kernel/cpu/bugs.c) during insmod, which the dmesg gate then
+      # fails. The headers packages ship objtool as a prebuilt binary with no
+      # .c sources next to it, so there is nothing to recompile: give up on
+      # the host headers and let the caller fall back to distro-native ones.
+      local objtool_bin="$kbuild/tools/objtool/objtool"
+      if [ -x "$objtool_bin" ] && ldd "$objtool_bin" 2>&1 | grep -q "GLIBC.*not found"; then
+         echo_warn "objtool needs a newer glibc than this distro provides and cannot be rebuilt from the headers package"
+         return 1
+      fi
       echo_step "Fixing glibc-incompatible kbuild binaries"
       # libelf-dev and libdw-dev are needed to recompile modpost/gendwarfksyms
       if command -v apt-get &>/dev/null; then
@@ -257,7 +273,6 @@ ensure_kernel_gcc() {
       fi
       # Stub non-essential binaries (validation/metadata only)
       local -a stub_ok=(
-         "tools/objtool/objtool"
          "tools/bpf/resolve_btfids/resolve_btfids"
          "scripts/insert-sys-cert"
       )
