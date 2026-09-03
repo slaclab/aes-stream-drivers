@@ -276,12 +276,112 @@ jobs:
         run: dmesg || echo "dmesg not available (expected in container)"
 
   # ==========================================================================
+  # Phase 3b: pgpcard Test (legacy PGP Gen2/Gen3 hardware)
+  # Runs in parallel with Phase 3, both gated on Phase 2.
+  #
+  # Build coverage plus module load and unload only. emulator/driver has no PGP
+  # personality (it emulates 1a4a:2030 with an AXIS Gen2 register map), so no
+  # PGP card exists in CI, PgpCard_Probe never runs, and there is nothing to
+  # drive traffic against. There is no test-pgp.sh and no DKMS packaging for
+  # pgpcard, so neither a test nor a DKMS step appears below.
+  #
+  # The rockylinux:9 cell is the one that matters most for this driver: it
+  # compiles against genuine RHEL 9 kernel-devel, which is the deployment
+  # target for the PGP-GEN3 hardware, and is the only cell that exercises the
+  # RHEL_RELEASE_CODE branches in common/driver/dma_common.c.
+  # ==========================================================================
+  pgp_test:
+    name: "Phase 3b: pgpcard Test (${{ matrix.container }})"
+    needs: [cpu_test]
+    # No traffic tests, so this is much shorter than the CPU and GPU phases.
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - container: "ubuntu:24.04"
+            load_test: true
+          - container: "ubuntu:22.04"
+            load_test: true
+          - container: "rockylinux:9"
+            load_test: true
+          - container: "debian:experimental"
+            load_test: true
+          - container: "fedora:rawhide"
+            load_test: true
+    runs-on: ubuntu-24.04
+    container:
+      image: ${{ matrix.container }}
+      options: "--privileged -v /lib/modules:/lib/modules -v /usr/src:/usr/src"
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: bash scripts/ci/install-deps.sh
+
+      - name: Display environment info
+        run: |
+          echo "Container: ${{ matrix.container }}"
+          echo "Host kernel: $(uname -r)"
+          echo "Build kernel: ${CI_KVER}"
+          echo "Host match: ${CI_HOST_MATCH}"
+          echo "## pgpcard ${{ matrix.container }} - kernel ${CI_KVER}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Build (pgpcard)
+        run: bash scripts/ci/build-pgp.sh
+
+      # CI_HOST_MATCH gates the load, exactly as in Phase 2. When it is 0 the
+      # module was built against the distro's own headers and cannot insmod on
+      # the runner kernel; the build assertion above is the coverage for that
+      # cell. This is the expected state for rockylinux:9.
+      - name: Load module
+        if: matrix.load_test && env.CI_HOST_MATCH == '1'
+        run: bash scripts/ci/load-modules-pgp.sh
+
+      - name: Unload module
+        if: always() && matrix.load_test && env.CI_HOST_MATCH == '1'
+        run: bash scripts/ci/unload-modules-pgp.sh
+
+      - name: Check dmesg
+        if: always()
+        run: bash scripts/ci/check-dmesg.sh
+
+      - name: Collect diagnostics on failure
+        if: failure()
+        run: |
+          mkdir -p diag
+          dmesg > diag/dmesg.txt 2>&1 || true
+          cp pgpcard/driver/pgpcard.ko diag/ 2>/dev/null || true
+          ls -la diag/ || true
+
+      - name: Sanitize container name for artifact
+        if: failure()
+        run: |
+          SANITIZED=$(echo "${{ matrix.container }}" | sed 's/:/-/g; s/\//-/g')
+          echo "ARTIFACT_NAME=pgp-ci-diag-${{ github.job }}-${SANITIZED}" >> $GITHUB_ENV
+
+      - name: Upload diagnostics on failure
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: diag/
+          retention-days: 3
+          if-no-files-found: ignore
+
+      - name: Dump full dmesg on failure
+        if: failure()
+        run: dmesg || echo "dmesg not available (expected in container)"
+
+  # ==========================================================================
   # Phase 4: Release Generation
-  # Waits for Phase 3 (all GPU tests) to complete
+  # Waits for Phase 3 (GPU) and Phase 3b (pgpcard) to complete
   # ==========================================================================
   gen_release:
     name: "Phase 4: Generate Release"
-    needs: [gpu_test]
+    needs: [gpu_test, pgp_test]
     uses: slaclab/ruckus/.github/workflows/gen_release.yml@main
     with:
       version: '1.0.0'

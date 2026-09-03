@@ -86,7 +86,7 @@ if [ "$MARKER_OK" -eq 0 ]; then
       LOAD_ATTEMPTED=1
    fi
    if [ "$LOAD_ATTEMPTED" -eq 0 ]; then
-      for m in datadev datadev_emulator nvidia_p2p_stub; do
+      for m in datadev datadev_emulator nvidia_p2p_stub pgpcard; do
          if [ -d "/sys/module/$m" ]; then
             LOAD_ATTEMPTED=1
             break
