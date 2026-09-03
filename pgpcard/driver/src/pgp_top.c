@@ -51,6 +51,7 @@ static struct pci_device_id PgpCard_Ids[] = {
 #define MOD_NAME "pgpcard"
 
 MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("Driver for SLAC PGP Gen2 and Gen3 PCIe cards");
 MODULE_DEVICE_TABLE(pci, PgpCard_Ids);
 module_init(PgpCard_Init);
 module_exit(PgpCard_Exit);
@@ -93,7 +94,7 @@ int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    struct hardware_functions *hfunc;
 
    int32_t x;
-   int32_t dummy;
+   int32_t ret;
 
    if (cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM) {
       pr_warn("%s: Probe: Invalid buffer mode = %i.\n", MOD_NAME, cfgMode);
@@ -131,22 +132,41 @@ int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev = &gDmaDevices[id->driver_data];
    dev->index = id->driver_data;
 
-   // Increment count
-   gDmaDevCount++;
-
    // Create a device name
    snprintf(dev->devName, sizeof(dev->devName), "%s_%i", MOD_NAME, dev->index);
 
+   // Set the device pointer before anything that logs through it. Dma_MapReg
+   // reports via dev_info(dev->device, ...), which would otherwise run against
+   // a NULL device.
+   dev->device = &(pcidev->dev);
+
    // Enable the device
-   dummy = pci_enable_device(pcidev);
+   ret = pci_enable_device(pcidev);
+   if (ret) {
+      dev_err(dev->device, "Probe: pci_enable_device() = %i.\n", ret);
+      goto err_pre_en;
+   }
    pci_set_master(pcidev);
+
+   // PGP Gen2 and Gen3 are 32-bit DMA masters. State that explicitly rather
+   // than relying on the implicit 32-bit default.
+   if (dma_set_mask(dev->device, DMA_BIT_MASK(32)) ||
+       dma_set_coherent_mask(dev->device, DMA_BIT_MASK(32))) {
+      dev_err(dev->device, "Probe: Failed to set 32-bit DMA mask.\n");
+      ret = -EINVAL;
+      goto err_post_en;
+   }
 
    // Get Base Address of registers from pci structure.
    dev->baseAddr = pci_resource_start(pcidev, 0);
    dev->baseSize = pci_resource_len(pcidev, 0);
 
    // Remap the I/O register block so that it can be safely accessed.
-   if (Dma_MapReg(dev) < 0) return(-1);
+   if (Dma_MapReg(dev) < 0) {
+      dev_err(dev->device, "Probe: Failed to map register space.\n");
+      ret = -ENOMEM;
+      goto err_unmap;
+   }
 
    // Set configuration
    dev->cfgTxCount = cfgTxCount;
@@ -159,14 +179,28 @@ int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->irq = pcidev->irq;
 
    // Set device fields
-   dev->device = &(pcidev->dev);
    dev->hwFunc = hfunc;
 
    dev->rwBase = dev->base;
    dev->rwSize = 0x400;
 
    // Call common dma init function
-   return(Dma_Init(dev));
+   ret = Dma_Init(dev);
+   if (ret < 0) goto err_unmap;
+
+   // Count the device only once it is fully up. Dma_Init's own cleanup path
+   // destroys the shared class when gDmaDevCount is still 0, so incrementing
+   // earlier would leak the class if Dma_Init failed on the first card.
+   gDmaDevCount++;
+   return(0);
+
+err_unmap:
+   Dma_UnmapReg(dev);              // Idempotent: safe even if Dma_MapReg never ran
+err_post_en:
+   pci_disable_device(pcidev);
+err_pre_en:
+   memset(dev, 0, sizeof(*dev));   // Release the slot we took in gDmaDevices
+   return(ret);
 }
 
 
