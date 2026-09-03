@@ -52,7 +52,7 @@ struct PgpCardG2Reg {
    uint32_t pciStat2;    // 0x088
    uint32_t pciStat3;    // 0x08C
 
-   uint32_t spare2[220]; // 0x090 - 0x3FC
+   uint32_t spare2[220];  // 0x090 - 0x3FC
 
    uint32_t rxFree;      // 0x400
    uint32_t rxMaxFrame;  // 0x404
@@ -64,7 +64,7 @@ struct PgpCardG2Reg {
    uint32_t rxRead0;     // 0x420
    uint32_t rxRead1;     // 0x424
 
-   uint32_t spare4[246]; // 0x428 - 0x7FC
+   uint32_t spare4[246];  // 0x428 - 0x7FC
 
    uint32_t txL0Wr0;     // 0x800
    uint32_t txL0Wr1;     // 0x804
@@ -78,9 +78,9 @@ struct PgpCardG2Reg {
    uint32_t txRead;      // 0x824
    uint32_t txCount;     // 0x828
 
-   uint32_t spare5[245]; // 0x82C - 0xBFC
+   uint32_t spare5[245];  // 0x82C - 0xBFC
 
-   uint32_t promRegs[3]; // Prom registers
+   uint32_t promRegs[3];  // Prom registers
 };
 
 // Set functions for gen2 card

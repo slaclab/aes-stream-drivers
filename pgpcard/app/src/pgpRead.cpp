@@ -29,7 +29,6 @@
 #include <argp.h>
 #include <PgpDriver.h>
 #include <PrbsData.h>
-using namespace std;
 
 const  char * argp_program_version = "pgpRead 1.0";
 const  char * argp_program_bug_address = "rherbst@slac.stanford.edu";
@@ -47,19 +46,19 @@ static char   args_doc[] = "";
 static char   doc[]      = "";
 
 static struct argp_option options[] = {
-   { "path",    'p', "PATH",   OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/pgpcard_0.",0},
-   { "lane",    'l', "MASK",   OPTION_ARG_OPTIONAL, "Mask of lanes for read. 1 bit per lane in hex. i.e. 0xFF.",0},
-   { "prbsdis", 'd', 0,        OPTION_ARG_OPTIONAL, "Disable PRBS checking.",0},
-   { "indexen", 'i', 0,        OPTION_ARG_OPTIONAL, "Use index based receive buffers.",0},
+   { "path",    'p', "PATH",   OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
+   { "lane",    'l', "MASK",   OPTION_ARG_OPTIONAL, "Mask of lanes for read. 1 bit per lane in hex. i.e. 0xFF.", 0},
+   { "prbsdis", 'd', 0,        OPTION_ARG_OPTIONAL, "Disable PRBS checking.", 0},
+   { "indexen", 'i', 0,        OPTION_ARG_OPTIONAL, "Use index based receive buffers.", 0},
    {0}
 };
 
-error_t parseArgs ( int key,  char *arg, struct argp_state *state ) {
+error_t parseArgs(int key,  char *arg, struct argp_state *state) {
    struct PrgArgs *args = (struct PrgArgs *)state->input;
 
-   switch(key) {
+   switch (key) {
       case 'p': args->path = arg; break;
-      case 'l': args->lane = strtol(arg,NULL,16); break;
+      case 'l': args->lane = strtol(arg, NULL, 16); break;
       case 'd': args->prbsDis = 1; break;
       case 'i': args->idxEn = 1; break;
       default: return ARGP_ERR_UNKNOWN; break;
@@ -67,9 +66,9 @@ error_t parseArgs ( int key,  char *arg, struct argp_state *state ) {
    return(0);
 }
 
-static struct argp argp = {options,parseArgs,args_doc,doc};
+static struct argp argp = {options, parseArgs, args_doc, doc};
 
-int main (int argc, char **argv) {
+int main(int argc, char **argv) {
    int32_t       s;
    int32_t       ret;
    int32_t       count;
@@ -80,7 +79,7 @@ int main (int argc, char **argv) {
    uint32_t      rxVc;
    uint32_t      rxDest;
    uint32_t      rxError;
-   PrbsData      prbs(32,4,1,2,6,31);
+   PrbsData      prbs(32, 4, 1, 2, 6, 31);
    bool          prbRes;
    void **       dmaBuffers;
    uint32_t      dmaSize;
@@ -92,27 +91,26 @@ int main (int argc, char **argv) {
 
    struct timeval timeout;
 
-   memcpy(&args,&DefArgs,sizeof(struct PrgArgs));
-   argp_parse(&argp,argc,argv,0,0,&args);
+   memcpy(&args, &DefArgs, sizeof(struct PrgArgs));
+   argp_parse(&argp, argc, argv, 0, 0, &args);
 
-   if ( (s = open(args.path, O_RDWR)) <= 0 ) {
-      printf("Error opening %s\n",args.path);
+   if ((s = open(args.path, O_RDWR)) <= 0) {
+      printf("Error opening %s\n", args.path);
       return(1);
    }
-   pgpGetInfo(s,&info);
+   pgpGetInfo(s, &info);
 
-   dmaSetMask(s,args.lane & info.laneMask);
+   dmaSetMask(s, args.lane & info.laneMask);
 
    maxSize = 1024*1024*2;
 
-   if ( args.idxEn ) {
-      if ( (dmaBuffers = dmaMapDma(s,&dmaCount,&dmaSize)) == NULL ) {
+   if (args.idxEn) {
+      if ((dmaBuffers = dmaMapDma(s, &dmaCount, &dmaSize)) == NULL) {
          printf("Failed to map dma buffers!\n");
          return(0);
       }
-   }
-   else {
-      if ((rxData = malloc(maxSize)) == NULL ) {
+   } else {
+      if ((rxData = malloc(maxSize)) == NULL) {
          printf("Failed to allocate rxData!\n");
          return(0);
       }
@@ -121,44 +119,45 @@ int main (int argc, char **argv) {
    count  = 0;
    prbRes = 0;
    do {
-
       // Setup fds for select call
       FD_ZERO(&fds);
-      FD_SET(s,&fds);
+      FD_SET(s, &fds);
 
       // Setup select timeout for 1 second
-      timeout.tv_sec=2;
-      timeout.tv_usec=0;
+      timeout.tv_sec = 2;
+      timeout.tv_usec = 0;
 
       // Wait for Socket data ready
-      ret = select(s+1,&fds,NULL,NULL,&timeout);
-      if ( ret <= 0 ) {
+      ret = select(s+1, &fds, NULL, NULL, &timeout);
+      if (ret <= 0) {
          printf("Read timeout\n");
-      }
-      else {
-
+      } else {
          // DMA Read
-         if ( args.idxEn ) {
-            ret = dmaReadIndex(s,&dmaIndex,NULL,&rxError,&rxDest);
+         if (args.idxEn) {
+            ret = dmaReadIndex(s, &dmaIndex, NULL, &rxError, &rxDest);
             rxData = dmaBuffers[dmaIndex];
+         } else {
+            ret = dmaRead(s, rxData, maxSize, NULL, &rxError, &rxDest);
          }
-         else ret = dmaRead(s,rxData,maxSize,NULL,&rxError,&rxDest);
 
          rxVc   = pgpGetVc(rxDest);
          rxLane = pgpGetLane(rxDest);
 
-         if ( ret > 0 ) {
-            if ( args.prbsDis == 0 ) prbRes = prbs.processData(rxData,ret);
-            if ( args.idxEn ) dmaRetIndex(s,dmaIndex);
+         if (ret > 0) {
+            if (args.prbsDis == 0) prbRes = prbs.processData(rxData, ret);
+            if (args.idxEn) dmaRetIndex(s, dmaIndex);
 
             count++;
-            printf("Read ret=%i, Lane=%i, Vc=%i, error=%i, prbs=%i, count=%i\n",ret,rxLane,rxVc,rxError,prbRes,count);
+            printf("Read ret=%i, Lane=%i, Vc=%i, error=%i, prbs=%i, count=%i\n", ret, rxLane, rxVc, rxError, prbRes, count);
          }
       }
-   } while ( 1 );
+   } while (1);
 
-   if ( args.idxEn ) dmaUnMapDma(s,dmaBuffers);
-   else free(rxData);
+   if (args.idxEn) {
+      dmaUnMapDma(s, dmaBuffers);
+   } else {
+      free(rxData);
+   }
 
    close(s);
    return(0);

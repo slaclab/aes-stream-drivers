@@ -29,8 +29,7 @@
 
 // Address Map, offset from base
 struct PgpCardG3Reg {
-
-   //PciApp.vhd
+   // PciApp.vhd
    uint32_t version;         // Software_Addr = 0x000,        Firmware_Addr(13 downto 2) = 0x000
    uint32_t serNumLower;     // Software_Addr = 0x004,        Firmware_Addr(13 downto 2) = 0x001
    uint32_t serNumUpper;     // Software_Addr = 0x008,        Firmware_Addr(13 downto 2) = 0x002
@@ -65,7 +64,7 @@ struct PgpCardG3Reg {
    uint32_t pgpSpare1[24];   // Software_Addr = 0x2FC:0x2A0,
    uint32_t BuildStamp[64];  // Software_Addr = 0x3FC:0x300,  Firmware_Addr(13 downto 2) = 0x0FF:0x0C0
 
-   //PciRxDesc.vhd
+   // PciRxDesc.vhd
    uint32_t rxFree[8];       // Software_Addr = 0x41C:0x400,  Firmware_Addr(13 downto 2) = 0x107:0x100
    uint32_t rxSpare0[24];    // Software_Addr = 0x47C:0x420,  Firmware_Addr(13 downto 2) = 0x11F:0x108
    uint32_t rxFreeStat[8];   // Software_Addr = 0x49C:0x480,  Firmware_Addr(13 downto 2) = 0x127:0x120
@@ -76,7 +75,7 @@ struct PgpCardG3Reg {
    uint32_t rxRead[4];       // Software_Addr = 0x518:0x50C,  Firmware_Addr(13 downto 2) = 0x146:0x143
    uint32_t rxSpare2[185];   // Software_Addr = 0x7FC:0x51C,  Firmware_Addr(13 downto 2) = 0x1FF:0x147
 
-   //PciTxDesc.vhd
+   // PciTxDesc.vhd
    uint32_t txWrA[8];        // Software_Addr = 0x81C:0x800,  Firmware_Addr(13 downto 2) = 0x207:0x200
    uint32_t txFifoCnt[8];    // Software_Addr = 0x83C:0x820,  Firmware_Addr(13 downto 2) = 0x20F:0x208
    uint32_t txSpare0[16];    // Software_Addr = 0x87C:0x840,  Firmware_Addr(13 downto 2) = 0x21F:0x210
