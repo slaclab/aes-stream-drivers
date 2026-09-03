@@ -10,12 +10,12 @@
  * Description:
  * Top level module types and functions.
  * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to 
- * the license terms in the LICENSE.txt file found in the top-level directory 
- * of this distribution and at: 
- *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
- * No part of the aes_stream_drivers package, including this file, may be 
- * copied, modified, propagated, or distributed except according to the terms 
+ * This file is part of the aes_stream_drivers package. It is subject to
+ * the license terms in the LICENSE.txt file found in the top-level directory
+ * of this distribution and at:
+ *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ * No part of the aes_stream_drivers package, including this file, may be
+ * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
@@ -65,11 +65,10 @@ static struct pci_driver PgpCardDriver = {
 
 // Init Kernel Module
 int32_t PgpCard_Init(void) {
-
    /* Allocate and clear memory for all devices. */
    memset(gDmaDevices, 0, sizeof(struct DmaDevice)*MAX_DMA_DEVICES);
 
-   pr_info("%s: Init\n",MOD_NAME);
+   pr_info("%s: Init\n", MOD_NAME);
 
    // Init structures
    gCl = NULL;
@@ -82,7 +81,7 @@ int32_t PgpCard_Init(void) {
 
 // Exit Kernel Module
 void PgpCard_Exit(void) {
-   pr_info("%s: Exit.\n",MOD_NAME);
+   pr_info("%s: Exit.\n", MOD_NAME);
    pci_unregister_driver(&PgpCardDriver);
 }
 
@@ -96,17 +95,17 @@ int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    int32_t x;
    int32_t dummy;
 
-   if ( cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM ) {
-      pr_warn("%s: Probe: Invalid buffer mode = %i.\n",MOD_NAME,cfgMode);
+   if (cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM) {
+      pr_warn("%s: Probe: Invalid buffer mode = %i.\n", MOD_NAME, cfgMode);
       return(-1);
    }
 
    // First check for valid device
-   switch ( pcidev->device ) {
+   switch (pcidev->device) {
       case PCI_DEVICE_ID_GEN2: hfunc = &(PgpCardG2_functions); break;
       case PCI_DEVICE_ID_GEN3: hfunc = &(PgpCardG3_functions); break;
       default:
-         pr_warn("%s: Probe: Unkown device.\n",MOD_NAME);
+         pr_warn("%s: Probe: Unkown device.\n", MOD_NAME);
          return (-1);
          break;
    }
@@ -126,7 +125,7 @@ int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
 
    // Overflow
    if (id->driver_data < 0) {
-      pr_warn("%s: Probe: Too Many Devices.\n",MOD_NAME);
+      pr_warn("%s: Probe: Too Many Devices.\n", MOD_NAME);
       return (-1);
    }
    dev = &gDmaDevices[id->driver_data];
@@ -136,18 +135,18 @@ int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    gDmaDevCount++;
 
    // Create a device name
-   sprintf(dev->devName,"%s_%i",MOD_NAME,dev->index);
+   snprintf(dev->devName, sizeof(dev->devName), "%s_%i", MOD_NAME, dev->index);
 
    // Enable the device
    dummy = pci_enable_device(pcidev);
    pci_set_master(pcidev);
 
    // Get Base Address of registers from pci structure.
-   dev->baseAddr = pci_resource_start (pcidev, 0);
-   dev->baseSize = pci_resource_len (pcidev, 0);
+   dev->baseAddr = pci_resource_start(pcidev, 0);
+   dev->baseSize = pci_resource_len(pcidev, 0);
 
    // Remap the I/O register block so that it can be safely accessed.
-   if ( Dma_MapReg(dev) < 0 ) return(-1);
+   if (Dma_MapReg(dev) < 0) return(-1);
 
    // Set configuration
    dev->cfgTxCount = cfgTxCount;
@@ -156,7 +155,7 @@ int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->cfgMode    = cfgMode;
    dev->cfgCont    = cfgCont;
 
-   // Get IRQ from pci_dev structure. 
+   // Get IRQ from pci_dev structure.
    dev->irq = pcidev->irq;
 
    // Set device fields
@@ -177,11 +176,11 @@ void  PgpCard_Remove(struct pci_dev *pcidev) {
 
    struct DmaDevice *dev = NULL;
 
-   pr_info("%s: Remove: Remove called.\n",MOD_NAME);
+   pr_info("%s: Remove: Remove called.\n", MOD_NAME);
 
    // Look for matching device
    for (x = 0; x < MAX_DMA_DEVICES; x++) {
-      if ( gDmaDevices[x].baseAddr == pci_resource_start(pcidev, 0)) {
+      if (gDmaDevices[x].baseAddr == pci_resource_start(pcidev, 0)) {
          dev = &gDmaDevices[x];
          break;
       }
@@ -189,7 +188,7 @@ void  PgpCard_Remove(struct pci_dev *pcidev) {
 
    // Device not found
    if (dev == NULL) {
-      pr_err("%s: Remove: Device Not Found.\n",MOD_NAME);
+      pr_err("%s: Remove: Device Not Found.\n", MOD_NAME);
       return;
    }
 
@@ -201,22 +200,22 @@ void  PgpCard_Remove(struct pci_dev *pcidev) {
    // Disable device
    pci_disable_device(pcidev);
 
-   pr_info("%s: Remove: Driver is unloaded.\n",MOD_NAME);
+   pr_info("%s: Remove: Driver is unloaded.\n", MOD_NAME);
 }
 
 // Parameters
-module_param(cfgTxCount,int,0);
+module_param(cfgTxCount, int, 0);
 MODULE_PARM_DESC(cfgTxCount, "TX buffer count");
 
-module_param(cfgRxCount,int,0);
+module_param(cfgRxCount, int, 0);
 MODULE_PARM_DESC(cfgRxCount, "RX buffer count");
 
-module_param(cfgSize,int,0);
+module_param(cfgSize, int, 0);
 MODULE_PARM_DESC(cfgSize, "Rx/TX Buffer size");
 
-module_param(cfgMode,int,0);
+module_param(cfgMode, int, 0);
 MODULE_PARM_DESC(cfgMode, "RX buffer mode");
 
-module_param(cfgCont,int,0);
+module_param(cfgCont, int, 0);
 MODULE_PARM_DESC(cfgCont, "RX continue enable");
 

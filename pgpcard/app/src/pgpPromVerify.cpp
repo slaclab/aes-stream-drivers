@@ -23,20 +23,19 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <linux/types.h>
-
 #include <fcntl.h>
+#include <string.h>
+#include <stdlib.h>
+#include <argp.h>
+#include <PgpDriver.h>
+#include <PciCardProm.h>
 #include <sstream>
 #include <string>
 #include <iomanip>
 #include <iostream>
-#include <string.h>
-#include <stdlib.h>
-#include <argp.h>
 
-#include <PgpDriver.h>
-#include <PciCardProm.h>
-
-using namespace std;
+using std::cout;
+using std::endl;
 
 const  char * argp_program_version = "pgpPromVerify 1.0";
 const  char * argp_program_bug_address = "rherbst@slac.stanford.edu";
@@ -52,14 +51,14 @@ static char   args_doc[] = "promFile";
 static char   doc[]      = "\n   PromFile is the appropriate .mcs file for the card.";
 
 static struct argp_option options[] = {
-   { "path", 'p', "PATH", OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/pgpcard_0.",0},
+   { "path", 'p', "PATH", OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
    {0}
 };
 
-error_t parseArgs ( int key,  char *arg, struct argp_state *state ) {
+error_t parseArgs(int key,  char *arg, struct argp_state *state) {
    struct PrgArgs *args = (struct PrgArgs *)state->input;
 
-   switch(key) {
+   switch (key) {
       case 'p': args->path = arg; break;
       case ARGP_KEY_ARG:
           switch (state->arg_num) {
@@ -68,39 +67,39 @@ error_t parseArgs ( int key,  char *arg, struct argp_state *state ) {
           }
           break;
       case ARGP_KEY_END:
-          if ( state->arg_num < 1) argp_usage(state);
+          if (state->arg_num < 1) argp_usage(state);
           break;
       default: return ARGP_ERR_UNKNOWN; break;
    }
    return(0);
 }
 
-static struct argp argp = {options,parseArgs,args_doc,doc};
+static struct argp argp = {options, parseArgs, args_doc, doc};
 
-int main (int argc, char **argv) {
+int main(int argc, char **argv) {
    int fd;
    bool gen3;
    PciCardProm *prom;
    PgpInfo info;
    struct PrgArgs args;
 
-   memcpy(&args,&DefArgs,sizeof(struct PrgArgs));
-   argp_parse(&argp,argc,argv,0,0,&args);
+   memcpy(&args, &DefArgs, sizeof(struct PrgArgs));
+   argp_parse(&argp, argc, argv, 0, 0, &args);
 
-   if ( (fd = open(args.path, O_RDWR)) <= 0 ) {
-      printf("Error opening %s\n",args.path);
+   if ((fd = open(args.path, O_RDWR)) <= 0) {
+      printf("Error opening %s\n", args.path);
       return(1);
    }
 
    // Get card info
-   pgpGetInfo(fd,&info);
+   pgpGetInfo(fd, &info);
    gen3 = false;
 
    // Determine version, use only lower 4 bits to get the base version
    switch (info.type & 0xF) {
       case PGP_GEN3: gen3 = true; break;
       case PGP_GEN2:
-         if ( info.promPrgEn ) {
+         if (info.promPrgEn) {
             ::close(fd);
             return(-1);
          }
@@ -112,10 +111,10 @@ int main (int argc, char **argv) {
    }
 
    // Create the PgpCardProm object
-   prom = new PciCardProm(fd,args.file,gen3);
+   prom = new PciCardProm(fd, args.file, gen3);
 
    // Check if the .mcs file exists
-   if(!prom->fileExist()){
+   if (!prom->fileExist()){
       cout << "Error opening: " << args.file << endl;
       delete prom;
       close(fd);
@@ -123,14 +122,14 @@ int main (int argc, char **argv) {
    }
 
    // Compare the .mcs file with the PROM
-   if(!prom->verifyBootProm()) {
+   if (!prom->verifyBootProm()) {
       cout << "Error in prom->writeBootProm() function" << endl;
       delete prom;
       close(fd);
       return(1);
    }
 
-	// Close all the devices
+        // Close all the devices
    delete prom;
    close(fd);
    return(0);

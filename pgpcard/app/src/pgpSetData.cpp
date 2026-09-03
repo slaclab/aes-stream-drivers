@@ -30,7 +30,6 @@
 #include <stdlib.h>
 #include <argp.h>
 #include <PgpDriver.h>
-using namespace std;
 
 const  char * argp_program_version = "pgpSetData 1.0";
 const  char * argp_program_bug_address = "rherbst@slac.stanford.edu";
@@ -47,52 +46,52 @@ static char   args_doc[] = "data";
 static char   doc[]      = "\n   data is passed as a hex value. i.e. 0xAB.";
 
 static struct argp_option options[] = {
-   { "path", 'p', "PATH", OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/pgpcard_0.",0},
-   { "lane", 'l', "MASK", OPTION_ARG_OPTIONAL, "Mask of lanes to set. 1 bit per lane in hex. i.e. 0xFF.",0},
+   { "path", 'p', "PATH", OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
+   { "lane", 'l', "MASK", OPTION_ARG_OPTIONAL, "Mask of lanes to set. 1 bit per lane in hex. i.e. 0xFF.", 0},
    {0}
 };
 
-error_t parseArgs ( int key,  char *arg, struct argp_state *state ) {
+error_t parseArgs(int key,  char *arg, struct argp_state *state) {
    struct PrgArgs *args = (struct PrgArgs *)state->input;
 
-   switch(key) {
+   switch (key) {
       case 'p': args->path = arg; break;
-      case 'l': args->lane = strtol(arg,NULL,16); break;
+      case 'l': args->lane = strtol(arg, NULL, 16); break;
       case ARGP_KEY_ARG:
           switch (state->arg_num) {
-             case 0: args->data = strtol(arg,NULL,16); break;
+             case 0: args->data = strtol(arg, NULL, 16); break;
              default: argp_usage(state); break;
           }
           break;
       case ARGP_KEY_END:
-          if ( state->arg_num < 1) argp_usage(state);
+          if (state->arg_num < 1) argp_usage(state);
           break;
       default: return ARGP_ERR_UNKNOWN; break;
    }
    return(0);
 }
 
-static struct argp argp = {options,parseArgs,args_doc,doc};
+static struct argp argp = {options, parseArgs, args_doc, doc};
 
-int main (int argc, char **argv) {
+int main(int argc, char **argv) {
    int s;
    uint32_t x;
    struct PrgArgs args;
    struct PgpInfo info;
 
-   memcpy(&args,&DefArgs,sizeof(struct PrgArgs));
-   argp_parse(&argp,argc,argv,0,0,&args);
+   memcpy(&args, &DefArgs, sizeof(struct PrgArgs));
+   argp_parse(&argp, argc, argv, 0, 0, &args);
 
-   if ( (s = open(args.path, O_RDWR)) <= 0 ) {
-      printf("Error opening %s\n",args.path);
+   if ((s = open(args.path, O_RDWR)) <= 0) {
+      printf("Error opening %s\n", args.path);
       return(1);
    }
-   pgpGetInfo(s,&info);
+   pgpGetInfo(s, &info);
 
-   for (x=0; x < 8; x++) {
-      if ( ((1 << x) & info.laneMask) != 0 ) {
-         printf("Setting lane %i data to 0x%.2x\n",x,args.data);
-         pgpSetData(s,x,args.data);
+   for (x = 0; x < 8; x++) {
+      if (((1 << x) & info.laneMask) != 0) {
+         printf("Setting lane %i data to 0x%.2x\n", x, args.data);
+         pgpSetData(s, x, args.data);
       }
    }
    close(s);
