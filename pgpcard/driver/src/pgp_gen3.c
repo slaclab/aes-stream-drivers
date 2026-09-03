@@ -35,6 +35,7 @@ struct hardware_functions PgpCardG3_functions = {
    .init         = PgpCardG3_Init,
    .enable       = PgpCardG3_Enable,
    .clear        = PgpCardG3_Clear,
+   .irqEnable    = PgpCardG3_IrqEnable,
    .retRxBuffer  = PgpCardG3_RetRxBuffer,
    .sendBuffer   = PgpCardG3_SendBuffer,
    .command      = PgpCardG3_Command,
@@ -186,7 +187,7 @@ irqreturn_t PgpCardG3_Irq(int irq, void *dev_id) {
 }
 
 // Init card in top level Probe
-void PgpCardG3_Init(struct DmaDevice *dev) {
+int PgpCardG3_Init(struct DmaDevice *dev) {
    uint32_t maxFrame;
    uint32_t tmp;
    uint64_t tmpL;
@@ -196,6 +197,17 @@ void PgpCardG3_Init(struct DmaDevice *dev) {
    struct PgpInfo      * info;
    struct PgpCardG3Reg * reg;
    reg = (struct PgpCardG3Reg *)dev->reg;
+
+   // Init hardware info. Allocated before any register writes so that a
+   // failure here needs no hardware cleanup. Dma_Init does not call
+   // ->clear() when ->init() fails, so init owns its own unwind.
+   dev->hwData = (void *)kmalloc(sizeof(struct PgpInfo), GFP_KERNEL);
+   if (dev->hwData == NULL) {
+      dev_err(dev->device, "Init: Failed to allocate hardware info.\n");
+      return(-ENOMEM);
+   }
+   info = (struct PgpInfo *)dev->hwData;
+   memset(info, 0, sizeof(struct PgpInfo));
 
    // Remove card reset, bit 1 of control register
    tmp = ioread32(&(reg->cardRstStat));
@@ -224,12 +236,6 @@ void PgpCardG3_Init(struct DmaDevice *dev) {
          buff->owner = (x % 8);
       }
    }
-
-   // Init hardware info
-   dev->hwData = (void *)kmalloc(sizeof(struct PgpInfo), GFP_KERNEL);
-   info = (struct PgpInfo *)dev->hwData;
-
-   memset(info, 0, sizeof(struct PgpInfo));
 
    info->version = ioread32(&(reg->version));
 
@@ -266,6 +272,8 @@ void PgpCardG3_Init(struct DmaDevice *dev) {
 
    dev_info(dev->device, "Init: Found card. Version=0x%x, Type=0x%.2x\n",
          info->version, info->type);
+
+   return(0);
 }
 
 // Enable the card
@@ -275,6 +283,14 @@ void PgpCardG3_Enable(struct DmaDevice *dev) {
 
    // Enable interrupts
    iowrite32(1, &(reg->irq));
+}
+
+// Enable or disable interrupts at the card
+void PgpCardG3_IrqEnable(struct DmaDevice *dev, int en) {
+   struct PgpCardG3Reg * reg;
+   reg = (struct PgpCardG3Reg *)dev->reg;
+
+   iowrite32(en ? 0x1 : 0x0, &(reg->irq));
 }
 
 // Clear card in top level Remove

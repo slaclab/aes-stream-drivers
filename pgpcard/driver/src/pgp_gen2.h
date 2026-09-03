@@ -90,10 +90,13 @@ extern struct hardware_functions PgpCardG2_functions;
 irqreturn_t PgpCardG2_Irq(int irq, void *dev_id);
 
 // Init card in top level Probe
-void PgpCardG2_Init(struct DmaDevice *dev);
+int PgpCardG2_Init(struct DmaDevice *dev);
 
 // Enable
 void PgpCardG2_Enable(struct DmaDevice *dev);
+
+// Enable or disable interrupts at the card
+void PgpCardG2_IrqEnable(struct DmaDevice *dev, int en);
 
 // Clear card in top level Remove
 void PgpCardG2_Clear(struct DmaDevice *dev);
