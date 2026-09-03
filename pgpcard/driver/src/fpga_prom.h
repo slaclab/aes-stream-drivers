@@ -2,9 +2,6 @@
  *-----------------------------------------------------------------------------
  * Title      : Common FPGA Prom Functions
  * ----------------------------------------------------------------------------
- * File       : fpga_prom.h
- * Created    : 2017-03-16
- * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
  * the license terms in the LICENSE.txt file found in the top-level directory
  * of this distribution and at:

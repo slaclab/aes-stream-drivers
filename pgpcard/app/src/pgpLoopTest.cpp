@@ -2,11 +2,6 @@
  *-----------------------------------------------------------------------------
  * Title      : PGP rate test utility
  * ----------------------------------------------------------------------------
- * File       : pgpLoopTest.cpp
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-08
- * Last update: 2016-08-08
- * ----------------------------------------------------------------------------
  * Description:
  * Utility to rate test the PGP card. This utility will create a set number of
  * write and read threads to emulate a number of read and write applications.

@@ -2,11 +2,6 @@
  *-----------------------------------------------------------------------------
  * Title      : PGP Firmware Verify Utility
  * ----------------------------------------------------------------------------
- * File       : pgpPromVerify.cpp
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-08
- * Last update: 2016-08-08
- * ----------------------------------------------------------------------------
  * Description:
  * Utility to verify the firmware loaded in the PGP Card
  * ----------------------------------------------------------------------------
