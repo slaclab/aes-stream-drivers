@@ -2,20 +2,15 @@
  *-----------------------------------------------------------------------------
  * Title      : PGP Card Gen3 Functions
  * ----------------------------------------------------------------------------
- * File       : pgp_gen3.c
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-11
- * Last update: 2016-08-11
- * ----------------------------------------------------------------------------
  * Description:
  * Access functions for Gen32 PGP Cards
  * ----------------------------------------------------------------------------
- * This file is part of the aes_stream_drivers package. It is subject to 
- * the license terms in the LICENSE.txt file found in the top-level directory 
- * of this distribution and at: 
- *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html. 
- * No part of the aes_stream_drivers package, including this file, may be 
- * copied, modified, propagated, or distributed except according to the terms 
+ * This file is part of the aes_stream_drivers package. It is subject to
+ * the license terms in the LICENSE.txt file found in the top-level directory
+ * of this distribution and at:
+ *    https://confluence.slac.stanford.edu/display/ppareg/LICENSE.html.
+ * No part of the aes_stream_drivers package, including this file, may be
+ * copied, modified, propagated, or distributed except according to the terms
  * contained in the LICENSE.txt file.
  * ----------------------------------------------------------------------------
 **/
@@ -35,6 +30,7 @@ struct hardware_functions PgpCardG3_functions = {
    .init         = PgpCardG3_Init,
    .enable       = PgpCardG3_Enable,
    .clear        = PgpCardG3_Clear,
+   .irqEnable    = PgpCardG3_IrqEnable,
    .retRxBuffer  = PgpCardG3_RetRxBuffer,
    .sendBuffer   = PgpCardG3_SendBuffer,
    .command      = PgpCardG3_Command,
@@ -65,39 +61,35 @@ irqreturn_t PgpCardG3_Irq(int irq, void *dev_id) {
    asm("nop");
 
    // Is this the source
-   if ( (stat & 0x2) != 0 ) {
-
-      if ( dev->debug > 0 ) dev_info(dev->device,"Irq: IRQ Called.\n");
+   if ((stat & 0x2) != 0) {
+      if (dev->debug > 0) dev_info(dev->device, "Irq: IRQ Called.\n");
 
       // Disable interrupts
-      iowrite32(0,&(reg->irq));
+      iowrite32(0, &(reg->irq));
 
       // Read Tx completion status
       stat = ioread32(&(reg->txStat[1]));
       asm("nop");
 
       // Tx Data is ready
-      if ( (stat & 0x80000000) != 0 ) {
-
+      if ((stat & 0x80000000) != 0) {
          do {
-
             // Read dma value
             stat = ioread32(&(reg->txRead));
             asm("nop");
 
-            if ( (stat & 0x1) == 0x1 ) {
-
-               if ( dev->debug > 0 ) 
-                  dev_info(dev->device,"Irq: Return TX Status Value %.8x.\n",stat);
+            if ((stat & 0x1) == 0x1) {
+               if (dev->debug > 0)
+                  dev_info(dev->device, "Irq: Return TX Status Value %.8x.\n", stat);
 
                // Attempt to find buffer in tx pool and return. otherwise return rx entry to hw.
-               if ((buff = dmaRetBufferIrq (dev,stat&0xFFFFFFFC)) != NULL) {
+               if ((buff = dmaRetBufferIrq(dev, stat&0xFFFFFFFC)) != NULL) {
                   iowrite32((stat & 0xFFFFFFFC), &(reg->rxFree[buff->owner]));
                }
             }
 
          // Repeat while next valid flag is set
-         } while ( (stat & 0x1) == 0x1 );
+         } while ((stat & 0x1) == 0x1);
       }
 
       // Read Rx completion status
@@ -105,32 +97,29 @@ irqreturn_t PgpCardG3_Irq(int irq, void *dev_id) {
       asm("nop");
 
       // Data is ready
-      if ( (stat & 0x80000000) != 0 ) {
+      if ((stat & 0x80000000) != 0) {
          do {
-
             // Read descriptor
             descA = ioread32(&(reg->rxRead[0]));
             asm("nop");
             descB = ioread32(&(reg->rxRead[1]));
             asm("nop");
 
-            if ( ( descB & 0x1) == 0x1 ) {
-
+            if ((descB & 0x1) == 0x1) {
                // Find RX buffer entry
-               if ((buff = dmaFindBufferList (&(dev->rxBuffers),descB&0xFFFFFFFC)) != NULL) {
-
+               if ((buff = dmaFindBufferList(&(dev->rxBuffers), descB&0xFFFFFFFC)) != NULL) {
                   // Extract data from descriptor
                   buff->count++;
-                  buff->flags = (descA >> 29) & 0x1; // Bit  29 (CONT)
-                  dmaId       = (descA >> 26) & 0x7; // Bits 28:26
-                  subId       = (descA >> 24) & 0x3; // Bits 25:24
+                  buff->flags = (descA >> 29) & 0x1;  // Bit  29 (CONT)
+                  dmaId       = (descA >> 26) & 0x7;  // Bits 28:26
+                  subId       = (descA >> 24) & 0x3;  // Bits 25:24
                   buff->size  = (descA & 0x00FFFFFF) * 4;  // 23:00
                   buff->error = 0;
 
                   // Adjust VC for interleaved version
                   // Each dma engine is a VC
-                  if ( info->type == PGP_GEN3_VCI ) {
-                     buff->dest  = (dmaId / 2) * 4; // lane 
+                  if (info->type == PGP_GEN3_VCI) {
+                     buff->dest  = (dmaId / 2) * 4;  // lane
                      buff->dest += (dmaId % 2);     // vc
                   } else {
                      buff->dest  = dmaId * 4;
@@ -138,19 +127,19 @@ irqreturn_t PgpCardG3_Irq(int irq, void *dev_id) {
                   }
 
                   // Setup errors
-                  if ( (descA >> 31) & 0x1) buff->error |= DMA_ERR_FIFO;
-                  if ( (descA >> 30) & 0x1) buff->error |= PGP_ERR_EOFE;
+                  if ((descA >> 31) & 0x1) buff->error |= DMA_ERR_FIFO;
+                  if ((descA >> 30) & 0x1) buff->error |= PGP_ERR_EOFE;
 
                   // Bit 1 of descB is the or of all errors, determine len error if others are not set
-                  if (( (descB >>  1) & 0x1) && (buff->error == 0) ) buff->error |= DMA_ERR_LEN;
+                  if (((descB >> 1) & 0x1) && (buff->error == 0)) buff->error |= DMA_ERR_LEN;
 
-                  if ( dev->debug > 0 ) {
-                     dev_info(dev->device,"Irq: Rx Bytes=%i, Dest=%x, Error=0x%x, Cont=%i.\n",
+                  if (dev->debug > 0) {
+                     dev_info(dev->device, "Irq: Rx Bytes=%i, Dest=%x, Error=0x%x, Cont=%i.\n",
                         buff->size, buff->dest, buff->error, buff->flags);
                   }
 
                   // Lock mask records
-                  // This ensures close does not occur while irq routine is 
+                  // This ensures close does not occur while irq routine is
                   // pushing data to desc rx queue
                   spin_lock(&dev->maskLock);
 
@@ -158,41 +147,42 @@ irqreturn_t PgpCardG3_Irq(int irq, void *dev_id) {
                   desc = dev->desc[buff->dest];
 
                   // Return entry to FPGA if lane/vc is not open
-                  if ( desc == NULL ) {
-                     if ( dev->debug > 0 ) {
-                        dev_info(dev->device,"Irq: Port not open return to free list.\n");
+                  if (desc == NULL) {
+                     if (dev->debug > 0) {
+                        dev_info(dev->device, "Irq: Port not open return to free list.\n");
                      }
                      iowrite32((descB & 0xFFFFFFFC), &(reg->rxFree[(descA >> 26) & 0x7]));
+                  } else {
+                     // lane/vc is open, add to RX queue
+                     dmaRxBuffer(desc, buff);
                   }
-
-                  // lane/vc is open, Add to RX Queue
-                  else dmaRxBuffer(desc,buff);
 
                   // Unlock
                   spin_unlock(&dev->maskLock);
-               } 
-
-               // Buffer was not found
-               else dev_warn(dev->device,"Irq: Failed to locate RX descriptor %.8x.\n",
+               } else {
+                  // Buffer was not found
+                  dev_warn(dev->device, "Irq: Failed to locate RX descriptor %.8x.\n",
                      (uint32_t)(descB&0xFFFFFFFC));
+               }
            }
 
          // Repeat while next valid flag is set
-         } while ( (descB & 0x1) == 0x1 );
+         } while ((descB & 0x1) == 0x1);
       }
 
       // Enable interrupts
-      if ( dev->debug > 0 ) 
-         dev_info(dev->device,"Irq: Done.\n");
-      iowrite32(1,&(reg->irq));
+      if (dev->debug > 0)
+         dev_info(dev->device, "Irq: Done.\n");
+      iowrite32(1, &(reg->irq));
       ret = IRQ_HANDLED;
+   } else {
+      ret = IRQ_NONE;
    }
-   else ret = IRQ_NONE;
    return(ret);
 }
 
 // Init card in top level Probe
-void PgpCardG3_Init(struct DmaDevice *dev) {
+int PgpCardG3_Init(struct DmaDevice *dev) {
    uint32_t maxFrame;
    uint32_t tmp;
    uint64_t tmpL;
@@ -203,39 +193,44 @@ void PgpCardG3_Init(struct DmaDevice *dev) {
    struct PgpCardG3Reg * reg;
    reg = (struct PgpCardG3Reg *)dev->reg;
 
+   // Init hardware info. Allocated before any register writes so that a
+   // failure here needs no hardware cleanup. Dma_Init does not call
+   // ->clear() when ->init() fails, so init owns its own unwind.
+   dev->hwData = (void *)kmalloc(sizeof(struct PgpInfo), GFP_KERNEL);
+   if (dev->hwData == NULL) {
+      dev_err(dev->device, "Init: Failed to allocate hardware info.\n");
+      return(-ENOMEM);
+   }
+   info = (struct PgpInfo *)dev->hwData;
+   memset(info, 0, sizeof(struct PgpInfo));
+
    // Remove card reset, bit 1 of control register
    tmp = ioread32(&(reg->cardRstStat));
    tmp &= 0xFFFFFFFD;
-   iowrite32(tmp,&(reg->cardRstStat));
+   iowrite32(tmp, &(reg->cardRstStat));
 
    // Setup max frame value
    maxFrame = dev->cfgSize / 4;
    maxFrame |= 0x80000000;
 
    // Continue enabled
-   if ( dev->cfgCont ) maxFrame |= 0x40000000;
-   dev_info(dev->device,"Init: Setting rx continue flag=%i.\n", dev->cfgCont);
+   if (dev->cfgCont) maxFrame |= 0x40000000;
+   dev_info(dev->device, "Init: Setting rx continue flag=%i.\n", dev->cfgCont);
 
-   // Set to hardware 
-   iowrite32(maxFrame,&(reg->rxMaxFrame));
+   // Set to hardware
+   iowrite32(maxFrame, &(reg->rxMaxFrame));
 
    // Push receive buffers to hardware
    // Distribute rx bufferes evently between free lists
-   for (x=dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
-      buff = dmaGetBufferList(&(dev->rxBuffers),x);
-      if ( dmaBufferToHw(buff) < 0 ) 
-         dev_warn(dev->device,"Init: Failed to map dma buffer.\n");
-      else {
-         iowrite32(buff->buffHandle,&(reg->rxFree[x % 8]));
+   for (x = dev->rxBuffers.baseIdx; x < (dev->rxBuffers.baseIdx + dev->rxBuffers.count); x++) {
+      buff = dmaGetBufferList(&(dev->rxBuffers), x);
+      if (dmaBufferToHw(buff) < 0) {
+         dev_warn(dev->device, "Init: Failed to map dma buffer.\n");
+      } else {
+         iowrite32(buff->buffHandle, &(reg->rxFree[x % 8]));
          buff->owner = (x % 8);
       }
    }
-
-   // Init hardware info
-   dev->hwData = (void *)kmalloc(sizeof(struct PgpInfo),GFP_KERNEL);
-   info = (struct PgpInfo *)dev->hwData;
-
-   memset(info,0,sizeof(struct PgpInfo));
 
    info->version = ioread32(&(reg->version));
 
@@ -245,14 +240,14 @@ void PgpCardG3_Init(struct DmaDevice *dev) {
    tmpL = ioread32(&(reg->serNumLower));
    info->serial |= tmpL;
 
-   for (x=0; x < 64; x++) {
+   for (x = 0; x < 64; x++) {
       ((uint32_t *)info->buildStamp)[x] = ioread32((&reg->BuildStamp[x]));
-   }          
+   }
    info->pgpRate = ioread32(&(reg->pgpRate));
-   memset(dev->destMask,0,DMA_MASK_SIZE);
+   memset(dev->destMask, 0, DMA_MASK_SIZE);
 
    // Card info
-   if ( (ioread32(&(reg->vciMode)) & 0x1) != 0 ) {
+   if ((ioread32(&(reg->vciMode)) & 0x1) != 0) {
       info->type = PGP_GEN3_VCI;
       info->laneMask   = 0x0F;
       info->vcPerMask  = 0x3;
@@ -270,8 +265,10 @@ void PgpCardG3_Init(struct DmaDevice *dev) {
    info->promPrgEn  = 1;
    info->evrSupport = 1;
 
-   dev_info(dev->device,"Init: Found card. Version=0x%x, Type=0x%.2x\n", 
-         info->version,info->type);
+   dev_info(dev->device, "Init: Found card. Version=0x%x, Type=0x%.2x\n",
+         info->version, info->type);
+
+   return(0);
 }
 
 // Enable the card
@@ -280,7 +277,15 @@ void PgpCardG3_Enable(struct DmaDevice *dev) {
    reg = (struct PgpCardG3Reg *)dev->reg;
 
    // Enable interrupts
-   iowrite32(1,&(reg->irq));
+   iowrite32(1, &(reg->irq));
+}
+
+// Enable or disable interrupts at the card
+void PgpCardG3_IrqEnable(struct DmaDevice *dev, int en) {
+   struct PgpCardG3Reg * reg;
+   reg = (struct PgpCardG3Reg *)dev->reg;
+
+   iowrite32(en ? 0x1 : 0x0, &(reg->irq));
 }
 
 // Clear card in top level Remove
@@ -290,15 +295,15 @@ void PgpCardG3_Clear(struct DmaDevice *dev) {
    reg = (struct PgpCardG3Reg *)dev->reg;
 
    // Disable interrupts
-   iowrite32(0,&(reg->irq));
+   iowrite32(0, &(reg->irq));
 
    // Clear RX buffer
-   iowrite32(0,&(reg->rxMaxFrame));
+   iowrite32(0, &(reg->rxMaxFrame));
 
    // Set card reset, bit 1 of control register
    tmp = ioread32(&(reg->cardRstStat));
    tmp |= 0x00000002;
-   iowrite32(tmp,&(reg->cardRstStat));
+   iowrite32(tmp, &(reg->cardRstStat));
 
    // Clear hw data
    kfree(dev->hwData);
@@ -313,10 +318,12 @@ void PgpCardG3_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint3
 
    reg = (struct PgpCardG3Reg *)dev->reg;
 
-   for (x=0; x < count; x++) {
-      if ( dmaBufferToHw(buff[x]) < 0 ) 
-         dev_warn(dev->device,"RetRxBuffer: Failed to map dma buffer.\n");
-      else iowrite32(buff[x]->buffHandle,&(reg->rxFree[buff[x]->owner]));
+   for (x = 0; x < count; x++) {
+      if (dmaBufferToHw(buff[x]) < 0) {
+         dev_warn(dev->device, "RetRxBuffer: Failed to map dma buffer.\n");
+      } else {
+         iowrite32(buff[x]->buffHandle, &(reg->rxFree[buff[x]->owner]));
+      }
    }
 }
 
@@ -335,16 +342,15 @@ int32_t PgpCardG3_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uin
    reg  = (struct PgpCardG3Reg *)dev->reg;
    info = (struct PgpInfo *)dev->hwData;
 
-   for (x=0; x < count; x++) {
-
-      if ( (buff[x]->size % 4) != 0 ) {
-         dev_warn(dev->device,"SendBuffer: Frame size not a multiple of 4.\n");
-         dmaQueuePush(&(dev->tq),buff[x]);
+   for (x = 0; x < count; x++) {
+      if ((buff[x]->size % 4) != 0) {
+         dev_warn(dev->device, "SendBuffer: Frame size not a multiple of 4.\n");
+         dmaQueuePush(&(dev->tq), buff[x]);
          return(-1);
       }
 
       // Lane remap for VC interleaved card where each DMA engine is a single VC
-      if ( info->type == PGP_GEN3_VCI ) {
+      if (info->type == PGP_GEN3_VCI) {
          dmaId = ((buff[x]->dest / 4) * 2) + (buff[x]->dest % 4);
          subId = 0;
       } else {
@@ -352,24 +358,24 @@ int32_t PgpCardG3_SendBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uin
          subId = buff[x]->dest % 4;
       }
 
-      if ( dmaBufferToHw(buff[x]) < 0 ) {
-         dev_warn(dev->device,"SendBuffer: Failed to map dma buffer.\n");
+      if (dmaBufferToHw(buff[x]) < 0) {
+         dev_warn(dev->device, "SendBuffer: Failed to map dma buffer.\n");
          return(-1);
       }
 
       // Generate Tx descriptor
-      descA  = (buff[x]->flags << 26) & 0x04000000; // Bits 26    = Cont
-      descA += (subId          << 24) & 0x03000000; // Bits 25:24 = VC
-      descA += (buff[x]->size  / 4  ) & 0x00FFFFFF; // Bits 23:0  = Length
+      descA  = (buff[x]->flags << 26) & 0x04000000;  // Bits 26    = Cont
+      descA += (subId          << 24) & 0x03000000;  // Bits 25:24 = VC
+      descA += (buff[x]->size  / 4) & 0x00FFFFFF;  // Bits 23:0  = Length
       descB = buff[x]->buffHandle;
 
       // Lock hw
       spin_lock(&dev->writeHwLock);
 
       // Write descriptor
-      iowrite32(descA,&(reg->txWrA[dmaId]));
+      iowrite32(descA, &(reg->txWrA[dmaId]));
       asm("nop");
-      iowrite32(descB,&(reg->txWrB[dmaId]));
+      iowrite32(descB, &(reg->txWrB[dmaId]));
       asm("nop");
 
       // UnLock hw
@@ -395,33 +401,32 @@ int32_t PgpCardG3_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
    struct PgpEvrStatus   evrStatus;
 
    reg  = (struct PgpCardG3Reg *)dev->reg;
-   info = (struct PgpInfo * )dev->hwData;
+   info = (struct PgpInfo *)dev->hwData;
 
    switch (cmd) {
-
       // Control loopback
       case PGP_Set_Loop:
          tempLane = arg & 0xFF;
          tempVal  = (arg >> 8) & 0x1;
 
-         if ( tempLane > 8 ) return(0);
+         if (tempLane > 8) return(0);
 
          spin_lock(&dev->commandLock);
 
          // Set loop
-         if ( tempVal ) {
+         if (tempVal) {
             tmp = ioread32(&(reg->pgpCardStat[0]));
             tmp |= (0x1 << ((tempLane&0x7) + 0));
-            iowrite32(tmp,&(reg->pgpCardStat[0]));
-            if (dev->debug > 0) dev_info(dev->device,"Set loopback for %u\n", tempLane);
+            iowrite32(tmp, &(reg->pgpCardStat[0]));
+            if (dev->debug > 0) dev_info(dev->device, "Set loopback for %u\n", tempLane);
 
          // Clear loop
          } else {
-            mask = 0xFFFFFFFF ^ (0x1 << ((tempLane&0x7) + 0));  
+            mask = 0xFFFFFFFF ^ (0x1 << ((tempLane&0x7) + 0));
             tmp = ioread32(&(reg->pgpCardStat[0]));
             tmp &= mask;
-            iowrite32(tmp,&(reg->pgpCardStat[0]));
-            if (dev->debug > 0) dev_info(dev->device,"Clr loopback for %u\n", tempLane);
+            iowrite32(tmp, &(reg->pgpCardStat[0]));
+            if (dev->debug > 0) dev_info(dev->device, "Clr loopback for %u\n", tempLane);
          }
          spin_unlock(&dev->commandLock);
          return(0);
@@ -430,18 +435,18 @@ int32_t PgpCardG3_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
       // Reset counters
       case PGP_Count_Reset:
          spin_lock(&dev->commandLock);
-         tmp = ioread32(&(reg->pgpCardStat[0])); // Store old reg val
-         iowrite32(tmp|0x1,&(reg->pgpCardStat[0])); // Set reset bit
-         iowrite32(tmp,&(reg->pgpCardStat[0])); // Set old reg val
+         tmp = ioread32(&(reg->pgpCardStat[0]));  // Store old reg val
+         iowrite32(tmp|0x1, &(reg->pgpCardStat[0]));  // Set reset bit
+         iowrite32(tmp, &(reg->pgpCardStat[0]));  // Set old reg val
          spin_unlock(&dev->commandLock);
-         if (dev->debug > 0) dev_info(dev->device,"Count reset\n");
+         if (dev->debug > 0) dev_info(dev->device, "Count reset\n");
          return(0);
          break;
 
       // Send OpCode
       case PGP_Send_OpCode:
-         iowrite32(arg&0xFF,&(reg->pgpOpCode));
-         if (dev->debug > 0) dev_info(dev->device,"Send OP-Code: %x\n", (uint8_t)arg);
+         iowrite32(arg&0xFF, &(reg->pgpOpCode));
+         if (dev->debug > 0) dev_info(dev->device, "Send OP-Code: %x\n", (uint8_t)arg);
          return(0);
          break;
 
@@ -450,19 +455,19 @@ int32_t PgpCardG3_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
          tempLane = arg & 0xF;
          tempVal  = (arg >> 8) & 0xFF;
 
-         if ( tempLane > 8 ) return(0);
+         if (tempLane > 8) return(0);
 
-         iowrite32(tempVal,&(reg->pgpData[tempLane]));
+         iowrite32(tempVal, &(reg->pgpData[tempLane]));
 
          // Debug
-         if (dev->debug > 0) dev_info(dev->device,"Set local data for %i to %i\n", tempLane, tempVal);
+         if (dev->debug > 0) dev_info(dev->device, "Set local data for %i to %i\n", tempLane, tempVal);
          return(-1);
          break;
 
       // Read card info
       case PGP_Read_Info:
-         if ((ret=copy_to_user((void *)arg,info,sizeof(struct PgpInfo)))) {
-            dev_warn(dev->device,"Command: copy_to_user failed. ret=%i, user=%p kern=%p\n",
+         if ((ret = copy_to_user((void *)arg, info, sizeof(struct PgpInfo)))) {
+            dev_warn(dev->device, "Command: copy_to_user failed. ret=%i, user=%p kern=%p\n",
                 ret, (void *)arg, info);
             return(-1);
          }
@@ -471,10 +476,10 @@ int32_t PgpCardG3_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
 
       // Read PCI Status
       case PGP_Read_Pci:
-         PgpCardG3_GetPci(dev,&pciStatus);
+         PgpCardG3_GetPci(dev, &pciStatus);
 
-         if ((ret=copy_to_user((void *)arg,&pciStatus,sizeof(struct PciStatus)))) {
-            dev_warn(dev->device,"Command: copy_to_user failed. ret=%i, user=%p kern=%p\n",
+         if ((ret = copy_to_user((void *)arg, &pciStatus, sizeof(struct PciStatus)))) {
+            dev_warn(dev->device, "Command: copy_to_user failed. ret=%i, user=%p kern=%p\n",
                 ret, (void *)arg, &pciStatus);
             return(-1);
          }
@@ -483,16 +488,16 @@ int32_t PgpCardG3_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
 
       // Read status for a lane
       case PGP_Read_Status:
-         if ((ret=copy_from_user(&status,(void *)arg,sizeof(struct PgpStatus)))) {
-            dev_warn(dev->device,"Command: copy_from_user failed. ret=%i, user=%p kern=%p\n",
+         if ((ret = copy_from_user(&status, (void *)arg, sizeof(struct PgpStatus)))) {
+            dev_warn(dev->device, "Command: copy_from_user failed. ret=%i, user=%p kern=%p\n",
                 ret, (void *)arg, &status);
             return(-1);
          }
 
-         PgpCardG3_GetStatus(dev,&status,status.lane);
+         PgpCardG3_GetStatus(dev, &status, status.lane);
 
-         if ((ret=copy_to_user((void *)arg,&status,sizeof(struct PgpStatus)))) {
-            dev_warn(dev->device,"Command: copy_to_user failed. ret=%i, user=%p kern=%p\n",
+         if ((ret = copy_to_user((void *)arg, &status, sizeof(struct PgpStatus)))) {
+            dev_warn(dev->device, "Command: copy_to_user failed. ret=%i, user=%p kern=%p\n",
                 ret, (void *)arg, &status);
             return(-1);
          }
@@ -501,8 +506,8 @@ int32_t PgpCardG3_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
 
       // Set EVR lane control
       case PGP_Set_Evr_Cntrl:
-         if ((ret=copy_from_user(&evrControl,(void *)arg,sizeof(struct PgpEvrControl)))) {
-            dev_warn(dev->device,"Command: copy_from_user failed. ret=%i, user=%p kern=%p\n",
+         if ((ret = copy_from_user(&evrControl, (void *)arg, sizeof(struct PgpEvrControl)))) {
+            dev_warn(dev->device, "Command: copy_from_user failed. ret=%i, user=%p kern=%p\n",
                 ret, (void *)arg, &evrControl);
             return(-1);
          }
@@ -512,16 +517,16 @@ int32_t PgpCardG3_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
 
       // Get EVR lane control
       case PGP_Get_Evr_Cntrl:
-         if ((ret=copy_from_user(&evrControl,(void *)arg,sizeof(struct PgpEvrControl)))) {
-            dev_warn(dev->device,"Command: copy_from_user failed. ret=%i, user=%p kern=%p\n",
+         if ((ret = copy_from_user(&evrControl, (void *)arg, sizeof(struct PgpEvrControl)))) {
+            dev_warn(dev->device, "Command: copy_from_user failed. ret=%i, user=%p kern=%p\n",
                 ret, (void *)arg, &evrControl);
             return(-1);
          }
 
          PgpCardG3_GetEvrControl(dev, &evrControl, evrControl.lane);
 
-         if ((ret=copy_to_user((void *)arg,&evrControl,sizeof(struct PgpEvrControl)))) {
-            dev_warn(dev->device,"Command: copy_to_user failed. ret=%i, user=%p kern=%p\n",
+         if ((ret = copy_to_user((void *)arg, &evrControl, sizeof(struct PgpEvrControl)))) {
+            dev_warn(dev->device, "Command: copy_to_user failed. ret=%i, user=%p kern=%p\n",
                 ret, (void *)arg, &evrControl);
             return(-1);
          }
@@ -530,45 +535,45 @@ int32_t PgpCardG3_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
 
       // Read EVR lane status
       case PGP_Get_Evr_Status:
-         if ((ret=copy_from_user(&evrStatus,(void *)arg,sizeof(struct PgpEvrStatus)))) {
-            dev_warn(dev->device,"Command: copy_from_user failed. ret=%i, user=%p kern=%p\n",
+         if ((ret = copy_from_user(&evrStatus, (void *)arg, sizeof(struct PgpEvrStatus)))) {
+            dev_warn(dev->device, "Command: copy_from_user failed. ret=%i, user=%p kern=%p\n",
                 ret, (void *)arg, &evrStatus);
             return(-1);
          }
 
          PgpCardG3_GetEvrStatus(dev, &evrStatus, evrStatus.lane);
 
-         if ((ret=copy_to_user((void *)arg,&evrStatus,sizeof(struct PgpEvrStatus)))) {
-            dev_warn(dev->device,"Command: copy_to_user failed. ret=%i, user=%p kern=%p\n",
+         if ((ret = copy_to_user((void *)arg, &evrStatus, sizeof(struct PgpEvrStatus)))) {
+            dev_warn(dev->device, "Command: copy_to_user failed. ret=%i, user=%p kern=%p\n",
                 ret, (void *)arg, &evrStatus);
             return(-1);
          }
          return(0);
          break;
-      
-      // Reset EVR counters   
+
+      // Reset EVR counters
       case PGP_Rst_Evr_Count:
          tempLane = arg & 0x07;
          spin_lock(&dev->commandLock);
-         tempVal = ioread32(&(reg->evrCardStat[0])); // Store old reg val
-         iowrite32(tempVal|(0x1<<(tempLane+8)),&(reg->evrCardStat[0])); // Set reset bit
-         iowrite32(tempVal,&(reg->evrCardStat[0])); // Set old reg val
+         tempVal = ioread32(&(reg->evrCardStat[0]));  // Store old reg val
+         iowrite32(tempVal|(0x1 << (tempLane+8)), &(reg->evrCardStat[0]));  // Set reset bit
+         iowrite32(tempVal, &(reg->evrCardStat[0]));  // Set old reg val
          spin_unlock(&dev->commandLock);
          return(0);
          break;
 
       // Write to prom
       case FPGA_Write_Prom:
-         return(FpgaProm_Write(dev,reg->promRegs,arg));
+         return(FpgaProm_Write(dev, reg->promRegs, arg));
          break;
 
       // Read from prom
       case FPGA_Read_Prom:
-         return(FpgaProm_Read(dev,reg->promRegs,arg));
+         return(FpgaProm_Read(dev, reg->promRegs, arg));
          break;
 
       default:
-         dev_warn(dev->device,"Command: Invalid command=%i\n",cmd);
+         dev_warn(dev->device, "Command: Invalid command=%i\n", cmd);
          return(-1);
          break;
    }
@@ -589,61 +594,61 @@ void PgpCardG3_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
    struct PgpEvrControl  evrControl;
 
    reg  = (struct PgpCardG3Reg *)dev->reg;
-   info = (struct PgpInfo * )dev->hwData;
+   info = (struct PgpInfo *)dev->hwData;
 
-   seq_printf(s,"\n");
-   PgpCard_InfoShow(s,info);
-   seq_printf(s,"\n");
-   PgpCardG3_GetPci(dev,&pci);
-   PgpCard_PciShow(s,&pci);
+   seq_printf(s, "\n");
+   PgpCard_InfoShow(s, info);
+   seq_printf(s, "\n");
+   PgpCardG3_GetPci(dev, &pci);
+   PgpCard_PciShow(s, &pci);
 
-   for (x=0; x < 8; x++) {
-      if ( ((1 << x) & info->laneMask) == 0 ) continue;
-      PgpCardG3_GetStatus(dev,&status,x);
-      seq_printf(s,"\n");
-      PgpCard_LaneShow(s,&status);
+   for (x = 0; x < 8; x++) {
+      if (((1 << x) & info->laneMask) == 0) continue;
+      PgpCardG3_GetStatus(dev, &status, x);
+      seq_printf(s, "\n");
+      PgpCard_LaneShow(s, &status);
    }
 
-   seq_printf(s,"\n");
-   seq_printf(s,"-------------- General HW -----------------\n");
+   seq_printf(s, "\n");
+   seq_printf(s, "-------------- General HW -----------------\n");
 
-   seq_printf(s,"              TxCount : %i\n",ioread32(&(reg->txCount)));
-   seq_printf(s,"              RxCount : %i\n",ioread32(&(reg->rxCount)));
+   seq_printf(s, "              TxCount : %i\n", ioread32(&(reg->txCount)));
+   seq_printf(s, "              RxCount : %i\n", ioread32(&(reg->rxCount)));
 
    tmp = ioread32(&(reg->rxStatus));
-   seq_printf(s,"          RxStatusRaw : 0x%.8x\n",tmp);
-   seq_printf(s,"          RxReadReady : %i\n",(tmp >> 31)&0x1);
-   seq_printf(s,"       RxRetFifoCount : %i\n",tmp&0x3FF);
+   seq_printf(s, "          RxStatusRaw : 0x%.8x\n", tmp);
+   seq_printf(s, "          RxReadReady : %i\n", (tmp >> 31)&0x1);
+   seq_printf(s, "       RxRetFifoCount : %i\n", tmp&0x3FF);
 
    tmp = ioread32(&(reg->txStat[1]));
-   seq_printf(s,"          TxReadReady : %i\n",(tmp >> 31)&0x1);
-   seq_printf(s,"       TxRetFifoCount : %i\n",tmp&0x3FF);
+   seq_printf(s, "          TxReadReady : %i\n", (tmp >> 31)&0x1);
+   seq_printf(s, "       TxRetFifoCount : %i\n", tmp&0x3FF);
 
-   seq_printf(s,"           CountReset : %i\n",(ioread32(&(reg->cardRstStat)) >> 0) & 0x1);
-   seq_printf(s,"            CardReset : %i\n",(ioread32(&(reg->cardRstStat)) >> 1) & 0x1);
-  
-   for (x=0; x < 8; x++) {
-      PgpCardG3_GetEvrStatus(dev,&evrStatus,x);
-      PgpCardG3_GetEvrControl(dev,&evrControl,x);
-      seq_printf(s,"\n");
-      seq_printf(s,"-------------- EVR Lane %i -----------------\n",x);
-      seq_printf(s,"            evrEnable : %i\n",evrControl.evrEnable);
-      seq_printf(s,"          laneRunMask : %i\n",evrControl.laneRunMask);
-      seq_printf(s,"          startStopEn : %i\n",evrControl.evrSyncEn);
-      seq_printf(s,"           modeSelect : %i\n",evrControl.evrSyncSel);
-      seq_printf(s,"           headerMask : %i\n",evrControl.headerMask);
-      seq_printf(s,"        startStopWord : %i\n",evrControl.evrSyncWord);
-      seq_printf(s,"              runCode : %i\n",evrControl.runCode);
-      seq_printf(s,"           acceptCode : %i\n",evrControl.acceptCode);
-      seq_printf(s,"             runDelay : %i\n",evrControl.runDelay);
-      seq_printf(s,"          acceptDelay : %i\n",evrControl.acceptDelay);
-      seq_printf(s,"           linkErrors : %i\n",evrStatus.linkErrors);
-      seq_printf(s,"               linkUp : %i\n",evrStatus.linkUp);
-      seq_printf(s,"            runStatus : %i\n",evrStatus.runStatus);
-      seq_printf(s,"           evrSeconds : %i\n",evrStatus.evrSeconds);
-      seq_printf(s,"           runCounter : %i\n",evrStatus.runCounter);
-      seq_printf(s,"        acceptCounter : %i\n",evrStatus.runCounter);
-   }             
+   seq_printf(s, "           CountReset : %i\n", (ioread32(&(reg->cardRstStat)) >> 0) & 0x1);
+   seq_printf(s, "            CardReset : %i\n", (ioread32(&(reg->cardRstStat)) >> 1) & 0x1);
+
+   for (x = 0; x < 8; x++) {
+      PgpCardG3_GetEvrStatus(dev, &evrStatus, x);
+      PgpCardG3_GetEvrControl(dev, &evrControl, x);
+      seq_printf(s, "\n");
+      seq_printf(s, "-------------- EVR Lane %i -----------------\n", x);
+      seq_printf(s, "            evrEnable : %i\n", evrControl.evrEnable);
+      seq_printf(s, "          laneRunMask : %i\n", evrControl.laneRunMask);
+      seq_printf(s, "          startStopEn : %i\n", evrControl.evrSyncEn);
+      seq_printf(s, "           modeSelect : %i\n", evrControl.evrSyncSel);
+      seq_printf(s, "           headerMask : %i\n", evrControl.headerMask);
+      seq_printf(s, "        startStopWord : %i\n", evrControl.evrSyncWord);
+      seq_printf(s, "              runCode : %i\n", evrControl.runCode);
+      seq_printf(s, "           acceptCode : %i\n", evrControl.acceptCode);
+      seq_printf(s, "             runDelay : %i\n", evrControl.runDelay);
+      seq_printf(s, "          acceptDelay : %i\n", evrControl.acceptDelay);
+      seq_printf(s, "           linkErrors : %i\n", evrStatus.linkErrors);
+      seq_printf(s, "               linkUp : %i\n", evrStatus.linkUp);
+      seq_printf(s, "            runStatus : %i\n", evrStatus.runStatus);
+      seq_printf(s, "           evrSeconds : %i\n", evrStatus.evrSeconds);
+      seq_printf(s, "           runCounter : %i\n", evrStatus.runCounter);
+      seq_printf(s, "        acceptCounter : %i\n", evrStatus.runCounter);
+   }
 }
 
 
@@ -654,7 +659,7 @@ void PgpCardG3_GetPci(struct DmaDevice *dev, struct PciStatus *status) {
    struct PgpCardG3Reg *reg;
    reg = (struct PgpCardG3Reg *)dev->reg;
 
-   memset(status,0,sizeof(struct PciStatus));
+   memset(status, 0, sizeof(struct PciStatus));
 
    tmp = ioread32(&(reg->pciStat[0]));
    status->pciCommand = ((tmp >> 16)&0xFFFF);
@@ -672,7 +677,7 @@ void PgpCardG3_GetPci(struct DmaDevice *dev, struct PciStatus *status) {
    tmp = ioread32(&(reg->pciStat[3]));
    status->pciLinkState = ((tmp >> 24)&0x7);
    status->pciFunction  = ((tmp >> 16)&0x3);
-   status->pciDevice    = ((tmp >>  8)&0xF);
+   status->pciDevice    = ((tmp >> 8)&0xF);
    status->pciBus       = (tmp&0xFF);
 }
 
@@ -686,12 +691,12 @@ void PgpCardG3_GetStatus(struct DmaDevice *dev, struct PgpStatus *status, uint8_
 
    lane &= 0x7;
 
-   memset(status,0,sizeof(struct PgpStatus));
+   memset(status, 0, sizeof(struct PgpStatus));
    status->lane = lane;
 
    tempVal = ioread32(&(reg->pgpCardStat[0]));
 
-   if ( lane < 2 ) {
+   if (lane < 2) {
       status->txReady  = ((tempVal >> (lane+30)) & 0x1);
       status->rxReady  = ((tempVal >> (lane+28)) & 0x1);
    }
@@ -706,14 +711,13 @@ void PgpCardG3_GetStatus(struct DmaDevice *dev, struct PgpStatus *status, uint8_
    status->linkDownCnt = (tempVal >> 24) & 0xF;
    status->cellErrCnt  = (tempVal >> 20) & 0xF;
    status->fifoErr     = (((tempVal >> 16) & 0xF) != 0);
-   status->rxCount    += ((tempVal>>12) & 0xF);
-   status->rxCount    += ((tempVal>> 8) & 0xF);
-   status->rxCount    += ((tempVal>> 4) & 0xF);
-   status->rxCount    += ((tempVal>> 0) & 0xF);
+   status->rxCount    += ((tempVal >> 12) & 0xF);
+   status->rxCount    += ((tempVal >> 8) & 0xF);
+   status->rxCount    += ((tempVal >> 4) & 0xF);
+   status->rxCount    += ((tempVal >> 0) & 0xF);
 
    status->remData = (ioread32(&(reg->pgpData[lane])) >> 8) & 0xFF;
-   //status->remBuffStatus =
-
+   // status->remBuffStatus =
 }
 
 
@@ -726,11 +730,11 @@ void PgpCardG3_GetEvrStatus(struct DmaDevice *dev, struct PgpEvrStatus *status, 
 
    lane &= 0x7;
 
-   memset(status,0,sizeof(struct PgpEvrStatus));
+   memset(status, 0, sizeof(struct PgpEvrStatus));
    status->lane = lane;
 
    tempVal = ioread32(&(reg->evrCardStat[0]));
-   status->linkUp     = (tempVal >>  4) & 0x1;
+   status->linkUp     = (tempVal >> 4) & 0x1;
 
    tempVal = ioread32(&(reg->evrCardStat[1]));
    status->runStatus  = (tempVal >> (24+lane)) & 0x1;
@@ -758,7 +762,7 @@ void PgpCardG3_GetEvrControl(struct DmaDevice *dev, struct PgpEvrControl *contro
 
    lane &= 0x7;
 
-   memset(control,0,sizeof(struct PgpEvrControl));
+   memset(control, 0, sizeof(struct PgpEvrControl));
    control->lane = lane;
 
    tempVal = ioread32(&(reg->syncCode[lane]));
@@ -801,21 +805,21 @@ void PgpCardG3_SetEvrControl(struct DmaDevice *dev, struct PgpEvrControl *contro
 
    spin_lock(&dev->commandLock);
 
-   iowrite32(control->evrSyncWord,&(reg->syncCode[lane]));
+   iowrite32(control->evrSyncWord, &(reg->syncCode[lane]));
 
-   iowrite32(control->runCode,&(reg->runCode[lane]));
+   iowrite32(control->runCode, &(reg->runCode[lane]));
 
-   iowrite32(control->acceptCode,&(reg->acceptCode[lane]));
+   iowrite32(control->acceptCode, &(reg->acceptCode[lane]));
 
-   iowrite32(control->runDelay,&(reg->runDelay[lane]));
+   iowrite32(control->runDelay, &(reg->runDelay[lane]));
 
-   iowrite32(control->acceptDelay,&(reg->acceptDelay[lane]));
+   iowrite32(control->acceptDelay, &(reg->acceptDelay[lane]));
 
    tempVal = ioread32(&(reg->evrCardStat[2]));
    mask = 0xFFFFFFFF ^ (0xF << (lane*4));
    tempVal &= mask;
    tempVal |= (control->headerMask << (lane*4));
-   iowrite32(tempVal,&(reg->evrCardStat[2]));
+   iowrite32(tempVal, &(reg->evrCardStat[2]));
 
    tempVal = ioread32(&(reg->evrCardStat[1]));
    mask = 0xFFFFFFFE;
@@ -830,13 +834,13 @@ void PgpCardG3_SetEvrControl(struct DmaDevice *dev, struct PgpEvrControl *contro
    tempVal &= mask;
    tempVal |= (control->evrSyncSel << (lane+8));
 
-   iowrite32(tempVal,&(reg->evrCardStat[1]));
+   iowrite32(tempVal, &(reg->evrCardStat[1]));
 
    tempVal = ioread32(&(reg->evrCardStat[0]));
    mask = 0xFFFFFFFF ^ (0x1 << (lane+16));
    tempVal &= mask;
    tempVal |= (control->laneRunMask << (lane+16));
-   iowrite32(tempVal,&(reg->evrCardStat[0]));
+   iowrite32(tempVal, &(reg->evrCardStat[0]));
 
    spin_unlock(&dev->commandLock);
 }

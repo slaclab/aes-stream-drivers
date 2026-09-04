@@ -112,13 +112,8 @@ struct file_operations MapFunctions = {
  * Note: The permissions set by this callback can be overridden by udev rules on
  * systems where udev is responsible for device node creation and management.
  */
-// class.devnode() became const in v6.2 (upstream commit ff62b8e6588f),
-// backported by RHEL 9.4. Distinct from the class_create() change in v6.4.
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 4))
-char *Map_DevNode(const struct device *dev, umode_t *mode) {
-#else
-char *Map_DevNode(struct device *dev, umode_t *mode) {
-#endif
+// MAP_DEVNODE_CONST tracks the const struct device * change; see aximemorymap.h.
+char *Map_DevNode(MAP_DEVNODE_CONST struct device *dev, umode_t *mode) {
    if (mode != NULL) *mode = 0666;  // Set default permissions to read and write for user, group, and others
    return NULL;  // Return NULL as no specific device node name alteration is required
 }

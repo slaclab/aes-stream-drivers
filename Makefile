@@ -34,7 +34,7 @@ RCE_DIRS += /sdf/group/faders/tools/xilinx/rce_linux_kernel/backup/linux-xlnx-v2
 
 # Default target: Display the available build options
 all:
-	@echo "Available targets: app driver emulator gpu_stub driver_gpu rce"
+	@echo "Available targets: app driver emulator gpu_stub driver_gpu pgpcard rce"
 
 # Build applications
 app:
@@ -81,6 +81,27 @@ driver_gpu: gpu_stub
 		$(MAKE) -C $(MAKE_HOME)/data_dev/driver KVER=$(ver) NVIDIA_DRIVERS=$(MAKE_HOME)/emulator/gpu_stub; \
 		scp $(MAKE_HOME)/data_dev/driver/*.ko $(MAKE_HOME)/install/$(ver); \
 	)
+
+# Build the pgpcard driver and applications for each discovered kernel version.
+# Serves legacy PGP Gen2 (1a4a:2000) and Gen3 (1a4a:2020) cards. Kept separate
+# from the driver target because pgpcard is not part of the datadev product and
+# has no GPU or emulator variant.
+#
+# .PHONY is required: a pgpcard/ directory exists, so without it make treats
+# the target as an up-to-date file and silently does nothing.
+.PHONY: pgpcard
+pgpcard:
+	@echo "Building pgpcard driver for all kernel versions..."
+	@mkdir -p $(MAKE_HOME)/install
+	@$(foreach ver,$(LOC_VERS), \
+		mkdir -p $(MAKE_HOME)/install/$(ver); \
+		$(MAKE) -C $(MAKE_HOME)/pgpcard/driver KVER=$(ver) clean; \
+		$(MAKE) -C $(MAKE_HOME)/pgpcard/driver KVER=$(ver); \
+		scp $(MAKE_HOME)/pgpcard/driver/*.ko $(MAKE_HOME)/install/$(ver); \
+	)
+	@echo "Building pgpcard applications..."
+	@$(MAKE) -C $(MAKE_HOME)/pgpcard/app clean
+	@$(MAKE) -C $(MAKE_HOME)/pgpcard/app
 
 # Build RCE modules for specified directories
 rce:

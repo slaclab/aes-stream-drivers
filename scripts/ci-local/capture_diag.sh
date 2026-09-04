@@ -136,7 +136,7 @@ if [ -n "$GUEST_IP" ]; then
    # scripts/ci/load-modules-cpu.sh.  Kept on one logical line so no `sudo`
    # call leads a source line on the HOST (sudo only executes inside the
    # SSH-quoted string on the guest).
-   $SSH_CMD 'for p in $(pgrep -f "insmod.*datadev"); do echo "=== pid $p ==="; { sudo cat /proc/$p/stack 2>/dev/null || echo "(no /proc/$p/stack)"; }; echo "---"; { sudo cat /proc/$p/status 2>/dev/null || echo "(no /proc/$p/status)"; }; echo ""; done' > "$OUTPUT_DIR/proc-stacks.log" 2>&1
+   $SSH_CMD 'for p in $(pgrep -f "insmod.*\\(datadev\\|pgpcard\\)"); do echo "=== pid $p ==="; { sudo cat /proc/$p/stack 2>/dev/null || echo "(no /proc/$p/stack)"; }; echo "---"; { sudo cat /proc/$p/status 2>/dev/null || echo "(no /proc/$p/status)"; }; echo ""; done' > "$OUTPUT_DIR/proc-stacks.log" 2>&1
 
    # Guest-side sysrq-t trigger + dmesg tail capture. Complements the belt
    # above: where the belt dumps into the host serial capture, this dumps
@@ -146,7 +146,7 @@ if [ -n "$GUEST_IP" ]; then
       > "$OUTPUT_DIR/sysrq-t-ringbuf.log" 2>&1
 
    # Module state — which of the three are loaded, which in what initstate?
-   $SSH_CMD 'for m in datadev datadev_emulator nvidia_p2p_stub; do
+   $SSH_CMD 'for m in datadev datadev_emulator nvidia_p2p_stub pgpcard; do
                 echo "=== $m ==="
                 cat /sys/module/$m/initstate 2>/dev/null || echo "(not loaded)"
              done' > "$OUTPUT_DIR/module-state.log" 2>&1

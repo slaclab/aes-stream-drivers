@@ -2,11 +2,6 @@
  *-----------------------------------------------------------------------------
  * Title      : PGP Card Gen1 & Gen2 Functions
  * ----------------------------------------------------------------------------
- * File       : pgp_gen2.h
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-08
- * Last update: 2016-08-08
- * ----------------------------------------------------------------------------
  * Description:
  * Access functions for Gen1 & Gen2 PGP Cards
  * ----------------------------------------------------------------------------
@@ -52,7 +47,7 @@ struct PgpCardG2Reg {
    uint32_t pciStat2;    // 0x088
    uint32_t pciStat3;    // 0x08C
 
-   uint32_t spare2[220]; // 0x090 - 0x3FC
+   uint32_t spare2[220];  // 0x090 - 0x3FC
 
    uint32_t rxFree;      // 0x400
    uint32_t rxMaxFrame;  // 0x404
@@ -64,7 +59,7 @@ struct PgpCardG2Reg {
    uint32_t rxRead0;     // 0x420
    uint32_t rxRead1;     // 0x424
 
-   uint32_t spare4[246]; // 0x428 - 0x7FC
+   uint32_t spare4[246];  // 0x428 - 0x7FC
 
    uint32_t txL0Wr0;     // 0x800
    uint32_t txL0Wr1;     // 0x804
@@ -78,9 +73,9 @@ struct PgpCardG2Reg {
    uint32_t txRead;      // 0x824
    uint32_t txCount;     // 0x828
 
-   uint32_t spare5[245]; // 0x82C - 0xBFC
+   uint32_t spare5[245];  // 0x82C - 0xBFC
 
-   uint32_t promRegs[3]; // Prom registers
+   uint32_t promRegs[3];  // Prom registers
 };
 
 // Set functions for gen2 card
@@ -90,10 +85,13 @@ extern struct hardware_functions PgpCardG2_functions;
 irqreturn_t PgpCardG2_Irq(int irq, void *dev_id);
 
 // Init card in top level Probe
-void PgpCardG2_Init(struct DmaDevice *dev);
+int PgpCardG2_Init(struct DmaDevice *dev);
 
 // Enable
 void PgpCardG2_Enable(struct DmaDevice *dev);
+
+// Enable or disable interrupts at the card
+void PgpCardG2_IrqEnable(struct DmaDevice *dev, int en);
 
 // Clear card in top level Remove
 void PgpCardG2_Clear(struct DmaDevice *dev);

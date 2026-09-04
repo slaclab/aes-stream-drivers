@@ -2,11 +2,6 @@
  *-----------------------------------------------------------------------------
  * Title      : Common PGP functions
  * ----------------------------------------------------------------------------
- * File       : pgp_common.h
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-08
- * Last update: 2016-08-08
- * ----------------------------------------------------------------------------
  * Description:
  * Common PGP functions
  * ----------------------------------------------------------------------------
@@ -27,12 +22,6 @@
 #include <PgpDriver.h>
 #include <dma_common.h>
 
-struct pgpprom_reg {
-   uint32_t promData;
-   uint32_t promAddr;
-   uint32_t promRead;
-};
-
 // Display card Info
 void PgpCard_InfoShow(struct seq_file *s, struct PgpInfo *info);
 
@@ -41,12 +30,6 @@ void PgpCard_PciShow(struct seq_file *s, struct PciStatus *status);
 
 // Display Lane Status
 void PgpCard_LaneShow(struct seq_file *s, struct PgpStatus *status);
-
-// Prom Read
-int32_t PgpCard_PromWrite(struct DmaDevice *dev, struct pgpprom_reg *reg, uint64_t arg);
-
-// Prom write
-int32_t PgpCard_PromRead(struct DmaDevice *dev, struct pgpprom_reg *reg, uint64_t arg);
 
 #endif
 

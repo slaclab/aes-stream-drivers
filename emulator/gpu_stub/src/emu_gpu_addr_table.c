@@ -48,10 +48,12 @@
  * was "one past the max" while MAX_PAGE_ORDER is the inclusive maximum.
  *
  * vm_flags_set: introduced in Linux 6.3 (commit 1c71222e5f237) and
- * backported to RHEL 9.4 (kernel 5.14.0-427). On older kernels vma->vm_flags
- * is a direct-assignment unsigned long; on 6.3+/RHEL-9.4+ vm_flags is
- * read-only and must be mutated via the helper. Match the convention in
- * common/driver/dma_common.c: guard on LINUX_VERSION_CODE || RHEL_RELEASE_CODE. */
+ * backported to RHEL 9.5 (kernel 5.14.0-503). On older kernels vma->vm_flags
+ * is a direct-assignment unsigned long; on 6.3+/RHEL-9.5+ vm_flags is
+ * read-only and must be mutated via the helper. Verified against kernel-devel:
+ * the helper is absent from every header in 9.4 (5.14.0-427) and present in
+ * 9.5. Match the convention in common/driver/dma_common.c: guard on
+ * LINUX_VERSION_CODE || RHEL_RELEASE_CODE. */
 #ifndef RHEL_RELEASE_VERSION
 #define RHEL_RELEASE_VERSION(...) 0
 #endif
@@ -61,7 +63,7 @@
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 3, 0) && \
-    (!defined(RHEL_RELEASE_CODE) || RHEL_RELEASE_CODE < RHEL_RELEASE_VERSION(9, 4))
+    (!defined(RHEL_RELEASE_CODE) || RHEL_RELEASE_CODE < RHEL_RELEASE_VERSION(9, 5))
 static inline void vm_flags_set(struct vm_area_struct *vma, vm_flags_t flags)
 {
    vma->vm_flags |= flags;

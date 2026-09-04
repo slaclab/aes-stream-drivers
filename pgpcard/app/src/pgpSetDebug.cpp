@@ -2,11 +2,6 @@
  *-----------------------------------------------------------------------------
  * Title      : PGP debug utility
  * ----------------------------------------------------------------------------
- * File       : pgpSetDebug.cpp
- * Author     : Ryan Herbst, rherbst@slac.stanford.edu
- * Created    : 2016-08-08
- * Last update: 2016-08-08
- * ----------------------------------------------------------------------------
  * Description:
  * This program set the PGP driver debug level.
  * ----------------------------------------------------------------------------
@@ -29,7 +24,6 @@
 #include <argp.h>
 #include <stdlib.h>
 #include <PgpDriver.h>
-using namespace std;
 
 const  char * argp_program_version = "pgpSetDebug 1.0";
 const  char * argp_program_bug_address = "rherbst@slac.stanford.edu";
@@ -45,46 +39,46 @@ static char   args_doc[] = "debugLevel";
 static char   doc[]      = "\n   Debug level is either 0 or 1.";
 
 static struct argp_option options[] = {
-   { "path", 'p', "PATH", OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/pgpcard_0.",0},
+   { "path", 'p', "PATH", OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
    {0}
 };
 
-error_t parseArgs ( int key,  char *arg, struct argp_state *state ) {
+error_t parseArgs(int key,  char *arg, struct argp_state *state) {
    struct PrgArgs *args = (struct PrgArgs *)state->input;
 
-   switch(key) {
+   switch (key) {
       case 'p': args->path = arg; break;
       case ARGP_KEY_ARG:
           switch (state->arg_num) {
-             case 0: args->level = strtol(arg,NULL,10); break;
+             case 0: args->level = strtol(arg, NULL, 10); break;
              default: argp_usage(state); break;
           }
           break;
       case ARGP_KEY_END:
-          if ( state->arg_num < 1) argp_usage(state);
+          if (state->arg_num < 1) argp_usage(state);
           break;
       default: return ARGP_ERR_UNKNOWN; break;
    }
    return(0);
 }
 
-static struct argp argp = {options,parseArgs,args_doc,doc};
+static struct argp argp = {options, parseArgs, args_doc, doc};
 
-int main (int argc, char **argv) {
+int main(int argc, char **argv) {
    int s;
 
    struct PrgArgs args;
 
-   memcpy(&args,&DefArgs,sizeof(struct PrgArgs));
-   argp_parse(&argp,argc,argv,0,0,&args);
+   memcpy(&args, &DefArgs, sizeof(struct PrgArgs));
+   argp_parse(&argp, argc, argv, 0, 0, &args);
 
-   if ( (s = open(args.path, O_RDWR)) <= 0 ) {
-      printf("Error opening %s\n",args.path);
+   if ((s = open(args.path, O_RDWR)) <= 0) {
+      printf("Error opening %s\n", args.path);
       return(1);
    }
 
-   printf("Setting debug level to %i\n",args.level);
-   dmaSetDebug(s,args.level);
+   printf("Setting debug level to %i\n", args.level);
+   dmaSetDebug(s, args.level);
    close(s);
 }
 
