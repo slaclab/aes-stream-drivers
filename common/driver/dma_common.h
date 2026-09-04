@@ -89,6 +89,8 @@ typedef uint32_t __poll_t;
  * @txBuffers: List of transmit buffers.
  * @rxBuffers: List of receive buffers.
  * @tq: Transmit queue structure.
+ * @regMapVersion: The register map version.
+ * @hwmonPrivate: Private data for the AXI Hwmon interface (axi_hwmon.c)
  *
  * This structure defines a DMA device, including its configuration,
  * memory regions, buffer management, and associated locks.
@@ -161,6 +163,10 @@ struct DmaDevice {
 
    // Transmit queue
    struct DmaQueue tq;
+
+   void* hwmonPrivate;
+
+   uint32_t regMapVersion;
 };
 
 /**
@@ -244,12 +250,19 @@ extern struct class * gCl;
 // Function structure for below functions
 extern struct file_operations DmaFunctions;
 
-// Function prototypes
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 4))
-char *Dma_DevNode(const struct device *dev, umode_t *mode);
+// class.devnode() took a const struct device * from kernel 6.2 (upstream
+// commit ff62b8e6588f), backported to RHEL/Rocky 9.3's 5.14 kernel. Verified
+// against kernel-devel: 9.2 (5.14.0-284) is non-const, 9.3 (5.14.0-362) is
+// const. Defined once here so the prototype below and the definition in
+// dma_common.c cannot disagree.
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 3))
+#define DMA_DEVNODE_CONST const
 #else
-char *Dma_DevNode(struct device *dev, umode_t *mode);
+#define DMA_DEVNODE_CONST
 #endif
+
+// Function prototypes
+char *Dma_DevNode(DMA_DEVNODE_CONST struct device *dev, umode_t *mode);
 int Dma_MapReg(struct DmaDevice *dev);
 int Dma_Init(struct DmaDevice *dev);
 void Dma_Clean(struct DmaDevice *dev);

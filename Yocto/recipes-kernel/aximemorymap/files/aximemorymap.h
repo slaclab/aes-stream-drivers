@@ -74,12 +74,20 @@ struct MapDevice {
 #define RHEL_RELEASE_VERSION(...) 0
 #endif
 
-// Function prototypes for device operations.
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 4))
-char *Map_DevNode(const struct device *dev, umode_t *mode);
+// class.devnode() took a const struct device * from kernel 6.2 (upstream
+// commit ff62b8e6588f), backported to RHEL/Rocky 9.3's 5.14 kernel. Verified
+// against kernel-devel: 9.2 (5.14.0-284) is non-const, 9.3 (5.14.0-362) is
+// const. Distinct from the class_create() change in 6.4 / RHEL 9.4. Defined
+// once here so the prototype below and the definition in aximemorymap.c
+// cannot disagree.
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 3))
+#define MAP_DEVNODE_CONST const
 #else
-char *Map_DevNode(struct device *dev, umode_t *mode);
+#define MAP_DEVNODE_CONST
 #endif
+
+// Function prototypes for device operations.
+char *Map_DevNode(MAP_DEVNODE_CONST struct device *dev, umode_t *mode);
 int Map_Init(void);
 void Map_Exit(void);
 int Map_Open(struct inode *inode, struct file *filp);

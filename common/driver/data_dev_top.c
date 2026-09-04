@@ -21,6 +21,7 @@
 #include <data_dev_top.h>
 #include <AxiVersion.h>
 #include <axi_version.h>
+#include <axi_hwmon.h>
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/types.h>
@@ -33,6 +34,7 @@
 #include <linux/slab.h>
 #include <axis_gen2.h>
 #include <GpuAsync.h>
+#include <axi_pcie_regmap.h>
 
 #ifdef DATA_GPU
 #include <GpuAsyncRegs.h>
@@ -83,6 +85,7 @@ static struct pci_device_id DataDev_Ids[] = {
 
 MODULE_LICENSE("GPL");
 MODULE_DEVICE_TABLE(pci, DataDev_Ids);
+MODULE_DESCRIPTION("Driver for FPGAs running the SLAC DMA engine");
 module_init(DataDev_Init);
 module_exit(DataDev_Exit);
 
@@ -174,6 +177,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    int32_t x;
    uint32_t axiWidth;
    int ret;
+   uint32_t axiGen2Offset, phyOffset, axiSysMonOffset;
 
    // Validate buffer mode configuration
    if ( cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM ) {
@@ -269,6 +273,50 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
       goto err_post_en;
    }
 
+   // Early PCIe liveness check, before any other register read or resource
+   // allocation. The AxiVersion uptime counter counts seconds since the FPGA
+   // left reset, so all-ones (2^32 - 1 seconds, roughly 136 years) is not a
+   // value real firmware can ever report. Reading it back means the PCIe read
+   // never reached the FPGA and was completed with an abort or a timeout
+   // instead. That is what happens when the FPGA is reprogrammed and neither a
+   // reboot nor a PCIe rescan was performed afterwards to bring the link back
+   // up. There is no point continuing: every register read past this point
+   // returns the same all-ones garbage, and the failure then surfaces far from
+   // its cause. AxiRegMap_Init() below would read 0xFF as the register map
+   // version and advise a driver upgrade, and a card that got past that would
+   // report a nonsensical DMA mask followed by a zero-sized descriptor ring
+   // allocation failing with -ENOMEM.
+   //
+   // Guarded by a bounds check because Dma_MapReg() ioremaps exactly baseSize
+   // bytes, and the emulator can shrink BAR0 under memory fragmentation.
+   if ( dev->baseSize >= (AVER_OFF + sizeof(struct AxiVersion_Reg)) ) {
+      if ( AxiVersion_GetUpTime(dev->base + AVER_OFF) == 0xFFFFFFFF ) {
+         dev_err(dev->device,
+                 "Init: AxiVersion uptime counter reads all-ones; the PCIe link to the "
+                 "FPGA is down. Reboot the host or rescan the PCIe bus to recover the "
+                 "link after reprogramming the FPGA.\n");
+         probeReturn = -EIO;
+         goto err_unmap;
+      }
+   }
+
+   // Init the PCIe memory map
+   if (AxiRegMap_Init(dev, dev->base + AVER_OFF) < 0) {
+      probeReturn = -EINVAL;
+      goto err_unmap;
+   }
+
+   // Grab required offsets
+   phyOffset = AxiRegMap_GetOffset(dev, REG_PHY);
+   axiGen2Offset = AxiRegMap_GetOffset(dev, REG_AXIS_GEN2);
+   if (phyOffset == INVALID_REG_OFFSET || axiGen2Offset == INVALID_REG_OFFSET) {
+      probeReturn = -EINVAL;
+      goto err_unmap;
+   }
+
+   // Optional offsets
+   axiSysMonOffset = AxiRegMap_GetOffset(dev, REG_AXI_SYSMON);
+
    // Initialize device configuration parameters
    dev->cfgTxCount    = cfgTxCount;    // Transmit buffer count
    dev->cfgRxCount    = cfgRxCount;    // Receive buffer count
@@ -329,15 +377,17 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->hwFunc = hfunc;           // Hardware function pointer
 
    // Initialize device memory regions
-   dev->reg    = dev->base + AGEN2_OFF;    // Register base address
-   dev->rwBase = dev->base + PHY_OFF;      // Read/Write base address
-   dev->rwSize = (2*USER_SIZE) - PHY_OFF;  // Read/Write region size
+   dev->reg    = dev->base + axiGen2Offset;  // Register base address
+   dev->rwBase = dev->base + phyOffset;      // Read/Write base address
+   dev->rwSize = (2*USER_SIZE) - phyOffset;  // Read/Write region size
 
 #ifdef DATA_GPU
+   uint32_t gpuAsyncCoreOffset = AxiRegMap_GetOffset(dev, REG_GPU_ASYNC);
+
    // Skip GPU init if the module is not enabled
-   if (readl(dev->base + AVER_OFF + 0x428) == 1) {
+   if (readl(dev->base + AVER_OFF + 0x428) == 1 && gpuAsyncCoreOffset != INVALID_REG_OFFSET) {
       // GPU Init
-      probeReturn = Gpu_Init(dev, GPU_ASYNC_CORE_OFFSET);
+      probeReturn = Gpu_Init(dev, gpuAsyncCoreOffset);
       if (probeReturn < 0) {
          dev_err(dev->device, "Init: Gpu_Init returned error %i.\n", probeReturn);
          goto err_unmap;
@@ -383,6 +433,11 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    probeReturn = Dma_Init(dev);
    if (probeReturn < 0) {
       goto err_unmap;
+   }
+
+   // Register hwmon interface, if supported.
+   if (axiSysMonOffset != INVALID_REG_OFFSET && readl(dev->base + AVER_OFF + 0x42C)) {
+      AxiHwmon_Init(dev, AVER_OFF, axiSysMonOffset);
    }
 
    // Log memory mapping information
@@ -455,6 +510,9 @@ void DataDev_Remove(struct pci_dev *pcidev) {
 
    // Decrement count
    gDmaDevCount--;
+
+   // Remove hwmon interface
+   AxiHwmon_Remove(dev);
 
 #ifdef DATA_GPU
    // Free GPU utility data allocated by Gpu_Init. gpu_async.c
