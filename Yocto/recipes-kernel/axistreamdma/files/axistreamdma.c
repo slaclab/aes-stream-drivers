@@ -188,6 +188,8 @@ int Rce_Probe(struct platform_device *pdev) {
    int32_t x;
    const char *tmpName;
    int32_t tmpIdx;
+   uint32_t dmaVer;
+   int32_t ret = -1;
 
    // Extract device name from platform device structure
    tmpName = pdev->name + 9;
@@ -261,8 +263,21 @@ int Rce_Probe(struct platform_device *pdev) {
    // Instance-independent configuration
    dev->cfgCont = 1;
 
+   // Read the DMA version (AxiStreamDmaV2Desc.vhd offset 0x000, bits [31:24]).
+   // A design built with DMA_ENABLED_G = false terminates this AXI-Lite slave,
+   // so every read returns 0. Version 0 is not a valid value, so treat it as
+   // "no DMA in this design" and decline to bind without failing the module
+   // load or the rest of the boot.
+   dmaVer = (readl(dev->reg) >> 24) & 0xFF;
+
+   if (dmaVer == 0) {
+      pr_info("%s: Probe: No DMA present (version 0); skipping %s.\n", MOD_NAME, tmpName);
+      ret = -ENODEV;
+      goto err_post_mapreg;
+   }
+
    // Determine hardware functions based on the device version
-   if (((readl(dev->reg) >> 24) & 0xFF) >= 2) {
+   if (dmaVer >= 2) {
       dev->hwFunc = &(AxisG2_functions);
    } else {
       writel(0x1, ((uint8_t *)dev->reg) + 0x8);
@@ -312,7 +327,7 @@ err_post_mapreg:
 err_post_irq_map:
    irq_dispose_mapping(dev->irq);
    memset(dev, 0, sizeof(*dev));
-   return -1;
+   return ret;
 }
 
 /**
