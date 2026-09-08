@@ -201,10 +201,10 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
    }
 
    // Check if another PID already owns this GpuAsyncCore state
-   pid_t pid = atomic64_cmpxchg(&data->pid, 0, current->pid);
-   if (pid != 0 && pid != current->pid) {
+   pid_t pid = atomic64_cmpxchg(&data->pid, 0, current->tgid);
+   if (pid != 0 && pid != current->tgid) {
       dev_warn(dev->device, "Gpu_AddNvidia: error: Calling PID (%d) GpuAsyncCore state already locked by PID %d\n",
-               current->pid, pid);
+               current->tgid, pid);
       return -EBUSY;
    }
 
@@ -480,10 +480,10 @@ int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
    dev_info(dev->device, "Gpu_RemNvidia: Called\n");
 
    // Ensure the calling PID actually owns the state
-   pid_t pid = atomic64_cmpxchg(&data->pid, current->pid, 0);
-   if (pid != current->pid) {
+   pid_t pid = atomic64_cmpxchg(&data->pid, current->tgid, 0);
+   if (pid != current->tgid) {
       dev_warn(dev->device, "Gpu_RemNvidia: Called by PID (%d) that doesn't own the GpuAsyncCore state!\n",
-               current->pid);
+               current->tgid);
       return -EBUSY;
    }
 
@@ -555,9 +555,9 @@ int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg) {
 
    // Check for calling process ownership. Unlocked GpuAsyncCore is OK
    pid_t pid = atomic64_read(&data->pid);
-   if (pid && pid != current->pid) {
+   if (pid && pid != current->tgid) {
       dev_warn(dev->device, "Gpu_SetWriteEn: Called by non-owner PID (%d)\n",
-               current->pid);
+               current->tgid);
       return -EBUSY;
    }
 
@@ -680,9 +680,9 @@ int32_t Gpu_EnableTx(struct DmaDevice *dev, uint64_t enable) {
 
    // Check for calling process ownership. Unlocked GpuAsyncCore is OK
    pid_t pid = atomic64_read(&data->pid);
-   if (pid && pid != current->pid) {
-      dev_warn(dev->device, "Gpu_SetWriteEn: Called by non-owner PID (%d)\n",
-               current->pid);
+   if (pid && pid != current->tgid) {
+      dev_warn(dev->device, "Gpu_EnableTx: Called by non-owner PID (%d)\n",
+               current->tgid);
       return -EBUSY;
    }
 
@@ -707,9 +707,9 @@ int32_t Gpu_EnableRx(struct DmaDevice *dev, uint64_t enable) {
 
    // Check for calling process ownership. Unlocked GpuAsyncCore is OK
    pid_t pid = atomic64_read(&data->pid);
-   if (pid && pid != current->pid) {
-      dev_warn(dev->device, "Gpu_SetWriteEn: Called by non-owner PID (%d)\n",
-               current->pid);
+   if (pid && pid != current->tgid) {
+      dev_warn(dev->device, "Gpu_EnableRx: Called by non-owner PID (%d)\n",
+               current->tgid);
       return -EBUSY;
    }
 
