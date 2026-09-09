@@ -101,7 +101,10 @@ struct GpuData {
    int32_t version;
    uint32_t maxBuffers;
    uint32_t disabled;
-   atomic64_t pid;
+   atomic64_t pid;              // TGID of the owning process, or 0 when unowned.
+                                // Compared against current->tgid, not current->pid:
+                                // ownership is per process, so that any thread may
+                                // issue the GpuAsyncCore ioctls.
    struct GpuBuffers writeBuffers;
    struct GpuBuffers readBuffers;
 };
