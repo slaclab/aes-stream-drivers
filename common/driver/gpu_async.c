@@ -96,7 +96,7 @@ int32_t Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
    gpuData->offset = offset;
    gpuData->version = version;
    gpuData->maxBuffers = maxBuffers;
-   atomic64_set(&gpuData->pid, 0);
+   atomic64_set(&gpuData->tgid, 0);
 
    dev_info(dev->device, "Gpu_Init: Configured for GpuAsyncCore version %d\n", version);
    return 0;
@@ -201,7 +201,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
    }
 
    // Check if another PID already owns this GpuAsyncCore state
-   pid_t pid = atomic64_cmpxchg(&data->pid, 0, current->tgid);
+   pid_t pid = atomic64_cmpxchg(&data->tgid, 0, current->tgid);
    if (pid != 0 && pid != current->tgid) {
       dev_warn(dev->device, "Gpu_AddNvidia: error: Calling PID (%d) GpuAsyncCore state already locked by PID %d\n",
                current->tgid, pid);
@@ -212,14 +212,14 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
    if (dat.write) {
       if (data->writeBuffers.count >= data->maxBuffers) {
          dev_warn(dev->device, "Gpu_AddNvidia: Too many write buffers: max %u\n", data->maxBuffers);
-         atomic64_set(&data->pid, 0);
+         atomic64_set(&data->tgid, 0);
          return -EINVAL;
       }
       buffer = &(data->writeBuffers.list[data->writeBuffers.count]);
    } else {
       if (data->readBuffers.count >= data->maxBuffers) {
          dev_warn(dev->device, "Gpu_AddNvidia: Too many read buffers: max %u\n", data->maxBuffers);
-         atomic64_set(&data->pid, 0);
+         atomic64_set(&data->tgid, 0);
          return -EINVAL;
       }
       buffer = &(data->readBuffers.list[data->readBuffers.count]);
@@ -289,7 +289,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
             if (minSize > 1 && minSize != mapSize) {
                dev_warn(dev->device, "Gpu_AddNvidia: mapSize=%zu does not match last configured mapSize of %zu. Write buffers must all be identically sized\n",
                   minSize, mapSize);
-               atomic64_set(&data->pid, 0);
+               atomic64_set(&data->tgid, 0);
                return -EINVAL;
             }
 
@@ -324,7 +324,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
       }
    } else {
       dev_warn(dev->device, "Gpu_AddNvidia: failed to pin memory with address=0x%llx. ret=%i\n", dat.address, ret);
-      atomic64_set(&data->pid, 0);
+      atomic64_set(&data->tgid, 0);
       return -1;
    }
 
@@ -449,7 +449,7 @@ static void Gpu_ClearBufferRegs(struct DmaDevice* dev) {
    data->readBuffers.count = 0;
 
    // Release GpuAsyncCore to other processes
-   atomic64_set(&data->pid, 0);
+   atomic64_set(&data->tgid, 0);
 
    return;
 }
@@ -480,7 +480,7 @@ int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
    dev_info(dev->device, "Gpu_RemNvidia: Called\n");
 
    // Ensure the calling PID actually owns the state
-   pid_t pid = atomic64_cmpxchg(&data->pid, current->tgid, 0);
+   pid_t pid = atomic64_cmpxchg(&data->tgid, current->tgid, 0);
    if (pid != current->tgid) {
       dev_warn(dev->device, "Gpu_RemNvidia: Called by PID (%d) that doesn't own the GpuAsyncCore state!\n",
                current->tgid);
@@ -554,7 +554,7 @@ int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg) {
    data = (struct GpuData *)dev->utilData;
 
    // Check for calling process ownership. Unlocked GpuAsyncCore is OK
-   pid_t pid = atomic64_read(&data->pid);
+   pid_t pid = atomic64_read(&data->tgid);
    if (pid && pid != current->tgid) {
       dev_warn(dev->device, "Gpu_SetWriteEn: Called by non-owner PID (%d)\n",
                current->tgid);
@@ -634,7 +634,7 @@ void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
       seq_printf(s, "       Min Read Buffers : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_MinReadBuffer));
    }
    seq_printf(s, "   AXI Read Error Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiReadErrorCnt));
-   seq_printf(s, "         Owning Process : %llu\n", (u64)atomic64_read(&data->pid));
+   seq_printf(s, "         Owning Process : %llu\n", (u64)atomic64_read(&data->tgid));
 
    for (i = 0; i < writeBuffCnt && writeEnable; ++i) {
       u32 wal, wah, ws;
@@ -679,7 +679,7 @@ int32_t Gpu_EnableTx(struct DmaDevice *dev, uint64_t enable) {
    struct GpuData* data = (struct GpuData*)dev->utilData;
 
    // Check for calling process ownership. Unlocked GpuAsyncCore is OK
-   pid_t pid = atomic64_read(&data->pid);
+   pid_t pid = atomic64_read(&data->tgid);
    if (pid && pid != current->tgid) {
       dev_warn(dev->device, "Gpu_EnableTx: Called by non-owner PID (%d)\n",
                current->tgid);
@@ -706,7 +706,7 @@ int32_t Gpu_EnableRx(struct DmaDevice *dev, uint64_t enable) {
    struct GpuData* data = (struct GpuData*)dev->utilData;
 
    // Check for calling process ownership. Unlocked GpuAsyncCore is OK
-   pid_t pid = atomic64_read(&data->pid);
+   pid_t pid = atomic64_read(&data->tgid);
    if (pid && pid != current->tgid) {
       dev_warn(dev->device, "Gpu_EnableRx: Called by non-owner PID (%d)\n",
                current->tgid);
