@@ -16,20 +16,29 @@
 # Name of the module to be built
 NAME := datadev
 
+# Determine the current directory of the Makefile.  Defined here rather than
+# further down because the include below needs it.
+HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+
 # DKMS PRE_BUILD (build-nvidia.sh) writes NVIDIA_DRIVERS=<src_tree>/<nvidia-ver>
 # into Makefile.local when a matching NVIDIA DKMS tree is installed.  `-include`
 # (hyphen prefix) silently skips the file when absent — which is the expected
 # case on CI/emulator hosts where build-nvidia.sh truncates Makefile.local to
 # zero bytes and the GPU path is built without NVIDIA symbols.
--include Makefile.local
+#
+# $(HOME)-qualified for the same reason as version.mk below: kbuild re-reads this
+# Makefile from a sub-make whose working directory is $(KERNELDIR), so a bare
+# relative path misses there.  It resolves in the first pass and not the second,
+# which is worse than never resolving: the $(info) below prints, so the build
+# announces that NVIDIA is in use, while ccflags-y -- evaluated only in the
+# kbuild pass -- never receives -DDATA_GPU=1.  The module is then built without
+# GPU support and installed as datadev-gpu-dkms regardless.
+-include $(HOME)/Makefile.local
 
 # Determine if the NVIDIA drivers
 ifneq ($(NVIDIA_DRIVERS),)
 $(info NVIDIA drivers are in-use for this build. NVIDIA_DRIVERS=$(NVIDIA_DRIVERS))
 endif
-
-# Determine the current directory of the Makefile
-HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 # Kernel version and architecture for the build
 KVER ?= $(shell uname -r)
