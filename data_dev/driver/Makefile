@@ -134,6 +134,7 @@ define dkms_configure
 	cp -r .dkms-common/. $(1)/dkms_source_tree/
 	cp -vL $(3) $(1)/dkms_source_tree/dkms.conf
 	$(if $(4),cp -vL $(4) $(1)/dkms_source_tree/)
+	$(if $(5),cp -vL $(5) $(1)/dkms_source_tree/)
 	cp -vL rc.local.in $(1)/dkms_source_tree/
 	echo "PACKAGE_VERSION=$(GITV)"	 					>> $(1)/dkms_source_tree/dkms.conf
 	echo "GITV := $(GITV)" 								 > $(1)/dkms_source_tree/version.mk
@@ -172,7 +173,7 @@ datadev-dkms-$(GITV).tar.gz: .dkms-common
 
 # Datadev GPU dkms -- matches PACKAGE_NAME=datadev-gpu-dkms in dkms-gpu.conf.
 datadev-gpu-dkms-$(GITV).tar.gz: .dkms-common
-	$(call dkms_configure,.dkms-datadev-gpu,datadev-gpu,dkms-gpu.conf,build-nvidia.sh)
+	$(call dkms_configure,.dkms-datadev-gpu,datadev-gpu,dkms-gpu.conf,build-nvidia.sh,check-gpu-build.sh)
 
 dkms: datadev-dkms-$(GITV).tar.gz datadev-gpu-dkms-$(GITV).tar.gz
 
