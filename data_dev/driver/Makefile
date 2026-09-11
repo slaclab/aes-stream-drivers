@@ -150,6 +150,7 @@ endef
 	cp -rLv src/* .dkms-common/src/
 	cp -L Makefile .dkms-common/
 	cp -L datadev.conf .dkms-common/
+	cp -L datadev-gpu.conf .dkms-common/
 
 # Datadev CPU dkms
 # DKMS 2.8 (ubuntu:22.04) requires the native mktarball layout at the
