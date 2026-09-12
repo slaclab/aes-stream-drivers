@@ -51,9 +51,13 @@ or persistently via ``/etc/modprobe.d/``.
        ``4`` = ``BUFF_ARM_ACP`` (ARM ACP path, RCE variants only).
    * - ``cfgCont``
      - ``1``
-     - RX continue enable. ``1`` = driver automatically returns received buffers
-       to the free pool after the application reads them; ``0`` = application
-       must call ``dmaRetIndex()`` explicitly.
+     - RX continue enable, written to the DMA write engine's ``contEnable``
+       register. ``1`` = a frame larger than ``cfgSize`` continues into further
+       buffers, with the ``cont`` flag set on every descriptor but the last (bit 16
+       of the flags word, and counted as ``Continue Count`` in
+       ``/proc/datadev_*``); ``0`` = the write engine asserts ``overflow`` in the
+       descriptor and drops the remainder of the frame. It has no bearing on when
+       buffers are returned to the free pool.
    * - ``cfgIrqHold``
      - ``10000``
      - Interrupt coalescing holdoff in hardware clock cycles. Higher values

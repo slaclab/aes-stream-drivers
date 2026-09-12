@@ -16,20 +16,29 @@
 # Name of the module to be built
 NAME := datadev
 
+# Determine the current directory of the Makefile.  Defined here rather than
+# further down because the include below needs it.
+HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+
 # DKMS PRE_BUILD (build-nvidia.sh) writes NVIDIA_DRIVERS=<src_tree>/<nvidia-ver>
 # into Makefile.local when a matching NVIDIA DKMS tree is installed.  `-include`
 # (hyphen prefix) silently skips the file when absent — which is the expected
 # case on CI/emulator hosts where build-nvidia.sh truncates Makefile.local to
 # zero bytes and the GPU path is built without NVIDIA symbols.
--include Makefile.local
+#
+# $(HOME)-qualified for the same reason as version.mk below: kbuild re-reads this
+# Makefile from a sub-make whose working directory is $(KERNELDIR), so a bare
+# relative path misses there.  It resolves in the first pass and not the second,
+# which is worse than never resolving: the $(info) below prints, so the build
+# announces that NVIDIA is in use, while ccflags-y -- evaluated only in the
+# kbuild pass -- never receives -DDATA_GPU=1.  The module is then built without
+# GPU support and installed as datadev-gpu-dkms regardless.
+-include $(HOME)/Makefile.local
 
 # Determine if the NVIDIA drivers
 ifneq ($(NVIDIA_DRIVERS),)
 $(info NVIDIA drivers are in-use for this build. NVIDIA_DRIVERS=$(NVIDIA_DRIVERS))
 endif
-
-# Determine the current directory of the Makefile
-HOME := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 
 # Kernel version and architecture for the build
 KVER ?= $(shell uname -r)
@@ -112,7 +121,12 @@ rc.local:
 	chmod +x rc.local
 
 
-# Clean target: remove built module and object files
+# Clean target: remove built module and object files.
+#
+# Do NOT delete Makefile.local here, tempting though it looks now that it is
+# gitignored.  DKMS runs CLEAN after PRE_BUILD and before MAKE, so build-nvidia.sh's
+# NVIDIA_DRIVERS= would be gone before the module is compiled: the build would
+# silently lose DATA_GPU, and check-gpu-build.sh would take its skip branch and pass.
 clean:
 	@$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(HOME) clean
 	@rm -f $(OBJS)
@@ -125,6 +139,7 @@ define dkms_configure
 	cp -r .dkms-common/. $(1)/dkms_source_tree/
 	cp -vL $(3) $(1)/dkms_source_tree/dkms.conf
 	$(if $(4),cp -vL $(4) $(1)/dkms_source_tree/)
+	$(if $(5),cp -vL $(5) $(1)/dkms_source_tree/)
 	cp -vL rc.local.in $(1)/dkms_source_tree/
 	echo "PACKAGE_VERSION=$(GITV)"	 					>> $(1)/dkms_source_tree/dkms.conf
 	echo "GITV := $(GITV)" 								 > $(1)/dkms_source_tree/version.mk
@@ -162,7 +177,7 @@ datadev-dkms-$(GITV).tar.gz: .dkms-common
 
 # Datadev GPU dkms -- matches PACKAGE_NAME=datadev-gpu-dkms in dkms-gpu.conf.
 datadev-gpu-dkms-$(GITV).tar.gz: .dkms-common
-	$(call dkms_configure,.dkms-datadev-gpu,datadev-gpu,dkms-gpu.conf,build-nvidia.sh)
+	$(call dkms_configure,.dkms-datadev-gpu,datadev-gpu,dkms-gpu.conf,build-nvidia.sh,check-gpu-build.sh datadev-gpu.conf)
 
 dkms: datadev-dkms-$(GITV).tar.gz datadev-gpu-dkms-$(GITV).tar.gz
 

@@ -90,7 +90,8 @@ What each parameter means:
 - ``cfgRxCount=1024`` — number of receive buffers in the pool
 - ``cfgTxCount=1024`` — number of transmit buffers in the pool
 - ``cfgMode=1`` — coherent DMA mode (CPU and device see the same memory)
-- ``cfgCont=1`` — continuous receive mode; the driver re-queues buffers automatically
+- ``cfgCont=1`` — RX continue enable; a frame larger than ``cfgSize`` spans further
+  buffers rather than overflowing and being truncated
 - ``cfgIrqDis=0`` — use interrupts (not polling)
 
 For the full parameter reference, see :doc:`../reference/module-parameters`.
