@@ -40,7 +40,7 @@ else
     make dkms
 fi
 
-TARBALL=$(ls -t "$PKG"-*.tar.gz 2>/dev/null | head -1)
+TARBALL=$(ls -t "$PKG"-*.tar.gz 2>/dev/null | head -1) || true
 if [ -z "$TARBALL" ]; then
     echo "ERROR: make dkms produced no $PKG-*.tar.gz" >&2
     exit 1
@@ -82,7 +82,10 @@ dkms install -m "$PKG" -v "$DVER" --force
 # Retire every other datadev package and version.  They all install the same
 # datadev.ko to the same place, so leaving one behind means modprobe can pick up
 # a stale module -- including one of the other variant.
-dkms status | awk -F'[/,]' '/^datadev(-gpu)?-dkms\//{ print $1"/"$2 }' | sort -u |
+# ':' is a separator as well as '/' and ',': an added-but-not-built entry prints
+# as "datadev-dkms/7.5.0: added", and without it the version becomes "7.5.0: added",
+# whose removal fails and is swallowed by the || true below.
+dkms status | awk -F'[/,:]' '/^datadev(-gpu)?-dkms\//{ print $1"/"$2 }' | sort -u |
 while IFS=/ read -r name version; do
     if [ "$name/$version" != "$PKG/$DVER" ]; then
         echo "==> retiring $name/$version"
@@ -125,6 +128,12 @@ fi
 echo "    module matches what the next boot will load"
 
 if [ "$VARIANT" = gpu ]; then
+    # Check the cards exist first.  With none, the glob does not expand, grep fails,
+    # and an unguarded test would report success for zero cards.
+    if ! compgen -G "/proc/datadev_*" >/dev/null; then
+        echo "ERROR: no /proc/datadev_* after loading the module; no cards visible." >&2
+        exit 1
+    fi
     if grep -h "GPUAsync Support" /proc/datadev_* | grep -qv Enabled; then
         echo "ERROR: a card reports 'GPUAsync Support : Disabled'; this is not a" >&2
         echo "       GPU-enabled driver." >&2

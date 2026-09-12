@@ -121,7 +121,12 @@ rc.local:
 	chmod +x rc.local
 
 
-# Clean target: remove built module and object files
+# Clean target: remove built module and object files.
+#
+# Do NOT delete Makefile.local here, tempting though it looks now that it is
+# gitignored.  DKMS runs CLEAN after PRE_BUILD and before MAKE, so build-nvidia.sh's
+# NVIDIA_DRIVERS= would be gone before the module is compiled: the build would
+# silently lose DATA_GPU, and check-gpu-build.sh would take its skip branch and pass.
 clean:
 	@$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(HOME) clean
 	@rm -f $(OBJS)
@@ -160,7 +165,6 @@ endef
 	cp -rLv src/* .dkms-common/src/
 	cp -L Makefile .dkms-common/
 	cp -L datadev.conf .dkms-common/
-	cp -L datadev-gpu.conf .dkms-common/
 
 # Datadev CPU dkms
 # DKMS 2.8 (ubuntu:22.04) requires the native mktarball layout at the
@@ -173,7 +177,7 @@ datadev-dkms-$(GITV).tar.gz: .dkms-common
 
 # Datadev GPU dkms -- matches PACKAGE_NAME=datadev-gpu-dkms in dkms-gpu.conf.
 datadev-gpu-dkms-$(GITV).tar.gz: .dkms-common
-	$(call dkms_configure,.dkms-datadev-gpu,datadev-gpu,dkms-gpu.conf,build-nvidia.sh,check-gpu-build.sh)
+	$(call dkms_configure,.dkms-datadev-gpu,datadev-gpu,dkms-gpu.conf,build-nvidia.sh,check-gpu-build.sh datadev-gpu.conf)
 
 dkms: datadev-dkms-$(GITV).tar.gz datadev-gpu-dkms-$(GITV).tar.gz
 
