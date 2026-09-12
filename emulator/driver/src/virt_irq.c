@@ -93,9 +93,11 @@ int emu_irq_create(struct emu_irq *irq)
 {
    irq->hwirq = 0;
 
-   /* Create a linear IRQ domain with no device-tree node */
-   irq->domain = irq_domain_add_linear(NULL, EMU_IRQ_COUNT,
-                                        &emu_irq_domain_ops, irq);
+   /* Create a linear IRQ domain with no firmware node. irq_domain_add_linear()
+    * was removed in Linux 7.x; irq_domain_create_linear() (4.7+) with a NULL
+    * fwnode is the equivalent call. */
+   irq->domain = irq_domain_create_linear(NULL, EMU_IRQ_COUNT,
+                                           &emu_irq_domain_ops, irq);
    if (irq->domain == NULL) {
       pr_err("emu: failed to create IRQ domain\n");
       return -ENOMEM;
