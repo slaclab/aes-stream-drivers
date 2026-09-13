@@ -73,6 +73,15 @@ export GITV
 # Build DKMS tarballs (both CPU and GPU)
 make -C data_dev/driver dkms GITV="$GITV"
 
+# This cell has no NVIDIA module registered with dkms: build-gpu.sh builds against
+# emulator/gpu_stub by passing NVIDIA_DRIVERS on the make command line, which dkms
+# knows nothing about.  So the PRE_BUILD triggered below finds no NVIDIA tree, and by
+# default now refuses rather than silently producing a datadev-gpu package without GPU
+# support.  That refusal is right on a real node and wrong here, where the point is to
+# exercise the tarball and install path, so opt out explicitly.  The module this
+# installs consequently has no GPU support, by design.
+export ALLOW_NO_NVIDIA=1
+
 # Test DKMS GPU tarball installation
 if [ -f data_dev/driver/datadev-gpu-dkms-${GITV}.tar.gz ]; then
    echo "Testing DKMS GPU tarball installation..."

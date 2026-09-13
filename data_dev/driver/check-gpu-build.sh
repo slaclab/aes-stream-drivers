@@ -25,6 +25,17 @@ MODULE=${1:-datadev.ko}
 # without one (ALLOW_NO_NVIDIA=1, as CI does).  Taking the intent from there
 # rather than from the environment keeps this consistent with whatever PRE_BUILD
 # actually did, however dkms was invoked.
+#
+# Absent is not the same as empty, and -s cannot tell them apart: only an empty
+# file means "built without NVIDIA by request".  A missing one means PRE_BUILD did
+# not run here at all -- a dkms that runs POST_BUILD from another directory, say --
+# in which case this check has nothing to go on and must not report success.
+if [ ! -e Makefile.local ]; then
+    echo "ERROR: no Makefile.local in $PWD; PRE_BUILD did not run here, so whether" >&2
+    echo "       GPU support was built in cannot be determined."                    >&2
+    exit 1
+fi
+
 if [ ! -s Makefile.local ]; then
     echo "--> Built without NVIDIA by request; skipping the GPU support check."
     exit 0
