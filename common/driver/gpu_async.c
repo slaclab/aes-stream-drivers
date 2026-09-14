@@ -200,6 +200,13 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
       return -EINVAL;
    }
 
+   // Memory must be aligned to GPU page boundary to avoid GpuAsyncCore writing out-of-bounds
+   if ((dat.address & GPU_BOUND_MASK) != dat.address) {
+      dev_warn(dev->device, "Gpu_AddNvidia: error: memory must be aligned to GPU page boundary (0x%llX bytes). address=0x%llX, size=0x%X\n",
+         GPU_BOUND_SIZE, dat.address, dat.size);
+      return -EINVAL;
+   }
+
    // Check if another PID already owns this GpuAsyncCore state
    pid_t pid = atomic64_cmpxchg(&data->tgid, 0, current->tgid);
    if (pid != 0 && pid != current->tgid) {
