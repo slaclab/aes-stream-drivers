@@ -247,10 +247,9 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
 
     s.dmaHeaderSize = s.coreRegs->dmaDataBytes();
 
-    const size_t totalBufSize = ALIGN_VALUE(bufSize + s.dmaHeaderSize, GPU_PAGE_SIZE);
+    const size_t totalBufSize = alignValue(bufSize + s.dmaHeaderSize, GPU_PAGE_SIZE);
 
-    /* Allocate rx (and optionally tx) buffers sized bufSize + dmaHeaderSize for
-     * descriptor headroom; only bufSize is registered with the FPGA. */
+    /* Allocate and register rx (and optionally tx) buffers */
     s.rxBuffers.resize(bufCnt, {});
     for (int i = 0; i < bufCnt; ++i) {
         if (!allocGpuMem(fd, 1, totalBufSize, s.rxBuffers[i])) {
