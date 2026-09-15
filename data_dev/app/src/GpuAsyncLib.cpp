@@ -280,3 +280,74 @@ void gpuUnmapFpgaMem(GpuDmaBuffer_t* mem) {
     mem->size = 0;
     mem->fd = 0;
 }
+
+/* ----- Mem Helpers ----------------------------------------------------- */
+
+CUresult vmmCuAlloc(CudaVMMAlloc& alloc, size_t size, size_t align) {
+    CUdevice dev;
+    CUresult res;
+    size_t gran;
+
+    if ((res = cuCtxGetDevice(&dev)) != CUDA_SUCCESS) {
+        return res;
+    }
+
+    CUmemAllocationProp prop = {};
+    prop.location.type = CU_MEM_LOCATION_TYPE_DEVICE;
+    prop.location.id = dev;
+    prop.type = CU_MEM_ALLOCATION_TYPE_PINNED;
+    prop.allocFlags.gpuDirectRDMACapable = 1;
+    // It doesn't seem like we need to request a handle type here
+    prop.requestedHandleTypes = CU_MEM_HANDLE_TYPE_NONE;
+
+    if ((res = cuMemGetAllocationGranularity(&gran, &prop, CU_MEM_ALLOC_GRANULARITY_MINIMUM)) != CUDA_SUCCESS) {
+        return res;
+    }
+
+    // Size needs to be aligned to the allocation granularity
+    alloc.size = alignValue(size, gran);
+
+    if ((res = cuMemCreate(&alloc.handle, alloc.size, &prop, 0)) != CUDA_SUCCESS) {
+        return res;
+    }
+
+    // Reserve some memory on the device
+    if ((res = cuMemAddressReserve(&alloc.ptr, alloc.size, align, 0, 0)) != CUDA_SUCCESS) {
+        cuMemRelease(alloc.handle);
+        alloc = {};
+        return res;
+    }
+
+    // Map the memory
+    if ((res = cuMemMap(alloc.ptr, alloc.size, 0, alloc.handle, 0)) != CUDA_SUCCESS) {
+        cuMemAddressFree(alloc.ptr, alloc.size);
+        cuMemRelease(alloc.handle);
+        alloc = {};
+        return res;
+    }
+
+    CUmemAccessDesc accessDesc = {};
+    accessDesc.flags = CU_MEM_ACCESS_FLAGS_PROT_READWRITE;
+    accessDesc.location.type = CU_MEM_LOCATION_TYPE_DEVICE;
+    accessDesc.location.id = dev;
+
+    // Default access is no-access, so change that.
+    if ((res = cuMemSetAccess(alloc.ptr, alloc.size, &accessDesc, 1)) != CUDA_SUCCESS) {
+        cuMemUnmap(alloc.ptr, alloc.size);
+        cuMemAddressFree(alloc.ptr, alloc.size);
+        cuMemRelease(alloc.handle);
+        alloc = {};
+        return res;
+    }
+
+    return res;
+}
+
+void vmmCuFree(CudaVMMAlloc& alloc) {
+    if (alloc.ptr == 0)
+        return;  // Nothing to free!
+    cuMemUnmap(alloc.ptr, alloc.size);
+    cuMemAddressFree(alloc.ptr, alloc.size);
+    cuMemRelease(alloc.handle);
+    alloc = {};
+}

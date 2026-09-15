@@ -158,20 +158,22 @@ int32_t Gpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
 }
 
 /**
- * Gpu_AddNvidia - Add NVIDIA GPU memory to the device
+ * Gpu_AddNvidia - Add GPU page-aligned NVIDIA GPU memory to the device
  * @dev: pointer to the DMA device structure
  * @arg: user space argument pointing to GpuNvidiaData structure
  *
  * This function adds NVIDIA GPU memory for DMA operations. It involves
  * copying data from user space, validating it, and setting up DMA mappings
  * through NVIDIA's Peer-to-Peer (P2P) API.
+ * GPU memory address and size must both be aligned to GPU page boundaries (64k),
+ * to allow for an optimal access pattern.
  *
  * Return: 0 on success, negative error code on failure.
  */
 int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
    int32_t ret;
    uint32_t x;
-   u64     virt_start, virt_offset, dma_address;
+   u64     virt_start, dma_address;
    size_t  pin_size;
    size_t  mapSize;
    uint32_t offset = 0;
@@ -197,6 +199,13 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
    if ((dat.size & ~GPU_BOUND_MASK) != 0) {
       dev_warn(dev->device, "Gpu_AddNvidia: error: memory size (%u) is not a multiple of GPU page size (%llu)\n",
          dat.size, GPU_BOUND_SIZE);
+      return -EINVAL;
+   }
+
+   // Memory must be aligned to GPU page boundary to avoid GpuAsyncCore writing out-of-bounds
+   if ((dat.address & GPU_BOUND_MASK) != dat.address) {
+      dev_warn(dev->device, "Gpu_AddNvidia: error: memory must be aligned to GPU page boundary (0x%llX bytes). address=0x%llX, size=0x%X\n",
+         GPU_BOUND_SIZE, dat.address, dat.size);
       return -EINVAL;
    }
 
@@ -233,12 +242,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
    buffer->dmaMapping = 0;
    buffer->dev = dev;
 
-   // Align virtual start address as required by NVIDIA kernel driver
-   virt_start = buffer->address & GPU_BOUND_MASK;
-
-   // Handle addresses that aren't aligned to 64k boundary. CUDA doesn't have an easy way to perform aligned allocations, so
-   // account for that here.
-   virt_offset = buffer->address & ~GPU_BOUND_MASK;
+   virt_start = buffer->address;
 
    // Align pin size to page boundary (64k)
    pin_size = (buffer->address + buffer->size - virt_start + GPU_BOUND_OFFSET) & GPU_BOUND_MASK;
@@ -269,11 +273,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
             }
          }
 
-         // Special case for when dat.size is not 64k aligned
-         if (mapSize > dat.size)
-            mapSize = dat.size;
-
-         dma_address = buffer->dmaMapping->dma_addresses[0] + virt_offset;
+         dma_address = buffer->dmaMapping->dma_addresses[0];
 
          if (x < buffer->dmaMapping->entries) {
             dev_warn(dev->device, "Gpu_AddNvidia: non-contiguous GPU memory detected: requested %d pages, only got %i pages\n", buffer->dmaMapping->entries, x);
