@@ -184,8 +184,6 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
         return -1;
     }
 
-    cuCtxSetCurrent(s.cuda.context());
-
     /* Stream-memory-ops are required for the cuStreamWriteValue32 / cuStreamWaitValue32
      * primitives this test uses. */
     if (!s.cuda.getAttribute(CU_DEVICE_ATTRIBUTE_CAN_USE_STREAM_MEM_OPS_V1)) {
