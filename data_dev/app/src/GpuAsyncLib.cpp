@@ -345,7 +345,7 @@ CUresult vmmCuAlloc(CudaVMMAlloc& alloc, size_t size, size_t align) {
 
 void vmmCuFree(CudaVMMAlloc& alloc) {
     if (alloc.ptr == 0)
-        return; // Nothing to free!
+        return;  // Nothing to free!
     cuMemAddressFree(alloc.ptr, alloc.size);
     cuMemRelease(alloc.handle);
     alloc = {};
