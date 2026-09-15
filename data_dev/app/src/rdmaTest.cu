@@ -52,8 +52,6 @@ static int str2int(const char* s) {
 /* CUDA Allocations must be aligned to this size */
 #define GPU_PAGE_SIZE 0x10000
 
-#define ALIGN_VALUE(_x, _align) (((_x) + (_align) - 1) & ~((_align) - 1))
-
 /**
  * @brief Per-session state. Replaces the old GpuAsyncContext lifecycle wrapper
  * that this test used to consume from GpuAsyncUser.h. Held entirely on the
