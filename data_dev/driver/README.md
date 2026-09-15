@@ -75,4 +75,36 @@ After completing all the "System Configuration" steps above, run the following s
 $ sudo ./comp_and_load_drivers.sh
 ```
 
+That builds and `insmod`s the module in place, so the driver is not installed where
+`modprobe` can find it and the node will not come up with it after a reboot.  It also
+passes the module parameters on its own command line, so `/etc/modprobe.d` does not
+affect it.
+
+<!--- ######################################################## -->
+
+## How to install and reload via DKMS
+
+`dkms-reload.sh` does the whole sequence in one command, after any pull of the driver:
+build the DKMS tarball, register it, build, install, retire any other datadev package
+or version, reload the module, and verify that the running module is also the one
+`modprobe` will pick at the next boot.
+
+```bash
+$ sudo ./dkms-reload.sh          # GPU nodes  (datadev-gpu-dkms)
+$ sudo ./dkms-reload.sh cpu      # CPU nodes  (datadev-dkms)
+```
+
+It refuses if `datadev` is in use rather than pulling the module out from under a
+running application.  Both variants build the same `datadev.ko` and install it to the
+same place, so only one may be installed at a time.
+
+The GPU variant needs the NVIDIA kernel module source registered with DKMS for the
+running kernel.  If it is missing the build fails, rather than quietly producing a
+module without GPU support: both variants are named `datadev.ko`, so `lsmod` and
+`modinfo` cannot tell them apart and only `GPUAsync Support` in `/proc/datadev_*`
+does.  Set `ALLOW_NO_NVIDIA=1` to build without GPU support deliberately, as CI does.
+
+Module parameters come from `/etc/modprobe.d/datadev.conf`; copy `datadev.conf` for a
+CPU node or `datadev-gpu.conf` for one running the GPU DRP, and only one of the two.
+
 <!--- ######################################################## -->
