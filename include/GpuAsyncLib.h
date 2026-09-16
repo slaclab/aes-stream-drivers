@@ -51,8 +51,8 @@
 /**
  * @brief align @c value to @c align bytes
  */
-template<typename T>
-T alignValue(const T& value, const T& align) {
+template<typename T, typename A>
+T alignValue(const T& value, const A& align) {
    return ((value + align - 1) / align) * align;
 }
 
