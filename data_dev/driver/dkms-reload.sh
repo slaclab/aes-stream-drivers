@@ -111,6 +111,37 @@ fi
 modprobe datadev
 
 echo "==> verifying"
+# The resident module's version, not the package's and not the source hash.  srcversion
+# is a hash of the .c/.h files, so any change confined to the Makefile or the build
+# scripts leaves it identical between two builds -- and then comparing it proves nothing
+# about which module is loaded.  That is not hypothetical: it let a run on
+# drp-srcf-gpu001 report success while the module from four days earlier was still
+# resident, with the new one sitting unused on disk.  GITV is compiled in per build
+# (dma_common.c, "DMA Driver's Git Version"), so it is the field that discriminates.
+if compgen -G "/proc/datadev_*" >/dev/null; then
+    LOADED=$(grep -h "DMA Driver's Git Version" /proc/datadev_* |
+             head -1 | sed 's/.*: *//' | tr -d '[:space:]')
+    if [ -z "$LOADED" ]; then
+        echo "ERROR: cannot read the loaded driver's version from /proc/datadev_*." >&2
+        exit 1
+    fi
+    if [ "$LOADED" != "$DVER" ]; then
+        echo "ERROR: the loaded module is $LOADED, but $DVER was just installed."   >&2
+        echo "       The install succeeded and the reload did not, so the new"      >&2
+        echo "       module is on disk and unused.  A reboot or any later modprobe" >&2
+        echo "       would switch versions without warning.  Try:"                  >&2
+        echo "         sudo modprobe -r datadev && sudo modprobe datadev"           >&2
+        echo "       and if that refuses, find what holds it:"                      >&2
+        echo "         cat /sys/module/datadev/refcnt"                              >&2
+        echo "         ls /sys/module/datadev/holders/"                             >&2
+        echo "         sudo fuser -v /dev/datadev_*"                                >&2
+        exit 1
+    fi
+    echo "    loaded module is $LOADED"
+else
+    echo "    NOTE: no /proc/datadev_*, so the loaded version cannot be confirmed"
+fi
+
 RUNNING=$(cat /sys/module/datadev/srcversion)
 ONDISK=$(modinfo -F srcversion datadev)
 if [ "$RUNNING" != "$ONDISK" ]; then

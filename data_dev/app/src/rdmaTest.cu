@@ -23,8 +23,10 @@
 #include <errno.h>
 
 #include <algorithm>
+#include <chrono>
 #include <fstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "DmaDriver.h"
@@ -37,6 +39,7 @@ static int s_verbose = 0;
 static int s_dumpToFile = 0;
 static int s_dumpBytes = 0;
 static int s_cnt = -1;
+static double s_warnSecs = 10.0;         ///< Complain if no event arrives within this; 0 = never.
 static std::string s_dumpFile;
 
 static void assertOk(CUresult err);
@@ -85,7 +88,7 @@ int main(int argc, char** argv) {
     std::string dev = "/dev/datadev_0";
 
     int opt;
-    while ((opt = getopt(argc, argv, "d:i:vhf:x:c:b:s:l")) != -1) {
+    while ((opt = getopt(argc, argv, "d:i:vhf:x:c:b:s:lT:")) != -1) {
         switch (opt) {
         case 'd': dev = optarg;                 break;
         case 'b': bufCnt = str2int(optarg);     break;
@@ -95,6 +98,7 @@ int main(int argc, char** argv) {
         case 'v': s_verbose++;                  break;
         case 'c': s_cnt = str2int(optarg);      break;
         case 'l': loopback = true;              break;
+        case 'T': s_warnSecs = atof(optarg);    break;
         case 'h': showHelp();                   return 0;
         case 'i': gpuIdx = atoi(optarg);        break;
         default:  showHelp();                   return 1;
@@ -335,6 +339,63 @@ static void cleanupSession(TestSession& s) {
         cuCtxDestroy(s.cuda.context());
 }
 
+
+/**
+ * @brief cuStreamSynchronize(), but say something when nothing is arriving.
+ *
+ * The stream-memory wait keeps the GPU pipeline moving without the host, which is what we
+ * want, but it gives no sign when no data is coming.  Untimed, a run with no transmitter
+ * blocks here silently and for ever -- the normal first-time experience, since this program
+ * starts no source: InterCardTest holds its PRBS generator off until PrbsTx.TxEn is set.
+ *
+ * It reports and keeps waiting rather than exiting, because the useful order of work is to
+ * start this program and then the transmitter.  One line, then a dot a second.
+ *
+ * The fast path must not pay for the polling: sleeping between attempts would add the sleep
+ * to every event's latency and cap the test near 1 kHz, so it spins for the first
+ * millisecond -- far longer than a wait takes when data flows -- and only then sleeps.
+ */
+static void syncWaitingFor(TestSession& s, const char* what) {
+    if (s_warnSecs <= 0.0) {                /* Reporting disabled: plain blocking sync */
+        assertOk(cuStreamSynchronize(s.stream));
+        return;
+    }
+
+    using clock = std::chrono::steady_clock;
+    const auto start = clock::now();
+    auto nextMark = start + std::chrono::duration_cast<clock::duration>(
+                                std::chrono::duration<double>(s_warnSecs));
+    bool waiting = false;
+
+    for (;;) {
+        const CUresult cr = cuStreamQuery(s.stream);
+        if (cr == CUDA_SUCCESS) {
+            if (waiting)  fprintf(stderr, "\nResumed: got %s\n", what);
+            return;
+        }
+        if (cr != CUDA_ERROR_NOT_READY) {   /* A real error, not merely "still busy" */
+            assertOk(cr);
+            return;
+        }
+
+        const auto now = clock::now();
+        if (now >= nextMark) {
+            if (!waiting) {
+                fprintf(stderr, "Waiting for %s: is a transmitter enabled?  InterCardTest "
+                                "needs PrbsTx.TxEn set from interCardGui.py.\n", what);
+                waiting = true;
+            } else {
+                fputc('.', stderr);         /* stderr is unbuffered, so it appears at once */
+            }
+            nextMark = now + std::chrono::seconds(1);
+        }
+
+        /* Spin for the first millisecond so the fast path is unaffected, then back off. */
+        if (now - start > std::chrono::milliseconds(1))
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+}
+
 /**
  * Run a simple test receiving data from the FPGA, optionally decoding the header or
  * dumping event data to file.
@@ -353,11 +414,19 @@ static void runSimpleLoop(TestSession& s) {
         assertOk(cuStreamWaitValue32(s.stream,
             s.rxBuffers[curBuff].ptr + 4, 1, CU_STREAM_WAIT_VALUE_GEQ));
 
-        /* Download header data immediately. */
+        /* Wait for the doorbell *before* enqueueing the copy below.  cuMemcpyDtoHAsync
+         * into pageable memory -- hdr is an ordinary local -- is documented as behaving
+         * synchronously: the driver stages through an internal pinned buffer and waits for
+         * the stream.  Enqueued while the stream is blocked on the wait above, it therefore
+         * blocks the host inside the enqueue, which is where an untimed run actually hangs.
+         * Draining the wait first leaves the stream idle, so the copy does not block. */
+        syncWaitingFor(s, "event from the FPGA");
+
+        /* Download header data.  The stream is idle now, so this returns promptly. */
         assertOk(cuMemcpyDtoHAsync(&hdr, s.rxBuffers[curBuff].ptr, sizeof(hdr), s.stream));
 
-        /* SYNC the stream so header data becomes available to the host. A failed
-         * sync would leave hdr undefined and race the subsequent doorbell writes. */
+        /* SYNC so header data becomes available to the host.  A failed sync would leave
+         * hdr undefined and race the subsequent doorbell writes. */
         assertOk(cuStreamSynchronize(s.stream));
 
         if (s.loopback) {
@@ -375,7 +444,11 @@ static void runSimpleLoop(TestSession& s) {
                         hdr.size, maxPayload);
                 invalidEvents++;
             } else {
-                /* Wait for the FPGA to return the free list back to GPU. */
+                /* Wait for the FPGA to return the free list back to GPU.  Deliberately
+                 * *not* drained here, unlike the receive wait above: blocking for buffer 0
+                 * to come back would hold up the FPGA's latency monitoring for no benefit,
+                 * and a timeout would be redundant -- if the FPGA is not returning buffers,
+                 * the receive wait has already said so. */
                 assertOk(cuStreamWaitValue32(s.stream,
                     s.txBuffers[curBuff].ptr, 1, CU_STREAM_WAIT_VALUE_GEQ));
 
@@ -393,7 +466,8 @@ static void runSimpleLoop(TestSession& s) {
                     s.txBuffers[curBuff].ptr, 0, 0));
 
                 /* SYNC the stream for the data copy and GPU side free list update
-                 * before triggering the FPGA's doorbell. */
+                 * before triggering the FPGA's doorbell.  Unbounded is fine here: the wait
+                 * was already drained above, so only the copies remain. */
                 assertOk(cuStreamSynchronize(s.stream));
 
                 /* Trigger the FPGA to read txBuffers from the GPU ("FPGA's doorbell"). */
@@ -494,6 +568,8 @@ static void showHelp() {
     printf("  -f FILE      : Dump the first event received to this file\n");
     printf("  -x NUM       : Dump the first NUM bytes of the payload to stdout\n");
     printf("  -c CNT       : Number of events to receive before exiting\n");
-    printf("  -l           : Enable loopback mode: FPGA -> GPU -> FPGA transactions\n");
+    printf("  -l           : Enable loopback mode: FPGA -> GPU -> FPGA transactions\n"
+        "  -T SECS      : Warn if no event arrives within SECS, and keep waiting (default 10,\n"
+        "                 0 = never warn).  It never gives up; interrupt with ^C.\n");
     printf("  -v           : Increase verbosity. May be passed multiple times. -vv will enable dumping of DMA headers\n");
 }
