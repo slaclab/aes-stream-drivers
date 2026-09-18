@@ -444,11 +444,13 @@ static void runSimpleLoop(TestSession& s) {
                         hdr.size, maxPayload);
                 invalidEvents++;
             } else {
-                /* Wait for the FPGA to return the free list back to GPU.  Drained here
-                 * for the same reason as above, before anything else is enqueued. */
+                /* Wait for the FPGA to return the free list back to GPU.  Deliberately
+                 * *not* drained here, unlike the receive wait above: blocking for buffer 0
+                 * to come back would hold up the FPGA's latency monitoring for no benefit,
+                 * and a timeout would be redundant -- if the FPGA is not returning buffers,
+                 * the receive wait has already said so. */
                 assertOk(cuStreamWaitValue32(s.stream,
                     s.txBuffers[curBuff].ptr, 1, CU_STREAM_WAIT_VALUE_GEQ));
-                syncWaitingFor(s, "buffer returned by the FPGA");
 
                 /* Copy rxData to the txData buffer for this loopback mode at the
                  * dmaDataBytes() payload offset. Use the cached s.dmaHeaderSize
