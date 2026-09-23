@@ -119,8 +119,11 @@ echo "==> verifying"
 # resident, with the new one sitting unused on disk.  GITV is compiled in per build
 # (dma_common.c, "DMA Driver's Git Version"), so it is the field that discriminates.
 if compgen -G "/proc/datadev_*" >/dev/null; then
+    # The `|| true` keeps the -z guard below reachable: under `set -euo pipefail` a grep
+    # that matches nothing exits 1, pipefail propagates that through the rest of the
+    # pipeline, and -e then exits the script before the message can print.
     LOADED=$(grep -h "DMA Driver's Git Version" /proc/datadev_* |
-             head -1 | sed 's/.*: *//' | tr -d '[:space:]')
+             head -1 | sed 's/.*: *//' | tr -d '[:space:]' || true)
     if [ -z "$LOADED" ]; then
         echo "ERROR: cannot read the loaded driver's version from /proc/datadev_*." >&2
         exit 1
