@@ -68,6 +68,7 @@ struct TestSession {
     CUstream stream = 0;                 ///< Single stream used for the simple-loop test.
     std::vector<CudaVMMAlloc> rxBuffers; ///< FPGA->GPU buffers (cuMalloc'd, registered with FPGA).
     std::vector<CudaVMMAlloc> txBuffers; ///< GPU->FPGA buffers, only populated when loopback is set.
+    AxiWrDesc64_t* hdr = nullptr;        ///< Pinned, so the per-event header copy is truly async.
     int bufCnt = 0;
     int bufSize = 0;
     uint32_t dmaHeaderSize = 0;
@@ -272,6 +273,17 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
         return -1;
     }
 
+    /* The per-event header lands in pinned memory, allocated once.  Into pageable memory a
+     * device-to-host copy is documented as behaving synchronously -- the driver stages
+     * through an internal pinned buffer and waits for the stream -- so with an ordinary
+     * local the enqueue below would block the host while the stream is still waiting on the
+     * doorbell, and no polling code would ever run.  Pinned, the copy is genuinely
+     * asynchronous, which is what lets one bounded sync serve the whole iteration. */
+    if (cuMemAllocHost(reinterpret_cast<void**>(&s.hdr), sizeof(*s.hdr)) != CUDA_SUCCESS) {
+        fprintf(stderr, "cuMemAllocHost for the event header failed\n");
+        return -1;
+    }
+
     /* Arm the FPGA free list and pre-clear doorbells via the GPU stream so the
      * writes traverse the same PCIe path as runtime traffic. The host enable
      * below must wait for these to land. */
@@ -312,6 +324,11 @@ static void cleanupSession(TestSession& s) {
     if (s.stream) {
         cudaStreamDestroy(s.stream);
         s.stream = 0;
+    }
+
+    if (s.hdr) {                         /* Before cuCtxDestroy() below */
+        cuMemFreeHost(s.hdr);
+        s.hdr = nullptr;
     }
 
     const int fd = s.dataGpu ? s.dataGpu->fd() : -1;
@@ -408,26 +425,21 @@ static void runSimpleLoop(TestSession& s) {
     std::vector<uint8_t> tmpbuf(dumpBytes);
 
     while (s_cnt == -1 || s_cnt-- > 0) {
-        AxiWrDesc64_t hdr;
+        const AxiWrDesc64_t& hdr = *s.hdr;   /* Pinned; see initSession() */
 
         /* Wait on handshake space on the GPU side (A.K.A. "GPU's doorbell"). */
         assertOk(cuStreamWaitValue32(s.stream,
             s.rxBuffers[curBuff].ptr + 4, 1, CU_STREAM_WAIT_VALUE_GEQ));
 
-        /* Wait for the doorbell *before* enqueueing the copy below.  cuMemcpyDtoHAsync
-         * into pageable memory -- hdr is an ordinary local -- is documented as behaving
-         * synchronously: the driver stages through an internal pinned buffer and waits for
-         * the stream.  Enqueued while the stream is blocked on the wait above, it therefore
-         * blocks the host inside the enqueue, which is where an untimed run actually hangs.
-         * Draining the wait first leaves the stream idle, so the copy does not block. */
+        /* Download header data.  s.hdr is pinned, so this only enqueues and does not block
+         * the host behind the wait above. */
+        assertOk(cuMemcpyDtoHAsync(s.hdr, s.rxBuffers[curBuff].ptr, sizeof(*s.hdr), s.stream));
+
+        /* One sync for both the wait and the copy: it returns when the event has arrived
+         * and hdr is readable.  A failed sync would leave hdr stale and race the subsequent
+         * doorbell writes.  This is where a run with no transmitter blocks, so it is the
+         * sync that speaks up rather than hanging silently. */
         syncWaitingFor(s, "event from the FPGA");
-
-        /* Download header data.  The stream is idle now, so this returns promptly. */
-        assertOk(cuMemcpyDtoHAsync(&hdr, s.rxBuffers[curBuff].ptr, sizeof(hdr), s.stream));
-
-        /* SYNC so header data becomes available to the host.  A failed sync would leave
-         * hdr undefined and race the subsequent doorbell writes. */
-        assertOk(cuStreamSynchronize(s.stream));
 
         if (s.loopback) {
             /* Validate hdr.size before the rx->tx device copy. The destination is
@@ -466,8 +478,11 @@ static void runSimpleLoop(TestSession& s) {
                     s.txBuffers[curBuff].ptr, 0, 0));
 
                 /* SYNC the stream for the data copy and GPU side free list update
-                 * before triggering the FPGA's doorbell.  Unbounded is fine here: the wait
-                 * was already drained above, so only the copies remain. */
+                 * before triggering the FPGA's doorbell.  This does block: the free-list
+                 * wait above is deliberately left in the stream, so it waits for the FPGA
+                 * to return buffer curBuff as well as for the copies.  Unbounded is still
+                 * right -- a stall here means the FPGA has stopped returning buffers, and
+                 * the receive wait above reports that first. */
                 assertOk(cuStreamSynchronize(s.stream));
 
                 /* Trigger the FPGA to read txBuffers from the GPU ("FPGA's doorbell"). */
