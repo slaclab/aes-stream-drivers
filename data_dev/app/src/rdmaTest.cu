@@ -575,7 +575,8 @@ static void assertOk(CUresult err) {
 }
 
 static void showHelp() {
-    printf("USAGE: rdmaTest [-d DEVICE] [-i GPU] [-b BUFFERS] [-s SIZE] [-v]\n");
+    printf("USAGE: rdmaTest [-d DEVICE] [-i GPU] [-b BUFFERS] [-s SIZE] [-c CNT] [-f FILE]\n"
+           "                [-x NUM] [-l] [-T SECS] [-v]\n");
     printf("  -d DEVICE    : Path to the datadev device (default /dev/datadev_0)\n");
     printf("  -i GPU       : GPU index\n");
     printf("  -s SIZE      : Transfer size\n");
