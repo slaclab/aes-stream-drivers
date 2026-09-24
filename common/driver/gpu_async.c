@@ -96,7 +96,7 @@ int32_t Gpu_Init(struct DmaDevice *dev, uint32_t offset) {
    gpuData->offset = offset;
    gpuData->version = version;
    gpuData->maxBuffers = maxBuffers;
-   atomic64_set(&gpuData->pid, 0);
+   atomic64_set(&gpuData->tgid, 0);
 
    dev_info(dev->device, "Gpu_Init: Configured for GpuAsyncCore version %d\n", version);
    return 0;
@@ -158,20 +158,22 @@ int32_t Gpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
 }
 
 /**
- * Gpu_AddNvidia - Add NVIDIA GPU memory to the device
+ * Gpu_AddNvidia - Add GPU page-aligned NVIDIA GPU memory to the device
  * @dev: pointer to the DMA device structure
  * @arg: user space argument pointing to GpuNvidiaData structure
  *
  * This function adds NVIDIA GPU memory for DMA operations. It involves
  * copying data from user space, validating it, and setting up DMA mappings
  * through NVIDIA's Peer-to-Peer (P2P) API.
+ * GPU memory address and size must both be aligned to GPU page boundaries (64k),
+ * to allow for an optimal access pattern.
  *
  * Return: 0 on success, negative error code on failure.
  */
 int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
    int32_t ret;
    uint32_t x;
-   u64     virt_start, virt_offset, dma_address;
+   u64     virt_start, dma_address;
    size_t  pin_size;
    size_t  mapSize;
    uint32_t offset = 0;
@@ -200,11 +202,18 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
       return -EINVAL;
    }
 
+   // Memory must be aligned to GPU page boundary to avoid GpuAsyncCore writing out-of-bounds
+   if ((dat.address & GPU_BOUND_MASK) != dat.address) {
+      dev_warn(dev->device, "Gpu_AddNvidia: error: memory must be aligned to GPU page boundary (0x%llX bytes). address=0x%llX, size=0x%X\n",
+         GPU_BOUND_SIZE, dat.address, dat.size);
+      return -EINVAL;
+   }
+
    // Check if another PID already owns this GpuAsyncCore state
-   pid_t pid = atomic64_cmpxchg(&data->pid, 0, current->pid);
-   if (pid != 0 && pid != current->pid) {
+   pid_t pid = atomic64_cmpxchg(&data->tgid, 0, current->tgid);
+   if (pid != 0 && pid != current->tgid) {
       dev_warn(dev->device, "Gpu_AddNvidia: error: Calling PID (%d) GpuAsyncCore state already locked by PID %d\n",
-               current->pid, pid);
+               current->tgid, pid);
       return -EBUSY;
    }
 
@@ -212,14 +221,14 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
    if (dat.write) {
       if (data->writeBuffers.count >= data->maxBuffers) {
          dev_warn(dev->device, "Gpu_AddNvidia: Too many write buffers: max %u\n", data->maxBuffers);
-         atomic64_set(&data->pid, 0);
+         atomic64_set(&data->tgid, 0);
          return -EINVAL;
       }
       buffer = &(data->writeBuffers.list[data->writeBuffers.count]);
    } else {
       if (data->readBuffers.count >= data->maxBuffers) {
          dev_warn(dev->device, "Gpu_AddNvidia: Too many read buffers: max %u\n", data->maxBuffers);
-         atomic64_set(&data->pid, 0);
+         atomic64_set(&data->tgid, 0);
          return -EINVAL;
       }
       buffer = &(data->readBuffers.list[data->readBuffers.count]);
@@ -233,12 +242,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
    buffer->dmaMapping = 0;
    buffer->dev = dev;
 
-   // Align virtual start address as required by NVIDIA kernel driver
-   virt_start = buffer->address & GPU_BOUND_MASK;
-
-   // Handle addresses that aren't aligned to 64k boundary. CUDA doesn't have an easy way to perform aligned allocations, so
-   // account for that here.
-   virt_offset = buffer->address & ~GPU_BOUND_MASK;
+   virt_start = buffer->address;
 
    // Align pin size to page boundary (64k)
    pin_size = (buffer->address + buffer->size - virt_start + GPU_BOUND_OFFSET) & GPU_BOUND_MASK;
@@ -269,11 +273,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
             }
          }
 
-         // Special case for when dat.size is not 64k aligned
-         if (mapSize > dat.size)
-            mapSize = dat.size;
-
-         dma_address = buffer->dmaMapping->dma_addresses[0] + virt_offset;
+         dma_address = buffer->dmaMapping->dma_addresses[0];
 
          if (x < buffer->dmaMapping->entries) {
             dev_warn(dev->device, "Gpu_AddNvidia: non-contiguous GPU memory detected: requested %d pages, only got %i pages\n", buffer->dmaMapping->entries, x);
@@ -289,7 +289,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
             if (minSize > 1 && minSize != mapSize) {
                dev_warn(dev->device, "Gpu_AddNvidia: mapSize=%zu does not match last configured mapSize of %zu. Write buffers must all be identically sized\n",
                   minSize, mapSize);
-               atomic64_set(&data->pid, 0);
+               atomic64_set(&data->tgid, 0);
                return -EINVAL;
             }
 
@@ -324,7 +324,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
       }
    } else {
       dev_warn(dev->device, "Gpu_AddNvidia: failed to pin memory with address=0x%llx. ret=%i\n", dat.address, ret);
-      atomic64_set(&data->pid, 0);
+      atomic64_set(&data->tgid, 0);
       return -1;
    }
 
@@ -449,7 +449,7 @@ static void Gpu_ClearBufferRegs(struct DmaDevice* dev) {
    data->readBuffers.count = 0;
 
    // Release GpuAsyncCore to other processes
-   atomic64_set(&data->pid, 0);
+   atomic64_set(&data->tgid, 0);
 
    return;
 }
@@ -480,10 +480,10 @@ int32_t Gpu_RemNvidia(struct DmaDevice *dev, uint64_t arg) {
    dev_info(dev->device, "Gpu_RemNvidia: Called\n");
 
    // Ensure the calling PID actually owns the state
-   pid_t pid = atomic64_cmpxchg(&data->pid, current->pid, 0);
-   if (pid != current->pid) {
+   pid_t pid = atomic64_cmpxchg(&data->tgid, current->tgid, 0);
+   if (pid != current->tgid) {
       dev_warn(dev->device, "Gpu_RemNvidia: Called by PID (%d) that doesn't own the GpuAsyncCore state!\n",
-               current->pid);
+               current->tgid);
       return -EBUSY;
    }
 
@@ -554,10 +554,10 @@ int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg) {
    data = (struct GpuData *)dev->utilData;
 
    // Check for calling process ownership. Unlocked GpuAsyncCore is OK
-   pid_t pid = atomic64_read(&data->pid);
-   if (pid && pid != current->pid) {
+   pid_t pid = atomic64_read(&data->tgid);
+   if (pid && pid != current->tgid) {
       dev_warn(dev->device, "Gpu_SetWriteEn: Called by non-owner PID (%d)\n",
-               current->pid);
+               current->tgid);
       return -EBUSY;
    }
 
@@ -634,7 +634,7 @@ void Gpu_Show(struct seq_file *s, struct DmaDevice *dev) {
       seq_printf(s, "       Min Read Buffers : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_MinReadBuffer));
    }
    seq_printf(s, "   AXI Read Error Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiReadErrorCnt));
-   seq_printf(s, "         Owning Process : %llu\n", (u64)atomic64_read(&data->pid));
+   seq_printf(s, "         Owning Process : %llu\n", (u64)atomic64_read(&data->tgid));
 
    for (i = 0; i < writeBuffCnt && writeEnable; ++i) {
       u32 wal, wah, ws;
@@ -679,10 +679,10 @@ int32_t Gpu_EnableTx(struct DmaDevice *dev, uint64_t enable) {
    struct GpuData* data = (struct GpuData*)dev->utilData;
 
    // Check for calling process ownership. Unlocked GpuAsyncCore is OK
-   pid_t pid = atomic64_read(&data->pid);
-   if (pid && pid != current->pid) {
-      dev_warn(dev->device, "Gpu_SetWriteEn: Called by non-owner PID (%d)\n",
-               current->pid);
+   pid_t pid = atomic64_read(&data->tgid);
+   if (pid && pid != current->tgid) {
+      dev_warn(dev->device, "Gpu_EnableTx: Called by non-owner PID (%d)\n",
+               current->tgid);
       return -EBUSY;
    }
 
@@ -706,10 +706,10 @@ int32_t Gpu_EnableRx(struct DmaDevice *dev, uint64_t enable) {
    struct GpuData* data = (struct GpuData*)dev->utilData;
 
    // Check for calling process ownership. Unlocked GpuAsyncCore is OK
-   pid_t pid = atomic64_read(&data->pid);
-   if (pid && pid != current->pid) {
-      dev_warn(dev->device, "Gpu_SetWriteEn: Called by non-owner PID (%d)\n",
-               current->pid);
+   pid_t pid = atomic64_read(&data->tgid);
+   if (pid && pid != current->tgid) {
+      dev_warn(dev->device, "Gpu_EnableRx: Called by non-owner PID (%d)\n",
+               current->tgid);
       return -EBUSY;
    }
 

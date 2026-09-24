@@ -101,7 +101,7 @@ struct GpuData {
    int32_t version;
    uint32_t maxBuffers;
    uint32_t disabled;
-   atomic64_t pid;
+   atomic64_t tgid;        // TGID of the owning process, or 0 when unowned.
    struct GpuBuffers writeBuffers;
    struct GpuBuffers readBuffers;
 };
