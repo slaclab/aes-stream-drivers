@@ -49,13 +49,8 @@ static int str2int(const char* s) {
     return strtol(s, NULL, base);
 }
 
-/* CUDA Allocations must be aligned to this size */
-#define GPU_PAGE_SIZE 0x10000
-
 /**
- * @brief Per-session state. Replaces the old GpuAsyncContext lifecycle wrapper
- * that this test used to consume from GpuAsyncUser.h. Held entirely on the
- * stack of main() and torn down explicitly at end-of-test.
+ * @brief Per-session state.
  */
 struct TestSession {
     DataGPU* dataGpu = nullptr;          ///< Owns /dev/datadev_X fd via RAII.
@@ -123,7 +118,7 @@ int main(int argc, char** argv) {
  */
 static bool allocGpuMem(int fd, int write, size_t totalSize, CudaVMMAlloc& outBuffer) {
     CUresult result;
-    if ((result = vmmCuAlloc(outBuffer, totalSize, GPU_PAGE_SIZE)) != CUDA_SUCCESS) {
+    if ((result = vmmCuAlloc(outBuffer, totalSize, GPU_RDMA_BUFFER_ALIGN)) != CUDA_SUCCESS) {
         const char* str = nullptr;
         cuGetErrorString(result, &str);
         fprintf(stderr, "allocGpuMem: vmmCuAlloc failed: %s\n", str ? str : "<Unknown error>");
@@ -176,7 +171,6 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
         return -1;
     }
 
-    /* CudaContext throws on cuInit failure; let it propagate as a clean exit. */
     if (!s.cuda.init(gpuIdx)) {
         fprintf(stderr, "CUDA context initialization failed\n");
         return -1;
@@ -243,7 +237,7 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
 
     s.dmaHeaderSize = s.coreRegs->dmaDataBytes();
 
-    const size_t totalBufSize = alignValue(bufSize + s.dmaHeaderSize, GPU_PAGE_SIZE);
+    const size_t totalBufSize = alignValue(bufSize + s.dmaHeaderSize, GPU_RDMA_BUFFER_ALIGN);
 
     /* Allocate and register rx (and optionally tx) buffers */
     s.rxBuffers.resize(bufCnt, {});
@@ -253,6 +247,7 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
             return -1;
         }
     }
+
     if (loopback) {
         s.txBuffers.resize(bufCnt, {});
         for (int i = 0; i < bufCnt; ++i) {
@@ -287,6 +282,7 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
             return -1;
         }
     }
+
     if (cuStreamSynchronize(s.stream) != CUDA_SUCCESS) {
         fprintf(stderr, "cuStreamSynchronize after free-list arming failed\n");
         return -1;
@@ -328,11 +324,6 @@ static void cleanupSession(TestSession& s) {
 
     delete s.dataGpu;
     s.dataGpu = nullptr;
-
-    /* CudaContext does not destroy the underlying CUcontext on destruction;
-     * doing so on process exit is harmless. */
-    if (s.cuda.context())
-        cuCtxDestroy(s.cuda.context());
 }
 
 /**
@@ -356,8 +347,7 @@ static void runSimpleLoop(TestSession& s) {
         /* Download header data immediately. */
         assertOk(cuMemcpyDtoHAsync(&hdr, s.rxBuffers[curBuff].ptr, sizeof(hdr), s.stream));
 
-        /* SYNC the stream so header data becomes available to the host. A failed
-         * sync would leave hdr undefined and race the subsequent doorbell writes. */
+        /* SYNC the stream so header data becomes available to the host. */
         assertOk(cuStreamSynchronize(s.stream));
 
         if (s.loopback) {
@@ -380,9 +370,7 @@ static void runSimpleLoop(TestSession& s) {
                     s.txBuffers[curBuff].ptr, 1, CU_STREAM_WAIT_VALUE_GEQ));
 
                 /* Copy rxData to the txData buffer for this loopback mode at the
-                 * dmaDataBytes() payload offset. Use the cached s.dmaHeaderSize
-                 * (populated once at init) instead of re-reading the FPGA register
-                 * every event. */
+                 * dmaDataBytes() payload offset. */
                 assertOk(cuMemcpyDtoDAsync(
                     s.txBuffers[curBuff].ptr + s.dmaHeaderSize,
                     s.rxBuffers[curBuff].ptr + s.dmaHeaderSize,
@@ -403,16 +391,13 @@ static void runSimpleLoop(TestSession& s) {
             }
         }
 
-        // Dump header data when requested
+        /* Dump header data when requested */
         if (s_verbose > 1) {
             printf("hdr{size=%u, firstUser=%u, lastUser=%u, cont=%u, overflow=%u, result=%u}\n",
                 hdr.size, hdr.firstUser(), hdr.lastUser(), hdr.cont(), hdr.overflow(), hdr.result());
         }
 
-        /* Dump first N bytes when requested. Clamp the copy size to the
-         * actual per-buffer cudaMalloc allocation (bufSize + dmaHeaderSize) so
-         * a corrupt hdr.size combined with a large user-supplied -x cannot
-         * trigger an out-of-bounds device-to-host copy. */
+        /* Dump first N bytes when requested. */
         if (dumpBytes != 0U) {
             const size_t maxCount = static_cast<size_t>(s.bufSize) +
                                     static_cast<size_t>(s.dmaHeaderSize);
