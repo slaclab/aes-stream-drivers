@@ -38,6 +38,11 @@
 #define GPU_Enable_Rx         0x8009   // Enable rx buffers (GPU -> FPGA)
 
 /**
+ * RDMA-able GPU memory must be aligned to this value.
+ */
+#define GPU_RDMA_BUFFER_ALIGN 0x10000ULL
+
+/**
  * @brief Represents NVIDIA GPU memory data.
  *
  * This structure is used for managing memory regions in NVIDIA GPUs,
