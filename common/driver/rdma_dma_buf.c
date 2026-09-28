@@ -108,13 +108,17 @@ void DmaBuf_Shutdown(struct DmaDevice* dev) {
    dev->rdmaData = NULL;
 }
 
-static void axi_rdma_move_notify(struct dma_buf_attachment* att) {
+static void axi_rdma_invalidate_mappings(struct dma_buf_attachment* att) {
    dev_warn(att->dev, "Move notify called");
 }
 
 static const struct dma_buf_attach_ops importer_ops = {
    .allow_peer2peer = 1,
-   .move_notify = axi_rdma_move_notify,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(7, 1, 0)
+   .move_notify = axi_rdma_invalidate_mappings,
+#else
+   .invalidate_mappings = axi_rdma_invalidate_mappings,
+#endif
 };
 
 static int DmaBuf_AddBuf(struct DmaDevice* dev, int buffd, int write) {

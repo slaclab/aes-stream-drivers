@@ -94,7 +94,7 @@ int32_t Rdma_Init(struct DmaDevice *dev, uint32_t offset) {
    rdmaData->version = version;
    rdmaData->maxBuffers = maxBuffers;
    mutex_init(&rdmaData->lock);
-   atomic64_set(&rdmaData->pid, 0);
+   atomic64_set(&rdmaData->tgid, 0);
 
    dev_info(dev->device, "Rdma_Init: Configured for GpuAsyncCore version %d\n", version);
 
@@ -225,10 +225,10 @@ int32_t Rdma_SetWriteEn(struct DmaDevice *dev, uint64_t arg) {
    struct RdmaData* data = dev->rdmaData;
 
    // Check for calling process ownership. Unlocked GpuAsyncCore is OK
-   pid_t pid = atomic64_read(&data->pid);
-   if (pid && pid != current->pid) {
+   pid_t pid = atomic64_read(&data->tgid);
+   if (pid && pid != current->tgid) {
       dev_warn(dev->device, "Rdma_SetWriteEn: Called by non-owner PID (%d)\n",
-               current->pid);
+               current->tgid);
       return -EBUSY;
    }
 
@@ -345,7 +345,7 @@ void Rdma_ClearBufferRegs(struct DmaDevice* dev) {
    data->readBufferCount = 0;
 
    // Release GpuAsyncCore to other processes
-   atomic64_set(&data->pid, 0);
+   atomic64_set(&data->tgid, 0);
 }
 
 /**
@@ -399,7 +399,7 @@ void Rdma_Show(struct seq_file *s, struct DmaDevice *dev) {
       seq_printf(s, "       Min Read Buffers : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_MinReadBuffer));
    }
    seq_printf(s, "   AXI Read Error Count : %u\n", readGpuAsyncReg(data->base, &GpuAsyncReg_AxiReadErrorCnt));
-   seq_printf(s, "         Owning Process : %llu\n", (u64)atomic64_read(&data->pid));
+   seq_printf(s, "         Owning Process : %llu\n", (u64)atomic64_read(&data->tgid));
 
    for (i = 0; i < writeBuffCnt && writeEnable; ++i) {
       u32 wal, wah, ws;
@@ -444,10 +444,10 @@ int32_t Rdma_EnableTx(struct DmaDevice *dev, uint64_t enable) {
    struct RdmaData* data = dev->rdmaData;
 
    // Check for calling process ownership. Unlocked GpuAsyncCore is OK
-   pid_t pid = atomic64_read(&data->pid);
-   if (pid && pid != current->pid) {
+   pid_t pid = atomic64_read(&data->tgid);
+   if (pid && pid != current->tgid) {
       dev_warn(dev->device, "Rdma_EnableTx: Called by non-owner PID (%d)\n",
-               current->pid);
+               current->tgid);
       return -EBUSY;
    }
 
@@ -471,10 +471,10 @@ int32_t Rdma_EnableRx(struct DmaDevice *dev, uint64_t enable) {
    struct RdmaData* data = dev->rdmaData;
 
    // Check for calling process ownership. Unlocked GpuAsyncCore is OK
-   pid_t pid = atomic64_read(&data->pid);
-   if (pid && pid != current->pid) {
+   pid_t pid = atomic64_read(&data->tgid);
+   if (pid && pid != current->tgid) {
       dev_warn(dev->device, "Rdma_EnableRx: Called by non-owner PID (%d)\n",
-               current->pid);
+               current->tgid);
       return -EBUSY;
    }
 

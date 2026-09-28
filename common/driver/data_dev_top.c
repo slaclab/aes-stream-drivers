@@ -84,7 +84,7 @@ MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Driver for SLAC PCIe DMA devices");
 MODULE_DEVICE_TABLE(pci, DataDev_Ids);
 MODULE_DESCRIPTION("Driver for FPGAs running the SLAC DMA engine");
-MODULE_IMPORT_NS(DMA_BUF);
+MODULE_IMPORT_NS("DMA_BUF");
 module_init(DataDev_Init);
 module_exit(DataDev_Exit);
 
