@@ -184,6 +184,14 @@ static int DmaBuf_AddBuf(struct DmaDevice* dev, int buffd, int write) {
       size += PAGE_SIZE;
       nents++;
    }
+   
+   /* Unaligned addresses are not supported */
+   if ((phys_base & GPU_BOUND_MASK) != 0) {
+      dev_warn(dev->device, "DmaBuf_AddBuf: Unaligned DMA buffer memory is not supported. Must be aligned to 0x%llX boundary\n",
+         GPU_BOUND_SIZE);
+      ret = -EINVAL;
+      goto error;
+   }
 
    /* We cannot support buffers > 4GiB */
    if (size > 0xFFFFFFFFULL) {
