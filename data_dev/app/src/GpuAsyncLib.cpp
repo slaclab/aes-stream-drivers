@@ -51,6 +51,10 @@ CudaContext::CudaContext() : context_(nullptr), device_(0) {
     }
 }
 
+CudaContext::~CudaContext() {
+    cuCtxDestroy(context_);
+}
+
 bool CudaContext::init(int device, bool quiet) {
     int devs = 0;
     checkError(cuDeviceGetCount(&devs));

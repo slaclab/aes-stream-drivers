@@ -52,13 +52,8 @@ static int str2int(const char* s) {
     return strtol(s, NULL, base);
 }
 
-/* CUDA Allocations must be aligned to this size */
-#define GPU_PAGE_SIZE 0x10000
-
 /**
- * @brief Per-session state. Replaces the old GpuAsyncContext lifecycle wrapper
- * that this test used to consume from GpuAsyncUser.h. Held entirely on the
- * stack of main() and torn down explicitly at end-of-test.
+ * @brief Per-session state.
  */
 struct TestSession {
     DataGPU* dataGpu = nullptr;          ///< Owns /dev/datadev_X fd via RAII.
@@ -128,7 +123,7 @@ int main(int argc, char** argv) {
  */
 static bool allocGpuMem(int fd, int write, size_t totalSize, CudaVMMAlloc& outBuffer) {
     CUresult result;
-    if ((result = vmmCuAlloc(outBuffer, totalSize, GPU_PAGE_SIZE)) != CUDA_SUCCESS) {
+    if ((result = vmmCuAlloc(outBuffer, totalSize, GPU_RDMA_BUFFER_ALIGN)) != CUDA_SUCCESS) {
         const char* str = nullptr;
         cuGetErrorString(result, &str);
         fprintf(stderr, "allocGpuMem: vmmCuAlloc failed: %s\n", str ? str : "<Unknown error>");
@@ -181,7 +176,6 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
         return -1;
     }
 
-    /* CudaContext throws on cuInit failure; let it propagate as a clean exit. */
     if (!s.cuda.init(gpuIdx)) {
         fprintf(stderr, "CUDA context initialization failed\n");
         return -1;
@@ -248,7 +242,7 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
 
     s.dmaHeaderSize = s.coreRegs->dmaDataBytes();
 
-    const size_t totalBufSize = alignValue(bufSize + s.dmaHeaderSize, GPU_PAGE_SIZE);
+    const size_t totalBufSize = alignValue(bufSize + s.dmaHeaderSize, GPU_RDMA_BUFFER_ALIGN);
 
     /* Allocate and register rx (and optionally tx) buffers */
     s.rxBuffers.resize(bufCnt, {});
@@ -258,6 +252,7 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
             return -1;
         }
     }
+
     if (loopback) {
         s.txBuffers.resize(bufCnt, {});
         for (int i = 0; i < bufCnt; ++i) {
@@ -273,12 +268,7 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
         return -1;
     }
 
-    /* The per-event header lands in pinned memory, allocated once.  Into pageable memory a
-     * device-to-host copy is documented as behaving synchronously -- the driver stages
-     * through an internal pinned buffer and waits for the stream -- so with an ordinary
-     * local the enqueue below would block the host while the stream is still waiting on the
-     * doorbell, and no polling code would ever run.  Pinned, the copy is genuinely
-     * asynchronous, which is what lets one bounded sync serve the whole iteration. */
+    /* Allocate pinned host memory for the per-event header */
     if (cuMemAllocHost(reinterpret_cast<void**>(&s.hdr), sizeof(*s.hdr)) != CUDA_SUCCESS) {
         fprintf(stderr, "cuMemAllocHost for the event header failed\n");
         return -1;
@@ -303,6 +293,7 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
             return -1;
         }
     }
+
     if (cuStreamSynchronize(s.stream) != CUDA_SUCCESS) {
         fprintf(stderr, "cuStreamSynchronize after free-list arming failed\n");
         return -1;
@@ -349,11 +340,6 @@ static void cleanupSession(TestSession& s) {
 
     delete s.dataGpu;
     s.dataGpu = nullptr;
-
-    /* CudaContext does not destroy the underlying CUcontext on destruction;
-     * doing so on process exit is harmless. */
-    if (s.cuda.context())
-        cuCtxDestroy(s.cuda.context());
 }
 
 
@@ -431,43 +417,30 @@ static void runSimpleLoop(TestSession& s) {
         assertOk(cuStreamWaitValue32(s.stream,
             s.rxBuffers[curBuff].ptr + 4, 1, CU_STREAM_WAIT_VALUE_GEQ));
 
-        /* Download header data.  s.hdr is pinned, so this only enqueues and does not block
+        /* Download header data. s.hdr is pinned, so this only enqueues and does not block
          * the host behind the wait above. */
         assertOk(cuMemcpyDtoHAsync(s.hdr, s.rxBuffers[curBuff].ptr, sizeof(*s.hdr), s.stream));
 
-        /* One sync for both the wait and the copy: it returns when the event has arrived
-         * and hdr is readable.  A failed sync would leave hdr stale and race the subsequent
-         * doorbell writes.  This is where a run with no transmitter blocks, so it is the
-         * sync that speaks up rather than hanging silently. */
+        /* SYNC the stream (with timeout) so header data becomes available to the host. */
         syncWaitingFor(s, "event from the FPGA");
+        assertOk(cuStreamSynchronize(s.stream));
 
         if (s.loopback) {
-            /* Validate hdr.size before the rx->tx device copy. The destination is
-             * txBuffers[curBuff] + dmaHeaderSize inside a (bufSize + dmaHeaderSize)
-             * allocation, so the safe upper bound is bufSize. A corrupt hdr.size
-             * == 0 would trigger a zero-byte copy and a nonsense remoteReadSize
-             * doorbell; > bufSize would overrun. Drop the loopback for this event;
-             * the rx doorbell clear / free-list refill below still keep the FPGA
-             * rx pipeline alive. */
-            const uint32_t maxPayload = static_cast<uint32_t>(s.bufSize);
-            if (hdr.size == 0 || hdr.size > maxPayload) {
+			/* Validate the hdr.size before trying any device copies from the buffer.
+             * Since we are writing to a buffer of size (bufSize + hdrSize) and the dest is
+             * at hdrOffset, we just need a hdr.size less than bufSize. */
+            if (hdr.size == 0 || hdr.size > s.bufSize) {
                 fprintf(stderr,
                         "Dropping loopback: invalid hdr.size=%u (expected 1..%u)\n",
-                        hdr.size, maxPayload);
+                        hdr.size, s.bufSize);
                 invalidEvents++;
             } else {
-                /* Wait for the FPGA to return the free list back to GPU.  Deliberately
-                 * *not* drained here, unlike the receive wait above: blocking for buffer 0
-                 * to come back would hold up the FPGA's latency monitoring for no benefit,
-                 * and a timeout would be redundant -- if the FPGA is not returning buffers,
-                 * the receive wait has already said so. */
+                /* Wait for the FPGA to return the free list back to GPU. */
                 assertOk(cuStreamWaitValue32(s.stream,
                     s.txBuffers[curBuff].ptr, 1, CU_STREAM_WAIT_VALUE_GEQ));
 
                 /* Copy rxData to the txData buffer for this loopback mode at the
-                 * dmaDataBytes() payload offset. Use the cached s.dmaHeaderSize
-                 * (populated once at init) instead of re-reading the FPGA register
-                 * every event. */
+                 * dmaDataBytes() payload offset. */
                 assertOk(cuMemcpyDtoDAsync(
                     s.txBuffers[curBuff].ptr + s.dmaHeaderSize,
                     s.rxBuffers[curBuff].ptr + s.dmaHeaderSize,
@@ -478,11 +451,7 @@ static void runSimpleLoop(TestSession& s) {
                     s.txBuffers[curBuff].ptr, 0, 0));
 
                 /* SYNC the stream for the data copy and GPU side free list update
-                 * before triggering the FPGA's doorbell.  This does block: the free-list
-                 * wait above is deliberately left in the stream, so it waits for the FPGA
-                 * to return buffer curBuff as well as for the copies.  Unbounded is still
-                 * right -- a stall here means the FPGA has stopped returning buffers, and
-                 * the receive wait above reports that first. */
+                 * before triggering the FPGA's doorbell. */
                 assertOk(cuStreamSynchronize(s.stream));
 
                 /* Trigger the FPGA to read txBuffers from the GPU ("FPGA's doorbell"). */
@@ -492,16 +461,13 @@ static void runSimpleLoop(TestSession& s) {
             }
         }
 
-        // Dump header data when requested
+        /* Dump header data when requested */
         if (s_verbose > 1) {
             printf("hdr{size=%u, firstUser=%u, lastUser=%u, cont=%u, overflow=%u, result=%u}\n",
                 hdr.size, hdr.firstUser(), hdr.lastUser(), hdr.cont(), hdr.overflow(), hdr.result());
         }
 
-        /* Dump first N bytes when requested. Clamp the copy size to the
-         * actual per-buffer cudaMalloc allocation (bufSize + dmaHeaderSize) so
-         * a corrupt hdr.size combined with a large user-supplied -x cannot
-         * trigger an out-of-bounds device-to-host copy. */
+        /* Dump first N bytes when requested. */
         if (dumpBytes != 0U) {
             const size_t maxCount = static_cast<size_t>(s.bufSize) +
                                     static_cast<size_t>(s.dmaHeaderSize);
