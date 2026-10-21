@@ -26,8 +26,8 @@ Build the Driver
    make driver
    make app
 
-Output: ``install/$(uname -r)/datadev.ko`` and userspace tools under
-``install/bin/``.
+Output: ``install/$(uname -r)/datadev.ko`` and the userspace tools under
+``data_dev/app/bin/``.
 
 Load the Driver
 ---------------

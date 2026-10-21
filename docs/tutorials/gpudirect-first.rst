@@ -26,6 +26,7 @@ Before starting, make sure you have:
 - A Linux x86_64 host (Ubuntu 22.04 — these steps use Ubuntu ``apt`` commands)
 - An NVIDIA GPU installed in a PCIe slot adjacent to the FPGA card
 - An FPGA card with PCI IDs 1a4a:2030
+- The CUDA toolkit (installed in Step 2) for building ``rdmaTest``
 - Root or ``sudo`` access
 - The repository cloned locally::
 
@@ -180,10 +181,12 @@ for the GpuAsyncCore IP block in the firmware.
 Step 6 — Run rdmaTest
 -----------------------
 
-With both drivers loaded and GPUDirect support confirmed, run the test:
+With both drivers loaded and GPUDirect support confirmed, build ``rdmaTest``
+(the ``cuda`` target uses ``nvcc`` from ``/usr/local/cuda``) and run it:
 
 .. code-block:: bash
 
+   make -C data_dev/app cuda
    sudo ./data_dev/app/bin/rdmaTest
 
 ``rdmaTest`` uses ``gpuAsyncInit()`` and ``gpuAsyncCleanup()`` from

@@ -66,7 +66,7 @@ userspace test applications.
 Two important outputs are created:
 
 - ``install/$(uname -r)/datadev.ko`` — the kernel module for the running kernel
-- ``install/bin/dmaLoopTest`` — the loopback test application
+- ``data_dev/app/bin/dmaLoopTest``: the loopback test application
 
 
 Step 3 — Load the Driver
@@ -178,7 +178,7 @@ Now send data through the firmware loopback and receive it back.
 
 .. code-block:: bash
 
-   sudo ./install/bin/dmaLoopTest \
+   sudo ./data_dev/app/bin/dmaLoopTest \
      --path /dev/datadev_0 \
      --dest 0 \
      --size 10000 \
