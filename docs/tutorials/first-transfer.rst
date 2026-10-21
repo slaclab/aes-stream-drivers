@@ -195,14 +195,14 @@ What each flag means:
 
 For AXI stream framing details, see :doc:`../explanation/axi-stream-protocol`.
 
-Expected output: ``dmaLoopTest`` prints write and read throughput statistics.
-If it exits with status 0 the loopback is working and data is flowing
-correctly through the FPGA and back.
+Expected output: ``dmaLoopTest`` runs until interrupted, printing a statistics
+table once per second with per-destination TX/RX counts, rates, and a
+``PrbErr`` count. A steadily increasing ``RxCount`` with ``PrbErr`` at 0 means
+data is flowing correctly through the FPGA and back. Press ``Ctrl-C`` to stop.
 
 .. note::
 
-   If ``dmaLoopTest`` hangs after printing write statistics, the firmware does
-   not have loopback enabled. Press ``Ctrl-C``, verify your firmware image
+   If ``RxCount`` stays at 0, the firmware does not have loopback enabled. Press ``Ctrl-C``, verify your firmware image
    supports loopback mode, and retry.
 
 
