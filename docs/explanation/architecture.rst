@@ -53,8 +53,10 @@ The concrete instance for the PCIe/x86 data_dev hardware is ``DataDev_functions`
       .seqShow      = DataDev_SeqShow,
    };
 
-The RCE/ARM rce_stream driver provides a different instance pointing to ``AxisG1_*`` functions.
-Both platforms share the entire common layer unchanged.
+``DataDev_functions`` reuses the ``AxisG2_*`` engine functions and adds data_dev-specific
+``command`` and ``seqShow`` handlers. The RCE/ARM rce_stream driver instead binds directly to
+``AxisG2_functions`` or ``AxisG1_functions``, selected at probe time from the engine version
+register. All platforms share the entire common layer unchanged.
 
 Component Relationships
 ------------------------
@@ -75,9 +77,9 @@ above and below it.
           v
    hardware_functions vtable
           |
-      +---+------------------+
-   AxisG2_functions    AxisG1_functions
-   (data_dev/PCIe)     (rce_stream/ARM)
+      +---+---------------------+
+   DataDev_functions     AxisG2_functions or AxisG1_functions
+   (data_dev/PCIe)       (rce_stream/ARM)
 
 Each layer's role:
 
