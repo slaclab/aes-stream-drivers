@@ -186,9 +186,10 @@ With both drivers loaded and GPUDirect support confirmed, run the test:
 
    sudo ./data_dev/app/bin/rdmaTest
 
-``rdmaTest`` uses ``gpuAsyncInit()`` and ``gpuAsyncCleanup()`` from
-``GpuAsyncUser.h`` to handle the full GPU/FPGA bring-up and tear-down
-sequence. See :doc:`../reference/gpu-async-api` for the complete API
+``rdmaTest`` uses the ``GpuAsyncLib.h`` helpers (``DataGPU``,
+``CudaContext``, ``gpuMapHostFpgaMem``) and the ``GpuAsyncCoreRegs``
+register wrapper from ``GpuAsyncUser.h`` to handle GPU/FPGA bring-up and
+tear-down. See :doc:`../reference/gpu-async-api` for the complete API
 reference.
 
 Expected output: ``rdmaTest`` prints GPU-to-FPGA transfer statistics and

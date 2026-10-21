@@ -21,9 +21,8 @@ The interface is split across three headers in ``include/``:
    in the header and defined in ``data_dev/app/src/GpuAsyncLib.cpp`` —
    link that translation unit into your application.
 
-   The caller must call ``cuInit(0)`` before constructing any
-   ``CudaContext``. The ``CudaContext`` constructor calls ``cuInit(0)``
-   itself, so direct application use is straightforward.
+   The ``CudaContext`` constructor calls ``cuInit(0)`` itself and throws
+   on failure, so applications do not need a separate ``cuInit`` call.
 
 Ioctl Wrappers (GpuAsync.h)
 ---------------------------
