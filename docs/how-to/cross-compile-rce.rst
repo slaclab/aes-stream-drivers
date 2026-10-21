@@ -26,8 +26,8 @@ make target:
 
    make rce
 
-This builds rce_stream, rce_memmap, and rce_hp drivers against the kernel at
-``/sdf/group/faders/tools/xilinx/rce_linux_kernel/``.
+This builds the rce_stream and rce_memmap drivers against each kernel listed in
+``RCE_DIRS`` (under ``/sdf/group/faders/tools/xilinx/rce_linux_kernel/``).
 
 Build Outside SLAC
 ------------------
