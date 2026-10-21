@@ -20,8 +20,9 @@ Three constants in ``dma_buffer.h`` define the available modes:
 
 **BUFF_COHERENT (cfgMode=1):** Uses ``dma_alloc_coherent``. The kernel ensures CPU caches are
 kept coherent with device memory at all times. This is the safest and most portable mode, and is
-the default for data_dev. The trade-off is that coherent memory is typically non-cacheable on
-x86, which adds a small latency penalty for CPU reads.
+the default for data_dev. On x86 PCIe systems DMA is cache-coherent in hardware, so coherent
+buffers are ordinary cacheable memory and carry little penalty. On non-coherent platforms the
+kernel may map them uncached, which slows CPU access to the buffer contents.
 
 **BUFF_STREAM (cfgMode=2):** Uses ``dma_map_single``. Memory is cacheable; the driver must
 explicitly call cache flush/invalidate operations before and after each DMA transfer
