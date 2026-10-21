@@ -19,8 +19,8 @@ per detected PCIe card.
      - Diagnostic state dump. Read with ``cat /proc/datadev_0``.
 
 
-/dev/ — Character Devices
---------------------------
+Character Devices (/dev)
+------------------------
 
 The driver registers a character device for each hardware card using a
 dynamically allocated major:minor number. The device name is controlled by
@@ -43,7 +43,7 @@ the ``cfgDevName`` module parameter.
 Use PCI bus-number naming when probe order is non-deterministic (e.g., in
 systems where PCIe slot enumeration order varies across reboots).
 
-**Permissions:** ``0666`` — all users can open the device without ``sudo``
+**Permissions:** ``0666``, so all users can open the device without ``sudo``
 after the driver loads. This is set unconditionally in ``Dma_DevNode()``.
 
 **Maximum devices:** up to 32 cards per system (``MAX_DMA_DEVICES = 32``).
@@ -56,8 +56,8 @@ after the driver loads. This is set unconditionally in ``Dma_DevNode()``.
    if (fd < 0) { perror("open"); return 1; }
 
 
-/proc/ — Diagnostic Interface
-------------------------------
+Diagnostic Interface (/proc)
+----------------------------
 
 Each device also creates a ``/proc/`` entry with the same name as the
 ``/dev/`` node:
@@ -68,13 +68,10 @@ Each device also creates a ``/proc/`` entry with the same name as the
 
 The ``/proc`` interface is read-only. It prints driver state including
 DMA buffer pool statistics, AXIS stream status, firmware version (from
-``AxiVersion``), and GPU state if GPU support is compiled in.
-
-.. code-block:: console
-
-   $ cat /proc/datadev_0
-   (driver state output — useful for verifying the driver loaded correctly
-    and for diagnosing buffer exhaustion or DMA errors)
+``AxiVersion``), and GPU state if GPU support is compiled in. Read it with
+``cat /proc/datadev_0`` to verify that the driver loaded correctly and to
+diagnose buffer exhaustion or DMA errors. See
+:doc:`../tutorials/first-transfer` for an annotated example of the output.
 
 The ``/proc`` entry is removed when the driver is unloaded or the card
 is removed.
@@ -92,5 +89,5 @@ device node:
    int fd0 = open("/dev/datadev_0", O_RDWR);  /* first card  */
    int fd1 = open("/dev/datadev_1", O_RDWR);  /* second card */
 
-DMA buffer pools and channel masks are per-device — operations on ``fd0``
+DMA buffer pools and channel masks are per-device, so operations on ``fd0``
 do not affect ``fd1``.

@@ -1,5 +1,5 @@
-Module Parameters — datadev
-============================
+Module Parameters: datadev
+==========================
 
 The ``datadev`` kernel module accepts parameters at load time via ``insmod``
 or persistently via ``/etc/modprobe.d/``.
@@ -8,7 +8,7 @@ or persistently via ``/etc/modprobe.d/``.
 
 .. code-block:: console
 
-   $ sudo insmod data_dev.ko cfgTxCount=2048 cfgRxCount=2048 cfgSize=262144
+   $ sudo insmod datadev.ko cfgTxCount=2048 cfgRxCount=2048 cfgSize=262144
 
 **Persistent configuration** (survives reboots when using ``modprobe``):
 
@@ -19,7 +19,7 @@ or persistently via ``/etc/modprobe.d/``.
 
 .. note::
 
-   All parameters have permission ``0`` — they are not readable from
+   All parameters have permission ``0``, so they are not readable from
    ``/sys/module/datadev/parameters/`` after the module is loaded.
    Use ``/proc/datadev_N`` to inspect the running configuration.
 
@@ -47,8 +47,10 @@ or persistently via ``/etc/modprobe.d/``.
      - ``1`` (``BUFF_COHERENT``)
      - DMA buffer allocation mode. Valid values:
        ``1`` = ``BUFF_COHERENT`` (``dma_alloc_coherent``, CPU-coherent, default);
-       ``2`` = ``BUFF_STREAM`` (``kmalloc`` + ``dma_map_single``, streaming);
-       ``4`` = ``BUFF_ARM_ACP`` (ARM ACP path, RCE variants only).
+       ``2`` = ``BUFF_STREAM`` (streaming: ``dma_alloc_noncoherent`` on 5.15+,
+       ``kmalloc`` + ``dma_map_single`` on older kernels);
+       ``4`` = ``BUFF_ARM_ACP`` (ARM ACP path, RCE variants only; rejected by
+       ``datadev``).
    * - ``cfgCont``
      - ``1``
      - RX continue enable, written to the DMA write engine's ``contEnable``
@@ -104,4 +106,4 @@ or persistently via ``/etc/modprobe.d/``.
    * - ``cfgDebug``
      - ``0``
      - Enables very verbose kernel log output. ``1`` = verbose (use only for
-       debugging — generates large log volume under load).
+       debugging, since it generates a large log volume under load).
