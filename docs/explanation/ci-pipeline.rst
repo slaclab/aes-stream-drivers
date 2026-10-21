@@ -11,8 +11,9 @@ using KVM virtual machines.
 Pipeline Phases
 ---------------
 
-The CI pipeline (``ci_pipeline.yml``) executes five sequential phases, each
-gating the next:
+The CI pipeline (``ci_pipeline.yml``) executes the following phases. Each
+phase gates the next, except that Phases 3 and 3b run in parallel once
+Phase 2 passes:
 
 .. list-table::
    :header-rows: 1
@@ -23,8 +24,8 @@ gating the next:
      - Description
    * - 1
      - Documentation & Linting
-     - Sphinx + Doxygen doc build, trailing-whitespace check, cpplint
-       C/C++ lint, gpu_async.c change guard
+     - Sphinx + Doxygen doc build, trailing-whitespace and tab check,
+       cpplint C/C++ lint
    * - 2
      - CPU Testing
      - Build and test the CPU-only driver across 5 distros in parallel
@@ -32,6 +33,10 @@ gating the next:
      - GPU Testing
      - Build and test the GPU driver (with emulator + p2p stub) across
        5 distros in parallel
+   * - 3b
+     - pgpcard Testing
+     - Build the legacy pgpcard driver and load/unload it across 5
+       distros (no traffic tests, since CI has no PGP card)
    * - 4
      - Release Generation
      - Creates GitHub Release artifacts (tags only)
@@ -39,6 +44,10 @@ gating the next:
      - DKMS Package Generation
      - Builds ``datadev-dkms-*.tar.gz`` and ``datadev-gpu-dkms-*.tar.gz``
        DKMS tarballs (tags only)
+   * - 6
+     - Distribution Packages
+     - Builds installable DKMS ``.deb`` (Ubuntu 22.04/24.04) and ``.rpm``
+       (Rocky Linux 9) packages for both variants (tags only)
 
 
 Distribution Matrix
@@ -300,8 +309,8 @@ DKMS Packaging
 
 The pipeline produces two DKMS tarballs for distribution:
 
-- ``datadev-cpu-<version>.tar.gz`` --- CPU-only driver (no NVIDIA dependency)
-- ``datadev-gpu-<version>.tar.gz`` --- GPU driver (requires NVIDIA kernel modules)
+- ``datadev-dkms-<version>.tar.gz``: CPU-only driver (no NVIDIA dependency)
+- ``datadev-gpu-dkms-<version>.tar.gz``: GPU driver (requires NVIDIA kernel modules)
 
 Both are tested via ``dkms ldtarball`` / ``dkms install`` / ``dkms remove``
 in CI. On tagged releases, the tarballs are uploaded to the GitHub Release page.
@@ -422,4 +431,5 @@ The combined Phase 2 + Phase 3 coverage across all distributions:
      - 3
      - Trailing whitespace, tab detection, cpplint
 
-**Total: ~95 individual test checks across 5 distributions x 2 phases = 10 CI cells.**
+**Total: ~95 individual test checks across 5 distributions x 2 test phases = 10 CI cells,
+plus 5 pgpcard build/load cells in Phase 3b.**
