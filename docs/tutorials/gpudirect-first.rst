@@ -136,7 +136,7 @@ What the script does:
 - Unloads any existing ``nvidia`` and ``datadev`` modules
 - Rebuilds the NVIDIA drivers using the same compiler the kernel was built with
 - Loads ``nvidia.ko`` with ``NVreg_OpenRmEnableUnsupportedGpus=1 NVreg_EnableStreamMemOPs=1``
-- Builds and insmod-s ``datadev.ko``
+- Builds ``datadev.ko`` and loads it with ``cfgMode=2`` (``BUFF_STREAM``)
 
 When ``comp_and_load_drivers.sh`` completes successfully, verify both modules
 are loaded:

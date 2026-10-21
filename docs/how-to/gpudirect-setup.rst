@@ -88,7 +88,8 @@ What the script does:
 - Unloads existing nvidia and datadev modules
 - Rebuilds and loads NVIDIA drivers with ``NVreg_OpenRmEnableUnsupportedGpus=1``
   and ``NVreg_EnableStreamMemOPs=1``
-- Builds and loads ``datadev.ko``
+- Builds ``datadev.ko`` against those sources and loads it with ``cfgMode=2``
+  (``BUFF_STREAM``)
 
 Verify
 ------
