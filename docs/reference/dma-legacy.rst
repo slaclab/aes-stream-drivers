@@ -24,7 +24,7 @@ This document describes the ``aes-stream-drivers`` user space API for DMA.
 - dmaUnMapDma - Free all DMA buffers.
 - dmaSetDebug - Enable printing information about API calls to the kernel ring buffer, viewable with dmesg.
 - dmaAssignHandler - Assign a function to handle interrupts; called in a signal handler context (SIGIO).
-- dmaSetMask - Reserve channel 0 for the application (convenience function).
+- dmaSetMask - Claim channels 0 through 31 for the descriptor, using a 32-bit bitmask (bit *N* = channel *N*).
 - dmaInitMaskBytes - Initialize channel reservation request such that none would be requsted.
 - dmaAddMaskBytes - Set the channel reservation request such that a channel would be requested, as defined by the application.
 - dmaSetMaskBytes - Reserve multiple channels for the application, as defined by the mask bytes.

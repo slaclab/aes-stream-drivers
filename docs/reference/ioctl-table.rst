@@ -41,7 +41,7 @@ DmaDriver.h Commands
      - :c:func:`dmaSetDebug`
    * - ``DMA_Set_Mask``
      - ``0x1004``
-     - ``uint32_t`` mask
+     - ``uint32_t`` bitmask (bit *N* = channel *N*, channels 0-31)
      - write
      - :c:func:`dmaSetMask`
    * - ``DMA_Ret_Index``

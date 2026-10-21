@@ -15,9 +15,16 @@ Overview
 - The driver supports up to ``DMA_MAX_DEST`` (4096) channels
 - Each ``open()`` call creates an independent client with its own channel mask
 - A client only receives frames whose TDEST matches its mask
+- Each channel can be claimed by only one open descriptor at a time; the mask
+  call returns ``-1`` if any requested channel is already claimed
+- Once a descriptor holds a non-empty mask, further mask calls on it fail;
+  to change the mask, close and reopen the device
 
-Subscribe to a Single Channel
-------------------------------
+Subscribe to Channels 0-31
+--------------------------
+
+``dmaSetMask`` takes a 32-bit bitmask in which bit *N* selects channel *N*,
+so it can only address channels 0 through 31:
 
 .. code-block:: c
 
@@ -25,12 +32,12 @@ Subscribe to a Single Channel
    #include <fcntl.h>
 
    int fd = open("/dev/datadev_0", O_RDWR);
-   dmaSetMask(fd, 0);   /* subscribe to channel 0 */
+   dmaSetMask(fd, 0x1);   /* bit 0: subscribe to channel 0 */
 
-Subscribe to Multiple Channels
--------------------------------
+Subscribe to Any Set of Channels
+--------------------------------
 
-Use the byte-mask API to subscribe to more than one channel:
+Use the byte-mask API to subscribe to any combination of the 4096 channels:
 
 .. code-block:: c
 
