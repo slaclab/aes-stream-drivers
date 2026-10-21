@@ -135,7 +135,7 @@ Step 1 — Copy Sources to the DKMS Tree
 
    VERSION=7.2.2   # Replace with your version
    sudo mkdir -p /usr/src/datadev-dkms-${VERSION}
-   sudo cp -r data_dev/driver/src/* /usr/src/datadev-dkms-${VERSION}/
+   sudo cp -rL data_dev/driver/src /usr/src/datadev-dkms-${VERSION}/
    sudo cp data_dev/driver/Makefile /usr/src/datadev-dkms-${VERSION}/
    sudo cp data_dev/driver/dkms.conf /usr/src/datadev-dkms-${VERSION}/
    sudo cp data_dev/driver/datadev.conf /usr/src/datadev-dkms-${VERSION}/
@@ -157,8 +157,8 @@ After editing, the key fields in ``dkms.conf`` should read:
 
 .. code-block:: text
 
-   MAKE="make"
-   CLEAN="make clean"
+   MAKE="make KVER=$kernelver"
+   CLEAN="make clean KVER=$kernelver"
    BUILT_MODULE_NAME=datadev
    BUILT_MODULE_LOCATION=.
    DEST_MODULE_LOCATION="/kernel/modules/misc"
@@ -212,7 +212,7 @@ Expected output should show version, description, and parameters:
 
    filename:       /lib/modules/5.15.0-91-generic/updates/dkms/datadev.ko
    license:        GPL
-   description:    AXI Stream Driver
+   description:    Driver for FPGAs running the SLAC DMA engine
    srcversion:     ABC123DEF456
    depends:
    ...
