@@ -25,18 +25,18 @@ sequence.
 
 .. code-block:: text
 
-   Usage: dmaLoopTest -p <device> [-m <dest>] [-s <size>] [-d] [-i]
+   Usage: dmaLoopTest [-p <device>] [-m <dest,...>] [-s <size>] [-d] [-i]
                       [-f <fuser>] [-l <luser>] [-t <pause_us>] [-r <txDis>]
 
-   -p   Device path (e.g. /dev/datadev_0)
-   -m   Destination channel (default: 0)
+   -p   Device path (default: /dev/datadev_0)
+   -m   Comma-separated list of destination channels (default: 0)
    -s   Frame size in bytes (default: 10000)
    -d   Disable PRBS checking
    -i   Enable index-based zero-copy mode
-   -f   First-user flag (hex, written to fuser field)
-   -l   Last-user flag (hex, written to luser field)
-   -t   TX inter-frame pause in microseconds
-   -r   Disable TX (receive-only mode)
+   -f   First-user flag (hex, written to fuser field; default: 0x2)
+   -l   Last-user flag (hex, written to luser field; default: 0x0)
+   -t   TX inter-frame pause in microseconds (default: 0)
+   -r   Nonzero disables TX (receive-only mode)
 
 Reports per-second statistics: TxCount, RxCount, TxRate, RxRate, PrbErr.
 Used by CI in two modes: 30-second sustained throughput (Test 1) and
@@ -50,10 +50,10 @@ configurable iteration count.
 
 .. code-block:: text
 
-   Usage: dmaRate -p <device> [-c <count>]
+   Usage: dmaRate [-p <device>] [-c <count>]
 
-   -p   Device path
-   -c   Number of iterations (default: 1000)
+   -p   Device path (default: /dev/datadev_0)
+   -c   Number of iterations (default: 10000000)
 
 
 Ioctl and File Operations
@@ -94,28 +94,25 @@ Tests each ioctl in the following order:
      - ``DMA_Set_Mask``
      - Returns 0
    * - 5
-     - ``DMA_Get_Index``
-     - Returns >= 0
+     - ``DMA_Get_Index`` + ``DMA_Ret_Index``
+     - Obtains an index (>= 0), then returns it (0)
    * - 6
-     - ``DMA_Ret_Index``
-     - Returns 0 for previously obtained index
-   * - 7
      - ``DMA_Read_Ready``
-     - Returns >= 0
-   * - 8
+     - Returns 0 or 1
+   * - 7
      - ``DMA_Set_MaskBytes``
      - Returns 0
-   * - 9
+   * - 8
      - ``DMA_Get_Version``
      - Returns 0x6 (API version)
-   * - 10
+   * - 9
      - ``DMA_Write_Register``
      - Returns 0
-   * - 11
+   * - 10
      - ``DMA_Read_Register``
      - Returns >= 0
-   * - 12-22
-     - Buffer counters (TX/RX in User/HW/PreHWQ/SWQ/Miss)
+   * - 11-22
+     - Buffer counters (RX/TX totals, then TX/RX in User/HW/PreHWQ/SWQ/Miss)
      - Each returns >= 0
    * - 23
      - ``DMA_Get_GITV``
@@ -180,12 +177,12 @@ alignment and boundary issues.
 
 .. code-block:: text
 
-   Usage: dmaSmallFrameTest -p <device> [-c <count>] [-n <min>] [-x <max>]
+   Usage: dmaSmallFrameTest [-p <device>] [-c <count>] [-n <min>] [-x <max>]
 
-   -p   Device path
+   -p   Device path (default: /dev/datadev_0)
    -c   Frames per size step (default: 100)
-   -n   Minimum frame size (default: 4)
-   -x   Maximum frame size (default: 256)
+   -n   Minimum frame size in bytes (default: 1)
+   -x   Maximum frame size in bytes (default: 4)
 
 
 GPU-Specific Testing
@@ -223,18 +220,21 @@ emulator's GPU async V4 engine.
                       [-c <count>] [-v] [--sweep]
 
    -d   Device path (default: /dev/datadev_0)
-   -b   Number of GPU buffers (default: 1)
-   -s   Transfer size in bytes (default: 4096)
-   -c   Number of transfers (default: 10)
+   -b   Number of GPU buffers (default: gpuGetMaxBuffers(fd))
+   -s   Frame size in bytes (default: 65536)
+   -c   Number of frames (default: 100)
    -v   Verbose output (repeat for more)
-   --sweep  Run payload-size matrix (powers of 2 up to 1 MB)
+   --sweep  Run -c frames at each payload size in {65536, 131072, 524288,
+            1048576}; the first failure aborts
 
 dmaGpuToggleTest
 ^^^^^^^^^^^^^^^^
 
-Tests GPU enable/disable toggling via ioctl. Exercises the driver's
-``GPU_Add_Nvidia_Memory`` / ``GPU_Rem_Nvidia_Memory`` cycle to verify
-clean state transitions.
+Mid-stream state-transition test for the emulator's GPU async data path.
+Three subtests: disable TX/RX mid-run and verify the frame counters settle
+at zero, re-enable and verify PRBS-clean frames, then reduce the active
+buffer count from 4 to 2 while traffic flows and verify no dmesg warnings
+or PRBS mismatches.
 
 .. code-block:: text
 
