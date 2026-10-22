@@ -472,6 +472,18 @@ if [ "$CI_HOST_MATCH" -eq 1 ]; then
    fi
 fi
 
+# On RHEL-family distros the /lib/modules/<KVER>/build symlink is owned by
+# kernel-core, not kernel-devel. A mirror caught mid-sync can serve the two
+# at different versions, leaving the build link missing (or dangling) for
+# the kernel-devel version detect_installed_kver() picked from
+# /usr/src/kernels. Every module Makefile builds via that link, so point it
+# at the installed headers.
+if [ ! -e "/lib/modules/${CI_KVER}/build" ] && [ -d "/usr/src/kernels/${CI_KVER}" ]; then
+   mkdir -p "/lib/modules/${CI_KVER}"
+   ln -sfn "/usr/src/kernels/${CI_KVER}" "/lib/modules/${CI_KVER}/build"
+   echo_warn "Created missing /lib/modules/${CI_KVER}/build -> /usr/src/kernels/${CI_KVER}"
+fi
+
 # Export the kernel version we will build against, and whether it matches
 # the running host kernel (needed for deciding whether insmod can succeed).
 export_ci_var CI_KVER "$CI_KVER"
