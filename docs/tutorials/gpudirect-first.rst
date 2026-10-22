@@ -1,11 +1,11 @@
 Your First GPUDirect Transfer
-==============================
+=============================
 
 By the end of this tutorial you will have installed the NVIDIA Open Kernel
 Modules, configured GRUB, used ``comp_and_load_drivers.sh`` to build and
-load all required drivers, and run ``rdmaTest`` to confirm GPU-to-FPGA DMA
+load all required drivers, and run ``rdmaTest`` to confirm that GPU-to-FPGA DMA
 works. This requires an NVIDIA GPU and a PCIe FPGA card (PCI IDs 1a4a:2030)
-installed in the same PCIe bus on a Linux x86_64 host.
+installed on the same PCIe bus of a Linux x86_64 host.
 
 .. warning::
 
@@ -14,8 +14,8 @@ installed in the same PCIe bus on a Linux x86_64 host.
    kernel driver. Using the wrong driver type will cause
    ``comp_and_load_drivers.sh`` to fail with
    ``Could not find NVIDIA open drivers in /usr/src``. See
-   :doc:`../how-to/gpudirect-setup` for the competent-user reference version
-   of these steps.
+   :doc:`../how-to/gpudirect-setup` for a condensed reference version of
+   these steps.
 
 
 Prerequisites
@@ -23,7 +23,7 @@ Prerequisites
 
 Before starting, make sure you have:
 
-- A Linux x86_64 host (Ubuntu 22.04 — these steps use Ubuntu ``apt`` commands)
+- A Linux x86_64 host running Ubuntu 22.04 (these steps use Ubuntu ``apt`` commands)
 - An NVIDIA GPU installed in a PCIe slot adjacent to the FPGA card
 - An FPGA card with PCI IDs 1a4a:2030
 - The CUDA toolkit (installed in Step 2) for building ``rdmaTest``
@@ -33,8 +33,8 @@ Before starting, make sure you have:
       git clone https://github.com/slaclab/aes-stream-drivers.git
 
 
-Step 1 — Disable the Display Manager
----------------------------------------
+Step 1: Disable the Display Manager
+-----------------------------------
 
 GPUDirect requires NVIDIA kernel modules to have exclusive access to the GPU.
 Display managers load the NVIDIA driver at startup and prevent it from being
@@ -49,15 +49,15 @@ unloaded and rebuilt. Disable them now.
 
 .. note::
 
-   Only disable the services that are installed on your system. It is safe
-   to run all four commands — they will fail gracefully for services that
-   do not exist.
+   It is safe to run all four commands even if some of these services are
+   not installed; ``systemctl`` simply reports an error for those and
+   continues.
 
 Reboot after disabling the display manager before proceeding.
 
 
-Step 2 — Install NVIDIA Open Kernel Modules
----------------------------------------------
+Step 2: Install NVIDIA Open Kernel Modules
+------------------------------------------
 
 .. warning::
 
@@ -91,8 +91,8 @@ Then reboot:
    intend to run.
 
 
-Step 3 — Configure GRUB
---------------------------
+Step 3: Configure GRUB
+----------------------
 
 Disable IOMMU and the ``nouveau`` open-source NVIDIA driver, which conflicts
 with the NVIDIA proprietary modules.
@@ -117,8 +117,8 @@ Save the file, then update GRUB and reboot:
    sudo reboot
 
 
-Step 4 — Build and Load All Drivers
---------------------------------------
+Step 4: Build and Load All Drivers
+----------------------------------
 
 The ``comp_and_load_drivers.sh`` script handles the full build and load
 sequence in one step. It locates the NVIDIA open driver sources, rebuilds
@@ -133,11 +133,11 @@ From the root of the cloned repository:
 
 What the script does:
 
-- Searches ``/usr/src`` for ``nv-p2p.h`` to locate the NVIDIA open driver sources
+- Searches ``/usr`` for ``nv-p2p.h`` to locate the NVIDIA open driver sources
 - Unloads any existing ``nvidia`` and ``datadev`` modules
 - Rebuilds the NVIDIA drivers using the same compiler the kernel was built with
 - Loads ``nvidia.ko`` with ``NVreg_OpenRmEnableUnsupportedGpus=1 NVreg_EnableStreamMemOPs=1``
-- Builds and insmod-s ``datadev.ko``
+- Builds ``datadev.ko`` and loads it with ``cfgMode=2`` (``BUFF_STREAM``)
 
 When ``comp_and_load_drivers.sh`` completes successfully, verify both modules
 are loaded:
@@ -150,8 +150,8 @@ are loaded:
 Both should appear in the output.
 
 
-Step 5 — Verify GPUDirect Support
-------------------------------------
+Step 5: Verify GPUDirect Support
+--------------------------------
 
 Before running the transfer test, confirm that the loaded firmware supports
 GPUDirect. The ``gpuIsGpuAsyncSupported`` function in ``GpuAsync.h`` checks
@@ -167,7 +167,7 @@ for the GpuAsyncCore IP block in the firmware.
    if (gpuIsGpuAsyncSupported(fd)) {
        printf("GPUDirect supported\n");
    } else {
-       printf("Firmware does not have GpuAsyncCore — GPUDirect not available\n");
+       printf("Firmware does not have GpuAsyncCore; GPUDirect not available\n");
    }
 
 .. note::
@@ -178,8 +178,8 @@ for the GpuAsyncCore IP block in the firmware.
    your hardware team.
 
 
-Step 6 — Run rdmaTest
------------------------
+Step 6: Run rdmaTest
+--------------------
 
 With both drivers loaded and GPUDirect support confirmed, build ``rdmaTest``
 (the ``cuda`` target uses ``nvcc`` from ``/usr/local/cuda``) and run it:
@@ -189,9 +189,10 @@ With both drivers loaded and GPUDirect support confirmed, build ``rdmaTest``
    make -C data_dev/app cuda
    sudo ./data_dev/app/bin/rdmaTest
 
-``rdmaTest`` uses ``gpuAsyncInit()`` and ``gpuAsyncCleanup()`` from
-``GpuAsyncUser.h`` to handle the full GPU/FPGA bring-up and tear-down
-sequence. See :doc:`../reference/gpu-async-api` for the complete API
+``rdmaTest`` uses the ``GpuAsyncLib.h`` helpers (``DataGPU``,
+``CudaContext``, ``gpuMapHostFpgaMem``) and the ``GpuAsyncCoreRegs``
+register wrapper from ``GpuAsyncUser.h`` to handle GPU/FPGA bring-up and
+tear-down. See :doc:`../reference/gpu-async-api` for the complete API
 reference.
 
 Expected output: ``rdmaTest`` prints GPU-to-FPGA transfer statistics and

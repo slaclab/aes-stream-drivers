@@ -1,12 +1,12 @@
 Cross-Compile for RCE (ARM/Zynq)
-=================================
+================================
 
 This guide covers building the rce_stream and rce_memmap drivers for ARM/Zynq
 targets using the Xilinx toolchain.
 
 .. note::
 
-   This guide applies to the **RCE** (ARM/Zynq) drivers. For PCIe/x86 native
+   This guide applies to the **RCE** (ARM/Zynq) drivers. For the native PCIe/x86
    build, see :doc:`build-and-load`.
 
 Prerequisites
@@ -26,8 +26,8 @@ make target:
 
    make rce
 
-This builds rce_stream, rce_memmap, and rce_hp drivers against the kernel at
-``/sdf/group/faders/tools/xilinx/rce_linux_kernel/``.
+This builds the rce_stream and rce_memmap drivers against each kernel listed in
+``RCE_DIRS`` (under ``/sdf/group/faders/tools/xilinx/rce_linux_kernel/``).
 
 Build Outside SLAC
 ------------------
@@ -56,7 +56,7 @@ SLAC paths shown in the Makefile are site-specific.
 Output Location
 ---------------
 
-After a successful build, the compiled modules are placed in:
+After a successful ``make rce``, the compiled modules are placed in:
 
 .. code-block:: text
 
@@ -64,4 +64,5 @@ After a successful build, the compiled modules are placed in:
    install/<kernel_version>.arm/rce_memmap.ko
 
 The ``<kernel_version>`` string is determined from the Xilinx kernel source
-directory.
+directory. When invoking ``make -C <driver_dir>`` directly, the ``.ko`` file
+stays in that driver directory.
