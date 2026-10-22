@@ -77,12 +77,12 @@ Receive and Return Buffers
    uint32_t index, flags, error, dest;
    ssize_t ret = dmaReadIndex(fd, &index, &flags, &error, &dest);
    if (ret > 0) {
-       /* process data at dmaBuffers[index] */
+       /* process data at dmaBuffers[index] (from dmaMapDma) */
        dmaRetIndex(fd, index);   /* MUST call this to return the buffer */
    }
 
 Multiple Clients on One Device
--------------------------------
+------------------------------
 
 Open the same device file multiple times to create independent clients:
 

@@ -1,5 +1,5 @@
 Ioctl Command Code Reference
-=============================
+============================
 
 All ioctl command codes understood by the ``datadev`` driver and associated
 headers. Pass these codes as the second argument to ``ioctl(fd, cmd, arg)``.
