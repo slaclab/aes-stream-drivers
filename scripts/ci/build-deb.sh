@@ -3,9 +3,13 @@
 # Required env vars: DRIVER_TYPE, TARGET_ENV
 set -euo pipefail
 
+# dnf_retry / apt_retry: refresh metadata and retry on mirror failures
+# shellcheck source=scripts/ci/pkg-retry.sh
+source "$(dirname "${BASH_SOURCE[0]}")/pkg-retry.sh"
+
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -qq
-apt-get install -y -qq make git tar dpkg-dev dkms >/dev/null
+apt_retry update -qq
+apt_retry install -y -qq make git tar dpkg-dev dkms >/dev/null
 
 make -C data_dev/driver dkms
 cd data_dev/driver

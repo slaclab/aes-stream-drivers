@@ -8,12 +8,12 @@ all hardware-specific behavior to a small vtable. This lets the same userspace A
 PCIe, AXI, and future bus types without duplication.
 
 The Hardware Abstraction Vtable
---------------------------------
+-------------------------------
 
 The central abstraction in the driver is ``struct hardware_functions``, a C function pointer
 table (vtable) defined in ``dma_common.h``. The common layer calls into this vtable for all
-hardware-specific operations — interrupt handling, DMA engine initialization, buffer submission,
-and register access — without knowing which hardware implementation it is calling.
+hardware-specific operations (interrupt handling, DMA engine initialization, buffer submission,
+and register access) without knowing which hardware implementation it is calling.
 
 .. code-block:: c
 
@@ -59,7 +59,7 @@ The concrete instance for the PCIe/x86 data_dev hardware is ``DataDev_functions`
 register. All platforms share the entire common layer unchanged.
 
 Component Relationships
-------------------------
+-----------------------
 
 The driver is organized as a layered stack. Each layer has a well-defined interface to the layer
 above and below it.
@@ -91,7 +91,7 @@ Each layer's role:
   behavior; the common layer calls only through this interface
 
 PCIe BAR0 Memory Map
----------------------
+--------------------
 
 For the data_dev PCIe driver, BAR0 maps the following regions:
 
@@ -106,18 +106,18 @@ For the data_dev PCIe driver, BAR0 maps the following regions:
 
 The DMAv2 engine at offset 0 is the AxisG2 IP core. The AxiVersion block at ``AVER_OFF``
 (0x20000) provides firmware version and build information readable via ``/proc/datadev_N``.
-The user space region at ``USER_OFF`` (0x800000) is application firmware — its layout is
+The user space region at ``USER_OFF`` (0x800000) is application firmware; its layout is
 design-specific and not interpreted by the driver.
 
 PCI Device Identification
---------------------------
+-------------------------
 
 The driver binds to devices with PCI vendor ID ``0x1a4a`` (SLAC) and device ID ``0x2030``.
 Use ``lspci -d 1a4a:2030`` to confirm the card is recognized by the kernel before loading the
 module.
 
 Further Reading
-----------------
+---------------
 
 - DMA buffer allocation and zero-copy: :doc:`dma-modes`
 - AXI stream channel routing: :doc:`axi-stream-protocol`
