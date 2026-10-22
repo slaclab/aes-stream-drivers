@@ -136,6 +136,9 @@ struct emu_dma_engine {
    uint32_t rx_count;
    uint32_t irq_count;
    uint32_t free_captured;
+   uint32_t starved_count;    /* TX returned without RX: free pool empty */
+   uint32_t seed_count;       /* zero-size seed completions written */
+   unsigned long stats_next;  /* jiffies of next emu_stats_interval_ms line */
 };
 
 int emu_dma_init(struct emu_dma_engine *eng, struct emu_bar0 *bar,

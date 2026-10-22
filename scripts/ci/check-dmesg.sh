@@ -159,4 +159,13 @@ fi
 echo "=== Emulator DMA Statistics (delta) ==="
 printf '%s\n' "$DELTA" | grep "emu:" | tail -20 || echo "No emulator stats found"
 
+# The emulator returns a TX frame without an RX loopback when its free pool
+# is empty. The tests only see that as PRBS "Bad Sequence" gaps, so name the
+# cause here: these frames were dropped by the emulator, not by datadev.
+STARVED="$(printf '%s\n' "$DELTA" | grep -E 'emu: driver unload summary:.* starved=[1-9]' || true)"
+if [ -n "$STARVED" ]; then
+   echo_warn "Emulator RX free-pool starvation (frames dropped by the emulator, not datadev):"
+   printf '%s\n' "$STARVED"
+fi
+
 echo_step "dmesg gate passed"

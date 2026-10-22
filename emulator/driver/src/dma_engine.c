@@ -44,6 +44,9 @@
 #include "dma_engine.h"
 #include "bar0_regs.h"
 
+/* Defined in emu_main.c (module param, 0644). */
+extern uint emu_stats_interval_ms;
+
 /* ----------------------------------------------------------------
  * Register access helpers
  *
@@ -303,6 +306,7 @@ static int emu_process_tx(struct emu_dma_engine *eng)
       emu_reg_write(eng, EMU_REG_HWRDINDEX, eng->rd_ring_idx);
 
       eng->tx_count++;
+      eng->starved_count++;
       return 1;
    }
 
@@ -439,6 +443,10 @@ static int emu_poll_thread_fn(void *data)
       {
          uint8_t cur_online = emu_reg_read(eng, EMU_REG_ONLINE) & 0x1;
          if (!cur_online && eng->prev_online) {
+            pr_info("emu: driver unload summary: captured=%u seeded=%u starved=%u pool=%u (cumulative tx=%u rx=%u)\n",
+                    eng->free_captured, eng->seed_count, eng->starved_count,
+                    eng->free_count, eng->tx_count, eng->rx_count);
+
             emu_reg_write(eng, EMU_REG_RDBASELOW, 0);
             emu_reg_write(eng, EMU_REG_RDBASEHIGH, 0);
             emu_reg_write(eng, EMU_REG_WRBASELOW, 0);
@@ -451,6 +459,8 @@ static int emu_poll_thread_fn(void *data)
             eng->wr_ring_idx = 0;
             eng->rd_ring_idx = 0;
             eng->free_captured = 0;
+            eng->starved_count = 0;
+            eng->seed_count = 0;
 
             eng->rings_valid = false;
             eng->wr_ring = NULL;
@@ -499,6 +509,8 @@ static int emu_poll_thread_fn(void *data)
          eng->wr_ring_idx = 0;
          eng->rd_ring_idx = 0;
          eng->free_captured = 0;
+         eng->starved_count = 0;
+         eng->seed_count = 0;
 
          /* Drop cached ring pointers so emu_capture_rings() re-reads
           * the BAR base regs on the next iteration.  If the driver
@@ -621,7 +633,16 @@ static int emu_poll_thread_fn(void *data)
             eng->irq_count++;
             eng->seed_pending = true;
             eng->seed_idx++;
+            eng->seed_count++;
          }
+      }
+
+      if (emu_stats_interval_ms != 0 && time_after_eq(jiffies, eng->stats_next)) {
+         eng->stats_next = jiffies + msecs_to_jiffies(emu_stats_interval_ms);
+         pr_info("emu: stats: tx=%u rx=%u starved=%u captured=%u seeded=%u pool=%u irq=%u\n",
+                 eng->tx_count, eng->rx_count, eng->starved_count,
+                 eng->free_captured, eng->seed_count, eng->free_count,
+                 eng->irq_count);
       }
 
 do_sleep:
@@ -669,6 +690,9 @@ int emu_dma_init(struct emu_dma_engine *eng, struct emu_bar0 *bar,
    eng->rx_count = 0;
    eng->irq_count = 0;
    eng->free_captured = 0;
+   eng->starved_count = 0;
+   eng->seed_count = 0;
+   eng->stats_next = 0;
 
    /* enableVer R/O enforcement starts with bit 0 = 0 / enableCnt = 0,
     * matching EMU_REG_ENABLEVER_INIT. The driver's first AxisG2_Enable
@@ -711,9 +735,10 @@ void emu_dma_stop(struct emu_dma_engine *eng)
       eng->poll_thread = NULL;
    }
 
-   pr_info("emu: DMA engine stopped (tx=%u rx=%u irq=%u free=%u)\n",
+   pr_info("emu: DMA engine stopped (tx=%u rx=%u irq=%u free=%u starved=%u pool=%u)\n",
            eng->tx_count, eng->rx_count,
-           eng->irq_count, eng->free_captured);
+           eng->irq_count, eng->free_captured,
+           eng->starved_count, eng->free_count);
 }
 
 void emu_dma_destroy(struct emu_dma_engine *eng)
