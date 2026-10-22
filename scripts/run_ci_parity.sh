@@ -14,7 +14,7 @@
 # copied, modified, propagated, or distributed except according to the terms
 # contained in the LICENSE.txt file.
 # -----------------------------------------------------------------------------
-# Runs the aes-ci parity harness in six ordered stages:
+# Runs the aes-ci parity harness in seven ordered stages:
 #   1. preflight_kvm.sh         — verify KVM is usable + required host tools present
 #   2. install-host-deps.sh     — install/advise on host packages (apt|dnf)
 #   3. provision_vm.sh          — download base + overlay + seed + virt-install + verify
@@ -23,8 +23,11 @@
 #   5. run_matrix.sh --phase cpu — execute the CPU matrix (gated by --matrix)
 #   6. run_matrix.sh --phase gpu — execute the GPU matrix (gated by --matrix;
 #                                   runs after CPU matrix completes)
+#   7. run_matrix.sh --phase pgp: execute the pgpcard matrix (gated by
+#                                   --matrix; build plus load and unload only,
+#                                   no traffic, since there is no PGP emulator)
 #
-# This script holds NO business logic of its own — it dispatches to the six
+# This script holds NO business logic of its own — it dispatches to the
 # stage scripts under scripts/ci-local/. Exit codes from the first failing
 # stage propagate to the shell.
 #
@@ -33,7 +36,7 @@
 #   ./scripts/run_ci_parity.sh --reset           # re-provision from scratch
 #   ./scripts/run_ci_parity.sh --clean           # tear down VM and exit
 #   ./scripts/run_ci_parity.sh --no-hang-repro   # provision only
-#   ./scripts/run_ci_parity.sh --matrix          # provision + hang-repro + CPU + GPU matrix
+#   ./scripts/run_ci_parity.sh --matrix          # provision + hang-repro + CPU + GPU + PGP matrix
 #   ./scripts/run_ci_parity.sh -h                # usage message
 #
 # Environment variables (passed through to provision_vm.sh):
@@ -50,6 +53,7 @@
 #   40+ = exit code from run_matrix.sh --phase cpu offset by 40 (cell failure
 #         aggregate; typically 41 for one or more cells failed)
 #   50+ = exit code from run_matrix.sh --phase gpu offset by 50
+#   60+ = exit code from run_matrix.sh --phase pgp offset by 60
 #   5   = unsupported flag / usage error
 # ----------------------------------------------------------------------------
 
@@ -213,15 +217,15 @@ else
    echo_step "VM running, Azure kernel + Docker 28.x verified, no hang reproduced."
 fi
 
-# --- Stage 5 / 6: CPU matrix execution ------------------------------------
+# --- Stage 5 / 7: CPU matrix execution ------------------------------------
 if [ "$RUN_MATRIX" -ne 1 ]; then
-   echo_step "--matrix not set; skipping Stages 5-6 (CPU + GPU matrix execution)."
+   echo_step "--matrix not set; skipping Stages 5-7 (CPU + GPU + PGP matrix execution)."
    echo_step "VM is ready, hang-repro passed. Entry point exits 0."
-   echo_step "Re-run with --matrix to execute the full CPU + GPU matrix."
+   echo_step "Re-run with --matrix to execute the full CPU + GPU + PGP matrix."
    exit 0
 fi
 
-echo_header "Stage 5 / 6: CPU matrix execution"
+echo_header "Stage 5 / 7: CPU matrix execution"
 RC=0
 bash "$CI_LOCAL_DIR/run_matrix.sh" --phase cpu || RC=$?
 if [ $RC -ne 0 ]; then
@@ -231,8 +235,8 @@ if [ $RC -ne 0 ]; then
 fi
 echo_step "CPU matrix complete; continuing to GPU matrix."
 
-# --- Stage 6 / 6: GPU matrix execution ------------------------------------
-echo_header "Stage 6 / 6: GPU matrix execution"
+# --- Stage 6 / 7: GPU matrix execution ------------------------------------
+echo_header "Stage 6 / 7: GPU matrix execution"
 RC=0
 bash "$CI_LOCAL_DIR/run_matrix.sh" --phase gpu || RC=$?
 if [ $RC -ne 0 ]; then
@@ -240,7 +244,18 @@ if [ $RC -ne 0 ]; then
    echo_fail "  See logs/<ts>/<sanitized>/*.log for per-cell output."
    exit $((RC + 50))
 fi
+echo_step "GPU matrix complete; continuing to pgpcard matrix."
+
+# --- Stage 7 / 7: pgpcard matrix execution --------------------------------
+echo_header "Stage 7 / 7: pgpcard matrix execution"
+RC=0
+bash "$CI_LOCAL_DIR/run_matrix.sh" --phase pgp || RC=$?
+if [ $RC -ne 0 ]; then
+   echo_fail "pgpcard matrix execution failed (aggregate exit $RC)."
+   echo_fail "  See logs/<ts>/<sanitized>/*.log for per-cell output."
+   exit $((RC + 60))
+fi
 
 echo_header "All stages passed"
-echo_step "VM running, CPU + GPU matrix complete — see logs/<ts>/ for per-cell output."
+echo_step "VM running, CPU + GPU + PGP matrix complete — see logs/<ts>/ for per-cell output."
 exit 0

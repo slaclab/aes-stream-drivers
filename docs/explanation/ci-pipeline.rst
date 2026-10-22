@@ -1,5 +1,5 @@
 CI Pipeline and Test Coverage
-==============================
+=============================
 
 The aes-stream-drivers CI pipeline validates every push across five Linux
 distributions, two driver configurations (CPU and GPU), and multiple test
@@ -11,8 +11,9 @@ using KVM virtual machines.
 Pipeline Phases
 ---------------
 
-The CI pipeline (``ci_pipeline.yml``) executes five sequential phases, each
-gating the next:
+The CI pipeline (``ci_pipeline.yml``) executes the following phases. Each
+phase gates the next, except that Phases 3 and 3b run in parallel once
+Phase 2 passes:
 
 .. list-table::
    :header-rows: 1
@@ -23,8 +24,8 @@ gating the next:
      - Description
    * - 1
      - Documentation & Linting
-     - Sphinx + Doxygen doc build, trailing-whitespace check, cpplint
-       C/C++ lint, gpu_async.c change guard
+     - Sphinx + Doxygen doc build, trailing-whitespace and tab check,
+       cpplint C/C++ lint
    * - 2
      - CPU Testing
      - Build and test the CPU-only driver across 5 distros in parallel
@@ -32,6 +33,10 @@ gating the next:
      - GPU Testing
      - Build and test the GPU driver (with emulator + p2p stub) across
        5 distros in parallel
+   * - 3b
+     - pgpcard Testing
+     - Build the legacy pgpcard driver and load/unload it across 5
+       distros (no traffic tests, since CI has no PGP card)
    * - 4
      - Release Generation
      - Creates GitHub Release artifacts (tags only)
@@ -39,6 +44,10 @@ gating the next:
      - DKMS Package Generation
      - Builds ``datadev-dkms-*.tar.gz`` and ``datadev-gpu-dkms-*.tar.gz``
        DKMS tarballs (tags only)
+   * - 6
+     - Distribution Packages
+     - Builds installable DKMS ``.deb`` (Ubuntu 22.04/24.04) and ``.rpm``
+       (Rocky Linux 9) packages for both variants (tags only)
 
 
 Distribution Matrix
@@ -111,7 +120,7 @@ the emulator, datadev driver, and test applications:
    * - 1
      - DMA loopback (30s)
      - Sustained bidirectional DMA throughput with PRBS integrity;
-       random frame size per run (2000--20000 bytes)
+       random frame size per run (2000 to 20000 bytes)
    * - 2
      - Test suite (13 sub-tests)
      - Ioctl coverage, file operations, error paths, multi-channel
@@ -231,10 +240,10 @@ The ``enableVer`` register (BAR0 + ``0x0000``) mirrors the
      - Access
    * - ``0``
      - ``enable``
-     - R/W -- toggled by ``AxisG2_Enable`` / ``AxisG2_Clear``
+     - R/W, toggled by ``AxisG2_Enable`` / ``AxisG2_Clear``
    * - ``15:8``
      - ``enableCnt``
-     - R/O -- counts 0→1 transitions of ``enable`` (driver load count)
+     - R/O, counts 0→1 transitions of ``enable`` (driver load count)
    * - ``16``
      - ``Desc128En``
      - R/O constant, always ``1``
@@ -244,13 +253,13 @@ The ``enableVer`` register (BAR0 + ``0x0000``) mirrors the
 
 Because BAR0 is backed by ordinary RAM, a naïve ``writel(0x0,
 enableVer)`` from the driver's ``AxisG2_Clear`` path would zero the R/O
-fields and make the next ``insmod`` read ``Desc128En=0`` / ``version=0``
--- silently disabling 128-bit completion processing.  The emulator's
+fields and make the next ``insmod`` read ``Desc128En=0`` / ``version=0``,
+silently disabling 128-bit completion processing. The emulator's
 DMA poll thread closes this reload hazard by re-asserting the R/O
 fields on every cycle (``emu_enforce_enablever_ro()`` in
 ``dma_engine.c``): it preserves whatever bit 0 the driver just wrote,
 increments ``enableCnt`` on a 0→1 edge, and rewrites the word with
-``version`` and ``Desc128En`` reasserted.  The counter persists for the
+``version`` and ``Desc128En`` reasserted. The counter persists for the
 lifetime of the emulator module, matching the VHDL's
 load-counter semantics across driver reloads.
 
@@ -282,7 +291,7 @@ share and defer the kthread's ``usleep_range`` wakeup for many seconds.
 ``SCHED_FIFO`` real-time tasks preempt CFS, so the wakeup is honored
 promptly regardless of how much time userspace is burning. Priority 1
 ("fifo_low") is low enough that the kernel's own critical RT tasks
-still outrank it. The ``usleep_range`` inside the loop remains — it is
+still outrank it. The ``usleep_range`` inside the loop remains; it is
 the CPU-relief valve that keeps the kthread from pinning a core.
 
 Both mechanisms matter. Without the tighter poll interval, a cold CFS
@@ -300,8 +309,8 @@ DKMS Packaging
 
 The pipeline produces two DKMS tarballs for distribution:
 
-- ``datadev-cpu-<version>.tar.gz`` --- CPU-only driver (no NVIDIA dependency)
-- ``datadev-gpu-<version>.tar.gz`` --- GPU driver (requires NVIDIA kernel modules)
+- ``datadev-dkms-<version>.tar.gz``: CPU-only driver (no NVIDIA dependency)
+- ``datadev-gpu-dkms-<version>.tar.gz``: GPU driver (requires NVIDIA kernel modules)
 
 Both are tested via ``dkms ldtarball`` / ``dkms install`` / ``dkms remove``
 in CI. On tagged releases, the tarballs are uploaded to the GitHub Release page.
@@ -422,4 +431,5 @@ The combined Phase 2 + Phase 3 coverage across all distributions:
      - 3
      - Trailing whitespace, tab detection, cpplint
 
-**Total: ~95 individual test checks across 5 distributions x 2 phases = 10 CI cells.**
+**Total: ~95 individual test checks across 5 distributions x 2 test phases = 10 CI cells,
+plus 5 pgpcard build/load cells in Phase 3b.**

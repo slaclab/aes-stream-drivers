@@ -37,6 +37,7 @@ local shims or forks.
 | 4 | hang_repro.sh | Reproduces ubuntu:24.04 insmod hang for diagnosis |
 | 5 | run_matrix.sh --phase cpu | Runs all CPU distro cells |
 | 6 | run_matrix.sh --phase gpu | Runs all GPU distro cells |
+| 7 | run_matrix.sh --phase pgp | Runs all pgpcard distro cells (build plus load and unload; no traffic, no PGP emulator exists) |
 
 ### Matrix Cells
 

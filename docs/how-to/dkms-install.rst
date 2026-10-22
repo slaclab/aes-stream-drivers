@@ -68,11 +68,11 @@ Installation Methods
 
 There are two installation methods:
 
-1. **Pre-built Tarball** (Recommended) — Download and install a release tarball
-2. **Manual Source Copy** — Copy sources to DKMS tree and configure manually
+1. **Pre-built Tarball** (recommended): download and install a release tarball
+2. **Manual Source Copy**: copy the sources into the DKMS tree and configure them manually
 
 Method 1: Install from Release Tarball (Recommended)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This method works on **all distributions** (Ubuntu, Debian, Rocky Linux, CentOS, RHEL).
 
@@ -124,25 +124,27 @@ GPU Version
    See :doc:`gpudirect-setup` for GPU prerequisites.
 
 Method 2: Manual Source Installation
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Use this method if you're building from a git checkout rather than a release.
+Use this method if you are building from a git checkout rather than a release.
+``dkms-reload.sh`` (see :doc:`build-and-load`) does the equivalent from a git
+checkout in one command.
 
-Step 1 — Copy Sources to the DKMS Tree
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Step 1: Copy Sources to the DKMS Tree
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: bash
 
    VERSION=7.2.2   # Replace with your version
    sudo mkdir -p /usr/src/datadev-dkms-${VERSION}
-   sudo cp -r data_dev/driver/src/* /usr/src/datadev-dkms-${VERSION}/
+   sudo cp -rL data_dev/driver/src /usr/src/datadev-dkms-${VERSION}/
    sudo cp data_dev/driver/Makefile /usr/src/datadev-dkms-${VERSION}/
    sudo cp data_dev/driver/dkms.conf /usr/src/datadev-dkms-${VERSION}/
    sudo cp data_dev/driver/datadev.conf /usr/src/datadev-dkms-${VERSION}/
    sudo cp data_dev/driver/rc.local.in /usr/src/datadev-dkms-${VERSION}/
 
-Step 2 — Set the Package Version
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Step 2: Set the Package Version
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. warning::
 
@@ -157,8 +159,8 @@ After editing, the key fields in ``dkms.conf`` should read:
 
 .. code-block:: text
 
-   MAKE="make"
-   CLEAN="make clean"
+   MAKE="make KVER=$kernelver"
+   CLEAN="make clean KVER=$kernelver"
    BUILT_MODULE_NAME=datadev
    BUILT_MODULE_LOCATION=.
    DEST_MODULE_LOCATION="/kernel/modules/misc"
@@ -167,8 +169,8 @@ After editing, the key fields in ``dkms.conf`` should read:
    REMAKE_INITRD=no
    AUTOINSTALL="yes"
 
-Step 3 — Add, Build, and Install
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Step 3: Add, Build, and Install
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: bash
 
@@ -193,26 +195,26 @@ Expected output:
 
    datadev-dkms/7.2.2, 5.15.0-91-generic, x86_64: installed
 
-Or for GPU variant:
+Or, for the GPU variant:
 
 .. code-block:: text
 
    datadev-gpu-dkms/7.2.2, 5.15.0-91-generic, x86_64: installed
 
 Verify Module Information
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. code-block:: bash
 
    modinfo datadev
 
-Expected output should show version, description, and parameters:
+The output should show the module path, description, and parameters:
 
 .. code-block:: text
 
    filename:       /lib/modules/5.15.0-91-generic/updates/dkms/datadev.ko
    license:        GPL
-   description:    AXI Stream Driver
+   description:    Driver for FPGAs running the SLAC DMA engine
    srcversion:     ABC123DEF456
    depends:
    ...
@@ -240,7 +242,7 @@ Ubuntu / Debian
    echo "datadev" | sudo tee /etc/modules-load.d/datadev.conf
 
 Rocky Linux / CentOS / RHEL
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: bash
 
@@ -277,7 +279,7 @@ Works out of the box with the standard ``linux-headers-$(uname -r)`` package.
 Rocky Linux 9
 ~~~~~~~~~~~~~
 
-- Kernel 5.14+ (frankenstein kernel)
+- 5.14-based kernel carrying extensive RHEL backports (see :doc:`../explanation/kernel-compatibility`)
 - EPEL repository required for DKMS
 - Use ``dnf`` package manager
 
@@ -286,11 +288,11 @@ CentOS 7
 
 - Kernel 3.10
 - EPEL repository required for DKMS
-- CentOS 7 reached EOL June 2024, use vault mirrors
+- CentOS 7 reached end of life in June 2024; use the vault mirrors
 - Use ``yum`` package manager
 
 Debian Testing / Experimental
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Latest upstream kernel
 - DKMS available in standard repositories
@@ -363,7 +365,7 @@ If ``modprobe datadev`` fails:
 Kernel Version Mismatch
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-DKMS must rebuild modules for each kernel. If you boot a different kernel:
+DKMS must rebuild the module for each kernel. If you boot a different kernel:
 
 .. code-block:: bash
 
@@ -376,6 +378,6 @@ DKMS must rebuild modules for each kernel. If you boot a different kernel:
 See Also
 --------
 
-- :doc:`gpudirect-setup` — GPU variant prerequisites and NVIDIA driver setup
-- :doc:`build-and-load` — Manual build without DKMS
-- :doc:`../reference/module-parameters` — Configuration options
+- :doc:`gpudirect-setup`: GPU variant prerequisites and NVIDIA driver setup
+- :doc:`build-and-load`: manual build without DKMS
+- :doc:`../reference/module-parameters`: configuration options

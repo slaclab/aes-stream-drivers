@@ -22,7 +22,7 @@
  *       - nvidia_p2p_stub.ko loaded (provides nvidia_p2p_* + addr table)
  *       - datadev.ko built with NVIDIA_DRIVERS=$(pwd)/emulator/gpu_stub,
  *         loaded against the emulator
- *       - /dev/datadev_0 present, BAR0 GpuAsync version == 4
+ *       - /dev/datadev_0 present, BAR0 GpuAsync version >= 4 (v5 emulated)
  *       - /dev/nvidia_p2p_stub_mem present
  *
  *    Exit code: 0 on full success; 1 on any failure (ioctl/mmap error,
@@ -318,13 +318,13 @@ static uint32_t emu_wait_value32_with_deadline(
  *
  * Faithful port of rdmaTest.cu's runSimpleLoop with the three
  * substitutions for the CPU emulator. Required sequencing:
- * setWriteEnable(0)/setReadEnable(0), arm free-list + clear doorbells
+ * gpuEnableTx(0)/gpuEnableRx(0), arm free-list + clear doorbells
  * per buffer, setRemoteWriteMaxSize, then enables go LAST. The
  * rxBuffs[i]+4 pre-clear in the arming block plus the per-frame clear
  * after the memcpy prevents a stale doorbell from acking the next frame.
  * -------------------------------------------------------------------------*/
 
-static void runSimpleLoop(GpuAsyncCoreRegs &regs, int bufCnt,
+static void runSimpleLoop(GpuAsyncCoreRegs &regs, int fd, int bufCnt,
                           uint8_t **rxBuffs, uint8_t **txBuffs,
                           int frameCount, uint32_t bufSize) {
    const uint32_t dmaHeaderSize = regs.dmaDataBytes();
@@ -358,14 +358,14 @@ static void runSimpleLoop(GpuAsyncCoreRegs &regs, int bufCnt,
     * this run's counters from any prior iteration (sweep mode calls
     * runSimpleLoop multiple times; without reset, later iterations
     * inherit earlier frame counts). */
-   regs.setWriteEnable(0);
-   regs.setReadEnable(0);
+   gpuEnableTx(fd, 0);
+   gpuEnableRx(fd, 0);
    ::usleep(100000);       /* drain pending kthread tick */
    regs.countReset();      /* isolate this run's counters */
    ::usleep(100000);       /* confirm no motion post-reset */
 
-   regs.setWriteCount(bufCnt - 1);
-   regs.setReadCount(bufCnt - 1);
+   /* Buffer count is established by gpuAddNvidiaMemory during registration;
+    * no explicit setWriteCount/setReadCount needed here. */
 
    for (int i = 0; i < bufCnt; ++i) {
       /* Arm FPGA's free-list slot for buffer i. */
@@ -390,8 +390,8 @@ static void runSimpleLoop(GpuAsyncCoreRegs &regs, int bufCnt,
    regs.setRemoteWriteMaxSize(0, bufSize - dmaHeaderSize);
 
    /* Now bring both directions back online. */
-   regs.setWriteEnable(1);
-   regs.setReadEnable(1);
+   gpuEnableTx(fd, 1);
+   gpuEnableRx(fd, 1);
 
    int curBuff = 0;
    for (int n = 0; n < frameCount; ++n) {
@@ -548,7 +548,7 @@ static void reallocBuffersAtSize(
 
    /* 1. Pause the poll thread BEFORE touching any registration.
     *
-    * The sequential setWriteEnable(0) + setReadEnable(0) pair is NOT atomic
+    * The sequential gpuEnableTx(0) + gpuEnableRx(0) pair is NOT atomic
     * vs the 1ms emu_gpu_poll kthread. Between the two BAR0 writes the
     * kthread can fire and process up to kBufCnt pending ticks on whichever
     * direction still has its enable bit set. Without the quiesce-and-reset
@@ -558,8 +558,8 @@ static void reallocBuffersAtSize(
     * Fix: after the disable-pair, wait 100ms for the kthread to drain,
     * countReset() to zero the BAR0 counters for a fresh baseline, then
     * wait 100ms more before re-enabling. */
-   regs.setWriteEnable(0);
-   regs.setReadEnable(0);
+   gpuEnableTx(fd, 0);
+   gpuEnableRx(fd, 0);
    ::usleep(100000);       /* drain pending kthread tick */
    regs.countReset();      /* zero baseline — eliminates race-window leak */
    ::usleep(100000);       /* confirm no motion post-reset */
@@ -622,13 +622,11 @@ static void reallocBuffersAtSize(
       }
    }
 
-   /* 6. Update header + counts for the new size. setWriteCount /
-    *    setReadCount are redundant with runSimpleLoop's setup but kept
-    *    here for parity with the pre-loop block. RemoteWriteMaxSize
-    *    holds payload size, buffer = payload + dmaDataBytes(). */
+   /* 6. Update header for the new size. The buffer count is re-established
+    *    by the gpuAddNvidiaMemory calls above, so no explicit count write is
+    *    needed. RemoteWriteMaxSize holds payload size, buffer = payload +
+    *    dmaDataBytes(). */
    regs.setRemoteWriteMaxSize(0, newSize - regs.dmaDataBytes());
-   regs.setWriteCount(bufCnt - 1);
-   regs.setReadCount(bufCnt - 1);
 
    /* runSimpleLoop re-arms free-list + doorbells and flips the enables
     * back on; no separate resume needed here. */
@@ -667,7 +665,7 @@ static void runSweep(GpuAsyncCoreRegs &regs, int fd, int stub_fd,
       /* Run the full loop at this size. Internal failures (PRBS
        * mismatch, timeout, counter mismatch, hdr.size bound) call
        * std::exit(1) directly - no return-code plumbing needed. */
-      runSimpleLoop(regs, bufCnt, rxBuffs, txBuffs, frameCount, newSize);
+      runSimpleLoop(regs, fd, bufCnt, rxBuffs, txBuffs, frameCount, newSize);
 
       if (s_verbose > 0) {
          fprintf(stdout, "rdmaTestEmu: sweep size=%u PASSED\n", newSize);
@@ -698,12 +696,13 @@ int main(int argc, char **argv) {
       return 1;
    }
 
-   /* V4-only gate (project_gpu_v4_only.md). gpuGetGpuAsyncVersion's return
-    * type is uint32_t for ABI reasons (see include/GpuAsync.h), so a -1
-    * ioctl error becomes 0xFFFFFFFFu. A naive `(uint32_t)ver < 4` check
-    * would be vacuously false and let the test proceed against a driver
-    * that never reported a version. Cast to int32_t and reject negatives
-    * explicitly before the version comparison. */
+   /* Minimum-version gate (V4 register layout or newer; the emulator now
+    * reports V5). gpuGetGpuAsyncVersion's return type is uint32_t for ABI
+    * reasons (see include/GpuAsync.h), so a -1 ioctl error becomes
+    * 0xFFFFFFFFu. A naive `(uint32_t)ver < 4` check would be vacuously false
+    * and let the test proceed against a driver that never reported a
+    * version. Cast to int32_t and reject negatives explicitly before the
+    * version comparison. */
    int32_t ver = static_cast<int32_t>(gpuGetGpuAsyncVersion(fd));
    if (ver < 0) {
       fprintf(stderr,
@@ -714,7 +713,7 @@ int main(int argc, char **argv) {
    }
    if (static_cast<uint32_t>(ver) < kRequiredGpuAsyncVersion) {
       fprintf(stderr,
-         "rdmaTestEmu: unsupported GPU Async version %d (V4 required)\n", ver);
+         "rdmaTestEmu: unsupported GPU Async version %d (v4+ required)\n", ver);
       ::close(fd);
       return 1;
    }
@@ -782,8 +781,8 @@ int main(int argc, char **argv) {
     * clean slate here. ctrl was already cleared to WE=0/RE=0 by the
     * prior session's Gpu_RemNvidia, so no engine activity can race
     * these writes. */
-   regs.setWriteEnable(0);
-   regs.setReadEnable(0);
+   gpuEnableTx(fd, 0);
+   gpuEnableRx(fd, 0);
    {
       const uint32_t maxBuffersHw = regs.maxBuffers();
       for (uint32_t i = 0; i < maxBuffersHw; ++i) {
@@ -844,7 +843,7 @@ int main(int argc, char **argv) {
                args.count, args.size);
       liveSize = kSweepSizes[kSweepSizeCount - 1];
    } else {
-      runSimpleLoop(regs, bufCnt, rxBuffs, txBuffs, args.count, args.size);
+      runSimpleLoop(regs, fd, bufCnt, rxBuffs, txBuffs, args.count, args.size);
    }
 
    /* Teardown: drop driver-side registrations, then unmap user VAs,

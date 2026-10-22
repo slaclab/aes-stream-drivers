@@ -20,8 +20,8 @@
 # insmod, the script refuses to proceed if kernel headers for the running
 # kernel are not available inside this container, and injects a unique
 # baseline marker into the kernel ring buffer so check-dmesg.sh can extract
-# a post-load delta. The functional assertions for GPU Async V4 registers
-# and GpuAsyncCore version 4 remain — they are functional checks, not
+# a post-load delta. The functional assertions for GPU Async V5 registers
+# and GpuAsyncCore version 5 remain — they are functional checks, not
 # readiness probes.
 #
 # Exit codes: 0=success, 1=timeout/failure/refused
@@ -172,18 +172,18 @@ timeout $TIMEOUT_SEC bash -c "until [ \"\$(cat /sys/module/datadev_emulator/init
 }
 echo "datadev_emulator is live"
 
-# Functional assertion — GPU Async V4 BAR0 init must have happened
+# Functional assertion — GPU Async V5 BAR0 init must have happened
 # during emulator init. This is NOT a readiness probe (initstate already
 # guaranteed that) — it is a correctness check that the emulator built the
 # expected register layout. Scan only the post-marker delta so a prior run's
 # log line in a reused container/VM can't satisfy this probe.
 if ! $SUDO dmesg | awk -v m="$CI_DMESG_MARKER" 'f{print} index($0,m){f=1}' | \
-        grep -q "BAR0 GPU Async V4 initialized"; then
-   echo_fail "GPU Async V4 init log line not found in this run's dmesg delta"
+        grep -q "BAR0 GPU Async V5 initialized"; then
+   echo_fail "GPU Async V5 init log line not found in this run's dmesg delta"
    $SUDO dmesg | tail -50
    exit 1
 fi
-echo "GPU Async V4 registers initialized"
+echo "GPU Async V5 registers initialized"
 
 # --- 3) datadev (GPU build) ------------------------------------------------
 timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod data_dev/driver/datadev.ko cfgDebug=$CFG_DEBUG cfgTxCount=$CFG_TX_COUNT cfgRxCount=$CFG_RX_COUNT cfgSize=$CFG_SIZE cfgMode=$CFG_MODE || {
@@ -235,16 +235,16 @@ timeout $TIMEOUT_SEC bash -c 'until [ -e /proc/datadev_0 ]; do sleep 0.5; done' 
 echo "/proc/datadev_0 exists"
 
 # Functional assertion — GPU path was actually exercised (Gpu_Init ran
-# the V4 code path against the V4 registers emulated by datadev_emulator).
+# the V5 code path against the V5 registers emulated by datadev_emulator).
 # Delta-scan so a prior run's confirmation line in a reused VM cannot
 # satisfy this probe.
 if ! $SUDO dmesg | awk -v m="$CI_DMESG_MARKER" 'f{print} index($0,m){f=1}' | \
-        grep -q "Configured for GpuAsyncCore version 4"; then
-   echo_fail "Gpu_Init V4 confirmation not found in this run's dmesg delta"
+        grep -q "Configured for GpuAsyncCore version 5"; then
+   echo_fail "Gpu_Init V5 confirmation not found in this run's dmesg delta"
    $SUDO dmesg | tail -100
    exit 1
 fi
-echo "Gpu_Init reported GpuAsyncCore version 4"
+echo "Gpu_Init reported GpuAsyncCore version 5"
 
 $SUDO cat /proc/datadev_0 > /dev/null 2>&1
 sleep 2

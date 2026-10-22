@@ -91,9 +91,7 @@ if [ ! -e "$DEV" ]; then
 fi
 $SUDO chmod 666 "$DEV"
 
-# Give the DMA engine time to complete the emulator seed phase.
-# With 256+ buffers the emulator busy-poll and seed phase take longer
-# than the default 64-buffer configuration.
+# Give the emulator's init busy-poll time to capture the first free buffer.
 sleep 15
 
 # Verify /proc exists before parsing.

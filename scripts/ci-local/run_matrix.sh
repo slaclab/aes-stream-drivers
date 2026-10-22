@@ -20,6 +20,8 @@
 #
 # --phase cpu (default): runs the 5-distro CPU matrix.
 # --phase gpu:           runs the 5-distro GPU matrix.
+# --phase pgp:           runs the 5-distro pgpcard matrix. Build coverage only;
+#                        see the PGP_CELLS comment for why no cell loads.
 #
 # --parallel provisions one KVM per load-test cell and runs all concurrently.
 # Each VM has its own kernel, so insmod/rmmod cannot cross-contaminate.
@@ -44,11 +46,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib/common.sh"
 
 # ----------------------------------------------------------------------------
-# Matrix definitions — mirror ci_pipeline.yml include: arrays.
+# Matrix definitions, mirroring the ci_pipeline.yml include: arrays.
 # CPU: ci_pipeline.yml Phase 2 (cpu_test) matrix.
 # GPU: ci_pipeline.yml Phase 3 (gpu_test) matrix.
-# Both matrices share the same 5-distro shape; only ubuntu:24.04 has
-# load_test=true (the others are build-only).
+# PGP: ci_pipeline.yml pgp_test matrix.
+# All three share the same 5-distro shape. The trailing |0 or |1 is the
+# load_test flag for that cell; see each array for which cells load modules.
 # ----------------------------------------------------------------------------
 CPU_CELLS=(
    "ubuntu:24.04|0"
@@ -68,6 +71,39 @@ GPU_CELLS=(
    "fedora:rawhide|1"
 )
 
+# pgpcard cells, all build-only. This is deliberate, not an oversight.
+#
+# A load cell needs CI_HOST_MATCH=1, which needs install-deps.sh to trust the
+# bind-mounted host headers, which needs ensure_kernel_gcc() to extract a
+# gcc-N token from the guest's /proc/version. Guests running a recent Ubuntu
+# kernel report their compiler as
+#   (x86_64-linux-gnu-gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld ...)
+# which contains no gcc-N token, so every container falls back to its own
+# distro headers with CI_HOST_MATCH=0 and no cell can insmod. Measured on a
+# 7.0.0-1010-azure guest: all six cells reported HOST_MATCH=0.
+#
+# Loading buys little for pgpcard anyway. With no PGP card and no PGP
+# personality in emulator/driver, insmod reaches module_init and module_exit
+# and nothing else; probe, remove, DMA and interrupts stay untested either
+# way. The build cells already span 5.14 through 7.3-rc, which is stronger
+# evidence about kernel compatibility than loading on one kernel would be.
+#
+# The GitHub pgp_test job keeps its load step, gated on CI_HOST_MATCH == '1'
+# exactly as the CPU phase is, so it engages by itself on any runner that
+# does host-match and skips rather than fails where it does not.
+#
+# rockylinux:9 is the most valuable cell here: it compiles against genuine
+# RHEL 9 kernel-devel, the deployment target for the PGP-GEN3 hardware this
+# driver serves, and is the only cell that exercises the RHEL_RELEASE_CODE
+# branches in common/driver/dma_common.c.
+PGP_CELLS=(
+   "ubuntu:24.04|0"
+   "ubuntu:22.04|0"
+   "rockylinux:9|0"
+   "debian:experimental|0"
+   "fedora:rawhide|0"
+)
+
 PHASE="cpu"
 PARALLEL=0
 
@@ -75,12 +111,12 @@ usage() {
    cat <<EOF
 Usage: $0 [OPTIONS]
 
-Execute the CPU or GPU matrix sequentially against the aes-ci parity VM.
-Each cell runs scripts/ci-local/run_cell.sh with the cell's container
-image, load_test flag, and phase (cpu|gpu).
+Execute the CPU, GPU or pgpcard matrix sequentially against the aes-ci
+parity VM. Each cell runs scripts/ci-local/run_cell.sh with the cell's
+container image, load_test flag, and phase (cpu|gpu|pgp).
 
 OPTIONS:
-   --phase cpu|gpu    which matrix to run (default: cpu)
+   --phase cpu|gpu|pgp  which matrix to run (default: cpu)
    --parallel         provision one VM per load-test cell, run concurrently
    -h, --help         print this message and exit 0
 
@@ -92,6 +128,11 @@ EOF
    echo ""
    echo "GPU CELLS (${#GPU_CELLS[@]} entries):"
    for cell_spec in "${GPU_CELLS[@]}"; do
+      echo "   $cell_spec"
+   done
+   echo ""
+   echo "PGP CELLS (${#PGP_CELLS[@]} entries):"
+   for cell_spec in "${PGP_CELLS[@]}"; do
       echo "   $cell_spec"
    done
    cat <<EOF
@@ -120,8 +161,8 @@ while [ $# -gt 0 ]; do
    shift
 done
 
-if [ "$PHASE" != "cpu" ] && [ "$PHASE" != "gpu" ]; then
-   echo_fail "--phase must be cpu or gpu (got: '$PHASE')"
+if [ "$PHASE" != "cpu" ] && [ "$PHASE" != "gpu" ] && [ "$PHASE" != "pgp" ]; then
+   echo_fail "--phase must be cpu, gpu or pgp (got: '$PHASE')"
    usage
    exit 5
 fi
@@ -129,6 +170,8 @@ fi
 # Select the cell array based on phase
 if [ "$PHASE" = "gpu" ]; then
    CELLS=("${GPU_CELLS[@]}")
+elif [ "$PHASE" = "pgp" ]; then
+   CELLS=("${PGP_CELLS[@]}")
 else
    CELLS=("${CPU_CELLS[@]}")
 fi

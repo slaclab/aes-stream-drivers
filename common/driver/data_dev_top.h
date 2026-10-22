@@ -31,17 +31,11 @@
 #define PCI_VENDOR_ID_SLAC 0x1a4a
 #define PCI_DEVICE_ID_DDEV 0x2030
 
-/** Address map for device registers. */
-#define AGEN2_OFF   0x00000000 /**< DMAv2 Engine Offset */
-#define AGEN2_SIZE  0x00010000 /**< DMAv2 Engine Size */
-#define PHY_OFF     0x00010000 /**< PCIe PHY Offset */
-#define PHY_SIZE    0x00010000 /**< PCIe PHY Size */
-#define AVER_OFF    0x00020000 /**< AxiVersion Offset */
-#define AVER_SIZE   0x00010000 /**< AxiVersion Size */
-#define PROM_OFF    0x00030000 /**< PROM Offset */
-#define PROM_SIZE   0x00050000 /**< PROM Size */
-#define USER_OFF    0x00800000 /**< User Space Offset */
-#define USER_SIZE   0x00800000 /**< User Space Size */
+/** Offsets and sizes. These are needed during early initialization. */
+#define AVER_OFF     0x00020000  /** AxiVersion offset */
+#define AVER_SIZE    0x00010000  /** AxiVersion size */
+#define USER_OFF     0x00800000  /** User offset */
+#define USER_SIZE    0x00800000  /** User size */
 
 // Function prototypes
 int32_t DataDev_Init(void);

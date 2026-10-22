@@ -5,12 +5,12 @@
  * Description:
  *    Mid-stream state-transition test for the GPU-async data path emulator.
  *    Three subtests:
- *      1. toggle_disable: setWriteEnable(0)+setReadEnable(0) mid-run;
+ *      1. toggle_disable: gpuEnableTx(0)+gpuEnableRx(0) mid-run;
  *         100ms quiesce + countReset + 100ms settle; assert
  *         rxFrameCnt==0 && txFrameCnt==0 (race-immune zero baseline).
- *      2. toggle_resume:  setWriteEnable(1)+setReadEnable(1); run 4 frames
+ *      2. toggle_resume:  gpuEnableTx(1)+gpuEnableRx(1); run 4 frames
  *         (one full round-robin at bufCnt=4); assert PRBS clean on first frame.
- *      3. maxbuffers_4to2: while traffic flowing, writeCount(1)+readCount(1)
+ *      3. maxbuffers_4to2: while traffic flowing, setWriteCount(2)+setReadCount(2)
  *         (reduces 4->2 active buffers); run 100 more frames; assert no
  *         dmesg WARN/KASAN and no PRBS mismatch.
  *
@@ -327,24 +327,24 @@ static int runOneFrame(GpuAsyncCoreRegs &regs, int bufCnt, int curBuff,
  * RemoteWriteMaxSize, bring engine back up.
  * -------------------------------------------------------------------------*/
 
-static void armBuffers(GpuAsyncCoreRegs &regs, int bufCnt,
+static void armBuffers(GpuAsyncCoreRegs &regs, int fd, int bufCnt,
                        uint8_t **rxBuffs, uint8_t **txBuffs,
                        uint32_t bufSize) {
    const uint32_t dmaHeaderSize = regs.dmaDataBytes();
 
-   /* Quiesce-and-reset: the sequential setWriteEnable(0) +
-    * setReadEnable(0) pair is NOT atomic vs the 1ms emu_gpu_poll kthread,
+   /* Quiesce-and-reset: the sequential gpuEnableTx(0) +
+    * gpuEnableRx(0) pair is NOT atomic vs the 1ms emu_gpu_poll kthread,
     * so wait 100ms for any in-flight tick to drain, call countReset() to
     * establish a zero baseline for both counters, then wait another 100ms
     * to confirm no further motion before re-arming. */
-   regs.setWriteEnable(0);
-   regs.setReadEnable(0);
+   gpuEnableTx(fd, 0);
+   gpuEnableRx(fd, 0);
    ::usleep(100000);          /* let kthread drain any pending tick */
    regs.countReset();         /* establish zero baseline */
    ::usleep(100000);          /* confirm no further counter motion */
 
-   regs.setWriteCount(bufCnt - 1);
-   regs.setReadCount(bufCnt - 1);
+   /* Buffer count is established by gpuAddNvidiaMemory during registration;
+    * no explicit setWriteCount/setReadCount needed here. */
 
    for (int i = 0; i < bufCnt; ++i) {
       regs.writeReg(regs.freeListOffset(i), 1);
@@ -354,8 +354,8 @@ static void armBuffers(GpuAsyncCoreRegs &regs, int bufCnt,
 
    regs.setRemoteWriteMaxSize(0, bufSize - dmaHeaderSize);
 
-   regs.setWriteEnable(1);
-   regs.setReadEnable(1);
+   gpuEnableTx(fd, 1);
+   gpuEnableRx(fd, 1);
 }
 
 /* ---------------------------------------------------------------------------
@@ -427,8 +427,8 @@ int main(int argc, char **argv) {
     * a clean slate here. ctrl was already cleared to WE=0/RE=0 by
     * the prior session's Gpu_RemNvidia, so no engine activity can
     * race these writes. */
-   regs.setWriteEnable(0);
-   regs.setReadEnable(0);
+   gpuEnableTx(fd, 0);
+   gpuEnableRx(fd, 0);
    {
       const uint32_t maxBuffersHw = regs.maxBuffers();
       for (uint32_t i = 0; i < maxBuffersHw; ++i) {
@@ -474,7 +474,7 @@ int main(int argc, char **argv) {
 
    /* Reset counters and bring the engine up. */
    regs.countReset();
-   armBuffers(regs, kBufCnt, rxBuffs, txBuffs, kBufSize);
+   armBuffers(regs, fd, kBufCnt, rxBuffs, txBuffs, kBufSize);
 
    /*
     * Single shared PrbsData instance across all subtests.
@@ -505,7 +505,7 @@ int main(int argc, char **argv) {
 
       /* ---- Subtest 1: toggle_disable (quiesce-and-reset) ----
        *
-       * The sequential setWriteEnable(0) + setReadEnable(0) pair is NOT atomic
+       * The sequential gpuEnableTx(0) + gpuEnableRx(0) pair is NOT atomic
        * vs the 1ms emu_gpu_poll kthread: in the us-scale window between the
        * two BAR0 writes the kthread can fire and process up to kBufCnt pending
        * ticks on the direction whose enable has not yet been cleared. Prior
@@ -518,8 +518,8 @@ int main(int argc, char **argv) {
        * is race-immune because CntRst happens after the kthread has already
        * drained any pending in-flight ticks, and any further tick after
        * CntRst would require re-enabling — which this subtest does not do. */
-      regs.setWriteEnable(0);
-      regs.setReadEnable(0);
+      gpuEnableTx(fd, 0);
+      gpuEnableRx(fd, 0);
       ::usleep(100000);               /* drain pending kthread tick */
       regs.countReset();              /* zero baseline for both counters */
       ::usleep(100000);               /* verify no motion post-reset */
@@ -536,8 +536,8 @@ int main(int argc, char **argv) {
       /* Re-enable engine; arm doorbells so round-robin starts from buffer 0.
        * Observable contract: VHDL-faithful nextWriteIdx resets to
        * 0 on disable, so the engine resumes from buffer 0 post-enable. */
-      regs.setWriteEnable(1);
-      regs.setReadEnable(1);
+      gpuEnableTx(fd, 1);
+      gpuEnableRx(fd, 1);
 
       /* Re-arm all doorbells for the resumed run (freelist + rx doorbell clear). */
       for (int i = 0; i < kBufCnt; ++i) {
@@ -608,10 +608,10 @@ int main(int argc, char **argv) {
 
       /* Mid-flight buffer count reduction: 4->2 via BAR0 writes.
        * Kernel reads writeCount once per tick and clamps nextWriteIdx via
-       * idx % (wcnt + 1) (gpu_engine.c:218).
-       * N = activeBufs - 1, so setWriteCount(1) = 2 active buffers. */
-      regs.setWriteCount(1);
-      regs.setReadCount(1);
+       * idx % (wcnt + 1) (gpu_engine.c:218). setWriteCount/setReadCount take
+       * a 1-based active-buffer count, so 2 = two active buffers. */
+      regs.setWriteCount(2);
+      regs.setReadCount(2);
       int reducedBufCnt = 2;
 
       /* Run kPostReduceFrames frames with bufCnt=2 (curBuff wraps 0,1,0,1,...).

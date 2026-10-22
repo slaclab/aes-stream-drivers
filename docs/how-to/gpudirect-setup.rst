@@ -25,8 +25,8 @@ Prerequisites
 - NVIDIA GPU and FPGA card on the same PCIe bus
 - sudo access
 
-Step 1 — Disable Display Manager Services
-------------------------------------------
+Step 1: Disable Display Manager Services
+----------------------------------------
 
 Disable display managers and the NVIDIA persistence daemon to prevent
 ``Module XXX is in use`` errors during driver replacement:
@@ -38,16 +38,16 @@ Disable display managers and the NVIDIA persistence daemon to prevent
    sudo systemctl disable sddm
    sudo systemctl disable nvidia-persistenced
 
-Step 2 — Remove Existing NVIDIA Drivers
------------------------------------------
+Step 2: Remove Existing NVIDIA Drivers
+--------------------------------------
 
 .. code-block:: bash
 
    sudo apt-get purge nvidia-* -y
    sudo apt autoremove -y
 
-Step 3 — Install NVIDIA Open Kernel Modules
---------------------------------------------
+Step 3: Install NVIDIA Open Kernel Modules
+------------------------------------------
 
 .. code-block:: bash
 
@@ -61,10 +61,10 @@ Step 3 — Install NVIDIA Open Kernel Modules
 .. warning::
 
    Review the package install list. NVIDIA packages may pull in a low-latency
-   kernel image.
+   kernel image; make sure the resulting kernel is the one you intend to run.
 
-Step 4 — Configure GRUB
-------------------------
+Step 4: Configure GRUB
+----------------------
 
 .. code-block:: bash
 
@@ -74,8 +74,8 @@ Step 4 — Configure GRUB
    sudo update-grub
    sudo reboot
 
-Step 5 — Build and Load Both Drivers
---------------------------------------
+Step 5: Build and Load Both Drivers
+-----------------------------------
 
 .. code-block:: bash
 
@@ -84,11 +84,12 @@ Step 5 — Build and Load Both Drivers
 
 What the script does:
 
-- Locates NVIDIA open driver sources by searching ``/usr/src`` for ``nv-p2p.h``
-- Unloads existing nvidia and datadev modules
+- Locates the NVIDIA open driver sources by searching ``/usr`` for ``nv-p2p.h``
+- Unloads any existing nvidia and datadev modules
 - Rebuilds and loads NVIDIA drivers with ``NVreg_OpenRmEnableUnsupportedGpus=1``
   and ``NVreg_EnableStreamMemOPs=1``
-- Builds and loads ``datadev.ko``
+- Builds ``datadev.ko`` against those sources and loads it with ``cfgMode=2``
+  (``BUFF_STREAM``)
 
 Verify
 ------
@@ -98,9 +99,11 @@ Verify
    lsmod | grep datadev
    lsmod | grep nvidia
 
-Then in C, verify GPUDirect firmware support:
+Then verify GPUDirect firmware support from C:
 
 .. code-block:: c
+
+   #include <GpuAsync.h>
 
    int fd = open("/dev/datadev_0", O_RDWR);
    if (gpuIsGpuAsyncSupported(fd)) {

@@ -44,6 +44,10 @@ echo_step() { echo -e "${GREEN}==>${NC} $1"; }
 echo_warn() { echo -e "${YELLOW}WARN:${NC} $1"; }
 echo_fail() { echo -e "${RED}FAIL:${NC} $1"; }
 
+# dnf_retry / apt_retry: refresh metadata and retry on mirror failures
+# shellcheck source=scripts/ci/pkg-retry.sh
+source "$(dirname "${BASH_SOURCE[0]}")/pkg-retry.sh"
+
 # Export a CI variable to GITHUB_ENV (if available) and /tmp for downstream use
 export_ci_var() {
    local name="$1"
@@ -142,7 +146,7 @@ ensure_kernel_gcc() {
    fi
    echo_step "Installing gcc-${kgcc} to match kernel build compiler"
    if command -v apt-get &>/dev/null; then
-      if ! apt-get install -y "gcc-${kgcc}"; then
+      if ! apt_retry install -y "gcc-${kgcc}"; then
          echo_warn "gcc-${kgcc} not available; trying highest available gcc"
          local best=""
          for v in $(apt-cache search '^gcc-[0-9]+$' 2>/dev/null \
@@ -151,7 +155,7 @@ ensure_kernel_gcc() {
             best="$v"
          done
          if [ -n "$best" ]; then
-            apt-get install -y "gcc-${best}" || true
+            apt_retry install -y "gcc-${best}" || true
             if command -v "gcc-${best}" &>/dev/null; then
                # DKMS 2.8 hardcodes PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/lib/dkms
                # at startup, so /usr/local/bin is invisible to its make sub-shell.
@@ -162,8 +166,8 @@ ensure_kernel_gcc() {
          fi
       fi
    elif command -v dnf &>/dev/null; then
-      if ! dnf install -y "gcc-toolset-${kgcc}-gcc" 2>/dev/null; then
-         dnf install -y "gcc" 2>/dev/null || true
+      if ! dnf_retry install -y "gcc-toolset-${kgcc}-gcc" 2>/dev/null; then
+         dnf_retry install -y "gcc" 2>/dev/null || true
       fi
       if ! command -v "gcc-${kgcc}" &>/dev/null; then
          local tsgcc="/opt/rh/gcc-toolset-${kgcc}/root/usr/bin/gcc"
@@ -215,12 +219,28 @@ ensure_kernel_gcc() {
       done < <(find -L "$kbuild/scripts" "$kbuild/tools" -type f -executable -print0 2>/dev/null)
    fi
    if [ "$need_rebuild" -eq 1 ]; then
+      # objtool has to run for real, so check it before touching anything.
+      # On x86 with CONFIG_MITIGATION_RETHUNK the compiler emits
+      # `jmp __x86_return_thunk` in place of every `ret`, and objtool is what
+      # records those sites in .return_sites so the kernel can rewrite them
+      # to the live thunk at module load. A stubbed objtool yields a module
+      # whose return thunks are never patched, and the first return through
+      # one raises "Unpatched return thunk in use" (WARNING at
+      # arch/x86/kernel/cpu/bugs.c) during insmod, which the dmesg gate then
+      # fails. The headers packages ship objtool as a prebuilt binary with no
+      # .c sources next to it, so there is nothing to recompile: give up on
+      # the host headers and let the caller fall back to distro-native ones.
+      local objtool_bin="$kbuild/tools/objtool/objtool"
+      if [ -x "$objtool_bin" ] && ldd "$objtool_bin" 2>&1 | grep -q "GLIBC.*not found"; then
+         echo_warn "objtool needs a newer glibc than this distro provides and cannot be rebuilt from the headers package"
+         return 1
+      fi
       echo_step "Fixing glibc-incompatible kbuild binaries"
       # libelf-dev and libdw-dev are needed to recompile modpost/gendwarfksyms
       if command -v apt-get &>/dev/null; then
-         apt-get install -y libelf-dev libdw-dev zlib1g-dev 2>/dev/null || true
+         apt_retry install -y libelf-dev libdw-dev zlib1g-dev 2>/dev/null || true
       elif command -v dnf &>/dev/null; then
-         dnf install -y elfutils-libelf-devel elfutils-devel zlib-devel 2>/dev/null || true
+         dnf_retry install -y elfutils-libelf-devel elfutils-devel zlib-devel 2>/dev/null || true
       fi
       # Recompile essential binaries (modpost, gendwarfksyms) from source
       # using the container's own gcc. These ship as .c files alongside
@@ -257,7 +277,6 @@ ensure_kernel_gcc() {
       fi
       # Stub non-essential binaries (validation/metadata only)
       local -a stub_ok=(
-         "tools/objtool/objtool"
          "tools/bpf/resolve_btfids/resolve_btfids"
          "scripts/insert-sys-cert"
       )
@@ -290,25 +309,13 @@ ensure_kernel_gcc() {
 if [[ "$DISTRO_ID" == "ubuntu" || "$DISTRO_ID" == "debian" ]]; then
    echo_step "Using apt-get package manager"
 
-   # Retry apt-get update up to 3 times
-   UPDATE_OK=0
-   for i in 1 2 3; do
-      if apt-get update; then
-         UPDATE_OK=1
-         break
-      else
-         echo_warn "apt-get update failed (attempt $i/3), retrying in 10s..."
-         sleep 10
-      fi
-   done
-
-   if [ "$UPDATE_OK" -eq 0 ]; then
-      echo_fail "apt-get update failed after 3 attempts"
+   apt_retry update || {
+      echo_fail "apt-get update failed after ${PKG_RETRY_ATTEMPTS} attempts"
       exit 1
-   fi
+   }
 
    # Upgrade (non-fatal - some distros have upgrade issues)
-   apt-get upgrade -y || {
+   apt_retry upgrade -y || {
       echo_warn "apt-get upgrade failed, continuing anyway..."
    }
 
@@ -316,7 +323,7 @@ if [[ "$DISTRO_ID" == "ubuntu" || "$DISTRO_ID" == "debian" ]]; then
    # host kernel was built with CONFIG_MODULE_COMPRESS_ZSTD=y (Azure 6.17+);
    # without it, `dkms install` produces an unreadable .ko.zst and
    # `dkms status` stays at "added" instead of "installed".
-   apt-get install -y \
+   apt_retry install -y \
       build-essential \
       make \
       bash \
@@ -336,7 +343,7 @@ if [[ "$DISTRO_ID" == "ubuntu" || "$DISTRO_ID" == "debian" ]]; then
       CI_HOST_MATCH=1
       echo_step "Host kernel headers already present (bind-mount): ${HOST_KVER}"
    else
-      apt-get install -y "linux-headers-${HOST_KVER}" || true
+      apt_retry install -y "linux-headers-${HOST_KVER}" || true
       if [ -e "/lib/modules/${HOST_KVER}/build" ]; then
          CI_KVER="$HOST_KVER"
          CI_HOST_MATCH=1
@@ -344,9 +351,9 @@ if [[ "$DISTRO_ID" == "ubuntu" || "$DISTRO_ID" == "debian" ]]; then
       else
          echo_warn "linux-headers-${HOST_KVER} not available; falling back to distro-native headers"
          if [[ "$DISTRO_ID" == "debian" ]]; then
-            apt-get install -y linux-headers-amd64 || apt-get install -y linux-headers-generic
+            apt_retry install -y linux-headers-amd64 || apt_retry install -y linux-headers-generic
          else
-            apt-get install -y linux-headers-generic || apt-get install -y linux-headers-amd64
+            apt_retry install -y linux-headers-generic || apt_retry install -y linux-headers-amd64
          fi
          CI_KVER="$(detect_installed_kver)"
          if [ -z "$CI_KVER" ]; then
@@ -362,26 +369,15 @@ elif [[ "$DISTRO_ID" == "rocky" || "$DISTRO_ID" == "rhel" || \
         "$DISTRO_ID" == "fedora" ]]; then
    echo_step "Using dnf package manager (Rocky/RHEL/Fedora)"
 
-   # Retry dnf update up to 3 times
-   UPDATE_OK=0
-   for i in 1 2 3; do
-      if dnf update -y && dnf upgrade -y; then
-         UPDATE_OK=1
-         break
-      else
-         echo_warn "dnf update failed (attempt $i/3), retrying in 10s..."
-         sleep 10
-      fi
-   done
-
-   if [ "$UPDATE_OK" -eq 0 ]; then
-      echo_fail "dnf update failed after 3 attempts"
+   # dnf update is an alias of dnf upgrade
+   dnf_retry upgrade -y || {
+      echo_fail "dnf upgrade failed after ${PKG_RETRY_ATTEMPTS} attempts"
       exit 1
-   fi
+   }
 
    # Common build tools.  zstd is required for kernels built with
    # CONFIG_MODULE_COMPRESS_ZSTD=y (Azure 6.17+) — DKMS post-build compression.
-   dnf install -y \
+   dnf_retry install -y \
       gcc \
       gcc-c++ \
       make \
@@ -393,7 +389,7 @@ elif [[ "$DISTRO_ID" == "rocky" || "$DISTRO_ID" == "rhel" || \
 
    # Fedora ships BTF tools as 'dwarves' (provides pahole binary)
    if [[ "$DISTRO_ID" == "fedora" ]]; then
-      dnf install -y dwarves
+      dnf_retry install -y dwarves
    fi
 
    # Try host kernel headers; fall back to distro-native. If headers are
@@ -405,14 +401,14 @@ elif [[ "$DISTRO_ID" == "rocky" || "$DISTRO_ID" == "rhel" || \
       CI_HOST_MATCH=1
       echo_step "Host kernel headers already present (bind-mount): ${HOST_KVER}"
    else
-      dnf install -y "kernel-devel-${HOST_KVER}" "kernel-headers-${HOST_KVER}" kernel-modules-core || true
+      dnf_retry install -y "kernel-devel-${HOST_KVER}" "kernel-headers-${HOST_KVER}" kernel-modules-core || true
       if [ -e "/lib/modules/${HOST_KVER}/build" ] || [ -d "/usr/src/kernels/${HOST_KVER}" ]; then
          CI_KVER="$HOST_KVER"
          CI_HOST_MATCH=1
          echo_step "Installed host-matching kernel headers: ${HOST_KVER}"
       else
          echo_warn "kernel-devel-${HOST_KVER} not available; falling back to distro-native headers"
-         dnf install -y kernel-devel kernel-headers kernel-modules-core
+         dnf_retry install -y kernel-devel kernel-headers kernel-modules-core
          CI_KVER="$(detect_installed_kver)"
          if [ -z "$CI_KVER" ]; then
             echo_fail "No kernel headers found after fallback install"
@@ -441,12 +437,12 @@ if [ "$CI_HOST_MATCH" -eq 1 ]; then
       CI_HOST_MATCH=0
       if command -v apt-get &>/dev/null; then
          if [[ "${DISTRO_ID:-}" == "debian" ]]; then
-            apt-get install -y linux-headers-amd64 || apt-get install -y linux-headers-generic
+            apt_retry install -y linux-headers-amd64 || apt_retry install -y linux-headers-generic
          else
-            apt-get install -y linux-headers-generic || apt-get install -y linux-headers-amd64
+            apt_retry install -y linux-headers-generic || apt_retry install -y linux-headers-amd64
          fi
       elif command -v dnf &>/dev/null; then
-         dnf install -y kernel-devel kernel-headers kernel-modules-core
+         dnf_retry install -y kernel-devel kernel-headers kernel-modules-core
       fi
       CI_KVER="$(detect_installed_kver "$HOST_KVER")"
       if [ -z "$CI_KVER" ]; then
@@ -455,6 +451,18 @@ if [ "$CI_HOST_MATCH" -eq 1 ]; then
       fi
       echo_step "Using distro-native kernel headers for KVER=${CI_KVER}"
    fi
+fi
+
+# On RHEL-family distros the /lib/modules/<KVER>/build symlink is owned by
+# kernel-core, not kernel-devel. A mirror caught mid-sync can serve the two
+# at different versions, leaving the build link missing (or dangling) for
+# the kernel-devel version detect_installed_kver() picked from
+# /usr/src/kernels. Every module Makefile builds via that link, so point it
+# at the installed headers.
+if [ ! -e "/lib/modules/${CI_KVER}/build" ] && [ -d "/usr/src/kernels/${CI_KVER}" ]; then
+   mkdir -p "/lib/modules/${CI_KVER}"
+   ln -sfn "/usr/src/kernels/${CI_KVER}" "/lib/modules/${CI_KVER}/build"
+   echo_warn "Created missing /lib/modules/${CI_KVER}/build -> /usr/src/kernels/${CI_KVER}"
 fi
 
 # Export the kernel version we will build against, and whether it matches

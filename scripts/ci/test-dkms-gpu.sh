@@ -21,6 +21,10 @@
 
 set -e
 
+# dnf_retry / apt_retry: refresh metadata and retry on mirror failures
+# shellcheck source=scripts/ci/pkg-retry.sh
+source "$(dirname "${BASH_SOURCE[0]}")/pkg-retry.sh"
+
 # Color output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -40,16 +44,16 @@ echo_step "Testing DKMS GPU installation"
 # "Unable to locate package dkms" failures.
 if [ -f /etc/debian_version ]; then
    # Ubuntu/Debian
-   apt-get update
-   apt-get install -y dkms
+   apt_retry update
+   apt_retry install -y dkms
 elif [ -f /etc/redhat-release ]; then
    # Rocky/RHEL/Fedora - need EPEL (Fedora has dkms in base repos).
    # Mirror the fallback order used in test-dkms-gpu-smoke.sh so minimal
    # yum-only images (e.g. very old RHEL derivatives without dnf) stay
    # supported; fedora:rawhide / rockylinux:9 in the matrix use dnf.
    if command -v dnf &> /dev/null; then
-      dnf install -y epel-release || true
-      dnf install -y dkms
+      dnf_retry install -y epel-release || true
+      dnf_retry install -y dkms
    elif command -v yum &> /dev/null; then
       yum install -y epel-release || true
       yum install -y dkms
@@ -72,6 +76,15 @@ export GITV
 
 # Build DKMS tarballs (both CPU and GPU)
 make -C data_dev/driver dkms GITV="$GITV"
+
+# This cell has no NVIDIA module registered with dkms: build-gpu.sh builds against
+# emulator/gpu_stub by passing NVIDIA_DRIVERS on the make command line, which dkms
+# knows nothing about.  So the PRE_BUILD triggered below finds no NVIDIA tree, and by
+# default now refuses rather than silently producing a datadev-gpu package without GPU
+# support.  That refusal is right on a real node and wrong here, where the point is to
+# exercise the tarball and install path, so opt out explicitly.  The module this
+# installs consequently has no GPU support, by design.
+export ALLOW_NO_NVIDIA=1
 
 # Test DKMS GPU tarball installation
 if [ -f data_dev/driver/datadev-gpu-dkms-${GITV}.tar.gz ]; then

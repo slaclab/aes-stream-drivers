@@ -4,7 +4,7 @@
 # -----------------------------------------------------------------------------
 # Description:
 #    GPU /proc interface verification. Asserts /proc/datadev_0 shows the
-#    GPU-enabled driver state with GpuAsyncCore version 4.
+#    GPU-enabled driver state with GpuAsyncCore version 5.
 # -----------------------------------------------------------------------------
 # This file is part of the aes_stream_drivers package. It is subject to the
 # license terms in the LICENSE.txt file found in the top-level directory of
@@ -19,7 +19,7 @@
 #
 # Expected strings (flexible whitespace grep):
 #   - "GPUAsync Support : Enabled"    (from dma_common.c Dma_ShowInfo)
-#   - "GpuAsyncCore Version : 4"      (from gpu_async.c Gpu_Show)
+#   - "GpuAsyncCore Version : 5"      (from gpu_async.c Gpu_Show)
 #   - "Max Buffers : 4"               (from gpu_async.c Gpu_Show)
 #
 # Environment:
@@ -54,7 +54,7 @@ check_line() {
 }
 
 check_line "GPUAsync Support Enabled"  '^[[:space:]]*GPUAsync[[:space:]]*Support[[:space:]]*:[[:space:]]*Enabled'
-check_line "GpuAsyncCore Version 4"     '^[[:space:]]*GpuAsyncCore[[:space:]]*Version[[:space:]]*:[[:space:]]*4'
+check_line "GpuAsyncCore Version 5"     '^[[:space:]]*GpuAsyncCore[[:space:]]*Version[[:space:]]*:[[:space:]]*5'
 check_line "Max Buffers 4"              '^[[:space:]]*Max[[:space:]]*Buffers[[:space:]]*:[[:space:]]*4'
 
 if [ "$ERRS" -eq 0 ]; then

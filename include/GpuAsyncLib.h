@@ -48,6 +48,14 @@
         CU_DEVICE_ATTRIBUTE_CAN_USE_STREAM_MEM_OPS
 #endif
 
+/**
+ * @brief align @c value to @c align bytes
+ */
+template<typename T, typename A>
+T alignValue(const T& value, const A& align) {
+   return ((value + align - 1) / align) * align;
+}
+
 /* ----- Error helpers ---------------------------------------------------- */
 
 /** @brief Print + abort if @p status is not CUDA_SUCCESS. */
@@ -111,6 +119,45 @@ protected:
     CUcontext context_;
     CUdevice  device_;
 };
+
+/* ----- Mem Helpers ----------------------------------------------------- */
+
+struct CudaVMMAlloc {
+    /**
+     * Generic allocation handle returned by cuMemCreate
+     */
+    CUmemGenericAllocationHandle handle;
+    /**
+     * Device pointer to the aligned memory.
+     */
+    CUdeviceptr ptr;
+    /**
+     * Real size of the memory, aligned to the min alloc granularity
+     * required by CUDA.
+     */
+    size_t size;
+};
+
+/**
+ * @brief Allocate aligned memory on the device suitable for RDMA access
+ * using the CUDA VMM API.
+ * API's such as cudaMalloc or cuMalloc do not guarantee us alignment.
+ * @param alloc Reference to a CudaVMMAlloc object that holds the info.
+ * @param size Size of the allocation. If this is not aligned to the min
+ *             granularity size required by CUDA, it will be adjusted by
+ *             the function. The real size of the buffer is returned in
+ *             alloc.size. The real size will always be greater or equal
+ *             to the value specified in size.
+ * @param alignment Value the memory should be aligned to.
+ * @returns A cuda result
+ */
+CUresult vmmCuAlloc(CudaVMMAlloc& alloc, size_t size, size_t alignment);
+
+/**
+ * @brief Frees some memory allocated with the CUDA VMM API.
+ * Clears @c alloc
+ */
+void vmmCuFree(CudaVMMAlloc& alloc);
 
 /* ----- DMA buffers ----------------------------------------------------- */
 

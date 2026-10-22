@@ -28,7 +28,7 @@
 #   2. Load datadev_emulator.ko (built on the host)
 #   3. Load datadev.ko (GPU build: built with NVIDIA_DRIVERS=$HOST/emulator/gpu_stub)
 #   4. Wait for /dev/datadev_0 and /proc/datadev_0
-#   5. Confirm "Configured for GpuAsyncCore version 4" in dmesg
+#   5. Confirm "Configured for GpuAsyncCore version 5" in dmesg
 #   6. Run tests/run_tests.sh with GPU_ENABLED=1 (Phase 3 + Phase 4 cases)
 #   7. Unload in reverse load order:
 #      datadev -> datadev_emulator -> nvidia_p2p_stub
@@ -103,12 +103,12 @@ echo "  emulator loaded"
 # Scan only the post-marker delta so a prior run's log line in a reused
 # VM can't satisfy this probe. Same awk+index() idiom as check-dmesg.sh.
 if ! dmesg | awk -v m="$CI_DMESG_MARKER" 'f{print} index($0,m){f=1}' | \
-        grep -q "BAR0 GPU Async V4 initialized"; then
-   echo "FAIL: GPU Async V4 init log line not found in this run's dmesg delta"
+        grep -q "BAR0 GPU Async V5 initialized"; then
+   echo "FAIL: GPU Async V5 init log line not found in this run's dmesg delta"
    dmesg | tail -50
    exit 1
 fi
-echo "  GPU Async V4 registers initialized"
+echo "  GPU Async V5 registers initialized"
 
 echo "=== VM-GPU: Loading datadev (GPU build) ==="
 insmod "$HOST/data_dev/driver/datadev.ko" cfgDebug=1 || {
@@ -136,12 +136,12 @@ echo "  /proc/datadev_0 exists"
 # Delta-scan so a prior run's confirmation line in a reused VM cannot
 # satisfy this probe.
 if ! dmesg | awk -v m="$CI_DMESG_MARKER" 'f{print} index($0,m){f=1}' | \
-        grep -q "Configured for GpuAsyncCore version 4"; then
-   echo "FAIL: Gpu_Init V4 confirmation not found in this run's dmesg delta"
+        grep -q "Configured for GpuAsyncCore version 5"; then
+   echo "FAIL: Gpu_Init V5 confirmation not found in this run's dmesg delta"
    dmesg | tail -100
    record_rc 1
 else
-   echo "  Gpu_Init reported GpuAsyncCore version 4"
+   echo "  Gpu_Init reported GpuAsyncCore version 5"
 fi
 
 chmod 666 /dev/datadev_0

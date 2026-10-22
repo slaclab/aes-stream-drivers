@@ -19,6 +19,10 @@
 
 set -e
 
+# dnf_retry / apt_retry: refresh metadata and retry on mirror failures
+# shellcheck source=scripts/ci/pkg-retry.sh
+source "$(dirname "${BASH_SOURCE[0]}")/pkg-retry.sh"
+
 # Color output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -36,12 +40,12 @@ echo_step "DKMS CPU smoke test (tarball + add only)"
 # or stale, so refresh before installing to avoid intermittent
 # "Unable to locate package dkms" failures.
 if [ -f /etc/debian_version ]; then
-   apt-get update
-   apt-get install -y dkms
+   apt_retry update
+   apt_retry install -y dkms
 elif [ -f /etc/redhat-release ]; then
    if command -v dnf &> /dev/null; then
-      dnf install -y epel-release || true
-      dnf install -y dkms
+      dnf_retry install -y epel-release || true
+      dnf_retry install -y dkms
    elif command -v yum &> /dev/null; then
       yum install -y epel-release || true
       yum install -y dkms

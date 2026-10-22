@@ -148,11 +148,7 @@ struct class *gCl;
  *
  * Returns NULL always.
  */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 4))
-char *Dma_DevNode(const struct device *dev, umode_t *mode) {
-#else
-char *Dma_DevNode(struct device *dev, umode_t *mode) {
-#endif
+char *Dma_DevNode(DMA_DEVNODE_CONST struct device *dev, umode_t *mode) {
    if (mode != NULL) {
       *mode = 0666;
    }
@@ -1353,8 +1349,10 @@ int Dma_ProcOpen(struct inode *inode, struct file *file) {
    struct seq_file *sf;
    struct DmaDevice *dev;
 
-   // PDE_DATA removed in kernel 5.17, backported to RHEL 9.3's 5.14 kernel
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 3))
+   // PDE_DATA renamed pde_data() in kernel 5.17, backported to RHEL 9.1's
+   // 5.14 kernel. Verified against kernel-devel: 9.0 (5.14.0-70) has only
+   // PDE_DATA, 9.1 (5.14.0-162) has only pde_data.
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 17, 0) || (defined(RHEL_RELEASE_CODE) && RHEL_RELEASE_CODE >= RHEL_RELEASE_VERSION(9, 1))
    dev = (struct DmaDevice *)pde_data(inode);
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
    dev = (struct DmaDevice *)PDE_DATA(inode);

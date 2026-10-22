@@ -11,12 +11,23 @@ Run local KVM CI testing after making changes to any of these paths:
 - `common/driver/` — shared DMA/buffer/axis kernel code
 - `data_dev/driver/src/` — datadev kernel module
 - `emulator/gpu_stub/src/` — GPU stub module (affects `--phase gpu`)
+- `pgpcard/driver/src/`, `pgpcard/include/`: pgpcard kernel module (affects
+  `--phase pgp`)
 - `scripts/ci/` — CI pipeline scripts
 
 Do NOT skip local CI testing in favor of "it compiles" or "grep confirms
 the change." Compilation does not prove the module loads, the driver probes,
 or DMA transfers succeed. The KVM parity harness runs the same scripts as
 GitHub Actions CI on the same Azure kernel family.
+
+**`--phase pgp` is the one exception, and its ceiling is real.** pgpcard drives
+legacy PGP Gen2 (`1a4a:2000`) and Gen3 (`1a4a:2020`) cards, and
+`emulator/driver` has no PGP personality: it emulates only `1a4a:2030` with an
+AXIS Gen2 register map. No PGP card exists in the VM, so `PgpCard_Probe` never
+runs. The pgp phase covers compilation across the distro matrix plus
+`module_init` and `module_exit`. It cannot cover probe, remove, DMA, or
+interrupts, so do not read a green pgp phase as evidence that the hardware path
+works. Only real Gen2/Gen3 hardware can establish that.
 
 ## Prerequisites check
 
@@ -151,6 +162,36 @@ which additionally load `nvidia_p2p_stub.ko` before `datadev_emulator.ko`
 and expect the async-GPU code path to be exercised. Success requires the
 stub module to register `emu_gpu_addr_lookup` strongly before the
 emulator's RX/TX ticks would otherwise no-op via `__weak` fallback.
+
+## Quick validation for the pgp phase
+
+```bash
+# Build-only cell, which is what every non-Ubuntu container can do
+bash scripts/ci-local/run_cell.sh --container rockylinux:9 --load-test 0 --phase pgp
+
+# Load-test cell, only valid where CI_HOST_MATCH=1
+bash scripts/ci-local/run_cell.sh --container ubuntu:24.04 --load-test 1 --phase pgp
+```
+
+The pgp phase drives `scripts/ci/build-pgp.sh`, then on a load-test cell
+`load-modules-pgp.sh` and `unload-modules-pgp.sh`. There is no `test-pgp.sh`.
+
+`build-pgp.sh` asserts `pgpcard.ko` plus all nine `pgpcard/app/bin/` binaries
+exist, and that the module advertises both `1a4a:2000` and `1a4a:2020` PCI
+aliases. A missing alias means the driver would silently never bind.
+
+`load-modules-pgp.sh` refuses to run when the built module's vermagic does not
+match the running kernel, and tells you the cell should be build-only. That is
+the expected outcome on `rockylinux:9`, `debian:experimental` and
+`fedora:rawhide`, where `install-deps.sh` falls back to distro-native headers
+and reports `CI_HOST_MATCH=0`.
+
+**Treat `rockylinux:9 --load-test 0` as the most valuable cell in this phase.**
+It is the only one that compiles against genuine RHEL 9 `kernel-devel`, which is
+the deployment target for the PGP-GEN3 hardware, and the only one that
+exercises the `RHEL_RELEASE_CODE` branches in `common/driver/dma_common.c`. A
+version-only guard that is wrong for a RHEL backport will pass every Ubuntu cell
+and fail only here.
 
 ## CPU vs GPU cheat sheet
 

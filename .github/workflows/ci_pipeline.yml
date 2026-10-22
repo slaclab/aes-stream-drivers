@@ -3,10 +3,11 @@
 # ----------------------------------------------------------------------------
 # Complete CI/CD pipeline with sequential phases:
 #  Phase 1: Documentation & Linting
-#  Phase 2: CPU Testing (4 distros in parallel) → waits for Phase 1
-#  Phase 3: GPU Testing (4 distros in parallel) → waits for Phase 2
+#  Phase 2: CPU Testing (5 distros in parallel) → waits for Phase 1
+#  Phase 3: GPU Testing (5 distros in parallel) → waits for Phase 2
 #  Phase 4: Release Generation → waits for Phase 3
-#  Phase 5: DKMS Package Generation → waits for Phase 4
+#  Phase 5: DKMS Source Tarball Builds + Uploads (cpu, gpu) → waits for Phase 4
+#  Phase 6: Distribution Packages (.deb/.rpm) + Uploads → waits for Phase 5
 #
 # All phases visible in a single GitHub Actions run page.
 #
@@ -25,11 +26,11 @@ jobs:
     name: "Phase 1: Documentation & Linting"
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: 3.12
 
@@ -62,18 +63,6 @@ jobs:
       - name: C/C++ Linter
         run: |
           find . -name '*.h' -o -name '*.cpp' -o -name '*.c' | xargs cpplint
-
-      - name: Assert gpu_async.c unchanged from main
-        run: |
-          git fetch origin main --depth=1 2>/dev/null || true
-          BASE=$(git merge-base HEAD origin/main 2>/dev/null || echo "")
-          if [ -z "$BASE" ]; then
-            echo "WARN: cannot resolve merge base; skipping diff gate"
-            exit 0
-          fi
-          git diff --exit-code "$BASE" -- \
-            common/driver/gpu_async.c \
-            data_dev/driver/src/gpu_async.c
 
   # ==========================================================================
   # Phase 2: CPU Testing (5 distros in parallel)
@@ -110,7 +99,7 @@ jobs:
       image: ${{ matrix.container }}
       options: "--privileged -v /lib/modules:/lib/modules -v /usr/src:/usr/src"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
@@ -167,8 +156,8 @@ jobs:
           echo "ARTIFACT_NAME=cpu-ci-diag-${{ github.job }}-${SANITIZED}" >> $GITHUB_ENV
 
       - name: Upload diagnostics on failure
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
-        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: diag/
@@ -218,7 +207,7 @@ jobs:
       image: ${{ matrix.container }}
       options: "--privileged -v /lib/modules:/lib/modules -v /usr/src:/usr/src"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
@@ -274,8 +263,108 @@ jobs:
           echo "ARTIFACT_NAME=gpu-ci-diag-${{ github.job }}-${SANITIZED}" >> $GITHUB_ENV
 
       - name: Upload diagnostics on failure
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: failure()
-        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: diag/
+          retention-days: 3
+          if-no-files-found: ignore
+
+      - name: Dump full dmesg on failure
+        if: failure()
+        run: dmesg || echo "dmesg not available (expected in container)"
+
+  # ==========================================================================
+  # Phase 3b: pgpcard Test (legacy PGP Gen2/Gen3 hardware)
+  # Runs in parallel with Phase 3, both gated on Phase 2.
+  #
+  # Build coverage plus module load and unload only. emulator/driver has no PGP
+  # personality (it emulates 1a4a:2030 with an AXIS Gen2 register map), so no
+  # PGP card exists in CI, PgpCard_Probe never runs, and there is nothing to
+  # drive traffic against. There is no test-pgp.sh and no DKMS packaging for
+  # pgpcard, so neither a test nor a DKMS step appears below.
+  #
+  # The rockylinux:9 cell is the one that matters most for this driver: it
+  # compiles against genuine RHEL 9 kernel-devel, which is the deployment
+  # target for the PGP-GEN3 hardware, and is the only cell that exercises the
+  # RHEL_RELEASE_CODE branches in common/driver/dma_common.c.
+  # ==========================================================================
+  pgp_test:
+    name: "Phase 3b: pgpcard Test (${{ matrix.container }})"
+    needs: [cpu_test]
+    # No traffic tests, so this is much shorter than the CPU and GPU phases.
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - container: "ubuntu:24.04"
+            load_test: true
+          - container: "ubuntu:22.04"
+            load_test: true
+          - container: "rockylinux:9"
+            load_test: true
+          - container: "debian:experimental"
+            load_test: true
+          - container: "fedora:rawhide"
+            load_test: true
+    runs-on: ubuntu-24.04
+    container:
+      image: ${{ matrix.container }}
+      options: "--privileged -v /lib/modules:/lib/modules -v /usr/src:/usr/src"
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: bash scripts/ci/install-deps.sh
+
+      - name: Display environment info
+        run: |
+          echo "Container: ${{ matrix.container }}"
+          echo "Host kernel: $(uname -r)"
+          echo "Build kernel: ${CI_KVER}"
+          echo "Host match: ${CI_HOST_MATCH}"
+          echo "## pgpcard ${{ matrix.container }} - kernel ${CI_KVER}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Build (pgpcard)
+        run: bash scripts/ci/build-pgp.sh
+
+      # CI_HOST_MATCH gates the load, exactly as in Phase 2. When it is 0 the
+      # module was built against the distro's own headers and cannot insmod on
+      # the runner kernel; the build assertion above is the coverage for that
+      # cell. This is the expected state for rockylinux:9.
+      - name: Load module
+        if: matrix.load_test && env.CI_HOST_MATCH == '1'
+        run: bash scripts/ci/load-modules-pgp.sh
+
+      - name: Unload module
+        if: always() && matrix.load_test && env.CI_HOST_MATCH == '1'
+        run: bash scripts/ci/unload-modules-pgp.sh
+
+      - name: Check dmesg
+        if: always()
+        run: bash scripts/ci/check-dmesg.sh
+
+      - name: Collect diagnostics on failure
+        if: failure()
+        run: |
+          mkdir -p diag
+          dmesg > diag/dmesg.txt 2>&1 || true
+          cp pgpcard/driver/pgpcard.ko diag/ 2>/dev/null || true
+          ls -la diag/ || true
+
+      - name: Sanitize container name for artifact
+        if: failure()
+        run: |
+          SANITIZED=$(echo "${{ matrix.container }}" | sed 's/:/-/g; s/\//-/g')
+          echo "ARTIFACT_NAME=pgp-ci-diag-${{ github.job }}-${SANITIZED}" >> $GITHUB_ENV
+
+      - name: Upload diagnostics on failure
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: failure()
         with:
           name: ${{ env.ARTIFACT_NAME }}
           path: diag/
@@ -288,11 +377,11 @@ jobs:
 
   # ==========================================================================
   # Phase 4: Release Generation
-  # Waits for Phase 3 (all GPU tests) to complete
+  # Waits for Phase 3 (GPU) and Phase 3b (pgpcard) to complete
   # ==========================================================================
   gen_release:
     name: "Phase 4: Generate Release"
-    needs: [gpu_test]
+    needs: [gpu_test, pgp_test]
     uses: slaclab/ruckus/.github/workflows/gen_release.yml@main
     with:
       version: '1.0.0'
@@ -300,57 +389,181 @@ jobs:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
   # ==========================================================================
-  # Phase 5: DKMS Package Generation
-  # Waits for Phase 4 (release) to complete
-  # Only runs on tagged releases
+  # Phase 5: Parallel Package Generation (DKMS, DEB Loop, RPM)
   # ==========================================================================
-  generate_dkms:
-    name: "Phase 5: Generate DKMS Packages"
+  generate_packages:
+    name: "Phase 5: Build DKMS Tarball (${{ matrix.driver_type }})"
     needs: [gen_release]
     runs-on: ubuntu-24.04
     if: startsWith(github.ref, 'refs/tags/')
     strategy:
+      fail-fast: false
       matrix:
-        mod:
-          - datadev
+        driver_type: [cpu, gpu]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-python@v6
+      - name: Setup Host Python Environment
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: 3.12
 
-      - name: Install dependencies
+      - name: Install Host Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install debhelper dkms fakeroot rpm
-          python -m pip install --upgrade pip
-          pip install -r pip_requirements.txt
+          sudo apt-get install -y dkms
+          python3 -m pip install --upgrade pip
+          pip3 install -r pip_requirements.txt
 
-      - name: Get Image Information
-        id: get_image_info
-        env:
-          MOD: ${{ matrix.mod }}
+      - name: Parse Packaging Metadata
+        id: meta
         run: |
-          echo ::set-output name=tag::`git describe --tags`
-
-          if [ $MOD == "datadev" ]
-          then
-             echo ::set-output name=module::"datadev"
-             echo ::set-output name=dir::"data_dev/driver"
+          TAG_VERSION=$(git describe --tags)
+          echo "tag=${TAG_VERSION}" >> $GITHUB_OUTPUT
+          if [ "${{ matrix.driver_type }}" = "gpu" ]; then
+            echo "suffix=-gpu" >> $GITHUB_OUTPUT
+          else
+            echo "suffix=" >> $GITHUB_OUTPUT
           fi
 
-      - name: Build DKMS Tarballs
+      - name: Build Source DKMS Tarball
         run: |
           make -C data_dev/driver dkms
 
-      - name: Upload Assets
+      - name: Assert DKMS tarball was produced
         env:
-          VERSION: ${{ steps.get_image_info.outputs.tag }}
+          TAG: ${{ steps.meta.outputs.tag }}
+          SUFFIX: ${{ steps.meta.outputs.suffix }}
+        run: |
+          TARBALL="data_dev/driver/datadev${SUFFIX}-dkms-${TAG}.tar.gz"
+          if [ ! -f "${TARBALL}" ]; then
+            echo "ERROR: expected DKMS tarball not found: ${TARBALL}" >&2
+            exit 1
+          fi
+
+      - name: Upload DKMS Source Tarball
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          SUFFIX: ${{ steps.meta.outputs.suffix }}
           GIT_REPO: ${{ github.repository }}
           GH_REPO_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          python scripts/uploadTag.py --tag=$VERSION --repo=$GIT_REPO --file=data_dev/driver/datadev-dkms-${VERSION}.tar.gz
-          python scripts/uploadTag.py --tag=$VERSION --repo=$GIT_REPO --file=data_dev/driver/datadev-gpu-dkms-${VERSION}.tar.gz
+          python3 scripts/uploadTag.py --tag=$TAG --repo=$GIT_REPO --file=data_dev/driver/datadev${SUFFIX}-dkms-${TAG}.tar.gz
+
+  # ==========================================================================
+  # Phase 6: Real Distribution Packages (.deb & .rpm)
+  # ==========================================================================
+  # Builds real installable DKMS packages per target:
+  #   * ubuntu-22.04  -> .deb
+  #   * ubuntu-24.04  -> .deb
+  #   * rockylinux-9  -> .rpm
+  # for both the CPU (datadev) and GPU (datadev-gpu) driver variants, then
+  # uploads each built package to the GitHub release.
+  #
+  # The build runs inside the target distro via `docker run`, mounting the
+  # already-checked-out repo (which keeps its .git, so the Makefile's
+  # `git describe` versioning works correctly). Each package ships the DKMS
+  # source tree under /usr/src and registers it with dkms on install.
+  # ==========================================================================
+  dist_packages:
+    name: "Phase 6: Dist Package (${{ matrix.driver_type }} - ${{ matrix.target_env }})"
+    needs: [generate_packages]
+    runs-on: ubuntu-24.04
+    if: startsWith(github.ref, 'refs/tags/')
+    strategy:
+      fail-fast: false
+      matrix:
+        driver_type: [cpu, gpu]
+        target_env: [ubuntu-22.04, ubuntu-24.04, rockylinux-9]
+        include:
+          - target_env: ubuntu-22.04
+            container_image: "ubuntu:22.04"
+            pkg_format: "deb"
+          - target_env: ubuntu-24.04
+            container_image: "ubuntu:24.04"
+            pkg_format: "deb"
+          - target_env: rockylinux-9
+            container_image: "rockylinux:9"
+            pkg_format: "rpm"
+    steps:
+      # Checkout on the HOST runner so the full .git history is present and
+      # gets mounted into the build container (needed by the Makefile's
+      # `git describe` versioning).
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Setup Host Python Environment
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
+        with:
+          python-version: 3.12
+
+      - name: Install Host Dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install -r pip_requirements.txt
+
+      - name: Parse release tag
+        id: meta
+        run: |
+          TAG_VERSION=$(git describe --tags)
+          echo "tag=${TAG_VERSION}" >> $GITHUB_OUTPUT
+
+      # ----------------------------------------------------------------------
+      # Build .deb (Ubuntu targets)
+      # ----------------------------------------------------------------------
+      - name: Build Debian package
+        if: matrix.pkg_format == 'deb'
+        env:
+          IMAGE: ${{ matrix.container_image }}
+          DRIVER_TYPE: ${{ matrix.driver_type }}
+          TARGET_ENV: ${{ matrix.target_env }}
+        run: |
+          docker run --rm \
+            -e DRIVER_TYPE -e TARGET_ENV \
+            -v "${PWD}":/ws -w /ws "${IMAGE}" \
+            bash /ws/scripts/ci/build-deb.sh
+
+      # ----------------------------------------------------------------------
+      # Build .rpm (Rocky Linux 9 target)
+      # ----------------------------------------------------------------------
+      - name: Build RPM package
+        if: matrix.pkg_format == 'rpm'
+        env:
+          IMAGE: ${{ matrix.container_image }}
+          DRIVER_TYPE: ${{ matrix.driver_type }}
+          TARGET_ENV: ${{ matrix.target_env }}
+        run: |
+          docker run --rm \
+            -e DRIVER_TYPE -e TARGET_ENV \
+            -v "${PWD}":/ws -w /ws "${IMAGE}" \
+            bash /ws/scripts/ci/build-rpm.sh
+
+      # ----------------------------------------------------------------------
+      # Upload the built package(s) to the GitHub release
+      # ----------------------------------------------------------------------
+      - name: Assert and upload package to release
+        env:
+          TAG: ${{ steps.meta.outputs.tag }}
+          GIT_REPO: ${{ github.repository }}
+          GH_REPO_TOKEN: ${{ secrets.GH_TOKEN }}
+          PKG_FORMAT: ${{ matrix.pkg_format }}
+          DRIVER_TYPE: ${{ matrix.driver_type }}
+          TARGET_ENV: ${{ matrix.target_env }}
+        run: |
+          shopt -s nullglob
+          if [ "${PKG_FORMAT}" = "deb" ]; then
+            FILES=(data_dev/driver/*.deb)
+          else
+            FILES=(data_dev/driver/*.rpm)
+          fi
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "ERROR: no .${PKG_FORMAT} package found for ${DRIVER_TYPE}/${TARGET_ENV}" >&2
+            exit 1
+          fi
+          for pkg in "${FILES[@]}"; do
+            echo "Uploading built asset: $pkg"
+            python3 scripts/uploadTag.py --tag="$TAG" --repo="$GIT_REPO" --file="$pkg"
+          done

@@ -94,7 +94,7 @@ TS="$(date +%Y%m%d-%H%M%S)"
 
 usage() {
    cat <<EOF
-Usage: $0 --container IMG --load-test {0|1} [--phase cpu|gpu] [--log-dir PATH]
+Usage: $0 --container IMG --load-test {0|1} [--phase cpu|gpu|pgp] [--log-dir PATH]
 
 Execute one CI matrix cell on the aes-ci parity VM. The scripts/ci/*.sh
 chain runs verbatim inside a docker container over SSH.
@@ -144,8 +144,8 @@ if [ "$LOAD_TEST" != "0" ] && [ "$LOAD_TEST" != "1" ]; then
    usage
    exit 5
 fi
-if [ "$PHASE" != "cpu" ] && [ "$PHASE" != "gpu" ]; then
-   echo_fail "--phase must be cpu or gpu (got: '$PHASE')"
+if [ "$PHASE" != "cpu" ] && [ "$PHASE" != "gpu" ] && [ "$PHASE" != "pgp" ]; then
+   echo_fail "--phase must be cpu, gpu or pgp (got: '$PHASE')"
    usage
    exit 5
 fi
@@ -233,7 +233,27 @@ fi
 # ----------------------------------------------------------------------------
 COPY_STEP='cp -a /src/. /work/ && '
 
-if [ "$PHASE" = "gpu" ]; then
+if [ "$PHASE" = "pgp" ]; then
+   # pgpcard has no emulator personality, so there is no test-pgp.sh: nothing
+   # can drive traffic without a real Gen2/Gen3 card. A load_test cell here
+   # covers module_init, symbol resolution and module_exit only, and requires
+   # the built module to match the running kernel (CI_HOST_MATCH=1).
+   # There is also no DKMS packaging for pgpcard, so no test-dkms step.
+   if [ "$LOAD_TEST" = "1" ]; then
+      STEPS="${COPY_STEP}"'bash scripts/ci/install-deps.sh && \
+             bash scripts/ci/build-pgp.sh && \
+             { bash scripts/ci/load-modules-pgp.sh; rc=$?; \
+               bash scripts/ci/unload-modules-pgp.sh; \
+               exit $rc; } ; rc=$? ; \
+             bash scripts/ci/check-dmesg.sh ; \
+             exit $rc'
+   else
+      STEPS="${COPY_STEP}"'bash scripts/ci/install-deps.sh && \
+             bash scripts/ci/build-pgp.sh ; rc=$? ; \
+             bash scripts/ci/check-dmesg.sh ; \
+             exit $rc'
+   fi
+elif [ "$PHASE" = "gpu" ]; then
    if [ "$LOAD_TEST" = "1" ]; then
       STEPS="${COPY_STEP}"'bash scripts/ci/install-deps.sh && \
              bash scripts/ci/build-gpu.sh && \

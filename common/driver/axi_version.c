@@ -214,3 +214,20 @@ void AxiVersion_SetUserReset(__iomem void *base, bool state) {
 
    writel(val, &(reg->userReset));  // Write the value to the userReset register
 }
+
+/**
+ * AxiVersion_GetUpTime - Reads the AXI version uptime counter.
+ * @base: Pointer to the base address of the AXI Version register block.
+ *
+ * Reads the free-running counter that tracks the number of seconds since the
+ * FPGA left reset. Besides reporting uptime, this register doubles as a cheap
+ * liveness check on the register interface: all-ones is not a value real
+ * firmware can report, so it indicates the read never reached the FPGA.
+ *
+ * Return: the raw contents of the uptime counter register.
+ */
+uint32_t AxiVersion_GetUpTime(__iomem void *base) {
+   __iomem struct AxiVersion_Reg *reg = (__iomem struct AxiVersion_Reg *)base;
+
+   return readl(&(reg->upTimeCount));
+}

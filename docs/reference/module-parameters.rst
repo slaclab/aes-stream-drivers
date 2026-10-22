@@ -1,5 +1,5 @@
-Module Parameters — datadev
-============================
+Module Parameters: datadev
+==========================
 
 The ``datadev`` kernel module accepts parameters at load time via ``insmod``
 or persistently via ``/etc/modprobe.d/``.
@@ -8,7 +8,7 @@ or persistently via ``/etc/modprobe.d/``.
 
 .. code-block:: console
 
-   $ sudo insmod data_dev.ko cfgTxCount=2048 cfgRxCount=2048 cfgSize=262144
+   $ sudo insmod datadev.ko cfgTxCount=2048 cfgRxCount=2048 cfgSize=262144
 
 **Persistent configuration** (survives reboots when using ``modprobe``):
 
@@ -19,7 +19,7 @@ or persistently via ``/etc/modprobe.d/``.
 
 .. note::
 
-   All parameters have permission ``0`` — they are not readable from
+   All parameters have permission ``0``, so they are not readable from
    ``/sys/module/datadev/parameters/`` after the module is loaded.
    Use ``/proc/datadev_N`` to inspect the running configuration.
 
@@ -47,13 +47,19 @@ or persistently via ``/etc/modprobe.d/``.
      - ``1`` (``BUFF_COHERENT``)
      - DMA buffer allocation mode. Valid values:
        ``1`` = ``BUFF_COHERENT`` (``dma_alloc_coherent``, CPU-coherent, default);
-       ``2`` = ``BUFF_STREAM`` (``kmalloc`` + ``dma_map_single``, streaming);
-       ``4`` = ``BUFF_ARM_ACP`` (ARM ACP path, RCE variants only).
+       ``2`` = ``BUFF_STREAM`` (streaming: ``dma_alloc_noncoherent`` on 5.15+,
+       ``kmalloc`` + ``dma_map_single`` on older kernels);
+       ``4`` = ``BUFF_ARM_ACP`` (ARM ACP path, RCE variants only; rejected by
+       ``datadev``).
    * - ``cfgCont``
      - ``1``
-     - RX continue enable. ``1`` = driver automatically returns received buffers
-       to the free pool after the application reads them; ``0`` = application
-       must call ``dmaRetIndex()`` explicitly.
+     - RX continue enable, written to the DMA write engine's ``contEnable``
+       register. ``1`` = a frame larger than ``cfgSize`` continues into further
+       buffers, with the ``cont`` flag set on every descriptor but the last (bit 16
+       of the flags word, and counted as ``Continue Count`` in
+       ``/proc/datadev_*``); ``0`` = the write engine asserts ``overflow`` in the
+       descriptor and drops the remainder of the frame. It has no bearing on when
+       buffers are returned to the free pool.
    * - ``cfgIrqHold``
      - ``10000``
      - Interrupt coalescing holdoff in hardware clock cycles. Higher values
@@ -100,4 +106,4 @@ or persistently via ``/etc/modprobe.d/``.
    * - ``cfgDebug``
      - ``0``
      - Enables very verbose kernel log output. ``1`` = verbose (use only for
-       debugging — generates large log volume under load).
+       debugging, since it generates a large log volume under load).

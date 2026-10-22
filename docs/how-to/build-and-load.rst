@@ -26,8 +26,8 @@ Build the Driver
    make driver
    make app
 
-Output: ``install/$(uname -r)/datadev.ko`` and userspace tools under
-``install/bin/``.
+Output: ``install/$(uname -r)/datadev.ko`` and the userspace tools under
+``data_dev/app/bin/``.
 
 Load the Driver
 ---------------
@@ -70,6 +70,45 @@ Then load the driver via modprobe:
 .. code-block:: bash
 
    sudo modprobe datadev
+
+Nodes running the GPU DRP need a different set of parameters, so they have their
+own sample. Copy only one of the two: modprobe reads every ``*.conf`` in that
+directory and accumulates the ``options`` lines, so two files that disagree about
+a parameter give ambiguous results.
+
+.. code-block:: bash
+
+   sudo cp data_dev/driver/datadev-gpu.conf /etc/modprobe.d/datadev.conf
+
+Note that ``/etc/modprobe.d`` is read by ``modprobe``, not by ``insmod``, so a
+script that inserts the module directly must pass these parameters on its own
+command line.
+
+Install and Reload via DKMS
+---------------------------
+
+After any pull of the driver, ``dkms-reload.sh`` runs the whole sequence in one
+command: build the DKMS tarball, register it, build, install, retire any other
+datadev package or version, reload the module, and verify that the running module
+is also the one ``modprobe`` will pick at the next boot.
+
+.. code-block:: bash
+
+   cd data_dev/driver
+   sudo ./dkms-reload.sh          # GPU nodes  (datadev-gpu-dkms)
+   sudo ./dkms-reload.sh cpu      # CPU nodes  (datadev-dkms)
+
+The script refuses to run while ``datadev`` is in use, rather than pulling the
+module out from under a running application. Both variants build the same ``datadev.ko`` and install it
+to the same place, so only one may be installed at a time.
+
+The GPU variant needs the NVIDIA kernel module source registered with DKMS for the
+running kernel, since ``PRE_BUILD`` builds against its symbols. If it is missing,
+the build fails rather than quietly producing a module without GPU support. Such a
+module would be indistinguishable from a working one by ``lsmod`` or ``modinfo``,
+since both variants are named ``datadev.ko``; only the ``GPUAsync Support`` line in
+``/proc/datadev_*`` tells them apart. To build without GPU support deliberately,
+as CI does, set ``ALLOW_NO_NVIDIA=1``.
 
 Unload the Driver
 -----------------
