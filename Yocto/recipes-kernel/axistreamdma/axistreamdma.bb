@@ -2,7 +2,6 @@ SUMMARY = "Recipe for building an external axistreamdma Linux kernel module"
 SECTION = "Yocto/modules"
 
 LICENSE = "BSD-3-Clause"
-LICENSE_PATH += "${S}"
 
 # Compute the LICENSE.txt checksum at parse time so the annual copyright
 # year bump in LICENSE.txt does not require a matching recipe update.
