@@ -127,7 +127,7 @@ struct emu_dma_engine {
    uint32_t rx_count;
    uint32_t irq_count;
    uint32_t free_captured;
-   uint32_t starved_count;    /* TX returned without RX: free pool empty */
+   uint32_t stall_count;      /* poll cycles a TX waited for a free RX buffer */
    unsigned long stats_next;  /* jiffies of next emu_stats_interval_ms line */
 };
 

@@ -267,6 +267,18 @@ static int emu_process_tx(struct emu_dma_engine *eng)
    if (fifo_b == 0)
       return 0;
 
+   /* No free RX buffer yet: leave the descriptor in the readFifo shadow
+    * registers and retry next poll cycle, as the firmware backpressures
+    * with dropEnable=0 (set by AxisG2_Init) instead of dropping. The
+    * driver cannot overwrite it meanwhile: addrWidth=1 allows one TX in
+    * flight (hwRdBuffCnt < addrCount-1). This is expected briefly,
+    * because AxisG2_Process writes the next TX before the WriteFree that
+    * replaces the RX buffer it just received. */
+   if (!emu_free_pool_pop(eng, &rx_index, &rx_handle)) {
+      eng->stall_count++;
+      return 0;
+   }
+
    fifo_a = emu_reg_read(eng, EMU_REG_READFIFOA);
    fifo_c = emu_reg_read(eng, EMU_REG_READFIFOC);
    fifo_d = emu_reg_read(eng, EMU_REG_READFIFOD);
@@ -293,33 +305,13 @@ static int emu_process_tx(struct emu_dma_engine *eng)
    if (validity == 0)
       validity = 0x10000;
 
-   if (!emu_free_pool_pop(eng, &rx_index, &rx_handle)) {
-      pr_warn_ratelimited("emu: no free RX buffer for TX loopback (tx_idx=%u)\n",
-                          index);
-
-      /* Return TX buffer via rd_ring (128-bit: 4 words) */
-      ptr = eng->rd_ring + (eng->rd_ring_idx * 4);
-      ptr[0] = fifo_a;
-      ptr[1] = index;
-      ptr[2] = 0;
-      wmb();
-      ptr[3] = validity;
-
-      eng->rd_ring_idx = (eng->rd_ring_idx + 1) % eng->addr_count;
-      emu_reg_write(eng, EMU_REG_HWRDINDEX, eng->rd_ring_idx);
-
-      eng->tx_count++;
-      eng->starved_count++;
-      return 1;
-   }
-
    /* Bound the memcpy by the maxSize register the driver read at init
     * (mirrors the VHDL: the hardware FIFO can't accept oversized TX). A
     * size above EMU_REG_MAXSIZE_INIT means a driver bug — emit a frame-
     * rejection completion (size=0) and skip the copy rather than walk
     * off the end of the RX buffer (the rx pages were allocated for
-    * cfgSize <= maxSize). Same return-via-rd_ring shape as the
-    * starvation path above keeps AxisG2_MapReturn's invariants intact. */
+    * cfgSize <= maxSize). The TX buffer still returns via rd_ring so
+    * AxisG2_MapReturn's invariants stay intact. */
    if (size > EMU_REG_MAXSIZE_INIT) {
       pr_warn_ratelimited("emu: TX size=%u exceeds maxSize=%u, dropping frame (tx_idx=%u)\n",
                           size, EMU_REG_MAXSIZE_INIT, index);
@@ -446,14 +438,18 @@ static int emu_poll_thread_fn(void *data)
       {
          uint8_t cur_online = emu_reg_read(eng, EMU_REG_ONLINE) & 0x1;
          if (!cur_online && eng->prev_online) {
-            pr_info("emu: driver unload summary: captured=%u starved=%u pool=%u (cumulative tx=%u rx=%u)\n",
-                    eng->free_captured, eng->starved_count,
+            pr_info("emu: driver unload summary: captured=%u stalled=%u pool=%u (cumulative tx=%u rx=%u)\n",
+                    eng->free_captured, eng->stall_count,
                     eng->free_count, eng->tx_count, eng->rx_count);
 
             emu_reg_write(eng, EMU_REG_RDBASELOW, 0);
             emu_reg_write(eng, EMU_REG_RDBASEHIGH, 0);
             emu_reg_write(eng, EMU_REG_WRBASELOW, 0);
             emu_reg_write(eng, EMU_REG_WRBASEHIGH, 0);
+
+            /* Drop a TX that emu_process_tx left pending for a free RX
+             * buffer: its buffer belongs to the departing driver. */
+            emu_reg_write(eng, EMU_REG_READFIFOB, 0);
 
             spin_lock_irqsave(&eng->free_lock, flags);
             eng->free_count = 0;
@@ -462,7 +458,7 @@ static int emu_poll_thread_fn(void *data)
             eng->wr_ring_idx = 0;
             eng->rd_ring_idx = 0;
             eng->free_captured = 0;
-            eng->starved_count = 0;
+            eng->stall_count = 0;
 
             eng->rings_valid = false;
             eng->wr_ring = NULL;
@@ -496,6 +492,7 @@ static int emu_poll_thread_fn(void *data)
       /* Detect fifoReset */
       if (emu_reg_read(eng, EMU_REG_FIFORESET) != 0) {
          emu_reg_write(eng, EMU_REG_FIFORESET, 0);
+         emu_reg_write(eng, EMU_REG_READFIFOB, 0);  /* pending TX */
 
          /* enableVer R/O fields are re-asserted by
           * emu_enforce_enablever_ro() at the top of every poll cycle,
@@ -508,7 +505,7 @@ static int emu_poll_thread_fn(void *data)
          eng->wr_ring_idx = 0;
          eng->rd_ring_idx = 0;
          eng->free_captured = 0;
-         eng->starved_count = 0;
+         eng->stall_count = 0;
 
          /* Drop cached ring pointers so emu_capture_rings() re-reads
           * the BAR base regs on the next iteration.  If the driver
@@ -577,8 +574,8 @@ static int emu_poll_thread_fn(void *data)
 
       if (emu_stats_interval_ms != 0 && time_after_eq(jiffies, eng->stats_next)) {
          eng->stats_next = jiffies + msecs_to_jiffies(emu_stats_interval_ms);
-         pr_info("emu: stats: tx=%u rx=%u starved=%u captured=%u pool=%u irq=%u\n",
-                 eng->tx_count, eng->rx_count, eng->starved_count,
+         pr_info("emu: stats: tx=%u rx=%u stalled=%u captured=%u pool=%u irq=%u\n",
+                 eng->tx_count, eng->rx_count, eng->stall_count,
                  eng->free_captured, eng->free_count, eng->irq_count);
       }
 
@@ -622,7 +619,7 @@ int emu_dma_init(struct emu_dma_engine *eng, struct emu_bar0 *bar,
    eng->rx_count = 0;
    eng->irq_count = 0;
    eng->free_captured = 0;
-   eng->starved_count = 0;
+   eng->stall_count = 0;
    eng->stats_next = 0;
 
    /* enableVer R/O enforcement starts with bit 0 = 0 / enableCnt = 0,
@@ -666,10 +663,10 @@ void emu_dma_stop(struct emu_dma_engine *eng)
       eng->poll_thread = NULL;
    }
 
-   pr_info("emu: DMA engine stopped (tx=%u rx=%u irq=%u free=%u starved=%u pool=%u)\n",
+   pr_info("emu: DMA engine stopped (tx=%u rx=%u irq=%u free=%u stalled=%u pool=%u)\n",
            eng->tx_count, eng->rx_count,
            eng->irq_count, eng->free_captured,
-           eng->starved_count, eng->free_count);
+           eng->stall_count, eng->free_count);
 }
 
 void emu_dma_destroy(struct emu_dma_engine *eng)
