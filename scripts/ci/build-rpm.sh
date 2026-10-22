@@ -3,8 +3,12 @@
 # Required env vars: DRIVER_TYPE, TARGET_ENV
 set -euo pipefail
 
-dnf install -y -q epel-release >/dev/null
-dnf install -y -q make git tar rpm-build dkms >/dev/null
+# dnf_retry / apt_retry: refresh metadata and retry on mirror failures
+# shellcheck source=scripts/ci/pkg-retry.sh
+source "$(dirname "${BASH_SOURCE[0]}")/pkg-retry.sh"
+
+dnf_retry install -y -q epel-release >/dev/null
+dnf_retry install -y -q make git tar rpm-build dkms >/dev/null
 
 make -C data_dev/driver dkms
 cd data_dev/driver
