@@ -113,6 +113,15 @@ module_param(emu_gpu_poll_interval_us, uint, 0644);
 MODULE_PARM_DESC(emu_gpu_poll_interval_us,
                  "emu_gpu_poll kthread usleep_range min (µs, default 1000, clamped to [10, 1000000])");
 
+/* Period of the DMA engine's "emu: stats" dmesg line in milliseconds; 0
+ * (default) disables it. Writable via sysfs (0644) so CI can sample the
+ * free pool while traffic runs without reloading the module. Non-static so
+ * dma_engine.c can reference it via `extern uint emu_stats_interval_ms;`. */
+uint emu_stats_interval_ms;
+module_param(emu_stats_interval_ms, uint, 0644);
+MODULE_PARM_DESC(emu_stats_interval_ms,
+                 "Period of the DMA engine stats dmesg line (ms, default 0 = off)");
+
 /* File-static global state */
 static struct emu_bar0 emu_bar;
 static struct emu_irq emu_irq;
