@@ -2,8 +2,18 @@ SUMMARY = "Recipe for building an external axistreamdma Linux kernel module"
 SECTION = "Yocto/modules"
 
 LICENSE = "BSD-3-Clause"
-LIC_FILES_CHKSUM = "file://LICENSE.txt;md5=d404d49cf288cc77c21e9bbfd062bb54"
 LICENSE_PATH += "${S}"
+
+# Compute the LICENSE.txt checksum at parse time so the annual copyright
+# year bump in LICENSE.txt does not require a matching recipe update.
+python __anonymous() {
+    import hashlib
+    lic = d.expand("${FILE_DIRNAME}/files/LICENSE.txt")
+    bb.parse.mark_dependency(d, lic)
+    with open(lic, "rb") as f:
+        md5 = hashlib.md5(f.read()).hexdigest()
+    d.setVar("LIC_FILES_CHKSUM", "file://LICENSE.txt;md5=" + md5)
+}
 
 inherit module
 
