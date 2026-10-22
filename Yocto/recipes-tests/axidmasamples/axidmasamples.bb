@@ -20,7 +20,6 @@ SRC_URI = "file://Makefile          \
 S = "${WORKDIR}"
 
 do_compile() {
-    pwd
     oe_runmake
 }
 
