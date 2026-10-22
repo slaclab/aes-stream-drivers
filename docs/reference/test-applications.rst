@@ -38,6 +38,10 @@ sequence.
    -t   TX inter-frame pause in microseconds (default: 0)
    -r   Nonzero disables TX (receive-only mode)
 
+Each option also has a long form (``--path``, ``--dest``, ``--size``,
+``--prbsdis``, ``--indexen``, ``--fuser``, ``--luser``, ``--time``,
+``--txdis``).
+
 Reports per-second statistics: TxCount, RxCount, TxRate, RxRate, PrbErr.
 Used by CI in two modes: 30-second sustained throughput (Test 1) and
 60-second data integrity check (``test_data_integrity.sh``).
@@ -60,7 +64,7 @@ Ioctl and File Operations
 -------------------------
 
 dmaIoctlTest
-^^^^^^^^^^^^^
+^^^^^^^^^^^^
 
 Exercises all 28 ioctl commands (24 DMA from ``DmaDriver.h``, 2 AXIS from
 ``AxisDriver.h``, 1 AxiVersion from ``AxiVersion.h``, 1 GPU readiness from
@@ -160,12 +164,12 @@ oversized write rejection, and invalid buffer index handling.
 
 Tests:
 
-1. **Buffer exhaustion** --- holds all TX buffers, verifies ``dmaGetIndex``
+1. **Buffer exhaustion**: holds all TX buffers, verifies ``dmaGetIndex``
    returns -1 when the pool is empty and ``DMA_Get_TxBuffinUser_Count``
    matches the held count.
-2. **Oversized write** --- attempts a write larger than ``cfgSize``, expects
+2. **Oversized write**: attempts a write larger than ``cfgSize``, expects
    rejection (``errno = EINVAL``).
-3. **Invalid index** --- returns an out-of-range buffer index, expects
+3. **Invalid index**: returns an out-of-range buffer index, expects
    rejection.
 
 dmaSmallFrameTest
@@ -189,8 +193,8 @@ GPU-Specific Testing
 --------------------
 
 These applications require the ``nvidia_p2p_stub`` and ``datadev_emulator``
-modules loaded before ``datadev`` (GPU build). See :doc:`/how-to/gpudirect-setup`
-for the full load sequence.
+modules loaded before ``datadev`` (GPU build). See the Phase 3 module loading
+steps in :doc:`/explanation/ci-pipeline` for the full load sequence.
 
 dmaGpuIoctlTest
 ^^^^^^^^^^^^^^^

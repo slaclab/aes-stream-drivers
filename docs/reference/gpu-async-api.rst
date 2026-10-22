@@ -4,11 +4,11 @@ GPU Async API
 User-space API reference for GPU asynchronous (GPUDirect RDMA) support.
 The interface is split across three headers in ``include/``:
 
-* ``GpuAsync.h``     — low-level ioctl wrappers (C-callable).
-* ``GpuAsyncUser.h`` — ``GpuAsyncCoreRegs``: a thin C++ wrapper over the
-  mapped GpuAsyncCore register block. Hides offset and behaviour
+* ``GpuAsync.h``: low-level ioctl wrappers (C-callable).
+* ``GpuAsyncUser.h``: ``GpuAsyncCoreRegs``, a thin C++ wrapper over the
+  mapped GpuAsyncCore register block that hides offset and behavior
   differences between V1 and V4 firmware.
-* ``GpuAsyncLib.h``  — CUDA + GpuAsync helpers: ``DataGPU``,
+* ``GpuAsyncLib.h``: CUDA + GpuAsync helpers: ``DataGPU``,
   ``CudaContext``, ``GpuDmaBuffer_t``, ``gpuMapHostFpgaMem``,
   ``gpuMapFpgaMem``, paired ``GpuBufferState_t``, plus the
   ``AxiWrDesc64_t`` AXI stream descriptor.
@@ -18,12 +18,11 @@ The interface is split across three headers in ``include/``:
    The ioctl wrappers in ``GpuAsync.h`` are ``static inline`` and compile
    into the calling application. The ``GpuAsyncLib`` helpers
    (``DataGPU``, ``CudaContext``, ``gpuMapFpgaMem``, etc.) are declared
-   in the header and defined in ``data_dev/app/src/GpuAsyncLib.cpp`` —
+   in the header and defined in ``data_dev/app/src/GpuAsyncLib.cpp``;
    link that translation unit into your application.
 
-   The caller must call ``cuInit(0)`` before constructing any
-   ``CudaContext``. The ``CudaContext`` constructor calls ``cuInit(0)``
-   itself, so direct application use is straightforward.
+   The ``CudaContext`` constructor calls ``cuInit(0)`` itself and throws
+   on failure, so applications do not need a separate ``cuInit`` call.
 
 Ioctl Wrappers (GpuAsync.h)
 ---------------------------
@@ -59,7 +58,7 @@ Thin C++ helpers for the boilerplate CUDA + GpuAsync setup:
 device select / context create), ``GpuDmaBuffer_t`` and
 ``GpuBufferState_t`` (FPGA-mapped GPU memory), and the ``gpuMapFpgaMem``
 / ``gpuMapHostFpgaMem`` / ``gpuUnmapFpgaMem`` helpers. The library is
-deliberately scope-narrow — it does not own a CUDA stream or prescribe
+deliberately narrow in scope: it does not own a CUDA stream or prescribe
 a session lifecycle, leaving stream / buffer-pool / arming policy to
 the calling application.
 
