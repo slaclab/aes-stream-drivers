@@ -178,7 +178,7 @@ Now send data through the firmware loopback and receive it back.
 
 .. code-block:: bash
 
-   ./data_dev/app/bin/dmaLoopTest \
+   sudo ./data_dev/app/bin/dmaLoopTest \
      --path /dev/datadev_0 \
      --dest 0 \
      --size 10000 \
