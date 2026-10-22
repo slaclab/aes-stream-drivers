@@ -10,11 +10,14 @@
  *    field layout and the R/O enforcement contract the poll thread
  *    implements.
  *
- *    WriteFree capture: the driver writes ~1024 WriteFree calls during
- *    init.  Each writes writeFifoB then writeFifoA (single shadow
- *    registers).  A kthread busy-polls with cpu_relax() to capture as
- *    many as possible; any that are missed produce a reduced free pool
- *    but the loopback still works with the captured subset.
+ *    WriteFree capture: each WriteFree writes writeFifoB then writeFifoA
+ *    (single shadow registers), so a second write before the poll thread
+ *    captures the first would lose a buffer.  addrWidth=1 (bar0_regs.h)
+ *    limits the driver to one free buffer outstanding in hardware
+ *    (hwWrBuffCnt < addrCount-1): it writes one WriteFree at init and
+ *    one more only after each RX completion, so every write is captured.
+ *    The emulator must therefore never complete a buffer it was not
+ *    given, or hwWrBuffCnt drops below zero and that limit is lost.
  *
  *    WriteTx capture: in steady-state the driver sends TX descriptors
  *    one at a time from user-space, giving the 1ms poll ample time
@@ -443,8 +446,8 @@ static int emu_poll_thread_fn(void *data)
       {
          uint8_t cur_online = emu_reg_read(eng, EMU_REG_ONLINE) & 0x1;
          if (!cur_online && eng->prev_online) {
-            pr_info("emu: driver unload summary: captured=%u seeded=%u starved=%u pool=%u (cumulative tx=%u rx=%u)\n",
-                    eng->free_captured, eng->seed_count, eng->starved_count,
+            pr_info("emu: driver unload summary: captured=%u starved=%u pool=%u (cumulative tx=%u rx=%u)\n",
+                    eng->free_captured, eng->starved_count,
                     eng->free_count, eng->tx_count, eng->rx_count);
 
             emu_reg_write(eng, EMU_REG_RDBASELOW, 0);
@@ -460,14 +463,10 @@ static int emu_poll_thread_fn(void *data)
             eng->rd_ring_idx = 0;
             eng->free_captured = 0;
             eng->starved_count = 0;
-            eng->seed_count = 0;
 
             eng->rings_valid = false;
             eng->wr_ring = NULL;
             eng->rd_ring = NULL;
-
-            eng->seed_active = false;
-            eng->seed_pending = false;
 
             pr_info("emu: online 1->0 edge, engine state reset\n");
          }
@@ -510,19 +509,15 @@ static int emu_poll_thread_fn(void *data)
          eng->rd_ring_idx = 0;
          eng->free_captured = 0;
          eng->starved_count = 0;
-         eng->seed_count = 0;
 
          /* Drop cached ring pointers so emu_capture_rings() re-reads
           * the BAR base regs on the next iteration.  If the driver
           * rmmod'd (Clear zeroes those regs before dma_free_coherent),
-          * rings_valid stays false and the seed phase cannot write
-          * zero-size RX completions into freed DMA pages. */
+          * rings_valid stays false and emu_process_tx cannot write
+          * completions into freed DMA pages. */
          eng->rings_valid = false;
          eng->wr_ring = NULL;
          eng->rd_ring = NULL;
-
-         eng->seed_active = false;
-         eng->seed_pending = false;
 
          eng->init_polling = true;
          init_deadline = jiffies + msecs_to_jiffies(EMU_INIT_POLL_TIMEOUT_MS);
@@ -549,12 +544,7 @@ static int emu_poll_thread_fn(void *data)
        * IRQs per cycle causes two AxisG2_Process calls, each issuing
        * a WriteFree — but the emulator's shadow register can only
        * hold one value, so the first WriteFree is lost.  Over time
-       * this drains the free pool and causes frame drops.
-       *
-       * TX processing runs even during the seed phase: if the free
-       * pool is empty, emu_process_tx returns TX buffers without RX
-       * loopback (no deadlock).  Once the seed captures buffers, TX
-       * loopback resumes automatically. */
+       * this drains the free pool and causes frame drops. */
       {
          bool need_irq = false;
 
@@ -583,70 +573,17 @@ static int emu_poll_thread_fn(void *data)
          eng->init_polling = false;
          pr_info("emu: init busy-poll complete (captured %u free buffers, %u poll iterations)\n",
                  eng->free_captured, init_poll_iters);
-
-         /* If we captured too few RX buffers, activate the seed phase.
-          * Write zero-size RX completions one at a time to probe for
-          * valid RX buffer indices. The driver returns unowned buffers
-          * via WriteFree, which we capture on the next poll cycle. */
-         if (eng->rings_valid && eng->free_count < 2) {
-            eng->seed_active = true;
-            eng->seed_pending = false;
-            eng->seed_idx = 0;
-            eng->seed_max = EMU_FREE_POOL_MAX;
-            eng->seed_target = EMU_FREE_POOL_MAX / 2;
-            pr_info("emu: starting RX buffer seed phase (probing indices 0..%u)\n",
-                    eng->seed_max - 1);
-         }
-      }
-
-      /* RX buffer seed phase: write one zero-size completion per cycle,
-       * wait for the driver to process it (ptr[3] cleared) before
-       * writing the next. This serializes WriteFree responses so the
-       * emulator can capture each one from the shadow register. */
-      if (eng->seed_active && !eng->init_polling) {
-         if (eng->free_count >= eng->seed_target ||
-             eng->seed_idx >= eng->seed_max) {
-            pr_info("emu: seed phase complete (captured %u free buffers)\n",
-                    eng->free_count);
-            eng->seed_active = false;
-         } else if (eng->seed_pending) {
-            /* Check if the driver consumed the previous seed entry */
-            uint32_t prev_slot = (eng->wr_ring_idx + eng->addr_count - 1) % eng->addr_count;
-            uint32_t *prev = eng->wr_ring + (prev_slot * 4);
-            if (prev[3] == 0) {
-               eng->seed_pending = false;
-               /* WriteFree (if any) was captured at the top of the loop */
-            }
-         } else {
-            /* Write one zero-size RX completion for seed_idx */
-            uint32_t *ptr = eng->wr_ring + (eng->wr_ring_idx * 4);
-            ptr[0] = 0;                    /* flags: zero */
-            ptr[1] = eng->seed_idx;        /* buffer index */
-            ptr[2] = 0;                    /* size: zero (triggers DMA_ERR_FIFO) */
-            wmb();
-            ptr[3] = 0x10000;             /* validity: non-zero, chan=0, dest=0 */
-
-            eng->wr_ring_idx = (eng->wr_ring_idx + 1) % eng->addr_count;
-            emu_reg_write(eng, EMU_REG_HWWRINDEX, eng->wr_ring_idx);
-
-            emu_dma_fire_irq(eng);
-            eng->irq_count++;
-            eng->seed_pending = true;
-            eng->seed_idx++;
-            eng->seed_count++;
-         }
       }
 
       if (emu_stats_interval_ms != 0 && time_after_eq(jiffies, eng->stats_next)) {
          eng->stats_next = jiffies + msecs_to_jiffies(emu_stats_interval_ms);
-         pr_info("emu: stats: tx=%u rx=%u starved=%u captured=%u seeded=%u pool=%u irq=%u\n",
+         pr_info("emu: stats: tx=%u rx=%u starved=%u captured=%u pool=%u irq=%u\n",
                  eng->tx_count, eng->rx_count, eng->starved_count,
-                 eng->free_captured, eng->seed_count, eng->free_count,
-                 eng->irq_count);
+                 eng->free_captured, eng->free_count, eng->irq_count);
       }
 
 do_sleep:
-      if (eng->init_polling || eng->seed_active)
+      if (eng->init_polling)
          usleep_range(100, 200);
       else
          usleep_range(900, 1100);
@@ -681,17 +618,11 @@ int emu_dma_init(struct emu_dma_engine *eng, struct emu_bar0 *bar,
    eng->enabled = false;
    eng->rings_valid = false;
    eng->init_polling = false;
-   eng->seed_active = false;
-   eng->seed_pending = false;
-   eng->seed_idx = 0;
-   eng->seed_max = 0;
-   eng->seed_target = 0;
    eng->tx_count = 0;
    eng->rx_count = 0;
    eng->irq_count = 0;
    eng->free_captured = 0;
    eng->starved_count = 0;
-   eng->seed_count = 0;
    eng->stats_next = 0;
 
    /* enableVer R/O enforcement starts with bit 0 = 0 / enableCnt = 0,
