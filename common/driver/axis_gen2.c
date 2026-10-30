@@ -635,10 +635,21 @@ void AxisG2_Enable(struct DmaDevice *dev) {
          // Initialize work for processing, called from IRQ
          INIT_WORK(&(hwData->irqWork), AxisG2_WqTask_Service);
       } else {
-         // Allocate workqueue for polling mode, without interrupts
-         hwData->wq = alloc_workqueue("%s", WQ_MEM_RECLAIM | WQ_SYSFS, 1, "AXIS_G2_WORKQ");
+         // Allocate workqueue for polling mode, without interrupts.
+         // Name it per-device (dev->devName, e.g. "datadev_0") so that with
+         // multiple cards the WQ_SYSFS kobject names don't collide: a duplicate
+         // name makes alloc_workqueue() fail (kobject_add -EEXIST) and return
+         // NULL, and the queue_work_on() below then derefs NULL in __queue_work
+         // -> kernel panic during probe of the 2nd+ card.
+         hwData->wq = alloc_workqueue("%s_wq", WQ_MEM_RECLAIM | WQ_SYSFS, 1, dev->devName);
          INIT_WORK(&(hwData->irqWork), AxisG2_WqTask_Poll);
-         queue_work_on((int)dev->cfgIrqDis, hwData->wq, &(hwData->irqWork));
+         // Guard against a NULL workqueue (alloc failure) so we degrade to a
+         // disabled queue instead of a NULL deref in queue_work_on().
+         if (hwData->wq == NULL) {
+            dev_err(dev->device, "AxisG2_Enable: poll-mode alloc_workqueue failed; disabling work queue\n");
+         } else {
+            queue_work_on((int)dev->cfgIrqDis, hwData->wq, &(hwData->irqWork));
+         }
       }
 
       // Enable the work queue only after we've allocated all resources
