@@ -68,7 +68,9 @@ or persistently via ``/etc/modprobe.d/``.
    * - ``cfgIrqDis``
      - ``0``
      - Interrupt disable flag. ``1`` = disable hardware interrupts and use
-       polling mode. Use with caution: polling consumes a CPU core.
+       polling mode. Use with caution: polling consumes a CPU core. The value
+       also selects the CPU that runs the poll worker (``cfgIrqDis=1`` pins it
+       to CPU 1, ``cfgIrqDis=3`` to CPU 3).
    * - ``cfgBgThold0``
      - ``0``
      - Buffer group threshold for channel group 0. ``0`` = no threshold enforced.
