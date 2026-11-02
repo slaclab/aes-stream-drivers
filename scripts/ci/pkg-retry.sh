@@ -45,7 +45,11 @@ _pkg_retry() {
    for attempt in $(seq 1 "$PKG_RETRY_ATTEMPTS"); do
       # stderr is shown as usual and also kept for the not-found check.
       # The && / || form keeps a failure from tripping a caller's set -e.
-      "$@" 2> >(tee "$errlog" >&2) && rc=0 || rc=$?
+      # The { } group makes this shell own the process substitution, so $!
+      # is set to tee's PID. Redirecting an external command directly applies
+      # the redirection in the forked child, leaving $! unset (fatal under
+      # set -u) and the wait below unable to flush errlog before the grep.
+      { "$@"; } 2> >(tee "$errlog" >&2) && rc=0 || rc=$?
       wait $! 2>/dev/null || true
       if [ "$rc" -eq 0 ] || grep -qE "$PKG_NOT_FOUND_PATTERN" "$errlog"; then
          break
