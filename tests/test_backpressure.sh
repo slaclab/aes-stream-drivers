@@ -85,7 +85,7 @@ if [ ! -e "$DEV" ]; then
 fi
 $SUDO chmod 666 "$DEV"
 
-# Give the DMA engine time to complete the emulator seed phase.
+# Give the emulator's init busy-poll time to capture the first free buffer.
 sleep 2
 
 # Run dmaLoopTest with 32768-byte frames; let it run until timeout (rc=124 ok).

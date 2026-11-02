@@ -3,11 +3,11 @@ AXI Stream Protocol
 
 AXI4-Stream is an AMBA bus protocol for unidirectional, handshake-based data transfer between IP
 cores on an FPGA. The aes-stream-drivers project uses AXI4-Stream as the transport layer between
-FPGA firmware and the DMA engine. Understanding AXI stream framing — specifically TLAST, TUSER,
-and TDEST — is essential for writing correct firmware interfaces and userspace applications.
+FPGA firmware and the DMA engine. Understanding AXI stream framing (specifically TLAST, TUSER,
+and TDEST) is essential for writing correct firmware interfaces and userspace applications.
 
 Frame Boundaries and TLAST
----------------------------
+--------------------------
 
 In AXI stream, a "frame" is a sequence of data beats terminated by the assertion of the TLAST
 signal. When the FPGA firmware asserts TLAST on a data beat, the DMA engine marks the current
@@ -20,14 +20,14 @@ below). The DMA engine splits the logical frame across multiple physical buffers
 bit in the returned flags tells userspace that more buffers belong to the same logical frame.
 
 The Flags Field: fuser, luser, and cont
------------------------------------------
+---------------------------------------
 
 The driver represents per-transfer metadata in a 32-bit flags word. The bit layout, defined in
 ``AxisDriver.h``, is:
 
 .. code-block:: c
 
-   /* AxisDriver.h -- axisSetFlags bit layout */
+   /* AxisDriver.h: axisSetFlags bit layout */
    /* bits [7:0]  = fuser: first user (application-defined, carried on TUSER at first beat) */
    /* bits [15:8] = luser: last user  (application-defined, carried on TUSER at TLAST beat) */
    /* bit  [16]   = cont:  continuation (1 = more buffers belong to same logical frame)     */
@@ -43,7 +43,7 @@ The helper functions for packing and unpacking this flags word are:
 
 The ``fuser`` and ``luser`` fields are application-defined values carried in the AXI stream
 TUSER sideband signal. Their interpretation is firmware-specific. Common uses include frame type
-identifiers, sequence numbers, and error flags. The driver does not interpret these values — it
+identifiers, sequence numbers, and error flags. The driver does not interpret these values; it
 passes them transparently between the FPGA and userspace.
 
 When a logical frame is too large for a single DMA buffer, the DMA engine sets the ``cont`` flag
@@ -52,7 +52,7 @@ collect buffers with ``cont=1`` and treat the first buffer where ``cont=0`` as t
 logical frame.
 
 Channel Routing via TDEST
---------------------------
+-------------------------
 
 The ``dest`` parameter in ``dmaWrite`` and ``dmaRead`` maps directly to the AXI stream ``TDEST``
 field. The DMA engine routes each frame to the physical channel identified by its TDEST value.
@@ -63,9 +63,9 @@ On the receive side, a file descriptor receives frames only if the frame's TDEST
 descriptor's channel mask. See :doc:`../how-to/multi-channel` for how to configure the mask.
 
 AxisG2 Engine Overview
------------------------
+----------------------
 
-The AxisG2 IP core used in data_dev implements a ring buffer descriptor-based DMA engine. Key
+The AxisG2 IP core used in data_dev implements a descriptor-ring DMA engine. Key
 registers include write and read base addresses (for Tx and Rx descriptor rings), interrupt
 enable, FIFO reset, maximum transfer size, channel count, address width, and cache configuration.
 The engine is initialized by ``AxisG2_Init`` (via the ``hardware_functions.init`` vtable entry)
@@ -75,7 +75,7 @@ The AxisG2 engine is a SLAC-developed IP core. Its register layout is defined in
 ``data_dev/driver/src/axis_gen2.h``.
 
 Further Reading
-----------------
+---------------
 
 - Channel mask configuration: :doc:`../how-to/multi-channel`
 - AXI stream API reference (axisSetFlags, axisGetFuser, etc.): :doc:`../reference/axis-api`

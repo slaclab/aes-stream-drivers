@@ -239,10 +239,27 @@ if [ "${GPU_ENABLED:-0}" = "1" ]; then
    run_three_irq_subtests "current"
 elif [ -f "$EMULATOR_KO" ]; then
    echo "=== Emulator detected ($EMULATOR_KO); sweeping emu_irq_mode ==="
+
+   # The emulator's virtual MSI/MSI-X domain is built on
+   # pci_msi_create_irq_domain(), which Linux 6.19 removed. On those kernels
+   # emu_msi_create() returns -EOPNOTSUPP by design (see
+   # emulator/driver/src/virt_msi.c), so only INTx can be swept. The module
+   # was insmod'ed into the running kernel, so uname -r matches its build.
+   RUNNING_KVER="$(uname -r)"
+   EMU_MSI_SUPPORTED=1
+   if [ "$(printf '%s\n' 6.19 "${RUNNING_KVER%%-*}" | sort -V | head -n 1)" = "6.19" ]; then
+      EMU_MSI_SUPPORTED=0
+   fi
+
    for IRQ_MODE in intx msi msix; do
       echo "============================================================"
       echo "  emu_irq_mode=${IRQ_MODE}"
       echo "============================================================"
+
+      if [ "$IRQ_MODE" != "intx" ] && [ "$EMU_MSI_SUPPORTED" -eq 0 ]; then
+         echo "[SKIP] irq_modes ${IRQ_MODE} -- emulated MSI/MSI-X unsupported on Linux >= 6.19 (running ${RUNNING_KVER})"
+         continue
+      fi
 
       # Reload emulator with the requested mode. The stub stays loaded
       # because the emulator depends on its symbols.

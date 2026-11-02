@@ -32,8 +32,8 @@ Before starting, make sure you have:
       git clone https://github.com/slaclab/aes-stream-drivers.git
 
 
-Step 1 — Detect the Hardware
------------------------------
+Step 1: Detect the Hardware
+---------------------------
 
 Before building anything, confirm the card is visible to the PCIe bus.
 
@@ -51,8 +51,8 @@ for example ``01:00.0 Signal processing controller: ...``.
    before continuing.
 
 
-Step 2 — Build the Driver and Utilities
------------------------------------------
+Step 2: Build the Driver and Utilities
+--------------------------------------
 
 Move into the cloned repository and build both the kernel module and the
 userspace test applications.
@@ -65,12 +65,12 @@ userspace test applications.
 
 Two important outputs are created:
 
-- ``install/$(uname -r)/datadev.ko`` — the kernel module for the running kernel
-- ``install/bin/dmaLoopTest`` — the loopback test application
+- ``install/$(uname -r)/datadev.ko``: the kernel module for the running kernel
+- ``data_dev/app/bin/dmaLoopTest``: the loopback test application
 
 
-Step 3 — Load the Driver
---------------------------
+Step 3: Load the Driver
+-----------------------
 
 Load the kernel module with parameters suited for a loopback test.
 
@@ -86,13 +86,13 @@ Load the kernel module with parameters suited for a loopback test.
 
 What each parameter means:
 
-- ``cfgSize=131072`` — DMA buffer size in bytes (128 KiB per buffer)
-- ``cfgRxCount=1024`` — number of receive buffers in the pool
-- ``cfgTxCount=1024`` — number of transmit buffers in the pool
-- ``cfgMode=1`` — coherent DMA mode (CPU and device see the same memory)
-- ``cfgCont=1`` — RX continue enable; a frame larger than ``cfgSize`` spans further
+- ``cfgSize=131072``: DMA buffer size in bytes (128 KiB per buffer)
+- ``cfgRxCount=1024``: number of receive buffers in the pool
+- ``cfgTxCount=1024``: number of transmit buffers in the pool
+- ``cfgMode=1``: coherent DMA mode (CPU and device see the same memory)
+- ``cfgCont=1``: RX continue enable; a frame larger than ``cfgSize`` spans further
   buffers rather than overflowing and being truncated
-- ``cfgIrqDis=0`` — use interrupts (not polling)
+- ``cfgIrqDis=0``: use interrupts (not polling)
 
 For the full parameter reference, see :doc:`../reference/module-parameters`.
 
@@ -107,8 +107,8 @@ Expected: ``datadev`` appears in the ``lsmod`` output and ``/dev/datadev_0``
 exists.
 
 
-Step 4 — Inspect the /proc Interface
----------------------------------------
+Step 4: Inspect the /proc Interface
+-----------------------------------
 
 The driver exposes diagnostic information through ``/proc``. The
 ``/proc/datadev_0`` file reports firmware registers, buffer pool status,
@@ -171,14 +171,14 @@ If either value is different, the module was loaded with different parameters.
 Unload it with ``sudo rmmod datadev`` and repeat Step 3.
 
 
-Step 5 — Run the Loopback Test
---------------------------------
+Step 5: Run the Loopback Test
+-----------------------------
 
 Now send data through the firmware loopback and receive it back.
 
 .. code-block:: bash
 
-   sudo ./install/bin/dmaLoopTest \
+   sudo ./data_dev/app/bin/dmaLoopTest \
      --path /dev/datadev_0 \
      --dest 0 \
      --size 10000 \
@@ -187,27 +187,29 @@ Now send data through the firmware loopback and receive it back.
 
 What each flag means:
 
-- ``--path /dev/datadev_0`` — the device node to open
-- ``--dest 0`` — route transfers to AXI stream channel 0
-- ``--size 10000`` — transfer size in bytes per frame
-- ``--fuser 0x2`` — AXI stream first-user bits (application-defined framing marker)
-- ``--luser 0x0`` — AXI stream last-user bits
+- ``--path /dev/datadev_0``: the device node to open
+- ``--dest 0``: route transfers to AXI stream channel 0
+- ``--size 10000``: transfer size in bytes per frame
+- ``--fuser 0x2``: AXI stream first-user bits (application-defined framing marker)
+- ``--luser 0x0``: AXI stream last-user bits
+
+The device node is world-accessible (mode ``0666``), so ``sudo`` is not needed.
 
 For AXI stream framing details, see :doc:`../explanation/axi-stream-protocol`.
 
-Expected output: ``dmaLoopTest`` prints write and read throughput statistics.
-If it exits with status 0 the loopback is working and data is flowing
-correctly through the FPGA and back.
+Expected output: ``dmaLoopTest`` runs until interrupted, printing a statistics
+table once per second with per-destination TX/RX counts, rates, and a
+``PrbErr`` count. A steadily increasing ``RxCount`` with ``PrbErr`` at 0 means
+data is flowing correctly through the FPGA and back. Press ``Ctrl-C`` to stop.
 
 .. note::
 
-   If ``dmaLoopTest`` hangs after printing write statistics, the firmware does
-   not have loopback enabled. Press ``Ctrl-C``, verify your firmware image
+   If ``RxCount`` stays at 0, the firmware does not have loopback enabled. Press ``Ctrl-C``, verify your firmware image
    supports loopback mode, and retry.
 
 
-Step 6 — Unload the Driver
-----------------------------
+Step 6: Unload the Driver
+-------------------------
 
 When you are done, unload the kernel module cleanly.
 

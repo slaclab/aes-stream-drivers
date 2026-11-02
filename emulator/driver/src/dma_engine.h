@@ -40,9 +40,9 @@
 /* Polling interval in microseconds (steady-state) */
 #define EMU_POLL_INTERVAL_US  1000
 
-/* Timeout for init poll in milliseconds.  Kept short because the seed
- * phase (post-init) reliably discovers RX buffers even if the init poll
- * captures none from the lossy shadow-register WriteFree path. */
+/* Timeout for init poll in milliseconds.  With addrWidth=1 the driver's
+ * init writes a single WriteFree, which nothing can overwrite before the
+ * poll thread captures it, so a short window is enough. */
 #define EMU_INIT_POLL_TIMEOUT_MS  100
 
 /* Register offsets relative to AGEN2 base (BAR0 + EMU_AGEN2_OFF) */
@@ -122,20 +122,13 @@ struct emu_dma_engine {
     * addresses.  Initialized to 1 to match EMU_REG_ONLINE_INIT. */
    uint8_t prev_online;
 
-   /* RX buffer seeding: after init busy-poll, write zero-size RX
-    * completions one at a time to discover RX buffer indices/handles
-    * from the driver's WriteFree responses. */
-   bool seed_active;
-   bool seed_pending;         /* waiting for driver to process current seed */
-   uint32_t seed_idx;         /* next index to probe */
-   uint32_t seed_max;         /* upper bound for probing */
-   uint32_t seed_target;      /* desired free pool count */
-
    /* Statistics */
    uint32_t tx_count;
    uint32_t rx_count;
    uint32_t irq_count;
    uint32_t free_captured;
+   uint32_t stall_count;      /* poll cycles a TX waited for a free RX buffer */
+   unsigned long stats_next;  /* jiffies of next emu_stats_interval_ms line */
 };
 
 int emu_dma_init(struct emu_dma_engine *eng, struct emu_bar0 *bar,

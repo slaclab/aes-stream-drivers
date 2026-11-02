@@ -11,8 +11,8 @@ Prerequisites
 - An existing layer (or follow Step 1 to create one)
 - Cloned aes-stream-drivers repository
 
-Step 1 — Create or Identify Your Layer
----------------------------------------
+Step 1: Create or Identify Your Layer
+-------------------------------------
 
 .. code-block:: bash
 
@@ -23,8 +23,8 @@ Step 1 — Create or Identify Your Layer
 
    Skip this step if you already have a custom layer.
 
-Step 2 — Copy the Recipe
-------------------------
+Step 2: Copy the Recipe
+-----------------------
 
 .. code-block:: bash
 
@@ -34,24 +34,24 @@ Step 2 — Copy the Recipe
 
 .. note::
 
-   The ``-L`` flag dereferences symlinks — required when copying from the
-   aes-stream-drivers source tree.
+   The ``-L`` flag dereferences symlinks, which is required when copying from
+   the aes-stream-drivers source tree.
 
-Step 3 — Enable the Module in Your Build
------------------------------------------
+Step 3: Enable the Module in Your Build
+---------------------------------------
 
 .. code-block:: bash
 
    echo 'MACHINE_ESSENTIAL_EXTRA_RRECOMMENDS += "axistreamdma"' >> $proj_dir/conf/layer.conf
 
-Optional — auto-load at boot:
+Optionally, load the module automatically at boot:
 
 .. code-block:: bash
 
    echo 'KERNEL_MODULE_AUTOLOAD += "axistreamdma"' >> $proj_dir/conf/layer.conf
 
-Step 4 — Set Buffer Parameters
---------------------------------
+Step 4: Set Buffer Parameters
+-----------------------------
 
 Add the following to your ``local.conf`` to configure buffer sizes at build
 time. These values are passed directly to the kernel module Makefile:
@@ -62,8 +62,8 @@ time. These values are passed directly to the kernel module Makefile:
    DMA_RX_BUFF_COUNT = "128"
    DMA_BUFF_SIZE     = "131072"
 
-Step 5 — Add the Device Tree Node
------------------------------------
+Step 5: Add the Device Tree Node
+--------------------------------
 
 The axistreamdma driver requires a device tree entry. Add the following to
 your board's device tree:
@@ -85,8 +85,8 @@ your board's device tree:
    Adjust the ``reg`` base address and ``interrupts`` values to match your
    hardware design.
 
-Step 6 — Build
---------------
+Step 6: Build
+-------------
 
 .. code-block:: bash
 
@@ -97,6 +97,7 @@ aximemorymap Variant
 
 The ``aximemorymap`` recipe variant
 (``Yocto/recipes-kernel/aximemorymap/``) provides memory-mapped register
-access. Unlike ``axistreamdma``, it does **not** require a device tree entry
-— it is configured via module parameters only. Copy and enable it with the
+access. Unlike ``axistreamdma``, it does **not** require a device tree entry;
+it is configured via module parameters only (``psMinAddr``, ``psMaxAddr``,
+``plMinAddr``, ``plMaxAddr``). Copy and enable it with the
 same steps above, substituting ``aximemorymap`` for ``axistreamdma``.
