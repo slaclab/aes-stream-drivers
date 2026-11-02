@@ -627,16 +627,32 @@ void AxisG2_Enable(struct DmaDevice *dev) {
    if (hwData->desc128En) {
       // Configure workqueue and delayed work for interrupt handling or polling
       if (!dev->cfgIrqDis) {
-         // Create a single-thread workqueue for interrupt handling
+         // Create a single-thread workqueue for interrupt handling.
+         // On failure leave wqEnable clear and return early so that
+         // AxisG2_Irq() never queues work and AxisG2_Clear() skips
+         // flush_workqueue()/destroy_workqueue() on the NULL pointer.
          hwData->wq = create_singlethread_workqueue("AXIS_G2_WORKQ");
+         if (hwData->wq == NULL) {
+            dev_err(dev->device, "Enable: Failed to create interrupt work queue.\n");
+            hwData->wqEnable = 0;
+            return;
+         }
          INIT_DELAYED_WORK(&(hwData->dlyWork), AxisG2_WqTask_IrqForce);
          queue_delayed_work(hwData->wq, &(hwData->dlyWork), 10);
 
          // Initialize work for processing, called from IRQ
          INIT_WORK(&(hwData->irqWork), AxisG2_WqTask_Service);
       } else {
-         // Allocate workqueue for polling mode, without interrupts
-         hwData->wq = alloc_workqueue("%s", WQ_MEM_RECLAIM | WQ_SYSFS, 1, "AXIS_G2_WORKQ");
+         // Allocate workqueue for polling mode, without interrupts.
+         // WQ_SYSFS is deliberately not set: it registers a sysfs node keyed
+         // by the workqueue name, so with more than one board the second
+         // alloc_workqueue() fails on the duplicate name and returns NULL.
+         hwData->wq = alloc_workqueue("%s", WQ_MEM_RECLAIM, 1, "AXIS_G2_WORKQ");
+         if (hwData->wq == NULL) {
+            dev_err(dev->device, "Enable: Failed to allocate polling work queue.\n");
+            hwData->wqEnable = 0;
+            return;
+         }
          INIT_WORK(&(hwData->irqWork), AxisG2_WqTask_Poll);
          queue_work_on((int)dev->cfgIrqDis, hwData->wq, &(hwData->irqWork));
       }
