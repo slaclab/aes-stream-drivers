@@ -127,6 +127,7 @@ static const char* HardwareTypeLookup[] = {
    "AbacoPc821Ku085",      // 0x00_00_00_11
    "AbacoPc821Ku115",      // 0x00_00_00_12
    "BittWareXupVv8Vu9p",   // 0x00_00_00_13
+   "XilinxAlveoV80",       // 0x00_00_00_14
 };
 static const int HardwareTypeCount = sizeof(HardwareTypeLookup) / sizeof(HardwareTypeLookup[0]);
 

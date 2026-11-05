@@ -212,6 +212,7 @@ void AxiHwmon_Init(struct DmaDevice* dev, off_t axiVerOffset, off_t axiSysMonOff
 
    case 0x00000005:  // XilinxAc701
    case 0x0000000A:  // XilinxKc705
+   case 0x00000014:  // XilinxAlveoV80 (Versal SysMon)
       return;  // Unsupported
 
    default:
