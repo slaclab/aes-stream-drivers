@@ -166,7 +166,7 @@ static int initSession(TestSession& s, const char* dev, int gpuIdx,
     s.bufSize = bufSize;
     s.loopback = loopback;
 
-    if (bufSize <= 0 || (bufSize % 0x10000) != 0) {
+    if (bufSize <= 0 || (bufSize % GPU_RDMA_BUFFER_ALIGN) != 0) {
         fprintf(stderr, "bufSize 0x%x must be a positive multiple of 64 KiB\n",
                 (unsigned int)bufSize);
         return -1;
@@ -317,7 +317,7 @@ static void cleanupSession(TestSession& s) {
         s.stream = 0;
     }
 
-    if (s.hdr) {                         /* Before cuCtxDestroy() below */
+    if (s.hdr) {                         /* Before ~CudaContext() destroys the context below */
         cuMemFreeHost(s.hdr);
         s.hdr = nullptr;
     }
@@ -421,7 +421,7 @@ static void runSimpleLoop(TestSession& s) {
          * the host behind the wait above. */
         assertOk(cuMemcpyDtoHAsync(s.hdr, s.rxBuffers[curBuff].ptr, sizeof(*s.hdr), s.stream));
 
-        /* SYNC the stream (with timeout) so header data becomes available to the host. */
+        /* SYNC the stream so header data becomes available to the host. */
         syncWaitingFor(s, "event from the FPGA");
 
         if (s.loopback) {
@@ -430,7 +430,7 @@ static void runSimpleLoop(TestSession& s) {
              * at hdrOffset, we just need a hdr.size less than bufSize. */
             if (hdr.size == 0 || hdr.size > uint32_t(s.bufSize)) {
                 fprintf(stderr,
-                        "Dropping loopback: invalid hdr.size=%u (expected 1..%u)\n",
+                        "Dropping loopback: invalid hdr.size=%u (expected 1..%d)\n",
                         hdr.size, s.bufSize);
                 invalidEvents++;
             } else {
