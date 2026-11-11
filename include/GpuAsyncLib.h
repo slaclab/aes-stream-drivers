@@ -99,6 +99,9 @@ public:
     CudaContext();
     ~CudaContext();
 
+    CudaContext(const CudaContext&) = delete;
+    CudaContext(CudaContext&&) = delete;
+
     /**
      * @brief Select a CUDA device and create a context.
      * @param device CUDA device index. < 0 selects device 0.

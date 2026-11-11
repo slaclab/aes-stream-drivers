@@ -52,7 +52,9 @@ CudaContext::CudaContext() : context_(nullptr), device_(0) {
 }
 
 CudaContext::~CudaContext() {
-    cuCtxDestroy(context_);
+    if (context_) {
+        cuCtxDestroy(context_);
+    }
 }
 
 bool CudaContext::init(int device, bool quiet) {

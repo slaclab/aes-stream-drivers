@@ -423,13 +423,12 @@ static void runSimpleLoop(TestSession& s) {
 
         /* SYNC the stream (with timeout) so header data becomes available to the host. */
         syncWaitingFor(s, "event from the FPGA");
-        assertOk(cuStreamSynchronize(s.stream));
 
         if (s.loopback) {
-			/* Validate the hdr.size before trying any device copies from the buffer.
+            /* Validate the hdr.size before trying any device copies from the buffer.
              * Since we are writing to a buffer of size (bufSize + hdrSize) and the dest is
              * at hdrOffset, we just need a hdr.size less than bufSize. */
-            if (hdr.size == 0 || hdr.size > s.bufSize) {
+            if (hdr.size == 0 || hdr.size > uint32_t(s.bufSize)) {
                 fprintf(stderr,
                         "Dropping loopback: invalid hdr.size=%u (expected 1..%u)\n",
                         hdr.size, s.bufSize);
