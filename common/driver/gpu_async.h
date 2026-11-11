@@ -22,8 +22,15 @@
 
 #include <dma_common.h>
 #include <dma_buffer.h>
+#include <GpuAsync.h>
 #include <linux/interrupt.h>
+#include <linux/version.h>
 #include <nv-p2p.h>
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+#include <linux/build_bug.h>
+#endif
+
 /**
  * GPU_BOUND_SHIFT - Shift for GPU address boundary
  */
@@ -48,6 +55,11 @@
  * MAX_GPU_BUFFERS - Maximum number of GPU buffers allowed
  */
 #define MAX_GPU_BUFFERS   1024
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
+static_assert(GPU_BOUND_SIZE == GPU_RDMA_BUFFER_ALIGN,
+   "Userspace and kernel space GPU buffer alignments must match!");
+#endif
 
 /**
  * struct GpuBuffer - Represents a single GPU buffer

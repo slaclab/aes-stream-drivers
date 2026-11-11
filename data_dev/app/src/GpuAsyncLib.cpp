@@ -51,8 +51,20 @@ CudaContext::CudaContext() : context_(nullptr), device_(0) {
     }
 }
 
+CudaContext::~CudaContext() {
+    if (context_) {
+        cuCtxDestroy(context_);
+    }
+}
+
 bool CudaContext::init(int device, bool quiet) {
     int devs = 0;
+
+    if (context_) {
+        fprintf(stderr, "CudaContext::init: Already initialized\n");
+        return false;
+    }
+
     checkError(cuDeviceGetCount(&devs));
     if (!quiet) fprintf(stderr, "Total GPU devices %d\n", devs);
     if (devs <= 0) {

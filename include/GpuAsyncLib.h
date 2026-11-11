@@ -94,9 +94,13 @@ protected:
  * device, verifies stream-memory-ops, and creates a CUDA context. The
  * resulting context and device are exposed via context() and device().
  */
-class CudaContext {
+class CudaContext final {
 public:
     CudaContext();
+    ~CudaContext();
+
+    CudaContext(const CudaContext&) = delete;
+    CudaContext(CudaContext&&) = delete;
 
     /**
      * @brief Select a CUDA device and create a context.
