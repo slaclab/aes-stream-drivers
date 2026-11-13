@@ -231,3 +231,18 @@ GpuAsync.h Commands
      - none (pass 0)
      - read
      - ``gpuGetMaxBuffers()``
+   * - ``GPU_Enable_Tx``
+     - ``0x8008``
+     - ``uint32_t`` enable
+     - write
+     - ``gpuEnableTx()``
+   * - ``GPU_Enable_Rx``
+     - ``0x8009``
+     - ``uint32_t`` enable
+     - write
+     - ``gpuEnableRx()``
+   * - ``GPU_Set_Write_Enable_Bulk``
+     - ``0x800A``
+     - ``struct GpuSetWriteEnData*``
+     - write
+     - ``gpuBulkSetWriteEn()``

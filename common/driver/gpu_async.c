@@ -25,6 +25,7 @@
 #include <linux/signal.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
+#include <linux/build_bug.h>
 #include <nv-p2p.h>
 
 /* Update this when you add support for a new GpuAsyncCore version! */
@@ -150,6 +151,10 @@ int32_t Gpu_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
       // Enable RX operations
       case GPU_Enable_Rx:
          return Gpu_EnableRx(dev, arg);
+
+      // Bulk write enable
+      case GPU_Set_Write_Enable_Bulk:
+         return Gpu_BulkSetWriteEn(dev, arg);
 
       default:
          dev_warn(dev->device, "Command: Invalid command=%u\n", cmd);
@@ -579,6 +584,77 @@ int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg) {
    }
 
    writel(0x1, data->base + offset);
+
+   return 0;
+}
+
+/**
+ * Gpu_BulkSetWriteEn - Set write enable for the list of GPU buffers
+ * @dev: Pointer to the DMA device structure
+ * @arg: User space argument pointing to a bit vector of buffers to enable.
+ *
+ * This function enables multiple DMA buffers for DMA operations.
+ *
+ * Return: 0 on success, negative error code on failure.
+ */
+int32_t Gpu_BulkSetWriteEn(struct DmaDevice *dev, uint64_t arg) {
+   struct GpuData *data = dev->utilData;
+   struct GpuSetWriteEnData gpuEnData;
+   uint32_t writeDetBase;
+   int ret, i;
+
+   // We make assumptions about the underlying type here.
+   BUILD_BUG_ON(sizeof(gpuEnData.buffers[0]) != sizeof(uint32_t));
+
+   // Check for calling process ownership. Unlocked GpuAsyncCore is OK
+   pid_t pid = atomic64_read(&data->tgid);
+   if (pid && pid != current->tgid) {
+      dev_warn(dev->device, "Gpu_BulkSetWriteEn: Called by non-owner PID (%d)\n",
+               current->tgid);
+      return -EBUSY;
+   }
+
+   // Copy data from user space
+   if ((ret = copy_from_user(&gpuEnData, (void *)arg, sizeof(struct GpuSetWriteEnData)))) {
+      dev_warn(dev->device, "Gpu_BulkSetWriteEn: copy_from_user failed. ret=%i, user=%p\n", ret, (void *)arg);
+      return -EINVAL;
+   }
+
+   if (data->version < 4) {
+      writeDetBase = GPU_ASYNC_REG_WRITE_DETECT_BASE_V1;
+   } else {
+      writeDetBase = GPU_ASYNC_REG_WRITE_DETECT_BASE_V4;
+   }
+
+   // Validate buffer indices before resetting anything
+   if (data->writeBuffers.count < MAX_GPU_BUFFERS) {
+      i = data->writeBuffers.count;
+
+      // Check first word for stragglers
+      if (gpuEnData.buffers[i / 32] & ~((1u << i % 32)-1)) {
+         dev_warn(dev->device, "Gpu_BulkSetWriteEn: Out of range buffer index. Must be 0 <= index < writeBuffers.count=%d\n",
+                  data->writeBuffers.count);
+         return -EINVAL;
+      }
+
+      i += 32;
+
+      // Everything else should be zero.
+      for (; i < MAX_GPU_BUFFERS; i += 32) {
+         if (gpuEnData.buffers[i / 32]) {
+            dev_warn(dev->device, "Gpu_BulkSetWriteEn: Out of range buffer index. Must be 0 <= index < writeBuffers.count=%d\n",
+                     data->writeBuffers.count);
+            return -EINVAL;
+         }
+      }
+   }
+
+   // Reset all of the buffers
+   for (i = 0; i < data->writeBuffers.count; ++i) {
+      if (gpuEnData.buffers[i / 32] & (1u << (i % 32))) {
+         writel(0x1, data->base + writeDetBase + i * 4);
+      }
+   }
 
    return 0;
 }

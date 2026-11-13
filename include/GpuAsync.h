@@ -23,24 +23,35 @@
 #ifndef __GPU_ASYNC_H__
 #define __GPU_ASYNC_H__
 
+#if defined(__cplusplus) && !defined(DMA_IN_KERNEL)
+#include <vector>
+#endif  // __cplusplus
+
 #include "DmaDriver.h"
 
 /**
  * GPU command codes
  **/
-#define GPU_Add_Nvidia_Memory 0x8002   // Command to add NVIDIA GPU memory
-#define GPU_Rem_Nvidia_Memory 0x8003   // Command to remove NVIDIA GPU memory
-#define GPU_Set_Write_Enable  0x8004   // Set Write Enable Flag
-#define GPU_Is_Gpu_Async_Supp 0x8005   // Check if GPU Async is supported by firmware
-#define GPU_Get_Gpu_Async_Ver 0x8006   // Get the GpuAsyncCore version
-#define GPU_Get_Max_Buffers   0x8007   // Get the max number of DMA buffers
-#define GPU_Enable_Tx         0x8008   // Enable tx buffers (FPGA -> GPU)
-#define GPU_Enable_Rx         0x8009   // Enable rx buffers (GPU -> FPGA)
+#define GPU_Add_Nvidia_Memory       0x8002  // Command to add NVIDIA GPU memory
+#define GPU_Rem_Nvidia_Memory       0x8003  // Command to remove NVIDIA GPU memory
+#define GPU_Set_Write_Enable        0x8004  // Set Write Enable Flag
+#define GPU_Is_Gpu_Async_Supp       0x8005  // Check if GPU Async is supported by firmware
+#define GPU_Get_Gpu_Async_Ver       0x8006  // Get the GpuAsyncCore version
+#define GPU_Get_Max_Buffers         0x8007  // Get the max number of DMA buffers
+#define GPU_Enable_Tx               0x8008  // Enable tx buffers (FPGA -> GPU)
+#define GPU_Enable_Rx               0x8009  // Enable rx buffers (GPU -> FPGA)
+#define GPU_Set_Write_Enable_Bulk   0x800A  // Bulk set write enable
 
 /**
  * RDMA-able GPU memory must be aligned to this value.
  */
 #define GPU_RDMA_BUFFER_ALIGN 0x10000ULL
+
+/**
+ * Absolute max number of buffers. GPU firmware usually will support less than this.
+ * Query the real number using gpuGetMaxBuffers.
+ */
+#define GPU_RDMA_MAX_BUFFERS 1024
 
 /**
  * @brief Represents NVIDIA GPU memory data.
@@ -52,6 +63,16 @@ struct GpuNvidiaData {
    uint32_t write;    /**< Write permission flag (non-zero for write access). */
    uint64_t address;  /**< GPU memory address. */
    uint32_t size;     /**< Size of the memory region in bytes. */
+};
+
+/**
+ * @brief Bulk set write enable data.
+ *
+ * Each bit in the bit vector `buffers` corresponds to a buffer index.
+ * For example, bit 125, if set, enables DMAs for buffer 125.
+ */
+struct GpuSetWriteEnData {
+   uint32_t buffers[GPU_RDMA_MAX_BUFFERS / 32];
 };
 
 #ifndef DMA_IN_KERNEL
@@ -207,6 +228,67 @@ static inline int32_t gpuEnableTx(int32_t fd, uint32_t enable) {
  */
 static inline int32_t gpuEnableRx(int32_t fd, uint32_t enable) {
    return ioctl(fd, GPU_Enable_Rx, enable);
+}
+
+#ifdef __cplusplus
+/**
+ * @brief Sets the "DMA ready" flag for the buffer. This is a bulk version of @c gpuSetWriteEn.
+ *
+ * @param fd The file descriptor for the device.
+ * @param buffers A std::vector of buffers to enable writes for. Buffer indices must never exceed
+ *                @c GPU_RDMA_MAX_BUFFERS or @c gpuGetMaxBuffers.
+ *
+ * @return On success, returns 0. On failure, returns -1 and sets errno:
+ *          * ENOTSUPP if the firmware or driver does not support GPUDirect.
+ *          * EBUSY if the GpuAsyncCore state is owned by another process already.
+ *          * EINVAL if a buffer index is out of range
+ */
+static inline int32_t gpuBulkSetWriteEn(int32_t fd, const std::vector<uint32_t>& buffers) {
+   if (!buffers.size())
+      return 0;
+
+   GpuSetWriteEnData data = {0};
+   for (auto& b : buffers) {
+      // Don't over-index!
+      if (b >= GPU_RDMA_MAX_BUFFERS) {
+         errno = EINVAL;
+         return -1;
+      }
+      data.buffers[b / 32] |= (1u << (b % 32));
+   }
+   return ioctl(fd, GPU_Set_Write_Enable_Bulk, &data);
+}
+#endif
+
+/**
+ * @brief Sets the "DMA ready" flag for the buffer. This is a bulk version of @c gpuSetWriteEn.
+ *
+ * @param fd The file descriptor for the device.
+ * @param buffers A pointer to a uint32_t array that contains buffer indices to enable.
+ *                Buffer indices must never exceed @c GPU_RDMA_MAX_BUFFERS or @c gpuGetMaxBuffers.
+ *
+ * @param count The number of buffers in @c buffers. If count is 0, this function is a no-op.
+ *
+ * @return On success, returns 0. On failure, returns -1 and sets errno:
+ *          * ENOTSUPP if the firmware or driver does not support GPUDirect.
+ *          * EBUSY if the GpuAsyncCore state is owned by another process already.
+ *          * EINVAL if a buffer index is out of range
+ */
+static inline int32_t gpuBulkSetWriteEn(int32_t fd, const uint32_t *buffers, uint32_t count) {
+   if (!count)
+      return 0;
+
+   GpuSetWriteEnData data = {0};
+   for (uint32_t i = 0; i < count; ++i) {
+      const uint32_t b = buffers[i];
+      // Don't over-index!
+      if (b >= GPU_RDMA_MAX_BUFFERS) {
+         errno = EINVAL;
+         return -1;
+      }
+      data.buffers[b / 32] |= (1u << (b % 32));
+   }
+   return ioctl(fd, GPU_Set_Write_Enable_Bulk, &data);
 }
 
 #endif  // !DMA_IN_KERNEL
