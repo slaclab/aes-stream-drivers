@@ -3,12 +3,14 @@
  * Company    : SLAC National Accelerator Laboratory
  *-----------------------------------------------------------------------------
  * Description:
- *    Ioctl sanity test for the datadev driver. Runs 27 numbered checks that
- *    exercise all 28 ioctls (24 DMA from DmaDriver.h, 2 AXIS from
+ *    Ioctl sanity test for the datadev driver. Runs 29 numbered checks.
+ *    Checks 1-27 exercise all 28 ioctls (24 DMA from DmaDriver.h, 2 AXIS from
  *    AxisDriver.h, 1 AxiVersion from AxiVersion.h, and 1 GPU readiness from
  *    GpuAsync.h). Check 5 covers two ioctls in one round-trip
  *    (DMA_Get_Index + DMA_Ret_Index), so 27 numbered checks span 28 ioctls.
- *    The GPU readiness ioctl GPU_Is_Gpu_Async_Supp is expected to return 0
+ *    Checks 28-29 are negative cases for the register ioctls: an address past
+ *    the BAR0 window and an unaligned address in the BAR2 window must both be
+ *    rejected. The GPU readiness ioctl GPU_Is_Gpu_Async_Supp is expected to return 0
  *    (CPU build) or 1 (GPU build). Each call is verified to return a sane
  *    value; the program exits 0 if every check passes, 1 otherwise.
  * ----------------------------------------------------------------------------
