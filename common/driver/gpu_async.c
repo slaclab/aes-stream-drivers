@@ -591,7 +591,7 @@ int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg) {
 /**
  * Gpu_BulkSetWriteEn - Set write enable for the list of GPU buffers
  * @dev: Pointer to the DMA device structure
- * @arg: User space argument pointing to a bit vector of buffers to reset.
+ * @arg: User space argument pointing to a bit vector of buffers to enable.
  *
  * This function enables multiple DMA buffers for DMA operations.
  *
@@ -631,7 +631,7 @@ int32_t Gpu_BulkSetWriteEn(struct DmaDevice *dev, uint64_t arg) {
       i = data->writeBuffers.count;
 
       // Check first word for stragglers
-      if (gpuEnData.buffers[i / 32] & ~((1 << i % 32)-1)) {
+      if (gpuEnData.buffers[i / 32] & ~((1u << i % 32)-1)) {
          dev_warn(dev->device, "Gpu_BulkSetWriteEn: Out of range buffer index. Must be 0 <= index < DeviceMaxBuffers=%d\n",
                   data->writeBuffers.count);
          return -EINVAL;
@@ -651,7 +651,7 @@ int32_t Gpu_BulkSetWriteEn(struct DmaDevice *dev, uint64_t arg) {
 
    // Reset all of the buffers
    for (i = 0; i < data->writeBuffers.count; ++i) {
-      if (gpuEnData.buffers[i / 32] & (1 << (i % 32))) {
+      if (gpuEnData.buffers[i / 32] & (1u << (i % 32))) {
          writel(0x1, data->base + writeDetBase + i * 4);
       }
    }

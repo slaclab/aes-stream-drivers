@@ -68,7 +68,7 @@ struct GpuNvidiaData {
 /**
  * @brief Bulk set write enable data.
  *
- * Each bit in the but vector `buffers` corresponds to a buffer index.
+ * Each bit in the bit vector `buffers` corresponds to a buffer index.
  * For example, bit 125, if set, enables DMAs for buffer 125.
  */
 struct GpuSetWriteEnData {
@@ -254,7 +254,7 @@ static inline int32_t gpuBulkSetWriteEn(int32_t fd, const std::vector<uint32_t>&
          errno = EINVAL;
          return -1;
       }
-      data.buffers[b / 32] |= (1 << (b % 32));
+      data.buffers[b / 32] |= (1u << (b % 32));
    }
    return ioctl(fd, GPU_Set_Write_Enable_Bulk, &data);
 }
@@ -274,7 +274,7 @@ static inline int32_t gpuBulkSetWriteEn(int32_t fd, const std::vector<uint32_t>&
  *          * EBUSY if the GpuAsyncCore state is owned by another process already.
  *          * EINVAL if a buffer index is out of range
  */
-static inline int32_t gpuBulkSetWriteEn(int32_t fd, uint32_t *buffers, uint32_t count) {
+static inline int32_t gpuBulkSetWriteEn(int32_t fd, const uint32_t *buffers, uint32_t count) {
    if (!count)
       return 0;
 
@@ -286,7 +286,7 @@ static inline int32_t gpuBulkSetWriteEn(int32_t fd, uint32_t *buffers, uint32_t 
          errno = EINVAL;
          return -1;
       }
-      data.buffers[b / 32] |= (1 << (b % 32));
+      data.buffers[b / 32] |= (1u << (b % 32));
    }
    return ioctl(fd, GPU_Set_Write_Enable_Bulk, &data);
 }
