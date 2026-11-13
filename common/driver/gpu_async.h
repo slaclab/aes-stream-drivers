@@ -54,7 +54,7 @@
 /**
  * MAX_GPU_BUFFERS - Maximum number of GPU buffers allowed
  */
-#define MAX_GPU_BUFFERS   1024
+#define MAX_GPU_BUFFERS   GPU_RDMA_MAX_BUFFERS
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
 static_assert(GPU_BOUND_SIZE == GPU_RDMA_BUFFER_ALIGN,
