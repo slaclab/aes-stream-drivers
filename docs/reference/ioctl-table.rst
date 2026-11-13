@@ -11,6 +11,16 @@ headers. Pass these codes as the second argument to ``ioctl(fd, cmd, arg)``.
    ``DMA_Ret_Index | ((N << 16) & 0xFFFF0000)``. For a single index,
    use ``DMA_Ret_Index | 0x10000``.
 
+.. note::
+
+   ``DMA_Write_Register`` and ``DMA_Read_Register`` address PCI BAR0. On
+   Versal firmware that implements the auxiliary PCI BAR2 (PMC peripherals,
+   used to reprogram the boot flash), the same two commands reach BAR2 at
+   ``DMA_BAR2_ADDR_OFFSET + offset`` (``0x200000000 + offset``), where
+   ``offset`` must be 32-bit aligned. The window is listed in
+   ``/proc/datadev_<n>`` when the driver has mapped it; without it, those
+   addresses are rejected.
+
 
 DmaDriver.h Commands
 --------------------

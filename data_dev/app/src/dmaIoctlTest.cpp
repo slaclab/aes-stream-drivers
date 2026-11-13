@@ -260,6 +260,23 @@ int main(int argc, char **argv) {
    snprintf(detail, sizeof(detail), "= %zd (expected 0 or 1)", rv);
    report("GPU_Is_Gpu_Async_Supp", rv == 0 || rv == 1, detail);
 
+   // 28. DMA_Read_Register -- first address past the 16 MB BAR0 window is rejected
+   rv = dmaReadRegister(fd, 0x01000000, &regVal);
+   snprintf(detail, sizeof(detail), "= %zd (expected < 0)", rv);
+   report("DMA_Read_Register past BAR0", rv < 0, detail);
+
+   // 29. DMA_Read_Register / DMA_Write_Register -- an unaligned address in the
+   // BAR2 window is rejected on every card, whether or not it has a BAR2, so
+   // this never touches hardware. On a card without BAR2 it is refused for
+   // that reason first.
+   rv = dmaReadRegister(fd, DMA_BAR2_ADDR_OFFSET + 2, &regVal);
+   snprintf(detail, sizeof(detail), "= %zd (expected < 0)", rv);
+   report("DMA_Read_Register unaligned BAR2", rv < 0, detail);
+
+   rv = dmaWriteRegister(fd, DMA_BAR2_ADDR_OFFSET + 2, 0);
+   snprintf(detail, sizeof(detail), "= %zd (expected < 0)", rv);
+   report("DMA_Write_Register unaligned BAR2", rv < 0, detail);
+
    printf("\nIoctl test: %d passed, %d failed\n", gPassed, gErrors);
 
    close(fd);

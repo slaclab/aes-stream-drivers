@@ -164,6 +164,13 @@ char *Dma_DevNode(DMA_DEVNODE_CONST struct device *dev, umode_t *mode) {
  * resources are properly cleaned up.
  */
 void Dma_UnmapReg(struct DmaDevice *dev) {
+   // Release the auxiliary PCI BAR2 window, if the device mapped one.
+   if (dev->bar2Base != NULL) {
+      iounmap(dev->bar2Base);
+      dev->bar2Base = NULL;
+      release_mem_region(dev->bar2Addr, dev->bar2Size);
+   }
+
    // Idempotent: callable from multiple cleanup paths.
    if (dev->base == NULL) return;
 
@@ -1615,6 +1622,39 @@ int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t *mask)
 }
 
 /**
+ * Dma_RegPtr - Translate a register ioctl address into a mapped pointer.
+ * @dev: Pointer to the DMA device structure.
+ * @address: Register address supplied by user space.
+ *
+ * Addresses below DMA_BAR2_ADDR_OFFSET are offsets into BAR0 and must fall in
+ * the direct read/write region. Addresses from DMA_BAR2_ADDR_OFFSET up are
+ * 32-bit aligned offsets into the auxiliary PCI BAR2 window, when the device
+ * has mapped one.
+ *
+ * Return: Pointer to the 32-bit register, or NULL if the address is out of range.
+ */
+static __iomem void *Dma_RegPtr(struct DmaDevice *dev, uint64_t address) {
+   uint64_t offset;
+
+   if (address >= DMA_BAR2_ADDR_OFFSET) {
+      offset = address - DMA_BAR2_ADDR_OFFSET;
+
+      // Unaligned accesses are rejected: they would straddle two 32-bit
+      // words on their way through the PCIe bridge
+      if ((dev->bar2Base == NULL) || (offset & 0x3) || (offset > (dev->bar2Size - 4))) {
+         return NULL;
+      }
+      return dev->bar2Base + offset;
+   }
+
+   if (((dev->base + address) < dev->rwBase) ||
+       ((dev->base + address + 4) > (dev->rwBase + dev->rwSize))) {
+      return NULL;
+   }
+   return dev->base + address;
+}
+
+/**
  * Dma_WriteRegister - Write to a register of the DMA device.
  * @dev: Pointer to the DMA device structure.
  * @arg: User space pointer to data for writing to the register.
@@ -1629,6 +1669,7 @@ int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t *mask)
 int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg) {
    uint64_t ret;
    struct DmaRegisterData rData;
+   __iomem void *reg;
 
    // Attempt to copy register data from user space
    ret = copy_from_user(&rData, (__user void *)arg, sizeof(struct DmaRegisterData));
@@ -1639,13 +1680,13 @@ int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg) {
    }
 
    // Validate register address range
-   if (((dev->base + rData.address) < dev->rwBase) ||
-       ((dev->base + rData.address + 4) > (dev->rwBase + dev->rwSize))) {
+   reg = Dma_RegPtr(dev, rData.address);
+   if (reg == NULL) {
       return -1;
    }
 
    // Write data to the register
-   writel(rData.data, dev->base + rData.address);
+   writel(rData.data, reg);
 
    return 0;
 }
@@ -1665,6 +1706,7 @@ int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg) {
 int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg) {
    uint64_t ret;
    struct DmaRegisterData rData;
+   __iomem void *reg;
 
    // Attempt to copy DmaRegisterData structure from user space
    if ((ret = copy_from_user(&rData, (__user void *)arg, sizeof(struct DmaRegisterData)))) {
@@ -1673,13 +1715,13 @@ int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg) {
    }
 
    // Validate register address within the allowed range
-   if (((dev->base + rData.address) < dev->rwBase) ||
-       ((dev->base + rData.address + 4) > (dev->rwBase + dev->rwSize))) {
+   reg = Dma_RegPtr(dev, rData.address);
+   if (reg == NULL) {
       return -1;
    }
 
    // Read register value
-   rData.data = readl(dev->base + rData.address);
+   rData.data = readl(reg);
 
    // Attempt to copy the updated DmaRegisterData structure back to user space
    if ((ret = copy_to_user((__user void *)arg, &rData, sizeof(struct DmaRegisterData)))) {
