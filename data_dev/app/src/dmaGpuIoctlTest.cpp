@@ -268,7 +268,7 @@ int main(int argc, char **argv) {
       rc = gpuBulkSetWriteEn(fd, idx, sizeof(idx) / sizeof(*idx));
       char detail[80];
       snprintf(detail, sizeof(detail), "(rc=%zd, errno=%d, expected -1/EINVAL)", rc, errno);
-      report("GPU_Set_Write_Enable_Bulk(idx=[0,1,2,3,4], negative)", rc < 0 && errno == EINVAL, detail);
+      report("GPU_Set_Write_Enable_Bulk(idx=[0,1], negative)", rc < 0 && errno == EINVAL, detail);
    }
 
    /* 7) GPU_Rem_Nvidia_Memory -> teardown */

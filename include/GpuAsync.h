@@ -235,8 +235,9 @@ static inline int32_t gpuEnableRx(int32_t fd, uint32_t enable) {
  * @brief Sets the "DMA ready" flag for the buffer. This is a bulk version of @c gpuSetWriteEn.
  *
  * @param fd The file descriptor for the device.
- * @param buffers A std::vector of buffers to enable writes for. Buffer indices must never exceed
- *                @c GPU_RDMA_MAX_BUFFERS or @c gpuGetMaxBuffers.
+ * @param buffers A std::vector of buffer indices to enable.
+ *                Every index must be less than the number of registered write buffers,
+ *                otherwise no buffer is enabled and the call fails with EINVAL.
  *
  * @return On success, returns 0. On failure, returns -1 and sets errno:
  *          * ENOTSUPP if the firmware or driver does not support GPUDirect.
@@ -265,7 +266,8 @@ static inline int32_t gpuBulkSetWriteEn(int32_t fd, const std::vector<uint32_t>&
  *
  * @param fd The file descriptor for the device.
  * @param buffers A pointer to a uint32_t array that contains buffer indices to enable.
- *                Buffer indices must never exceed @c GPU_RDMA_MAX_BUFFERS or @c gpuGetMaxBuffers.
+ *                Every index must be less than the number of registered write buffers,
+ *                otherwise no buffer is enabled and the call fails with EINVAL.
  *
  * @param count The number of buffers in @c buffers. If count is 0, this function is a no-op.
  *
