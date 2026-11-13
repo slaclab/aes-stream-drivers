@@ -25,6 +25,7 @@
 #include <linux/signal.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
+#include <linux/build_bug.h>
 #include <nv-p2p.h>
 
 /* Update this when you add support for a new GpuAsyncCore version! */
@@ -601,6 +602,9 @@ int32_t Gpu_BulkSetWriteEn(struct DmaDevice *dev, uint64_t arg) {
    struct GpuSetWriteEnData gpuEnData;
    uint32_t writeDetBase;
    int ret, i;
+
+   // We make assumptions about the underlying type here.
+   BUILD_BUG_ON(sizeof(gpuEnData.buffers[0]) != sizeof(uint32_t));
 
    // Check for calling process ownership. Unlocked GpuAsyncCore is OK
    pid_t pid = atomic64_read(&data->tgid);
