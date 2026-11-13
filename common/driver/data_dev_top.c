@@ -158,6 +158,70 @@ void DataDev_Exit(void) {
 }
 
 /**
+ * DataDev_MapBar2 - Map the auxiliary PCI BAR2 window on Versal firmware.
+ * @dev: pointer to the DmaDevice structure, with BAR0 already mapped.
+ * @pcidev: PCI device structure for the device.
+ *
+ * Versal firmware (XIL_DEVICE_G = "VERSAL") can expose a second BAR that the
+ * NoC routes to the PMC peripherals (OSPI boot flash, clock and reset
+ * controller, ...), which is what allows the boot memory to be reprogrammed
+ * over PCIe. When that BAR is present, map all of it so that the
+ * DMA_Write_Register and DMA_Read_Register ioctls can reach it at
+ * DMA_BAR2_ADDR_OFFSET + offset. Which offsets decode is up to the firmware.
+ *
+ * The window is optional and not needed for DMA operation, so any failure
+ * here is logged and the probe carries on with BAR0 only.
+ */
+static void DataDev_MapBar2(struct DmaDevice *dev, struct pci_dev *pcidev) {
+   __iomem struct AxiVersion_Reg *aVer = (__iomem struct AxiVersion_Reg *)(dev->base + AVER_OFF);
+   resource_size_t addr = pci_resource_start(pcidev, 2);
+   resource_size_t size = pci_resource_len(pcidev, 2);
+   __iomem uint8_t *base;
+   uint32_t barReg = 0;
+
+   // Only Versal firmware puts something this driver should expose behind BAR2
+   if (readl(&aVer->userValues[AxiVersion_Usr_XilDevice_Offset]) != AxiVersion_XilDevice_Versal) return;
+
+   // BAR2 has no usable address. The PCI core clears the resource of a BAR it
+   // could not place (no room for a multi-GB 64-bit BAR), which makes it look
+   // the same here as a BAR the firmware does not implement. Config space
+   // tells them apart: the register of an unimplemented BAR reads zero, while
+   // the read-only type bits of an implemented 64-bit BAR stay set.
+   if (!(pci_resource_flags(pcidev, 2) & IORESOURCE_MEM) || (size == 0) || (addr == 0)) {
+      pci_read_config_dword(pcidev, PCI_BASE_ADDRESS_2, &barReg);
+      if (barReg != 0) {
+         dev_warn(dev->device,
+                  "Init: BAR2 is implemented by the firmware but the host did not assign it a usable "
+                  "memory address; BAR2 register access is disabled. Check that \"Above 4G Decoding\" "
+                  "is enabled in the BIOS, and see the kernel's own BAR 2 messages for this device.\n");
+      }
+      return;
+   }
+
+   // Hold memory region
+   if (request_mem_region(addr, size, dev->devName) == NULL) {
+      dev_warn(dev->device, "Init: BAR2 memory in use; BAR2 register access is disabled.\n");
+      return;
+   }
+
+   // Not write-combined: accesses through this window must reach the device
+   // as individual, ordered 32-bit transfers
+   base = pci_ioremap_bar(pcidev, 2);
+   if (base == NULL) {
+      dev_warn(dev->device, "Init: Could not remap BAR2; BAR2 register access is disabled.\n");
+      release_mem_region(addr, size);
+      return;
+   }
+
+   dev->bar2Addr = addr;
+   dev->bar2Size = size;
+   dev->bar2Base = base;
+
+   dev_info(dev->device, "Init: BAR2 0x%llx with size 0x%llx mapped at register address 0x%llx.\n",
+            (unsigned long long)addr, (unsigned long long)size, (unsigned long long)DMA_BAR2_ADDR_OFFSET);
+}
+
+/**
  * DataDev_Probe - Probe for the AES stream device.
  * @pdev: PCI device structure for the device.
  * @id: Entry in data_dev_id table that matches with this device.
@@ -380,6 +444,9 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    dev->reg    = dev->base + axiGen2Offset;  // Register base address
    dev->rwBase = dev->base + phyOffset;      // Read/Write base address
    dev->rwSize = (2*USER_SIZE) - phyOffset;  // Read/Write region size
+
+   // Map the auxiliary BAR2 window, if this is Versal firmware that has one
+   DataDev_MapBar2(dev, pcidev);
 
 #ifdef DATA_GPU
    uint32_t gpuAsyncCoreOffset = AxiRegMap_GetOffset(dev, REG_GPU_ASYNC);
@@ -613,6 +680,13 @@ void DataDev_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
                   pdev->bus->number,
                   PCI_SLOT(pdev->devfn),
                   PCI_FUNC(pdev->devfn));
+   }
+
+   // Show the auxiliary BAR2 window, when mapped
+   if (dev->bar2Base != NULL) {
+      seq_printf(s, "BAR2 Register Window    : address 0x%llx, size 0x%llx\n",
+                  (unsigned long long)DMA_BAR2_ADDR_OFFSET,
+                  (unsigned long long)dev->bar2Size);
    }
 
    // Read AXI version from device
