@@ -632,7 +632,7 @@ int32_t Gpu_BulkSetWriteEn(struct DmaDevice *dev, uint64_t arg) {
 
       // Check first word for stragglers
       if (gpuEnData.buffers[i / 32] & ~((1u << i % 32)-1)) {
-         dev_warn(dev->device, "Gpu_BulkSetWriteEn: Out of range buffer index. Must be 0 <= index < DeviceMaxBuffers=%d\n",
+         dev_warn(dev->device, "Gpu_BulkSetWriteEn: Out of range buffer index. Must be 0 <= index < writeBuffers.count=%d\n",
                   data->writeBuffers.count);
          return -EINVAL;
       }
@@ -642,7 +642,7 @@ int32_t Gpu_BulkSetWriteEn(struct DmaDevice *dev, uint64_t arg) {
       // Everything else should be zero.
       for (; i < MAX_GPU_BUFFERS; i += 32) {
          if (gpuEnData.buffers[i / 32]) {
-            dev_warn(dev->device, "Gpu_BulkSetWriteEn: Out of range buffer index. Must be 0 <= index < DriverMaxBuffers=%d\n",
+            dev_warn(dev->device, "Gpu_BulkSetWriteEn: Out of range buffer index. Must be 0 <= index < writeBuffers.count=%d\n",
                      data->writeBuffers.count);
             return -EINVAL;
          }
