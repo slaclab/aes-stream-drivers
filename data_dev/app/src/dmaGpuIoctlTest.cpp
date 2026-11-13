@@ -242,6 +242,35 @@ int main(int argc, char **argv) {
       report("GPU_Set_Write_Enable(idx=99, negative)", rc < 0, detail);
    }
 
+   /* 6a) GPU_Set_Write_Enable_Bulk idx=0 (valid) */
+   {
+      uint32_t idx[] = {0};
+      rc = gpuBulkSetWriteEn(fd, idx, sizeof(idx) / sizeof(*idx));
+      char detail[64];
+      snprintf(detail, sizeof(detail), "(rc=%zd, expected 0)", rc);
+      report("GPU_Set_Write_Enable_Bulk(idx=0)", rc == 0, detail);
+   }
+
+   /* 6b) GPU_Set_Write_Enable_Bulk idx=GPU_RDMA_MAX_BUFFERS (out-of-range -> userspace returns EINVAL) */
+   {
+      uint32_t idx[] = {GPU_RDMA_MAX_BUFFERS};
+      errno = 0;
+      rc = gpuBulkSetWriteEn(fd, idx, 1);
+      char detail[80];
+      snprintf(detail, sizeof(detail), "(rc=%zd, errno=%d, expected -1/EINVAL)", rc, errno);
+      report("GPU_Set_Write_Enable_Bulk(idx=1024, negative)", rc < 0 && errno == EINVAL, detail);
+   }
+
+   /* 6c) GPU_Set_Write_Enable_Bulk array with a bad index (out-of-range -> kernel returns EINVAL) */
+   {
+      uint32_t idx[] = {0, 1};
+      errno = 0;
+      rc = gpuBulkSetWriteEn(fd, idx, sizeof(idx) / sizeof(*idx));
+      char detail[80];
+      snprintf(detail, sizeof(detail), "(rc=%zd, errno=%d, expected -1/EINVAL)", rc, errno);
+      report("GPU_Set_Write_Enable_Bulk(idx=[0,1,2,3,4], negative)", rc < 0 && errno == EINVAL, detail);
+   }
+
    /* 7) GPU_Rem_Nvidia_Memory -> teardown */
    rc = gpuRemNvidiaMemory(fd);
    {
