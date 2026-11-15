@@ -561,6 +561,7 @@ int32_t DataDev_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
       case GPU_Get_Max_Buffers:
       case GPU_Enable_Rx:
       case GPU_Enable_Tx:
+      case GPU_Set_Write_Enable_Bulk:
 #ifdef DATA_GPU
          return dev->gpuEn ? Gpu_Command(dev, cmd, arg) : -ENOTSUPP;
 #else

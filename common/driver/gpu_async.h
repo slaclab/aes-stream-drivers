@@ -54,7 +54,7 @@
 /**
  * MAX_GPU_BUFFERS - Maximum number of GPU buffers allowed
  */
-#define MAX_GPU_BUFFERS   1024
+#define MAX_GPU_BUFFERS   GPU_RDMA_MAX_BUFFERS
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 1, 0)
 static_assert(GPU_BOUND_SIZE == GPU_RDMA_BUFFER_ALIGN,
@@ -128,5 +128,6 @@ int32_t Gpu_SetWriteEn(struct DmaDevice *dev, uint64_t arg);
 void Gpu_Show(struct seq_file *s, struct DmaDevice *dev);
 int32_t Gpu_EnableTx(struct DmaDevice *dev, uint64_t enable);
 int32_t Gpu_EnableRx(struct DmaDevice *dev, uint64_t enable);
+int32_t Gpu_BulkSetWriteEn(struct DmaDevice *dev, uint64_t arg);
 
 #endif  // __GPU_ASYNC_2_H__
