@@ -25,8 +25,17 @@
 #include <AxiVersion.h>
 
 // Dword offset relative to the start of userValues
+static const int AxiVersion_Usr_XilDevice_Offset = 0x3;
 static const int AxiVersion_Usr_HardwareType_Offset = 0x9;
 static const int AxiVersion_Usr_MemoryMapVer_Offset = 0x3F;
+
+// userValues[AxiVersion_Usr_XilDevice_Offset] values, set by XIL_DEVICE_G
+enum AxiVersion_XilDevice {
+   AxiVersion_XilDevice_Ultrascale     = 0x0,  // XIL_DEVICE_G = "ULTRASCALE"
+   AxiVersion_XilDevice_7Series        = 0x1,  // XIL_DEVICE_G = "7SERIES"
+   AxiVersion_XilDevice_UltrascalePlus = 0x2,  // XIL_DEVICE_G = "ULTRASCALE_PLUS"
+   AxiVersion_XilDevice_Versal         = 0x3,  // XIL_DEVICE_G = "VERSAL"
+};
 
 /**
  * struct AxiVersion_Reg - AXI Version register space

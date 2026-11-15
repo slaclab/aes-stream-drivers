@@ -61,6 +61,9 @@ typedef uint32_t __poll_t;
  * @reg: Virtual address pointer to the device's register set.
  * @rwBase: Direct read/write virtual address within the device memory.
  * @rwSize: Size of the direct read/write region.
+ * @bar2Addr: Base physical address of the auxiliary PCI BAR2 window, 0 if not mapped.
+ * @bar2Size: Size of the auxiliary PCI BAR2 window.
+ * @bar2Base: Base virtual address pointer to the auxiliary PCI BAR2 window, NULL if not mapped.
  * @cfgSize: Size of the device configuration space.
  * @cfgTxCount: Transmit buffer count configuration.
  * @cfgRxCount: Receive buffer count configuration.
@@ -110,6 +113,12 @@ struct DmaDevice {
    // Direct read/write offset and size
    __iomem uint8_t * rwBase;
    uint32_t  rwSize;
+
+   // Auxiliary PCI BAR2 window, reached through the register ioctls at
+   // DMA_BAR2_ADDR_OFFSET. Left zeroed when the device has no such window.
+   phys_addr_t       bar2Addr;
+   resource_size_t   bar2Size;
+   __iomem uint8_t * bar2Base;
 
    // Configuration
    uint32_t cfgSize;

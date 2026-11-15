@@ -33,6 +33,20 @@
 /* API Version */
 #define DMA_VERSION 0x06
 
+/**
+ * @brief Register address at which the auxiliary PCI BAR2 window starts.
+ *
+ * @details
+ * DMA_Write_Register and DMA_Read_Register address BAR0 directly. When the
+ * driver has mapped BAR2 (datadev on Versal firmware), a BAR2 offset is reached
+ * by adding this value to it: address = DMA_BAR2_ADDR_OFFSET + offset. BAR2
+ * offsets must be 32-bit aligned.
+ *
+ * The value is the BAR index placed above a 32-bit offset (2 << 32), which is
+ * what a 4 GB BAR needs. It must stay above every valid BAR0 address.
+ */
+#define DMA_BAR2_ADDR_OFFSET 0x200000000ULL
+
 /* Error values */
 #define DMA_ERR_FIFO 0x01
 #define DMA_ERR_LEN  0x02
