@@ -111,8 +111,13 @@ including those that skip the load/test steps.
 
 1. ``insmod nvidia_p2p_stub.ko``
 2. ``insmod datadev_emulator.ko``
-3. ``insmod datadev.ko cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgDebug=1``
+3. ``insmod datadev.ko cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgDebug=1 cfgMode=2``
 4. Verify ``/dev/datadev_0`` and ``/proc/datadev_0`` exist
+
+The baseline load uses ``cfgMode=2`` (BUFF_STREAM), so Tests 1 and 2
+below run against streaming DMA buffers. Test 3 reloads the module
+without ``cfgMode`` and therefore runs with the driver default,
+``cfgMode=1`` (BUFF_COHERENT).
 
 **Test execution** (``test-cpu.sh``):
 
@@ -139,8 +144,10 @@ including those that skip the load/test steps.
        verify /proc reflects the new values
    * - 4
      - cfgMode=2 reload
-     - Unload/reload with BUFF_STREAM mode, run data integrity check
-       (>= 100 transfers, zero PRBS errors)
+     - Full unload/reload with an explicit ``cfgMode=2`` (same BUFF_STREAM
+       mode as the baseline load), run data integrity check (>= 100
+       transfers, zero PRBS errors), then reload with ``cfgMode=1``
+       (BUFF_COHERENT) before cleanup
    * - 5
      - rmmod-under-load
      - Start ``dmaLoopTest`` in background, ``rmmod datadev`` while DMA
