@@ -87,12 +87,18 @@ kernel regardless of the userspace distribution.
      - Yes
      - Rawhide gcc/glibc; most aggressive compiler warnings
 
-All five distros run the full build + load + test + unload + DKMS
-sequence in both phases. Load/test is gated at runtime on
+All five distros run the build + load + test + unload sequence in both
+phases, followed by a DKMS smoke test. Load/test is gated at runtime on
 ``CI_HOST_MATCH=1`` (container has the running host's kernel headers,
-either via bind-mount or package install); distros that cannot satisfy
-that condition fall back to a DKMS smoke path (``dkms ldtarball`` with
-``--no-prepare-kernel``) in the same cell.
+either via bind-mount or package install). The DKMS step runs on every
+cell regardless of that gate, but it is a smoke test only
+(``test-dkms-cpu-smoke.sh`` / ``test-dkms-gpu-smoke.sh``): build the
+tarball, ``dkms ldtarball``, confirm the package shows as ``added`` in
+``dkms status``, then ``dkms remove``. It does not run ``dkms build`` or
+``dkms install``, which need kernel headers matching the running kernel.
+The full install/remove cycle (``test-dkms-cpu.sh`` /
+``test-dkms-gpu.sh``) is exercised only by the local KVM harness; see
+`Local CI Testing`_ below.
 
 
 Phase 2: CPU Test Coverage
@@ -149,9 +155,10 @@ including those that skip the load/test steps.
      - Load/unload cycles
      - 3 rapid insmod/rmmod cycles to detect use-after-free races
    * - 7
-     - DKMS
-     - Build DKMS tarball, ``dkms ldtarball``, ``dkms install``, verify
-       module is installed, ``dkms remove``
+     - DKMS (smoke)
+     - Build DKMS tarball, ``dkms ldtarball``, verify the package is
+       registered in ``dkms status``, ``dkms remove``. No ``dkms build``
+       or ``dkms install`` in GitHub CI.
 
 **Post-test** (``check-dmesg.sh``):
 
@@ -204,8 +211,9 @@ tests:
        (enable-toggle and max-buffers 4→2 mid-stream), all through the
        emulator's GPU Async V4 engine
    * - 5
-     - GPU DKMS
-     - Full DKMS build/install/remove cycle for GPU variant
+     - GPU DKMS (smoke)
+     - Same ``dkms ldtarball`` / ``dkms status`` / ``dkms remove`` smoke
+       test for the GPU tarball
 
 
 Emulator Architecture
@@ -325,8 +333,11 @@ The pipeline produces two DKMS tarballs for distribution:
 - ``datadev-dkms-<version>.tar.gz``: CPU-only driver (no NVIDIA dependency)
 - ``datadev-gpu-dkms-<version>.tar.gz``: GPU driver (requires NVIDIA kernel modules)
 
-Both are tested via ``dkms ldtarball`` / ``dkms install`` / ``dkms remove``
-in CI. On tagged releases, the tarballs are uploaded to the GitHub Release page.
+In GitHub CI both are smoke tested via ``dkms ldtarball`` / ``dkms status`` /
+``dkms remove`` on every distro cell. The full ``dkms install`` / ``dkms remove``
+cycle (``scripts/ci/test-dkms-cpu.sh``, ``scripts/ci/test-dkms-gpu.sh``) runs
+only in the local KVM harness. On tagged releases, the tarballs are uploaded to
+the GitHub Release page.
 
 
 Local CI Testing
@@ -360,7 +371,10 @@ is essential for iterating on kernel module changes before pushing to GitHub.
 
 Each local KVM runs the same Azure kernel family as the GitHub Actions
 runner, the same Docker container images, and the same ``scripts/ci/*.sh``
-test scripts. Results are directly comparable.
+test scripts. Results are directly comparable, with one difference: on
+load-test cells the local harness runs the full ``test-dkms-cpu.sh`` /
+``test-dkms-gpu.sh`` install/remove cycle after the module tests pass,
+where GitHub CI runs only the ``*-smoke.sh`` variants.
 
 See ``scripts/ci-local/AI_LOCAL_CI_TESTING.md`` for the complete local
 CI reference, including VM provisioning, virtiofs repo sync, and
@@ -417,9 +431,9 @@ The combined Phase 2 + Phase 3 coverage across all distributions:
      - BUFF_COHERENT (cfgMode=1), BUFF_STREAM (cfgMode=2)
    * - DKMS packaging
      - 2
-     - CPU build/install/remove, GPU build/install/remove (full
-       tarball cycle on every distro with matching kernel headers;
-       ``dkms ldtarball`` smoke fallback when headers can't be matched)
+     - CPU and GPU tarball smoke tests on every distro (``dkms ldtarball``,
+       ``dkms status``, ``dkms remove``); the full ``dkms install`` cycle
+       runs only in the local KVM harness
    * - GPU DMA loopback
      - 3
      - ``rdmaTestEmu --sweep`` payload sweep, 10000-frame soak at 64 KiB,
