@@ -135,7 +135,6 @@ struct DmaQueue {
 size_t dmaAllocBuffers(struct DmaDevice *dev, struct DmaBufferList *list, uint32_t count, uint32_t baseIdx, enum dma_data_direction direction);
 void dmaFreeBuffersList(struct DmaBufferList *list);
 void dmaFreeBuffers(struct DmaBufferList *list);
-void *bsearch(const void *key, const void *base, size_t num, size_t size, int (*cmp)(const void *key, const void *elt));
 int32_t dmaSortComp(const void *p1, const void *p2);
 int32_t dmaSearchComp(const void *key, const void *element);
 struct DmaBuffer *dmaFindBufferList(struct DmaBufferList *list, dma_addr_t handle);

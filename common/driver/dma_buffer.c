@@ -20,6 +20,7 @@
 **/
 
 #include <asm/io.h>
+#include <linux/bsearch.h>
 #include <linux/dma-mapping.h>
 #include <linux/sort.h>
 #include <linux/sched.h>
@@ -255,44 +256,6 @@ void dmaFreeBuffers(struct DmaBufferList *list) {
       kfree(list->indexed);
    if (list->sorted != NULL)
       kfree(list->sorted);
-}
-
-/**
- * bsearch - Perform a binary search on a sorted array.
- * @key: pointer to the item being searched for
- * @base: pointer to the first element in the array
- * @num: number of elements in the array
- * @size: size of each element in the array
- * @cmp: comparator function which returns negative if the first argument is less
- *       than the second, zero if they're equal, and positive if the first
- *       argument is greater than the second
- *
- * This function performs a binary search on a sorted array. It assumes that
- * the array is sorted in ascending order according to the comparator function.
- * The function returns a pointer to the matching element if found, or NULL if
- * not found.
- *
- * Return: On success, returns a pointer to the matching element. If no match
- *         is found, returns NULL.
- */
-void *bsearch(const void *key, const void *base, size_t num, size_t size,
-              int (*cmp)(const void *key, const void *elt)) {
-   size_t start = 0, end = num - 1, mid;
-   int result;
-
-   if (num == 0) return NULL;
-
-   while (start <= end) {
-      mid = (start + end) / 2;
-      result = cmp(key, (const char *)base + mid * size);
-      if (result < 0)
-         end = mid - 1;
-      else if (result > 0)
-         start = mid + 1;
-      else
-         return (void *)((const char *)base + mid * size);
-   }
-   return NULL;
 }
 
 /**
