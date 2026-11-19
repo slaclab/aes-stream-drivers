@@ -245,6 +245,11 @@ void *runRead(void *t) {
    usleep(100*(lane*4+vc));
    if (dmaSetMask(fd, mask) != 0) {
       printf("Error setting mask. lane=%i, vc=%i, mask=0x%.8lx\n", lane, vc, mask);
+      if (rxData->idxEn)
+         dmaUnMapDma(fd, dmaBuffers);
+      else
+         free(data);
+      rxData->running = false;
       close(fd);
       return NULL;
    }
