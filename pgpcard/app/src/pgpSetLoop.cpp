@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
    pgpGetInfo(s, &info);
 
    for (x = 0; x < 8; x++) {
-      if (((1 << x) & info.laneMask) != 0) {
+      if (((1 << x) & info.laneMask & args.lane) != 0) {
          printf("Setting lane %i loop to %i\n", x, args.state);
          pgpSetLoop(s, x, args.state);
       }
