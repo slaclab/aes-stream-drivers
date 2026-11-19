@@ -647,7 +647,7 @@ void PgpCardG3_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
       seq_printf(s, "            runStatus : %i\n", evrStatus.runStatus);
       seq_printf(s, "           evrSeconds : %i\n", evrStatus.evrSeconds);
       seq_printf(s, "           runCounter : %i\n", evrStatus.runCounter);
-      seq_printf(s, "        acceptCounter : %i\n", evrStatus.runCounter);
+      seq_printf(s, "        acceptCounter : %i\n", evrStatus.acceptCounter);
    }
 }
 
