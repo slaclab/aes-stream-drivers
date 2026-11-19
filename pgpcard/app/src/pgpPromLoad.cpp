@@ -95,7 +95,8 @@ int main(int argc, char **argv) {
    switch (info.type & 0xF) {
       case PGP_GEN3: gen3 = true; break;
       case PGP_GEN2:
-         if (info.promPrgEn) {
+         if (!info.promPrgEn) {
+            printf("PROM programming not supported by this card\n");
             ::close(fd);
             return(-1);
          }
