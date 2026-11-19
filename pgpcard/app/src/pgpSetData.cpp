@@ -35,7 +35,7 @@ struct PrgArgs {
    uint32_t     data;
 };
 
-static struct PrgArgs DefArgs = { "/dev/pgpcard_0", 0x0, 0x00 };
+static struct PrgArgs DefArgs = { "/dev/pgpcard_0", 0xFF, 0x00 };
 
 static char   args_doc[] = "data";
 static char   doc[]      = "\n   data is passed as a hex value. i.e. 0xAB.";
@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
    pgpGetInfo(s, &info);
 
    for (x = 0; x < 8; x++) {
-      if (((1 << x) & info.laneMask) != 0) {
+      if (((1 << x) & info.laneMask & args.lane) != 0) {
          printf("Setting lane %i data to 0x%.2x\n", x, args.data);
          pgpSetData(s, x, args.data);
       }
