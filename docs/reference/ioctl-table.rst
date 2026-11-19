@@ -11,6 +11,16 @@ headers. Pass these codes as the second argument to ``ioctl(fd, cmd, arg)``.
    ``DMA_Ret_Index | ((N << 16) & 0xFFFF0000)``. For a single index,
    use ``DMA_Ret_Index | 0x10000``.
 
+.. note::
+
+   ``DMA_Write_Register`` and ``DMA_Read_Register`` address PCI BAR0. On
+   Versal firmware that implements the auxiliary PCI BAR2 (PMC peripherals,
+   used to reprogram the boot flash), the same two commands reach BAR2 at
+   ``DMA_BAR2_ADDR_OFFSET + offset`` (``0x200000000 + offset``), where
+   ``offset`` must be 32-bit aligned. The window is listed in
+   ``/proc/datadev_<n>`` when the driver has mapped it; without it, those
+   addresses are rejected.
+
 
 DmaDriver.h Commands
 --------------------
@@ -231,3 +241,18 @@ GpuAsync.h Commands
      - none (pass 0)
      - read
      - ``gpuGetMaxBuffers()``
+   * - ``GPU_Enable_Tx``
+     - ``0x8008``
+     - ``uint32_t`` enable
+     - write
+     - ``gpuEnableTx()``
+   * - ``GPU_Enable_Rx``
+     - ``0x8009``
+     - ``uint32_t`` enable
+     - write
+     - ``gpuEnableRx()``
+   * - ``GPU_Set_Write_Enable_Bulk``
+     - ``0x800A``
+     - ``struct GpuSetWriteEnData*``
+     - write
+     - ``gpuBulkSetWriteEn()``

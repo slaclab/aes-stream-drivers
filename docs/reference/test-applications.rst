@@ -68,9 +68,10 @@ dmaIoctlTest
 
 Exercises all 28 ioctl commands (24 DMA from ``DmaDriver.h``, 2 AXIS from
 ``AxisDriver.h``, 1 AxiVersion from ``AxiVersion.h``, 1 GPU readiness from
-``GpuAsync.h``), validating return values and argument semantics. The 27
-numbered checks below span 28 ioctls because check 5 exercises both
-``DMA_Get_Index`` and ``DMA_Ret_Index`` in one round-trip.
+``GpuAsync.h``), validating return values and argument semantics. Checks 1-27
+below span 28 ioctls because check 5 exercises both ``DMA_Get_Index`` and
+``DMA_Ret_Index`` in one round-trip. Checks 28-29 are negative cases for the
+register ioctls: addresses that the driver must reject on every card.
 
 .. code-block:: text
 
@@ -133,6 +134,14 @@ Tests each ioctl in the following order:
    * - 27
      - ``GPU_Is_Gpu_Async_Supp``
      - Returns 0 (CPU) or 1 (GPU)
+   * - 28
+     - ``DMA_Read_Register``
+     - Returns < 0 for ``0x01000000``, the first address past the 16 MB BAR0
+       window
+   * - 29
+     - ``DMA_Read_Register`` + ``DMA_Write_Register``
+     - Each returns < 0 for ``DMA_BAR2_ADDR_OFFSET + 2``, an unaligned address
+       in the BAR2 window
 
 dmaFileOpsTest
 ^^^^^^^^^^^^^^

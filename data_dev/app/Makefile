@@ -29,7 +29,7 @@ CFLAGS   := -O2 -g -Wall \
             -DDEFAULT_AXI_DEVICE=\"/dev/datadev_0\"
 LFLAGS   := -lpthread
 NVCC     ?= /usr/local/cuda/bin/nvcc
-NVCCFLAGS := -O2 -g \
+NVCCFLAGS := -O2 -g -Xcompiler -Wall \
              -I$(HOME)/../../include \
              -I$(HOME)/../../common/app_lib \
              --std=c++14 --gpu-architecture=compute_100 -lcuda

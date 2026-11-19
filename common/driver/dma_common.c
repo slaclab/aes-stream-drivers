@@ -28,6 +28,7 @@
 #include <linux/sched.h>
 #include <linux/version.h>
 #include <linux/slab.h>
+#include <linux/mm.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
 #include <linux/minmax.h>
@@ -164,6 +165,13 @@ char *Dma_DevNode(DMA_DEVNODE_CONST struct device *dev, umode_t *mode) {
  * resources are properly cleaned up.
  */
 void Dma_UnmapReg(struct DmaDevice *dev) {
+   // Release the auxiliary PCI BAR2 window, if the device mapped one.
+   if (dev->bar2Base != NULL) {
+      iounmap(dev->bar2Base);
+      dev->bar2Base = NULL;
+      release_mem_region(dev->bar2Addr, dev->bar2Size);
+   }
+
    // Idempotent: callable from multiple cleanup paths.
    if (dev->base == NULL) return;
 
@@ -313,8 +321,8 @@ int Dma_Init(struct DmaDevice *dev) {
       goto cleanup_dma_mapreg;
 
    // Initialize transmit queue
-   res = (ssize_t)dmaQueueInit(&(dev->tq), dev->txBuffers.count);
-   if (res == 0 && dev->txBuffers.count > 0) {
+   res = dmaQueueInit(&(dev->tq), dev->txBuffers.count);
+   if (res < 0) {
       dev_err(dev->device, "dmaQueueInit: Failed to initialize DMA queues.\n");
       goto cleanup_tx_buffers;
    }
@@ -496,33 +504,39 @@ int Dma_Open(struct inode *inode, struct file *filp) {
 
    // Allocate scratch data buffers
    desc->readScratchCount = dev->cfgRxCount + dev->cfgTxCount;
-   desc->readDataScratch = (struct DmaReadData*)kzalloc(sizeof(struct DmaReadData) * desc->readScratchCount, GFP_KERNEL);
+   desc->readDataScratch = (struct DmaReadData*)kvmalloc_array(desc->readScratchCount, sizeof(struct DmaReadData), GFP_KERNEL | __GFP_ZERO);
 
    desc->indexScratchCount = dev->cfgRxCount + dev->cfgTxCount;
-   desc->indexScratch = (uint32_t*)kzalloc(sizeof(uint32_t) * desc->indexScratchCount, GFP_KERNEL);
+   desc->indexScratch = (uint32_t*)kvmalloc_array(desc->indexScratchCount, sizeof(uint32_t), GFP_KERNEL | __GFP_ZERO);
 
    desc->buffListScratchCount = dev->cfgRxCount + dev->cfgTxCount;
-   desc->buffListScratch = (struct DmaBuffer**)kzalloc(sizeof(struct DmaBuffer*) * desc->buffListScratchCount, GFP_KERNEL);
+   desc->buffListScratch = (struct DmaBuffer**)kvmalloc_array(desc->buffListScratchCount, sizeof(struct DmaBuffer*), GFP_KERNEL | __GFP_ZERO);
 
    if (!desc->readDataScratch || !desc->indexScratch || !desc->buffListScratch) {
-      dev_err(dev->device, "Open: kzalloc for scratch area(s) failed\n");
-      kfree(desc->readDataScratch);
-      kfree(desc->indexScratch);
-      kfree(desc->buffListScratch);
-      kfree(desc);
-      return -ENOMEM;
+      dev_err(dev->device, "Open: Failed to allocate scratch area(s)\n");
+      goto cleanup_scratch;
    }
 
    // Init the mutex
    mutex_init(&desc->mutex);
 
-   dmaQueueInit(&(desc->q), dev->cfgRxCount);
+   if (dmaQueueInit(&(desc->q), dev->cfgRxCount) < 0) {
+      dev_err(dev->device, "Open: Failed to allocate receive queue\n");
+      goto cleanup_scratch;
+   }
    desc->async_queue = NULL;
    desc->dev = dev;
 
    // Store the descriptor in the file's private data for later use
    filp->private_data = desc;
    return 0;
+
+cleanup_scratch:
+   kvfree(desc->readDataScratch);
+   kvfree(desc->indexScratch);
+   kvfree(desc->buffListScratch);
+   kfree(desc);
+   return -ENOMEM;
 }
 
 /**
@@ -617,9 +631,9 @@ int Dma_Release(struct inode *inode, struct file *filp) {
    dmaQueueFree(&(desc->q));
 
    // Free scratch buffers
-   kfree(desc->buffListScratch);
-   kfree(desc->indexScratch);
-   kfree(desc->readDataScratch);
+   kvfree(desc->buffListScratch);
+   kvfree(desc->indexScratch);
+   kvfree(desc->readDataScratch);
    kfree(desc);
    return 0;
 }
@@ -924,9 +938,9 @@ static ssize_t Dma_Ret_Indexes(struct file *filp, uint32_t cmd, __user void* arg
          }
       } else {
          dev_warn(dev->device, "Command: Invalid index posted: %i.\n", desc->indexScratch[x]);
-         // Clear these out for subsequent operations, just in case.
-         memset(desc->buffListScratch, 0, sizeof(struct DmaBuffer*) * desc->buffListScratchCount);
-         memset(desc->indexScratch, 0, sizeof(uint32_t) * desc->indexScratchCount);
+         // Clear the entries used by this call for subsequent operations, just in case.
+         memset(desc->buffListScratch, 0, sizeof(struct DmaBuffer*) * bCnt);
+         memset(desc->indexScratch, 0, sizeof(uint32_t) * cnt);
          mutex_unlock(&desc->mutex);
          return -EINVAL;
       }
@@ -935,9 +949,10 @@ static ssize_t Dma_Ret_Indexes(struct file *filp, uint32_t cmd, __user void* arg
    // Return receive buffers
    dev->hwFunc->retRxBuffer(dev, desc->buffListScratch, bCnt);
 
-   // Clear these for subsequent operations, just in case.
-   memset(desc->buffListScratch, 0, sizeof(struct DmaBuffer*) * desc->buffListScratchCount);
-   memset(desc->indexScratch, 0, sizeof(uint32_t) * desc->indexScratchCount);
+   // Clear the entries used by this call for subsequent operations, just in case.
+   // Only the used entries: the scratch areas scale with the total buffer count.
+   memset(desc->buffListScratch, 0, sizeof(struct DmaBuffer*) * bCnt);
+   memset(desc->indexScratch, 0, sizeof(uint32_t) * cnt);
 
    mutex_unlock(&desc->mutex);
    return 0;
@@ -1615,6 +1630,39 @@ int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t *mask)
 }
 
 /**
+ * Dma_RegPtr - Translate a register ioctl address into a mapped pointer.
+ * @dev: Pointer to the DMA device structure.
+ * @address: Register address supplied by user space.
+ *
+ * Addresses below DMA_BAR2_ADDR_OFFSET are offsets into BAR0 and must fall in
+ * the direct read/write region. Addresses from DMA_BAR2_ADDR_OFFSET up are
+ * 32-bit aligned offsets into the auxiliary PCI BAR2 window, when the device
+ * has mapped one.
+ *
+ * Return: Pointer to the 32-bit register, or NULL if the address is out of range.
+ */
+static __iomem void *Dma_RegPtr(struct DmaDevice *dev, uint64_t address) {
+   uint64_t offset;
+
+   if (address >= DMA_BAR2_ADDR_OFFSET) {
+      offset = address - DMA_BAR2_ADDR_OFFSET;
+
+      // Unaligned accesses are rejected: they would straddle two 32-bit
+      // words on their way through the PCIe bridge
+      if ((dev->bar2Base == NULL) || (offset & 0x3) || (offset > (dev->bar2Size - 4))) {
+         return NULL;
+      }
+      return dev->bar2Base + offset;
+   }
+
+   if (((dev->base + address) < dev->rwBase) ||
+       ((dev->base + address + 4) > (dev->rwBase + dev->rwSize))) {
+      return NULL;
+   }
+   return dev->base + address;
+}
+
+/**
  * Dma_WriteRegister - Write to a register of the DMA device.
  * @dev: Pointer to the DMA device structure.
  * @arg: User space pointer to data for writing to the register.
@@ -1629,6 +1677,7 @@ int Dma_SetMaskBytes(struct DmaDevice *dev, struct DmaDesc *desc, uint8_t *mask)
 int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg) {
    uint64_t ret;
    struct DmaRegisterData rData;
+   __iomem void *reg;
 
    // Attempt to copy register data from user space
    ret = copy_from_user(&rData, (__user void *)arg, sizeof(struct DmaRegisterData));
@@ -1639,13 +1688,13 @@ int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg) {
    }
 
    // Validate register address range
-   if (((dev->base + rData.address) < dev->rwBase) ||
-       ((dev->base + rData.address + 4) > (dev->rwBase + dev->rwSize))) {
+   reg = Dma_RegPtr(dev, rData.address);
+   if (reg == NULL) {
       return -1;
    }
 
    // Write data to the register
-   writel(rData.data, dev->base + rData.address);
+   writel(rData.data, reg);
 
    return 0;
 }
@@ -1665,6 +1714,7 @@ int32_t Dma_WriteRegister(struct DmaDevice *dev, uint64_t arg) {
 int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg) {
    uint64_t ret;
    struct DmaRegisterData rData;
+   __iomem void *reg;
 
    // Attempt to copy DmaRegisterData structure from user space
    if ((ret = copy_from_user(&rData, (__user void *)arg, sizeof(struct DmaRegisterData)))) {
@@ -1673,13 +1723,13 @@ int32_t Dma_ReadRegister(struct DmaDevice *dev, uint64_t arg) {
    }
 
    // Validate register address within the allowed range
-   if (((dev->base + rData.address) < dev->rwBase) ||
-       ((dev->base + rData.address + 4) > (dev->rwBase + dev->rwSize))) {
+   reg = Dma_RegPtr(dev, rData.address);
+   if (reg == NULL) {
       return -1;
    }
 
    // Read register value
-   rData.data = readl(dev->base + rData.address);
+   rData.data = readl(reg);
 
    // Attempt to copy the updated DmaRegisterData structure back to user space
    if ((ret = copy_to_user((__user void *)arg, &rData, sizeof(struct DmaRegisterData)))) {
