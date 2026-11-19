@@ -23,6 +23,12 @@
  *          the same userspace LFSR as (a).  This covers the seed
  *          space PrbsData cannot reach without private access.
  *
+ *      (d) emu_prbs_gen_data(buf, 4096, 0xFFFFFFE9) succeeds.  The
+ *          generator used to return (int)(sequence + 1u), which is
+ *          -22 == -EINVAL at that sequence; gpu_engine's RX tick took
+ *          it as a failure and stalled forever.  Asserting a 0 return
+ *          here pins the plain 0/-errno contract.
+ *
  *    Any divergence at any iteration/byte causes the binary to exit
  *    non-zero after printing the exact mismatch site.  The program
  *    exits 0 on full agreement.
@@ -95,13 +101,11 @@ static int compare_frame_against_prbsdata(size_t size) {
    std::vector<uint8_t> kbuf(size, 0);
    std::vector<uint8_t> ubuf(size, 0);
 
-   // emu_prbs_gen_data returns (int)(sequence + 1) on success or -EINVAL
-   // (== -22) on a size violation.  `sequence + 1` can itself read as a
-   // negative int32_t when sequence >= 0x7FFFFFFE, so only -EINVAL is a
-   // real error signal.
+   // emu_prbs_gen_data returns 0 on success or -EINVAL on a size
+   // violation; any non-zero value is an error.
    const int kret = harness_emu_gen(kbuf.data(), size, 0u);
-   if (kret == -EINVAL) {
-      fprintf(stderr, "kernel emu_prbs_gen_data returned -EINVAL at seed=0\n");
+   if (kret != 0) {
+      fprintf(stderr, "kernel emu_prbs_gen_data returned %d at seed=0\n", kret);
       return 1;
    }
 
@@ -148,13 +152,12 @@ static int compare_frame_at_seed(uint32_t seed, size_t size) {
    std::vector<uint8_t> kbuf(size, 0);
    std::vector<uint8_t> ubuf(size, 0);
 
-   // See the note in compare_frame_against_prbsdata: only -EINVAL is a
-   // real error signal; `(int)(sequence + 1u)` can otherwise appear
-   // negative for large seeds.
+   // Success is exactly 0.  In particular seed=0xFFFFFFE9 must not read
+   // as -EINVAL (the old (int)(sequence + 1u) return did).
    const int kret = harness_emu_gen(kbuf.data(), size, seed);
-   if (kret == -EINVAL) {
-      fprintf(stderr, "kernel emu_prbs_gen_data returned -EINVAL at "
-              "seed=0x%08x\n", seed);
+   if (kret != 0) {
+      fprintf(stderr, "kernel emu_prbs_gen_data returned %d at "
+              "seed=0x%08x\n", kret, seed);
       return 1;
    }
 
@@ -215,6 +218,12 @@ int main(int /*argc*/, char ** /*argv*/) {
       return 1;
 
    if (compare_frame_at_seed(0xDEADBEEFu, frame_size) != 0)
+      return 1;
+
+   // Regression: (int)(0xFFFFFFE9 + 1) == -22 == -EINVAL.  The generator
+   // must report success here or gpu_engine's RX tick stalls on this
+   // sequence (slaclab/aes-stream-drivers#384).
+   if (compare_frame_at_seed(0xFFFFFFE9u, frame_size) != 0)
       return 1;
 
    printf("ALL CROSS-VALIDATION CHECKS PASSED\n");

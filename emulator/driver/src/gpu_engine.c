@@ -123,7 +123,8 @@ __weak int emu_prbs_gen_data(void *buf, size_t size, u32 sequence)
 {
    (void)buf;
    (void)size;
-   return (int)(sequence + 1);
+   (void)sequence;
+   return 0;
 }
 
 __weak int emu_prbs_process_data(const void *buf, size_t size)
@@ -266,13 +267,12 @@ static void emu_gpu_rx_tick(struct emu_gpu_engine *eng)
    if (size > 65536)
       size = 65536;
 
-   /* Fill PRBS payload at kva + DATA_BYTES_C. Per prbs.h's documented
-    * contract, success returns (int)(sequence + 1u) which can itself
-    * read as negative when sequence >= 0x7FFFFFFE (random prbs seed);
-    * only -EINVAL (-22) is a true error signal. Guard specifically. */
+   /* Fill PRBS payload at kva + DATA_BYTES_C. emu_prbs_gen_data() returns
+    * 0 on success or -EINVAL; rx_prbs_seq is advanced by the engine on the
+    * success path below, not by the generator's return value. */
    ret = emu_prbs_gen_data((u8 *)kva + EMU_GPU_DATA_BYTES_C,
                            size, eng->rx_prbs_seq);
-   if (ret == -EINVAL) {
+   if (ret) {
       if (__ratelimit(&emu_gpu_rl))
          pr_info("%s: gpu rx: prbs gen failed idx=%u size=%u ret=%d\n",
                  EMU_GPU_MOD, idx, size, ret);
@@ -302,8 +302,9 @@ static void emu_gpu_rx_tick(struct emu_gpu_engine *eng)
        * wrap width is wcnt + 1 (matches the read at line 218). */
       eng->next_write_idx = (idx + 1) % (wcnt + 1);
 
-      /* Bump rxFrameCnt (RMW under the engine lock). */
-      eng->rx_prbs_seq = (u32)ret;
+      /* Advance the PRBS sequence for the next frame (RMW under the
+       * engine lock). Wraps naturally at 2^32. */
+      eng->rx_prbs_seq++;
 
       /* Per-frame RX instrumentation. Gated on emu_gpu_debug_sc2
        * (module_param in emu_main.c, default 0). Literal prefix
