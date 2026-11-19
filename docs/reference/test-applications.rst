@@ -292,7 +292,9 @@ by ``scripts/ci/test-cpu.sh`` or ``scripts/ci/test-gpu.sh`` during CI.
    * - ``test_concurrent_open.sh``
      - Two ``dmaLoopTest`` instances on different destinations simultaneously
    * - ``test_idx_loopback.sh``
-     - Index-based zero-copy loopback (``dmaLoopTest -i``)
+     - Index-based zero-copy loopback (``dmaLoopTest -i``), then ``dmaRead -i``
+       consuming more ``dmaWrite`` frames than ``cfgRxCount`` to check the bulk
+       index return path (no RX stall, no "Invalid index posted" in dmesg)
    * - ``test_frame_sizes.sh``
      - ``dmaLoopTest`` at 12 / 4096 / 32768 / 65536 bytes plus oversized
        (``cfgSize+1``) rejection assertion

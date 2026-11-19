@@ -236,8 +236,11 @@ int main(int argc, char **argv) {
          }
       }
 
-      if (args.idxEn)
-         dmaRetIndexes(s, dmaCount, indexes);
+      // Return only the indexes this read actually filled. Entries past ret are
+      // uninitialized or stale; the first one the driver cannot match returns
+      // -EINVAL before retRxBuffer() runs, leaking every RX buffer in the batch.
+      if (args.idxEn && ret > 0)
+         dmaRetIndexes(s, ret, indexes);
 
       // Print updates every so often
       if (count % 2048 == 0 && curTime() - lastUpdate > 2.5) {
