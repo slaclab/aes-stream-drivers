@@ -208,8 +208,9 @@ steps in :doc:`/explanation/ci-pipeline` for the full load sequence.
 dmaGpuIoctlTest
 ^^^^^^^^^^^^^^^
 
-Exercises all six GPU ioctl commands defined in ``GpuAsync.h``, validating
-GPU async support detection, version queries, and buffer management.
+Exercises seven of the nine GPU ioctl commands defined in ``GpuAsync.h``
+(``GPU_Enable_Tx`` and ``GPU_Enable_Rx`` are not covered), validating GPU
+async support detection, version queries, and buffer management.
 
 .. code-block:: text
 
@@ -217,7 +218,8 @@ GPU async support detection, version queries, and buffer management.
 
 Tests: ``GPU_Is_Gpu_Async_Supp``, ``GPU_Get_Gpu_Async_Ver``,
 ``GPU_Get_Max_Buffers``, ``GPU_Add_Nvidia_Memory``,
-``GPU_Set_Write_Enable``, ``GPU_Rem_Nvidia_Memory``.
+``GPU_Set_Write_Enable``, ``GPU_Set_Write_Enable_Bulk``,
+``GPU_Rem_Nvidia_Memory``.
 
 rdmaTestEmu
 ^^^^^^^^^^^
