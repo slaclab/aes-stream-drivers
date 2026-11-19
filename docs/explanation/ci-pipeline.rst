@@ -99,7 +99,13 @@ Phase 2: CPU Test Coverage
 --------------------------
 
 Each CPU load-test cell executes the following sequence after building
-the emulator, datadev driver, and test applications:
+the emulator, datadev driver, and test applications. The build step
+(``build-cpu.sh``) also compiles ``emulator/driver/src/prbs.c`` as a
+userspace binary against ``emulator/driver/tests/kernel_shim/`` and runs
+``make -C emulator/driver/tests test``, which fails the build if the
+emulator PRBS and ``common/app_lib/PrbsData.cpp`` ever disagree
+byte-for-byte. This gate needs no kernel headers, so it runs in every cell
+including those that skip the load/test steps.
 
 **Module loading** (``load-modules-cpu.sh``):
 
@@ -177,20 +183,27 @@ tests:
      - Test
      - What it validates
    * - 1
+     - Stub mmap smoke
+     - ``emulator/driver/tests/stub_mmap_test`` (built by ``build-gpu.sh``)
+       opens ``/dev/nvidia_p2p_stub_mem``, reserves a 64 KiB buffer via
+       ``STUB_RESERVE_BUF``, maps it with ``mmap()`` and verifies a
+       write/readback pattern; the smallest check that the stub's userspace
+       surface works before the ioctl and loopback tests depend on it
+   * - 2
      - GPU ioctl test
      - All 6 GPU ioctls: ``GPU_Is_Gpu_Async_Supp`` (returns 1),
        ``GPU_Get_Gpu_Async_Ver``, ``GPU_Get_Max_Buffers``,
        ``GPU_Add_Nvidia_Memory``, ``GPU_Set_Write_Enable``,
        ``GPU_Rem_Nvidia_Memory``
-   * - 2
+   * - 3
      - GPU proc interface
      - Validates GPU-specific fields in ``/proc/datadev_0``
-   * - 3
+   * - 4
      - GPU DMA loopback
      - ``rdmaTestEmu`` sweep + 10k-frame soak + ``dmaGpuToggleTest``
        (enable-toggle and max-buffers 4→2 mid-stream), all through the
        emulator's GPU Async V4 engine
-   * - 4
+   * - 5
      - GPU DKMS
      - Full DKMS build/install/remove cycle for GPU variant
 

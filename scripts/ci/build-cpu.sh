@@ -70,6 +70,16 @@ echo_step "Building test applications"
 make -C data_dev/app clean
 make -C data_dev/app
 
+# Userspace cross-validation of emulator/driver/src/prbs.c against
+# common/app_lib/PrbsData.cpp. Compiles prbs.c with the kernel_shim headers
+# (no kernel tree needed) and runs the 1M-iteration LFSR equivalence loop
+# plus the frame-layout comparison. This is the byte-equivalence gate that
+# prbs.c and prbs.h cite; it must fail the build if the two PRBS
+# implementations drift.
+echo_step "Cross-validating emulator PRBS against PrbsData"
+make -C emulator/driver/tests clean
+make -C emulator/driver/tests test
+
 echo_step "Verifying build artifacts"
 test -f emulator/gpu_stub/nvidia_p2p_stub.ko || {
    echo_fail "emulator/gpu_stub/nvidia_p2p_stub.ko not found"
@@ -108,6 +118,11 @@ test -f data_dev/app/bin/dmaFileOpsTest || {
 
 test -f data_dev/app/bin/dmaErrorTest || {
    echo_fail "data_dev/app/bin/dmaErrorTest not found"
+   exit 1
+}
+
+test -f emulator/driver/tests/prbs_cross_validate || {
+   echo_fail "emulator/driver/tests/prbs_cross_validate not found"
    exit 1
 }
 
