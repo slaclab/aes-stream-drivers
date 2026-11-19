@@ -280,8 +280,10 @@ jobs:
   # Build coverage plus module load and unload only. emulator/driver has no PGP
   # personality (it emulates 1a4a:2030 with an AXIS Gen2 register map), so no
   # PGP card exists in CI, PgpCard_Probe never runs, and there is nothing to
-  # drive traffic against. There is no test-pgp.sh and no DKMS packaging for
-  # pgpcard, so neither a test nor a DKMS step appears below.
+  # drive traffic against. The only test is test-pgp-apps.sh, an argument
+  # parsing check of the built applications that needs no hardware and no
+  # loaded module. There is no DKMS packaging for pgpcard, so no DKMS step
+  # appears below.
   #
   # The rockylinux:9 cell is the one that matters most for this driver: it
   # compiles against genuine RHEL 9 kernel-devel, which is the deployment
@@ -329,6 +331,11 @@ jobs:
 
       - name: Build (pgpcard)
         run: bash scripts/ci/build-pgp.sh
+
+      # Runs on every cell, not gated on CI_HOST_MATCH: the applications are
+      # exercised only up to their open() call on a path that cannot exist.
+      - name: Test applications (argument parsing)
+        run: bash scripts/ci/test-pgp-apps.sh
 
       # CI_HOST_MATCH gates the load, exactly as in Phase 2. When it is 0 the
       # module was built against the distro's own headers and cannot insmod on
