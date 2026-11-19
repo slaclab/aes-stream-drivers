@@ -277,7 +277,7 @@ bool PciCardProm::verifyBootProm() {
    if (!mcsReader.open(_filePath)) {
       mcsReader.close();
       cout << "mcsReader.close() = file path error" << endl;
-      return(1);
+      return false;
    }
 
    // reset the flags
