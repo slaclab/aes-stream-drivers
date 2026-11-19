@@ -205,10 +205,11 @@ tests:
        surface works before the ioctl and loopback tests depend on it
    * - 2
      - GPU ioctl test
-     - All 6 GPU ioctls: ``GPU_Is_Gpu_Async_Supp`` (returns 1),
+     - 7 of the 9 GPU ioctls: ``GPU_Is_Gpu_Async_Supp`` (returns 1),
        ``GPU_Get_Gpu_Async_Ver``, ``GPU_Get_Max_Buffers``,
        ``GPU_Add_Nvidia_Memory``, ``GPU_Set_Write_Enable``,
-       ``GPU_Rem_Nvidia_Memory``
+       ``GPU_Set_Write_Enable_Bulk``, ``GPU_Rem_Nvidia_Memory``
+       (``GPU_Enable_Tx`` and ``GPU_Enable_Rx`` are not covered)
    * - 3
      - GPU proc interface
      - Validates GPU-specific fields in ``/proc/datadev_0``
@@ -408,8 +409,9 @@ The combined Phase 2 + Phase 3 coverage across all distributions:
      - 28
      - 24 DMA + 2 AXIS + 1 AxiVersion + 1 GPU readiness ioctls validated
    * - GPU ioctls
-     - 6
-     - All 6 GPU async ioctls including memory registration
+     - 7
+     - 7 of 9 GPU async ioctls including memory registration and bulk
+       write enable (``GPU_Enable_Tx`` / ``GPU_Enable_Rx`` not covered)
    * - File operations
      - 8
      - open, multi-open, select(read), select(write), mmap, read, ioctl,
