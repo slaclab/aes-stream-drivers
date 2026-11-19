@@ -28,6 +28,7 @@
 #include <linux/sched.h>
 #include <linux/version.h>
 #include <linux/slab.h>
+#include <linux/mm.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
 #include <linux/minmax.h>
@@ -501,35 +502,47 @@ int Dma_Open(struct inode *inode, struct file *filp) {
       return -ENOMEM;  // Return an error if allocation fails
    }
 
-   // Allocate scratch data buffers
+   // Allocate scratch data buffers. These scale with the total buffer count
+   // and are only ever accessed by the CPU, so they do not need to be
+   // physically contiguous: kvmalloc_array falls back to vmalloc once the
+   // request is larger than kmalloc can serve (KMALLOC_MAX_SIZE).
    desc->readScratchCount = dev->cfgRxCount + dev->cfgTxCount;
-   desc->readDataScratch = (struct DmaReadData*)kzalloc(sizeof(struct DmaReadData) * desc->readScratchCount, GFP_KERNEL);
+   desc->readDataScratch = (struct DmaReadData*)kvmalloc_array(desc->readScratchCount, sizeof(struct DmaReadData), GFP_KERNEL | __GFP_ZERO);
 
    desc->indexScratchCount = dev->cfgRxCount + dev->cfgTxCount;
-   desc->indexScratch = (uint32_t*)kzalloc(sizeof(uint32_t) * desc->indexScratchCount, GFP_KERNEL);
+   desc->indexScratch = (uint32_t*)kvmalloc_array(desc->indexScratchCount, sizeof(uint32_t), GFP_KERNEL | __GFP_ZERO);
 
    desc->buffListScratchCount = dev->cfgRxCount + dev->cfgTxCount;
-   desc->buffListScratch = (struct DmaBuffer**)kzalloc(sizeof(struct DmaBuffer*) * desc->buffListScratchCount, GFP_KERNEL);
+   desc->buffListScratch = (struct DmaBuffer**)kvmalloc_array(desc->buffListScratchCount, sizeof(struct DmaBuffer*), GFP_KERNEL | __GFP_ZERO);
 
    if (!desc->readDataScratch || !desc->indexScratch || !desc->buffListScratch) {
-      dev_err(dev->device, "Open: kzalloc for scratch area(s) failed\n");
-      kfree(desc->readDataScratch);
-      kfree(desc->indexScratch);
-      kfree(desc->buffListScratch);
-      kfree(desc);
-      return -ENOMEM;
+      dev_err(dev->device, "Open: Failed to allocate scratch area(s)\n");
+      goto cleanup_scratch;
    }
 
    // Init the mutex
    mutex_init(&desc->mutex);
 
+   // dmaQueueInit returns 0 both on failure and for a zero-length queue,
+   // so test queue->queue (NULL on failure) for an unambiguous result.
    dmaQueueInit(&(desc->q), dev->cfgRxCount);
+   if (desc->q.queue == NULL) {
+      dev_err(dev->device, "Open: Failed to allocate receive queue\n");
+      goto cleanup_scratch;
+   }
    desc->async_queue = NULL;
    desc->dev = dev;
 
    // Store the descriptor in the file's private data for later use
    filp->private_data = desc;
    return 0;
+
+cleanup_scratch:
+   kvfree(desc->readDataScratch);
+   kvfree(desc->indexScratch);
+   kvfree(desc->buffListScratch);
+   kfree(desc);
+   return -ENOMEM;
 }
 
 /**
@@ -624,9 +637,9 @@ int Dma_Release(struct inode *inode, struct file *filp) {
    dmaQueueFree(&(desc->q));
 
    // Free scratch buffers
-   kfree(desc->buffListScratch);
-   kfree(desc->indexScratch);
-   kfree(desc->readDataScratch);
+   kvfree(desc->buffListScratch);
+   kvfree(desc->indexScratch);
+   kvfree(desc->readDataScratch);
    kfree(desc);
    return 0;
 }
@@ -931,9 +944,9 @@ static ssize_t Dma_Ret_Indexes(struct file *filp, uint32_t cmd, __user void* arg
          }
       } else {
          dev_warn(dev->device, "Command: Invalid index posted: %i.\n", desc->indexScratch[x]);
-         // Clear these out for subsequent operations, just in case.
-         memset(desc->buffListScratch, 0, sizeof(struct DmaBuffer*) * desc->buffListScratchCount);
-         memset(desc->indexScratch, 0, sizeof(uint32_t) * desc->indexScratchCount);
+         // Clear the entries used by this call for subsequent operations, just in case.
+         memset(desc->buffListScratch, 0, sizeof(struct DmaBuffer*) * bCnt);
+         memset(desc->indexScratch, 0, sizeof(uint32_t) * cnt);
          mutex_unlock(&desc->mutex);
          return -EINVAL;
       }
@@ -942,9 +955,10 @@ static ssize_t Dma_Ret_Indexes(struct file *filp, uint32_t cmd, __user void* arg
    // Return receive buffers
    dev->hwFunc->retRxBuffer(dev, desc->buffListScratch, bCnt);
 
-   // Clear these for subsequent operations, just in case.
-   memset(desc->buffListScratch, 0, sizeof(struct DmaBuffer*) * desc->buffListScratchCount);
-   memset(desc->indexScratch, 0, sizeof(uint32_t) * desc->indexScratchCount);
+   // Clear the entries used by this call for subsequent operations, just in case.
+   // Only the used entries: the scratch areas scale with the total buffer count.
+   memset(desc->buffListScratch, 0, sizeof(struct DmaBuffer*) * bCnt);
+   memset(desc->indexScratch, 0, sizeof(uint32_t) * cnt);
 
    mutex_unlock(&desc->mutex);
    return 0;
