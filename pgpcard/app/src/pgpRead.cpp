@@ -41,10 +41,10 @@ static char   args_doc[] = "";
 static char   doc[]      = "";
 
 static struct argp_option options[] = {
-   { "path",    'p', "PATH",   OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
-   { "lane",    'l', "MASK",   OPTION_ARG_OPTIONAL, "Mask of lanes for read. 1 bit per lane in hex. i.e. 0xFF.", 0},
-   { "prbsdis", 'd', 0,        OPTION_ARG_OPTIONAL, "Disable PRBS checking.", 0},
-   { "indexen", 'i', 0,        OPTION_ARG_OPTIONAL, "Use index based receive buffers.", 0},
+   { "path",    'p', "PATH",   0, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
+   { "lane",    'l', "MASK",   0, "Mask of lanes for read. 1 bit per lane in hex. i.e. 0xFF.", 0},
+   { "prbsdis", 'd', 0,        0, "Disable PRBS checking.", 0},
+   { "indexen", 'i', 0,        0, "Use index based receive buffers.", 0},
    {0}
 };
 

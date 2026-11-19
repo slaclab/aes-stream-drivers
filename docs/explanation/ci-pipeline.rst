@@ -35,7 +35,8 @@ Phase 2 passes:
        5 distros in parallel
    * - 3b
      - pgpcard Testing
-     - Build the legacy pgpcard driver and load/unload it across 5
+     - Build the legacy pgpcard driver and its applications, check
+       application argument parsing, and load/unload the module across 5
        distros (no traffic tests, since CI has no PGP card)
    * - 4
      - Release Generation
@@ -468,4 +469,4 @@ The combined Phase 2 + Phase 3 coverage across all distributions:
      - Trailing whitespace, tab detection, cpplint
 
 **Total: ~95 individual test checks across 5 distributions x 2 test phases = 10 CI cells,
-plus 5 pgpcard build/load cells in Phase 3b.**
+plus 5 pgpcard build/argument-parsing/load cells in Phase 3b.**
