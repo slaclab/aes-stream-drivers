@@ -86,7 +86,10 @@ int emu_prbs_gen_data(void *buf, size_t size, u32 sequence)
       data32[word] = value;
    }
 
-   return (int)(sequence + 1u);
+   /* Plain 0/-errno contract. Do not return the next sequence here:
+    * (int)(sequence + 1u) is -22 == -EINVAL at sequence 0xFFFFFFE9,
+    * which made the caller treat a good frame as a failure and stall RX. */
+   return 0;
 }
 EXPORT_SYMBOL_GPL(emu_prbs_gen_data);
 

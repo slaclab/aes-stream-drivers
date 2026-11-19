@@ -41,8 +41,9 @@ u32 emu_prbs_flfsr(u32 input);
 
 /* Fill `buf` (size bytes, must be 4-byte aligned, >= 12) with
  *   [sequence][(size-4)/4][flfsr(sequence)][flfsr(flfsr(sequence))]...
- * Returns the next sequence value (sequence + 1) or -EINVAL on bad size.
- * Callers track the sequence across frames. */
+ * Returns 0 on success, -EINVAL on a NULL buffer or bad size.
+ * Callers track the sequence across frames and advance it themselves
+ * (sequence + 1) after a successful call. */
 int emu_prbs_gen_data(void *buf, size_t size, u32 sequence);
 
 /* Verify `buf` (size bytes) against the PRBS protocol.

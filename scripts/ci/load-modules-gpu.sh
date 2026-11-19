@@ -155,8 +155,15 @@ fi
 # check is strict and does not tolerate the documented "up to bufCnt
 # extra bumps" race at runSimpleLoop cleanup).
 EMU_POLL_INTERVAL_US="${EMU_POLL_INTERVAL_US:-100}"
+# emu_prbs_seed: start the RX PRBS sequence at 0xFFFFFFE9 so the very first
+# frame exercises the value where (int)(sequence + 1) == -EINVAL. A generator
+# that signals success through its return value stalls RX here (issue #384);
+# the soak below then fails fast with a doorbell timeout instead of passing
+# by luck of a random seed. Override with EMU_PRBS_SEED=0 for a random seed.
+EMU_PRBS_SEED="${EMU_PRBS_SEED:-0xFFFFFFE9}"
 timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod emulator/driver/datadev_emulator.ko \
-   emu_gpu_poll_interval_us="$EMU_POLL_INTERVAL_US" || {
+   emu_gpu_poll_interval_us="$EMU_POLL_INTERVAL_US" \
+   emu_prbs_seed="$EMU_PRBS_SEED" || {
    rc=$?
    echo_fail "insmod datadev_emulator failed or timed out (exit $rc)"
    echo "initstate: $(cat /sys/module/datadev_emulator/initstate 2>/dev/null || echo 'missing')"
