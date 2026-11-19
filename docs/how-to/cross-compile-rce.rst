@@ -45,7 +45,7 @@ x86 Buildroot Target
 
 .. code-block:: bash
 
-   make \
+   make -C data_dev/driver \
      ARCH=x86_64 \
      CROSS_COMPILE=/path/to/buildroot/host/linux-x86_64/x86_64/usr/bin/x86_64-buildroot-linux-gnu- \
      KERNELDIR=/path/to/buildroot/output/build/linux-4.14.139
