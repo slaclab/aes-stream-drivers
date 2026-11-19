@@ -30,7 +30,13 @@
 #               (default: data_dev/app/bin)
 #   TESTS_DIR   Directory containing individual test_*.sh scripts
 #               (default: directory containing this script)
-#   DATADEV_KO  Path to datadev.ko (used by test_params.sh only)
+#   DATADEV_KO  Path to datadev.ko (used by test_backpressure.sh and
+#               test_irq_modes.sh; default: data_dev/driver/datadev.ko,
+#               relative to the cwd, so pass an absolute path when not
+#               running from the repo root)
+#   EMULATOR_KO Path to datadev_emulator.ko (used by test_irq_modes.sh;
+#               default: emulator/driver/datadev_emulator.ko, same
+#               cwd caveat)
 #   CUSTOM_TX   Custom cfgTxCount (used by test_params.sh only)
 #   CUSTOM_RX   Custom cfgRxCount (used by test_params.sh only)
 #   CUSTOM_SIZE Custom cfgSize (used by test_params.sh only)

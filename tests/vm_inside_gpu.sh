@@ -151,6 +151,8 @@ echo "=== VM-GPU: Running Phase 3 + Phase 4 test suite ==="
 DEV=/dev/datadev_0 \
 APP_BIN="$HOST/data_dev/app/bin" \
 TESTS_DIR="$HOST/tests" \
+DATADEV_KO="$HOST/data_dev/driver/datadev.ko" \
+EMULATOR_KO="$HOST/emulator/driver/datadev_emulator.ko" \
 GPU_ENABLED=1 \
    bash "$HOST/tests/run_tests.sh" || record_rc $?
 
