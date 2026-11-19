@@ -71,7 +71,7 @@ BG_THOLD7=0
 if [ $? -eq 0 ]
 then
 
-   if [ -f "/dev/datadev_0" ]
+   if [ -c "/dev/datadev_0" ]
    then
       echo "Found /dev/datadev_0"
    else
