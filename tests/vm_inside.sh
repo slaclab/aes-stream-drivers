@@ -138,6 +138,8 @@ echo "=== VM: Running Phase 3 test suite ==="
 DEV=/dev/datadev_0 \
 APP_BIN="$HOST/data_dev/app/bin" \
 TESTS_DIR="$HOST/tests" \
+DATADEV_KO="$HOST/data_dev/driver/datadev.ko" \
+EMULATOR_KO="$HOST/emulator/driver/datadev_emulator.ko" \
    bash "$HOST/tests/run_tests.sh" || record_rc $?
 
 echo "=== VM: Running module parameter validation ==="
