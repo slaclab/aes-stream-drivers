@@ -84,9 +84,10 @@ int main(int argc, char **argv) {
    int32_t dmaRet[MAX_RET_CNT_C];
    int32_t x;
    float last;
-   float rate;
-   float bw;
-   float duration;
+   uint64_t frames;
+   double rate;
+   double bw;
+   double duration;
    ssize_t max;
    ssize_t total;
 
@@ -131,13 +132,13 @@ int main(int argc, char **argv) {
    // Main processing loop
    while (1) {
       bw = 0.0;
-      rate = 0.0;
+      frames = 0;
       last = 0.0;
       max = 0;
       total = 0;
       gettimeofday(&sTime, NULL);
 
-      while (rate < float(args.count)) {
+      while (frames < args.count) {
          // Perform DMA Read
          gettimeofday(&(pTime[0]), NULL);
          ret = dmaReadBulkIndex(s, getCnt, dmaRet, dmaIndex, rxFlags, NULL, NULL);
@@ -146,8 +147,8 @@ int main(int argc, char **argv) {
          // Process read data
          for (x = 0; x < ret; ++x) {
             if ((last = float(dmaRet[x])) > 0.0) {
-               rate += 1.0;
-               bw += float(last * 8.0);
+               ++frames;
+               bw += last * 8.0;
             }
          }
 
@@ -162,9 +163,9 @@ int main(int argc, char **argv) {
       // Calculate duration and data rates
       gettimeofday(&eTime, NULL);
       timersub(&eTime, &sTime, &dTime);
-      duration = float(dTime.tv_sec) + (float)dTime.tv_usec / 1000000.0f;
+      duration = double(dTime.tv_sec) + double(dTime.tv_usec) / 1000000.0;
 
-      rate = rate / duration;
+      rate = double(frames) / duration;
       bw = bw / duration;
 
       // Output results
