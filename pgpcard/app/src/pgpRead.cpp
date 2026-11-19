@@ -80,6 +80,9 @@ int main(int argc, char **argv) {
    uint32_t      dmaSize;
    uint32_t      dmaCount;
    uint32_t      dmaIndex;
+   uint32_t      mask;
+   uint32_t      lane;
+   uint32_t      vc;
 
    struct PgpInfo info;
    struct PrgArgs args;
@@ -95,7 +98,17 @@ int main(int argc, char **argv) {
    }
    pgpGetInfo(s, &info);
 
-   dmaSetMask(s, args.lane & info.laneMask);
+   // dmaSetMask takes one bit per destination (dest = lane*4 + vc),
+   // so expand the per-lane mask across every VC the card supports.
+   mask = 0;
+   for (lane = 0; lane < 8; lane++) {
+      if (args.lane & info.laneMask & (1u << lane)) {
+         for (vc = 0; vc < 4; vc++) {
+            if (info.vcPerMask & (1u << vc)) mask |= 1u << (lane*4 + vc);
+         }
+      }
+   }
+   dmaSetMask(s, mask);
 
    maxSize = 1024*1024*2;
 
