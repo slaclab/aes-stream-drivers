@@ -21,8 +21,8 @@ BUFF_MODE=1
 # Receive Continue Enable
 RX_CONT=1
 
-# IRQ Holdoiff Value
-RX_CONT=10000
+# IRQ Holdoff Value
+IRQ_HOLD=10000
 
 # IRQ Disable, poll thread CPU
 IRQ_DIS=0
@@ -57,6 +57,7 @@ BG_THOLD7=0
                      cfgTxCount=$BUFF_TX \
                      cfgMode=$BUFF_MODE \
                      cfgCont=$RX_CONT \
+                     cfgIrqHold=$IRQ_HOLD \
                      cfgIrqDis=$IRQ_DIS \
                      cfgBgThold0=$BG_THOLD0 \
                      cfgBgThold1=$BG_THOLD1 \
