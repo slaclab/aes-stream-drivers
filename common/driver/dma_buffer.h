@@ -150,7 +150,7 @@ void dmaRxBufferIrq(struct DmaDesc *desc, struct DmaBuffer *buff);
 void dmaSortBuffers(struct DmaBufferList *list);
 int32_t dmaBufferToHw(struct DmaBuffer *buff);
 void dmaBufferFromHw(struct DmaBuffer *buff);
-size_t dmaQueueInit(struct DmaQueue *queue, uint32_t count);
+ssize_t dmaQueueInit(struct DmaQueue *queue, uint32_t count);
 void dmaQueueFree(struct DmaQueue *queue);
 uint32_t dmaQueueNotEmpty(struct DmaQueue *queue);
 uint32_t dmaQueuePush(struct DmaQueue *queue, struct DmaBuffer *entry);

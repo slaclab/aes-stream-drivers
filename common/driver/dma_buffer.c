@@ -639,10 +639,10 @@ void dmaBufferFromHw(struct DmaBuffer *buff) {
  * the queue and its sub-queues based on the specified count. It also
  * initializes synchronization primitives used in queue operations.
  *
- * Return: The number of elements initialized in the queue on success,
- *         0 on allocation failure.
+ * Return: The number of elements initialized in the queue on success
+ *         (0 for a zero-length queue), -ENOMEM on allocation failure.
  */
-size_t dmaQueueInit(struct DmaQueue *queue, uint32_t count) {
+ssize_t dmaQueueInit(struct DmaQueue *queue, uint32_t count) {
    uint32_t x;
 
    // Set queue parameters
@@ -686,8 +686,8 @@ cleanup_sub_queue:
    queue->queue = NULL;
 
 cleanup_force_exit:
-   // Return 0 to indicate failure to initialize the queue
-   return 0;
+   // Negative return to indicate failure to initialize the queue
+   return -ENOMEM;
 }
 
 /**

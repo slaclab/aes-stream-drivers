@@ -441,19 +441,15 @@ int AxisG2_Init(struct DmaDevice *dev) {
    hwData->hwRdBuffCnt = 0;
 
    // Initialize software queues if in 128-bit descriptor mode.
-   // dmaQueueInit returns 0 on success-with-zero-elements *and*
-   // on failure, so test queue->queue (NULL on failure) for an
-   // unambiguous result. The cleanup goto for each step targets
-   // the matching err_free_<queue> label so the partially-built
-   // queue is freed via dmaQueueFree.
+   // The cleanup goto for each step targets the matching
+   // err_free_<queue> label so the partially-built queue is
+   // freed via dmaQueueFree.
    if ( hwData->desc128En ) {
-      dmaQueueInit(&hwData->wrQueue, dev->rxBuffers.count);
-      if (hwData->wrQueue.queue == NULL) {
+      if (dmaQueueInit(&hwData->wrQueue, dev->rxBuffers.count) < 0) {
          dev_err(dev->device, "Init: Failed to init wrQueue.\n");
          goto err_free_wrqueue;
       }
-      dmaQueueInit(&hwData->rdQueue, dev->txBuffers.count + dev->rxBuffers.count);
-      if (hwData->rdQueue.queue == NULL) {
+      if (dmaQueueInit(&hwData->rdQueue, dev->txBuffers.count + dev->rxBuffers.count) < 0) {
          dev_err(dev->device, "Init: Failed to init rdQueue.\n");
          goto err_free_rdqueue;
       }
