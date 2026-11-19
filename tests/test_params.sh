@@ -18,6 +18,10 @@
 # values and verifies the new parameters are honored via /proc/datadev_0
 # output (Buffer Count and Buffer Size in both RX and TX sections).
 #
+# Also performs a load/unload cycle with cfgTxCount=0 and another with
+# cfgRxCount=0. A zero count leaves the DmaBufferList indexed array NULL,
+# and dmaFreeBuffers() must tolerate that on rmmod.
+#
 # Requires root/sudo -- this test reloads kernel modules. NEVER run on the
 # host during local development; only inside CI (which has sudo) or inside
 # the QEMU VM (which has full root).
@@ -137,6 +141,49 @@ else
    echo "FAIL: TX Buffer Count = '$TX_COUNT', expected '$CUSTOM_TX'"
    ERRORS=$((ERRORS + 1))
 fi
+
+# --- Zero buffer count load/unload cycles ---
+# dmaAllocBuffers() returns early with list->indexed == NULL when the
+# requested count is zero, while list->subCount is already 1. dmaFreeBuffers()
+# must skip the indexed walk in that case or rmmod oopses in Dma_Clean.
+# Load with each count forced to zero and verify the module unloads cleanly.
+zero_count_cycle() {
+   local tx="$1"
+   local rx="$2"
+   echo "Zero-count cycle: cfgTxCount=$tx cfgRxCount=$rx"
+
+   $SUDO rmmod datadev 2>/dev/null || true
+   for _ in $(seq 1 15); do
+      [ ! -e /sys/module/datadev ] && break
+      sleep 0.5
+   done
+
+   if ! timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod "$DATADEV_KO" \
+         cfgTxCount="$tx" cfgRxCount="$rx" cfgSize="$CUSTOM_SIZE"; then
+      echo "FAIL: insmod with cfgTxCount=$tx cfgRxCount=$rx failed"
+      ERRORS=$((ERRORS + 1))
+      return
+   fi
+   timeout 15 bash -c 'until [ "$(cat /sys/module/datadev/initstate 2>/dev/null)" = live ]; do sleep 0.5; done' || true
+
+   # /proc must still be readable with an empty buffer list.
+   if ! cat "$PROC" > /dev/null; then
+      echo "FAIL: $PROC not readable with cfgTxCount=$tx cfgRxCount=$rx"
+      ERRORS=$((ERRORS + 1))
+   fi
+
+   # An oops in dmaFreeBuffers kills the rmmod process and leaves the module
+   # stuck, so a failed or timed-out rmmod is the regression signal here.
+   if timeout --kill-after=5s 30s $SUDO rmmod datadev; then
+      echo "PASS: load/unload with cfgTxCount=$tx cfgRxCount=$rx"
+   else
+      echo "FAIL: rmmod after cfgTxCount=$tx cfgRxCount=$rx"
+      ERRORS=$((ERRORS + 1))
+   fi
+}
+
+zero_count_cycle 0 "$CUSTOM_RX"
+zero_count_cycle "$CUSTOM_TX" 0
 
 # --- Cleanup: restore default parameters ---
 echo "Restoring default module configuration (cfgDebug=1)"
