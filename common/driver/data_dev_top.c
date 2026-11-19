@@ -235,10 +235,10 @@ static void DataDev_MapBar2(struct DmaDevice *dev, struct pci_dev *pcidev) {
  */
 int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    struct DmaDevice *dev;
-   struct pci_device_id *id;
    struct hardware_functions *hfunc;
 
    int32_t x;
+   int32_t slot;
    uint32_t axiWidth;
    int ret;
    uint32_t axiGen2Offset, phyOffset, axiSysMonOffset;
@@ -252,27 +252,24 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    // Initialize hardware function pointers
    hfunc = &(DataDev_functions);
 
-   // Cast device ID for further operations
-   id = (struct pci_device_id *) dev_id;
-
-   // Initialize driver data to indicate an empty slot
-   id->driver_data = -1;
-
-   // Search for an available device slot
+   // Search for an available device slot. Track the result in a signed
+   // local rather than id->driver_data: that field is kernel_ulong_t, so
+   // storing -1 there yields ULONG_MAX and a "< 0" check can never fire.
+   slot = -1;
    for (x = 0; x < MAX_DMA_DEVICES; x++) {
       if (gDmaDevices[x].baseAddr == 0) {
-         id->driver_data = x;
+         slot = x;
          break;
       }
    }
 
    // Check for device slots overflow
-   if (id->driver_data < 0) {
+   if (slot < 0) {
       pr_err("%s: Probe: Too Many Devices.\n", MOD_NAME);
       return -ENOMEM;  // Return directly with an error code
    }
-   dev = &gDmaDevices[id->driver_data];
-   dev->index = id->driver_data;
+   dev = &gDmaDevices[slot];
+   dev->index = slot;
 
    // Attempt to compose a unique device name based on configuration
    if (cfgDevName != 0) {
