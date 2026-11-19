@@ -321,8 +321,8 @@ int Dma_Init(struct DmaDevice *dev) {
       goto cleanup_dma_mapreg;
 
    // Initialize transmit queue
-   res = (ssize_t)dmaQueueInit(&(dev->tq), dev->txBuffers.count);
-   if (res == 0 && dev->txBuffers.count > 0) {
+   res = dmaQueueInit(&(dev->tq), dev->txBuffers.count);
+   if (res < 0) {
       dev_err(dev->device, "dmaQueueInit: Failed to initialize DMA queues.\n");
       goto cleanup_tx_buffers;
    }
@@ -502,10 +502,7 @@ int Dma_Open(struct inode *inode, struct file *filp) {
       return -ENOMEM;  // Return an error if allocation fails
    }
 
-   // Allocate scratch data buffers. These scale with the total buffer count
-   // and are only ever accessed by the CPU, so they do not need to be
-   // physically contiguous: kvmalloc_array falls back to vmalloc once the
-   // request is larger than kmalloc can serve (KMALLOC_MAX_SIZE).
+   // Allocate scratch data buffers
    desc->readScratchCount = dev->cfgRxCount + dev->cfgTxCount;
    desc->readDataScratch = (struct DmaReadData*)kvmalloc_array(desc->readScratchCount, sizeof(struct DmaReadData), GFP_KERNEL | __GFP_ZERO);
 
@@ -523,10 +520,7 @@ int Dma_Open(struct inode *inode, struct file *filp) {
    // Init the mutex
    mutex_init(&desc->mutex);
 
-   // dmaQueueInit returns 0 both on failure and for a zero-length queue,
-   // so test queue->queue (NULL on failure) for an unambiguous result.
-   dmaQueueInit(&(desc->q), dev->cfgRxCount);
-   if (desc->q.queue == NULL) {
+   if (dmaQueueInit(&(desc->q), dev->cfgRxCount) < 0) {
       dev_err(dev->device, "Open: Failed to allocate receive queue\n");
       goto cleanup_scratch;
    }
