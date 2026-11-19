@@ -144,7 +144,6 @@ jobs:
           cp /tmp/phase3_tests.log   diag/ 2>/dev/null || true
           cp /tmp/test_params.log    diag/ 2>/dev/null || true
           cp dma_loop_output.txt     diag/ 2>/dev/null || true
-          cp dma_rate_output.txt     diag/ 2>/dev/null || true
           cp emulator/driver/datadev_emulator.ko diag/ 2>/dev/null || true
           cp data_dev/driver/datadev.ko          diag/ 2>/dev/null || true
           ls -la diag/ || true
@@ -250,7 +249,6 @@ jobs:
           mkdir -p diag
           dmesg > diag/dmesg.txt 2>&1 || true
           cp /tmp/phase4_tests.log       diag/ 2>/dev/null || true
-          cp dma_loop_output_gpu.txt     diag/ 2>/dev/null || true
           cp emulator/driver/datadev_emulator.ko diag/ 2>/dev/null || true
           cp emulator/gpu_stub/nvidia_p2p_stub.ko diag/ 2>/dev/null || true
           cp data_dev/driver/datadev.ko          diag/ 2>/dev/null || true
