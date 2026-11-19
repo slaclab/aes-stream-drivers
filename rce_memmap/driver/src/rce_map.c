@@ -49,6 +49,7 @@ struct class * gCl;
 
 // Define interface routines
 struct file_operations MapFunctions = {
+   .owner          = THIS_MODULE,
    .read           = Map_Read,
    .write          = Map_Write,
    .open           = Map_Open,
