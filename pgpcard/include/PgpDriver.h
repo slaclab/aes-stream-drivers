@@ -322,7 +322,7 @@ static inline void pgpAddMaskBytes(uint8_t * mask, uint32_t lane, uint32_t vc) {
 
 // set lane/vc rx mask, one bit per vc
 static inline ssize_t pgpSetMask(int32_t fd, uint32_t lane, uint32_t vc) {
-   return(dmaSetMask(fd, lane*4+vc));
+   return(dmaSetMask(fd, 1u << (lane*4+vc)));
 }
 
 #endif
