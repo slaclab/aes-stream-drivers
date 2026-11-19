@@ -322,3 +322,23 @@ by ``scripts/ci/test-cpu.sh`` or ``scripts/ci/test-gpu.sh`` during CI.
        (enable-toggle + maxBuffers 4→2 mid-stream reduction)
    * - ``test_gpu_proc.sh``
      - GPU-specific ``/proc`` field validation
+
+A second, kernel-header-free harness lives in ``emulator/driver/tests/``
+and is driven by ``scripts/ci/build-cpu.sh`` and ``build-gpu.sh``:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 72
+
+   * - Binary
+     - Coverage
+   * - ``prbs_cross_validate``
+     - Compiles ``emulator/driver/src/prbs.c`` against the
+       ``kernel_shim/`` headers and links it with ``PrbsData.cpp``; runs
+       a 1M-iteration LFSR equivalence loop plus a byte-for-byte frame
+       layout comparison. ``make -C emulator/driver/tests test`` exits
+       non-zero on any divergence and fails the build step
+   * - ``stub_mmap_test``
+     - ``/dev/nvidia_p2p_stub_mem`` reserve + ``mmap()`` + pattern
+       readback smoke test; run by ``scripts/ci/test-gpu.sh`` once the
+       GPU stack is loaded

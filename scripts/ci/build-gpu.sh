@@ -70,6 +70,15 @@ echo_step "Building test applications"
 make -C data_dev/app clean
 make -C data_dev/app
 
+# Userspace cross-validation of emulator/driver/src/prbs.c against
+# common/app_lib/PrbsData.cpp (see build-cpu.sh). The same Makefile also
+# produces stub_mmap_test, the /dev/nvidia_p2p_stub_mem reserve+mmap smoke
+# harness that test-gpu.sh runs once the GPU stack is loaded.
+echo_step "Cross-validating emulator PRBS against PrbsData"
+make -C emulator/driver/tests clean
+make -C emulator/driver/tests all
+make -C emulator/driver/tests test
+
 echo_step "Verifying build artifacts (including GPU)"
 test -f emulator/driver/datadev_emulator.ko || {
    echo_fail "emulator/driver/datadev_emulator.ko not found"
@@ -113,6 +122,16 @@ test -f data_dev/app/bin/dmaErrorTest || {
 
 test -f data_dev/app/bin/dmaGpuIoctlTest || {
    echo_fail "data_dev/app/bin/dmaGpuIoctlTest not found"
+   exit 1
+}
+
+test -f emulator/driver/tests/prbs_cross_validate || {
+   echo_fail "emulator/driver/tests/prbs_cross_validate not found"
+   exit 1
+}
+
+test -f emulator/driver/tests/stub_mmap_test || {
+   echo_fail "emulator/driver/tests/stub_mmap_test not found"
    exit 1
 }
 
