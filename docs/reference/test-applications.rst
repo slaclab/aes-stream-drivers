@@ -8,7 +8,7 @@ repository runs the full suite across five Linux distributions on real
 kernel modules loaded against the emulator.
 
 All applications link against ``include/DmaDriver.h``, ``include/AxisDriver.h``,
-and the PRBS library (``data_dev/app/src/PrbsData.cpp``). They are built by
+and the PRBS library (``common/app_lib/PrbsData.cpp``). They are built by
 ``make -C data_dev/app`` and placed in ``data_dev/app/bin/``.
 
 
