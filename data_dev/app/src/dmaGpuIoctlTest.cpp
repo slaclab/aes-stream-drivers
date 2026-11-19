@@ -47,6 +47,7 @@
 
 #include <AxisDriver.h>
 #include <GpuAsync.h>
+#include <GpuAsyncUser.h>
 #include "emu_gpu_addr_table.h"   /* STUB_RESERVE_BUF uapi (via -I gpu_stub/src) */
 
 /* ----------------------------------------------------------------------------
@@ -182,6 +183,18 @@ int main(int argc, char **argv) {
       return 1;
    }
 
+   /* Map the GpuAsyncCore register window so the per-buffer address registers
+    * the driver programs in Gpu_AddNvidia / clears in Gpu_ClearBufferRegs can
+    * be read back directly. */
+   void *bar0 = dmaMapRegister(fd, GPU_ASYNC_CORE_OFFSET, GPU_ASYNC_CORE_SIZE);
+   if (bar0 == nullptr || bar0 == MAP_FAILED) {
+      fprintf(stderr, "dmaMapRegister(GPU_ASYNC_CORE_OFFSET) failed: %s\n", strerror(errno));
+      close(stub_fd);
+      close(fd);
+      return 1;
+   }
+   GpuAsyncCoreRegs regs(bar0);
+
    /* 1) GPU_Is_Gpu_Async_Supp -> true */
    bool supp = gpuIsGpuAsyncSupported(fd);
    {
@@ -213,6 +226,7 @@ int main(int argc, char **argv) {
    uint32_t wbufId = 0;
    void *wbuf = stubAllocBuf(stub_fd, 65536, &wbufId);
    if (wbuf == nullptr) {
+      dmaUnMapRegister(fd, bar0, GPU_ASYNC_CORE_SIZE);
       close(stub_fd);
       close(fd);
       return 1;
@@ -279,22 +293,41 @@ int main(int argc, char **argv) {
       report("GPU_Rem_Nvidia_Memory", rc == 0, detail);
    }
 
-   /* 8) GPU_Add_Nvidia_Memory (write=0 -> read buffer path), fresh stub buffer */
-   uint32_t rbufId = 0;
-   void *rbuf = stubAllocBuf(stub_fd, 65536, &rbufId);
-   if (rbuf == nullptr) {
-      stubFreeBuf(wbuf, 65536);
-      close(stub_fd);
-      close(fd);
-      return 1;
-   }
-   memset(rbuf, 0, 65536);
+   /* 8) GPU_Add_Nvidia_Memory (write=0 -> read buffer path). Register two
+    *    read buffers so the teardown check below covers more than slot 0. */
+   const uint32_t kReadBufs = 2;
+   uint32_t rbufId[kReadBufs] = {0, 0};
+   void *rbuf[kReadBufs] = {nullptr, nullptr};
+   for (uint32_t i = 0; i < kReadBufs; i++) {
+      rbuf[i] = stubAllocBuf(stub_fd, 65536, &rbufId[i]);
+      if (rbuf[i] == nullptr) {
+         for (uint32_t j = 0; j < i; j++) stubFreeBuf(rbuf[j], 65536);
+         stubFreeBuf(wbuf, 65536);
+         dmaUnMapRegister(fd, bar0, GPU_ASYNC_CORE_SIZE);
+         close(stub_fd);
+         close(fd);
+         return 1;
+      }
+      memset(rbuf[i], 0, 65536);
 
-   rc = gpuAddNvidiaMemory(fd, 0, reinterpret_cast<uint64_t>(rbuf), 65536);
-   {
+      rc = gpuAddNvidiaMemory(fd, 0, reinterpret_cast<uint64_t>(rbuf[i]), 65536);
+      char name[64];
       char detail[64];
+      snprintf(name, sizeof(name), "GPU_Add_Nvidia_Memory(write=0, idx=%u)", i);
       snprintf(detail, sizeof(detail), "(rc=%zd, expected 0)", rc);
-      report("GPU_Add_Nvidia_Memory(write=0)", rc == 0, detail);
+      report(name, rc == 0, detail);
+   }
+
+   /* 8a) Each registered read slot must hold the non-zero GPU address the
+    *     driver programmed, otherwise the cleared check below is vacuous. */
+   for (uint32_t i = 0; i < kReadBufs; i++) {
+      uint32_t lo = regs.readReg(GPU_ASYNC_REG_READ_ADDR_L_OFFSET(ver, i));
+      uint32_t hi = regs.readReg(GPU_ASYNC_REG_READ_ADDR_H_OFFSET(ver, i));
+      char name[64];
+      char detail[64];
+      snprintf(name, sizeof(name), "ReadAddr[%u] programmed", i);
+      snprintf(detail, sizeof(detail), "(hi=0x%08x lo=0x%08x, expected non-zero)", hi, lo);
+      report(name, (lo | hi) != 0, detail);
    }
 
    /* 9) GPU_Rem_Nvidia_Memory -> teardown #2 */
@@ -305,8 +338,22 @@ int main(int argc, char **argv) {
       report("GPU_Rem_Nvidia_Memory(after read)", rc == 0, detail);
    }
 
+   /* 9a) Gpu_ClearBufferRegs must zero every registered read slot. A clear
+    *     loop indexed by the buffer count instead of the loop index leaves
+    *     slots 0..N-1 programmed and zeroes slot N instead. */
+   for (uint32_t i = 0; i < kReadBufs; i++) {
+      uint32_t lo = regs.readReg(GPU_ASYNC_REG_READ_ADDR_L_OFFSET(ver, i));
+      uint32_t hi = regs.readReg(GPU_ASYNC_REG_READ_ADDR_H_OFFSET(ver, i));
+      char name[64];
+      char detail[64];
+      snprintf(name, sizeof(name), "ReadAddr[%u] cleared after Rem", i);
+      snprintf(detail, sizeof(detail), "(hi=0x%08x lo=0x%08x, expected 0)", hi, lo);
+      report(name, lo == 0 && hi == 0, detail);
+   }
+
    stubFreeBuf(wbuf, 65536);
-   stubFreeBuf(rbuf, 65536);
+   for (uint32_t i = 0; i < kReadBufs; i++) stubFreeBuf(rbuf[i], 65536);
+   dmaUnMapRegister(fd, bar0, GPU_ASYNC_CORE_SIZE);
    /* Closing the stub fd releases the reservations and fires the driver's
     * free_callback for each mapped buffer -> no addr-table leak at rmmod. */
    close(stub_fd);
