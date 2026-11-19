@@ -49,8 +49,8 @@ Used by CI in two modes: 30-second sustained throughput (Test 1) and
 dmaRate
 ^^^^^^^
 
-Multi-threaded DMA throughput benchmark. Measures raw transfer rate with
-configurable iteration count.
+Single-threaded bulk-read DMA throughput benchmark. Measures raw transfer
+rate with configurable iteration count.
 
 .. code-block:: text
 
