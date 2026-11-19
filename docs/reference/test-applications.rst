@@ -302,7 +302,8 @@ by ``scripts/ci/test-cpu.sh`` or ``scripts/ci/test-gpu.sh`` during CI.
        axisSetFlags / axisGetFuser / axisGetLuser
    * - ``test_params.sh``
      - Module parameter validation: loads with custom cfgTxCount/cfgRxCount/cfgSize,
-       verifies ``/proc/datadev_0`` reflects the new values
+       verifies ``/proc/datadev_0`` reflects the new values, then load/unload
+       cycles with cfgTxCount=0 and cfgRxCount=0
    * - ``test_proc.sh``
      - Validates ``/proc/datadev_0`` fields: buffer count, buffer size,
        Desc128En, IRQ, API version, buffer mode
