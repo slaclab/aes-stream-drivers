@@ -458,7 +458,7 @@ static inline ssize_t dmaReadIndex(int32_t fd, uint32_t* index, uint32_t* flags,
  * @param flags Buffer to store flags of the DMA read operations.
  * @param error Buffer to store error codes of the DMA read operations.
  * @param dest Buffer to store destination addresses of the DMA read operations.
- * @return The number of bytes read.
+ * @return The number of frames read (entries filled in the output arrays), or a negative value on failure.
  */
 static inline ssize_t dmaReadBulkIndex(int32_t fd,
                                        uint32_t count,
