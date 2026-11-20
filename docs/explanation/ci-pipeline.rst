@@ -113,6 +113,13 @@ emulator PRBS and ``common/app_lib/PrbsData.cpp`` ever disagree
 byte-for-byte. This gate needs no kernel headers, so it runs in every cell
 including those that skip the load/test steps.
 
+The build step also compiles the driver once with ``-Wtype-limits``
+(``type-limits-gate.sh``) and fails on any such warning located in this
+repository's sources; the same warning from kernel headers is ignored.
+Kbuild disables it by default, which hides comparisons that can never be
+true, such as an unsigned value tested against ``< 0``. ``build-gpu.sh``
+and ``build-pgp.sh`` apply the same gate to the GPU build and to pgpcard.
+
 **Module loading** (``load-modules-cpu.sh``):
 
 1. ``insmod nvidia_p2p_stub.ko``
