@@ -31,6 +31,9 @@ NC='\033[0m'
 echo_step() { echo -e "${GREEN}==>${NC} $1"; }
 echo_fail() { echo -e "${RED}FAIL:${NC} $1"; }
 
+# shellcheck source=scripts/ci/type-limits-gate.sh
+source "$(dirname "${BASH_SOURCE[0]}")/type-limits-gate.sh"
+
 # Determine kernel version to build against. install-deps.sh writes this to
 # $GITHUB_ENV and /tmp/ci_kver; fall back to uname -r for local runs.
 if [ -z "${CI_KVER:-}" ] && [ -f /tmp/ci_kver ]; then
@@ -61,6 +64,9 @@ make -C emulator/gpu_stub
 echo_step "Building emulator module"
 make -C emulator/driver clean
 make -C emulator/driver
+
+echo_step "Checking datadev driver (GPU) for -Wtype-limits warnings"
+type_limits_gate data_dev/driver NVIDIA_DRIVERS=$(pwd)/emulator/gpu_stub GITV="$GITV"
 
 echo_step "Building datadev driver with GPU support"
 make -C data_dev/driver clean
