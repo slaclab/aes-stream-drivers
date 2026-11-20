@@ -18,18 +18,21 @@ The parity harness provisions a KVM guest with an Azure-flavor kernel
 matching the GitHub Actions runners. Each matrix cell runs in a Docker
 container inside that guest:
 
-1. **ubuntu:24.04** — build + load + test + DKMS (CPU and GPU)
-2. **ubuntu:22.04** — build + DKMS smoke (CPU and GPU)
-3. **rockylinux:9** — build + DKMS smoke (CPU and GPU)
-4. **debian:experimental** — build + DKMS smoke (CPU and GPU)
-5. **fedora:rawhide** — build + DKMS smoke (CPU and GPU)
+1. **ubuntu:24.04**: build-only and load-test cells (CPU and GPU)
+2. **ubuntu:22.04**: load-test (CPU), build-only (GPU)
+3. **rockylinux:9**: load-test (CPU), build-only (GPU)
+4. **debian:experimental**: load-test (CPU and GPU)
+5. **fedora:rawhide**: load-test (CPU and GPU)
 
-All five cells declare `load_test: true`, but the actual module
-load/test/unload steps are gated by the `CI_HOST_MATCH` environment
-variable. Only the cell whose kernel matches the parity VM host kernel
-(normally `ubuntu:24.04`) runs the full load/test/unload/DKMS-install
-cycle; the other cells stop after compile + DKMS tarball smoke. This
-mirrors the gating used in `.github/workflows/ci_pipeline.yml`.
+The pgpcard matrix runs the same five containers, all build-only.
+
+The load flag is set per cell in `scripts/ci-local/run_matrix.sh`: each
+`CPU_CELLS`, `GPU_CELLS` and `PGP_CELLS` entry ends in `|1` (load-test:
+build, load, test, unload, DKMS install) or `|0` (build-only: compile plus
+dmesg check). This differs from `.github/workflows/ci_pipeline.yml`, where
+every cell declares `load_test: true` and the load steps are gated at
+runtime on `CI_HOST_MATCH`. A local load-test cell only passes when the
+built module matches the parity VM kernel.
 
 ## Prerequisites
 
