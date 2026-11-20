@@ -185,8 +185,9 @@ marker against known-benign patterns. Fails on any ``oops``, ``panic``,
 Phase 3: GPU Test Coverage
 --------------------------
 
-Each GPU load-test cell executes the full CPU test suite **plus** GPU-specific
-tests:
+Each GPU load-test cell runs only the GPU-specific tests below, followed by
+the GPU-stack load/unload cycles; general DMA, ioctl, /proc, and module
+lifecycle coverage comes from the CPU phase (``test-cpu.sh``):
 
 **Module loading** (``load-modules-gpu.sh``):
 
@@ -195,7 +196,7 @@ tests:
 3. ``insmod datadev.ko`` (GPU build with ``NVIDIA_DRIVERS`` path)
 4. Create ``/dev/nvidia_p2p_stub_mem`` miscdevice node
 
-**Additional GPU tests** (``test-gpu.sh``):
+**GPU tests** (``test-gpu.sh``):
 
 .. list-table::
    :header-rows: 1
@@ -435,8 +436,10 @@ The combined Phase 2 + Phase 3 coverage across all distributions:
      - ``emu_irq_mode`` {intx, msi, msix} sweep (CPU phase). Each mode
        runs cfgIrqHold=1, cfgIrqHold=100000, and polled (cfgIrqDis=1),
        plus a probe-cascade assertion that ``datadev`` selected the
-       matching INTx / MSI / MSI-X path. GPU phase runs the single-mode
-       legacy pass
+       matching INTx / MSI / MSI-X path. Not run in the GitHub GPU phase
+       (``test-gpu.sh``); the local ``tests/vm_inside_gpu.sh`` runner
+       invokes ``run_tests.sh`` with ``GPU_ENABLED=1``, which runs the
+       single-mode legacy pass
    * - Module lifecycle
      - 4
      - 3 rapid reload cycles, rmmod-under-load, cfgMode=1/2 transitions
