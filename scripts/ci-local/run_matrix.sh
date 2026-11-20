@@ -34,7 +34,7 @@
 #   0 = all cells passed
 #   N = at least one cell failed (bitwise-OR of all cell exit codes;
 #       124/137 hang codes also OR in non-zero)
-#   1 = --parallel invoked (stub — deferred to v2)
+#   3 = VM provisioning failed (--parallel mode)
 #   5 = unsupported flag / usage error
 # ----------------------------------------------------------------------------
 
