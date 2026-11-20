@@ -96,8 +96,9 @@ static void emu_enforce_enablever_ro(struct emu_dma_engine *eng)
    uint32_t target;
 
    /* 0->1 edge on the enable bit is a new driver activation; bump the
-    * enableCnt field (8-bit, wraps at 256 to match the VHDL width). */
-   if (enable_bit && !eng->prev_enable)
+    * enableCnt field.  The VHDL (AxiStreamDmaV2Desc) saturates the 8-bit
+    * counter at 0xFF rather than wrapping, so mirror that here. */
+   if (enable_bit && !eng->prev_enable && eng->enable_cnt != 0xFF)
       eng->enable_cnt++;
    eng->prev_enable = enable_bit;
 
