@@ -425,8 +425,9 @@ The combined Phase 2 + Phase 3 coverage across all distributions:
      - open, multi-open, select(read), select(write), mmap, read, ioctl,
        close
    * - Error handling
-     - 3
-     - Buffer exhaustion, oversized write, invalid index
+     - 4
+     - Buffer exhaustion, oversized write, invalid index, out-of-range
+       destination
    * - Channel routing
      - 3
      - Multi-destination (0, 7, 8), cross-contamination check
