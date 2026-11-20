@@ -135,12 +135,12 @@ int main(int argc, char **argv) {
    if (args.idxEn) {
       if ((dmaBuffers = dmaMapDma(s, &dmaCount, &dmaSize)) == NULL) {
          printf("Failed to map dma buffers!\n");
-         return 0;
+         return 1;
       }
    } else {
       if ((txData = malloc(args.size)) == NULL) {
          printf("Failed to allocate txData!\n");
-         return 0;
+         return 1;
       }
    }
 
