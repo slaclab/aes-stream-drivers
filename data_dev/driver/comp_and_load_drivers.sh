@@ -58,7 +58,7 @@ RET_DIR=$PWD
 echo "Using RET_DIR: $RET_DIR"
 
 # Remove existing Nvidia modules (if any)
-modules=("datadev" "nvidia_fs" "nvidia-drm" "nvidia-uvm" "nvidia-modeset" "nvidia" "nouveau")
+modules=("datadev" "nvidia_fs" "nvidia_drm" "nvidia_uvm" "nvidia_modeset" "nvidia" "nouveau")
 for module in "${modules[@]}"; do
     output=$(/usr/sbin/rmmod $module 2>&1)
     status=$?
