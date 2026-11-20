@@ -9,12 +9,13 @@
  *    and runs two half-FSMs:
  *      - RX: drains writeFreeList[], generates a PRBS frame into the
  *        per-buffer kernel-virtual-address returned by
- *        emu_gpu_addr_lookup(), writes the descriptor / size doorbell,
- *        clears the free-list bit, advances nextWriteIdx, bumps
- *        rxFrameCnt.
+ *        emu_gpu_addr_lookup(), clears the free-list bit, advances
+ *        nextWriteIdx, bumps rxFrameCnt, then writes the descriptor /
+ *        size doorbell as the last store.
  *      - TX: drains readReqSize[], verifies the egress PRBS payload,
- *        writes 1 (TX ACK doorbell) at remoteReadAddr + 0, clears the
- *        request word, advances nextReadIdx, bumps txFrameCnt.
+ *        clears the request word, advances nextReadIdx, bumps
+ *        txFrameCnt, then writes 1 (TX ACK doorbell) at
+ *        remoteReadAddr + 0 as the last store.
  *
  *    Address translation uses an opaque `extern void *emu_gpu_addr_lookup
  *    (u64 fake_dma)`.  The real definition is supplied via nvidia_p2p_stub;
