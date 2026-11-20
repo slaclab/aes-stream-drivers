@@ -164,15 +164,15 @@ CUSTOM_SIZE=65536 \
   bash $TESTS_DIR/test_params.sh 2>&1 | tee "$PARAMS_LOG"
 PARAMS_RC=${PIPESTATUS[0]}
 
-TOTAL_PASS=$(grep -c '^\[PASS\]' "$PARAMS_LOG" || true)
-TOTAL_FAIL=$(grep -c '^\[FAIL\]' "$PARAMS_LOG" || true)
+TOTAL_PASS=$(grep -c '^PASS:' "$PARAMS_LOG" || true)
+TOTAL_FAIL=$(grep -c '^FAIL:' "$PARAMS_LOG" || true)
 echo "Module Parameter Validation Summary:"
 echo "  PASS: ${TOTAL_PASS:-0}"
 echo "  FAIL: ${TOTAL_FAIL:-0}"
 
 if [ "$PARAMS_RC" -ne 0 ]; then
    echo_fail "${PARAMS_RC} param check(s) failed"
-   grep '^\[FAIL\]' "$PARAMS_LOG" || true
+   grep '^FAIL:' "$PARAMS_LOG" || true
    $SUDO dmesg | tail -100
    FAILED=$((FAILED + PARAMS_RC))
 fi
