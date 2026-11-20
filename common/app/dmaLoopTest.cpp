@@ -354,7 +354,8 @@ int main(int argc, char **argv) {
    // Generating endpoints
    dCount = 0;
 
-   strcpy(tBuff, args.dest);//NOLINT
+   strncpy(tBuff, args.dest, sizeof(tBuff) - 1);
+   tBuff[sizeof(tBuff) - 1] = 0;
    tok = strtok(tBuff, ",");
    while ( tok != NULL ) {
       x = strtoul(tok, NULL, 10);
