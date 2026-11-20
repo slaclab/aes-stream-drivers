@@ -246,9 +246,13 @@ void dmaFreeBuffers(struct DmaBufferList *list) {
    // Free the list itself
    dmaFreeBuffersList(list);
 
-   // Free each buffer in the indexed array
-   for (x = 0; x < list->subCount; x++)
-      kfree(list->indexed[x]);
+   // Free each sub-list in the indexed array. The array is NULL when
+   // dmaAllocBuffers was called with count == 0 or failed before it was
+   // allocated, even though subCount is already 1.
+   if (list->indexed != NULL) {
+      for (x = 0; x < list->subCount; x++)
+         kfree(list->indexed[x]);
+   }
 
    // Free the indexed and sorted arrays if they are not NULL
    if (list->indexed != NULL)

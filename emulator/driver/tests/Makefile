@@ -48,9 +48,16 @@ STUB_BIN := stub_mmap_test
 STUB_OBJS := stub_mmap_test.o
 STUB_INCLUDES := -I$(REPO_ROOT)/emulator/gpu_stub/src
 
+# Userspace regression test for pgpSetMask() in PgpDriver.h. Compiles the
+# shared uapi headers as a C++ TU with ioctl() redirected to a recording
+# shim; no kernel module or device node is needed.
+PGP_BIN := pgp_setmask_test
+PGP_OBJS := pgp_setmask_test.o
+PGP_INCLUDES := -I$(REPO_ROOT)/include -I$(REPO_ROOT)/pgpcard/include
+
 .PHONY: all test clean
 
-all: $(BIN) $(STUB_BIN)
+all: $(BIN) $(STUB_BIN) $(PGP_BIN)
 
 prbs_cross_validate.o: prbs_cross_validate.c
 	$(CC) $(CFLAGS) $(CFLAGS_SHIM) -c $< -o $@
@@ -71,8 +78,15 @@ stub_mmap_test.o: stub_mmap_test.c
 $(STUB_BIN): $(STUB_OBJS)
 	$(CC) $(CFLAGS) $(STUB_OBJS) -o $@ $(LDFLAGS)
 
-test: $(BIN)
+pgp_setmask_test.o: pgp_setmask_test.cpp
+	$(CXX) $(CXXFLAGS) $(PGP_INCLUDES) -c $< -o $@
+
+$(PGP_BIN): $(PGP_OBJS)
+	$(CXX) $(CXXFLAGS) $(PGP_OBJS) -o $@ $(LDFLAGS)
+
+test: $(BIN) $(PGP_BIN)
 	./$(BIN)
+	./$(PGP_BIN)
 
 clean:
-	rm -f $(BIN) $(OBJS) $(STUB_BIN) $(STUB_OBJS)
+	rm -f $(BIN) $(OBJS) $(STUB_BIN) $(STUB_OBJS) $(PGP_BIN) $(PGP_OBJS)

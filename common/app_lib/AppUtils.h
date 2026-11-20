@@ -59,7 +59,7 @@ static inline void printResults(const char* which, int64_t count, uint64_t total
    printf("\n");
    printf("Total %s Events  : %" PRId64 "\n", which, count);
    printf("Total %s Bytes   : %" PRIu64 " (%.2f GB)\n", which, totalBytes, double(totalBytes) / 1e9);
-   printf("%s Rate          : %.2f Hz (%.2f kHz)\n", which, double(count) / elapsed, double(count) / elapsed / 1024.);
+   printf("%s Rate          : %.2f Hz (%.2f kHz)\n", which, double(count) / elapsed, double(count) / elapsed / 1e3);
    printf("%s Speed         : %.f B/s (%.2f MB/s)\n",
       which, double(totalBytes) / elapsed, double(totalBytes) / elapsed / 1e6);
    printf("Elapsed:         : %.2f seconds\n", elapsed);

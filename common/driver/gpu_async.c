@@ -437,9 +437,9 @@ static void Gpu_ClearBufferRegs(struct DmaDevice* dev) {
 
       // Compute version specific offsets
       if (data->version < 4) {
-         offset = GPU_ASYNC_REG_READ_BASE_V1 + data->readBuffers.count * 16;
+         offset = GPU_ASYNC_REG_READ_BASE_V1 + x * 16;
       } else {
-         offset = GPU_ASYNC_REG_READ_BASE_V4 + data->readBuffers.count * 8;
+         offset = GPU_ASYNC_REG_READ_BASE_V4 + x * 8;
       }
 
       // See comment in the previous for loop for why this is done.
