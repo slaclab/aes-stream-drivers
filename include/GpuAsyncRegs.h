@@ -113,8 +113,8 @@ GPU_ASYNC_DEF_REG(WrLatencyV4,  0x58, 0, 0xFFFFFFFF);
 GPU_ASYNC_DEF_REG(RemoteWriteMaxSizeV4, 0x60, 0, 0xFFFFFFFF);
 
 
-// The following register definitions are firmware specific. GpuAsyncCore can have up to 16 buffers, but defaults to 4.
-// You must check the MaxBuffers register for the true value
+// The following register definitions are firmware specific. GpuAsyncCore V1 to V3 can have up to 16 buffers (default 4);
+// V4 and later up to 1024. Check the MaxBuffers register for the true value.
 
 /*********************** Write Buffers ************************/
 
