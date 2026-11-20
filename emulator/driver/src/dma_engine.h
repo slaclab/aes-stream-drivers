@@ -106,6 +106,13 @@ struct emu_dma_engine {
    bool rings_valid;
    bool init_polling;
 
+   /* Ring bases read by the previous emu_capture_rings() call.  The
+    * bases are accepted only when two consecutive polls agree, so a
+    * poll landing between the driver's low/high writel() pair cannot
+    * latch a torn 64-bit address. */
+   uint64_t prev_wr_dma;
+   uint64_t prev_rd_dma;
+
    /* enableVer R/O field enforcement state (see emu_enforce_enablever_ro).
     * prev_enable mirrors the last-observed bit 0 so the poll thread can
     * detect 0->1 edges driven by AxisG2_Enable and increment enable_cnt
