@@ -53,6 +53,7 @@
 #define EMU_REG_RDBASELOW     0x0018
 #define EMU_REG_RDBASEHIGH    0x001C
 #define EMU_REG_FIFORESET     0x0020
+#define EMU_REG_MAXSIZE       0x0028
 #define EMU_REG_ONLINE        0x002C
 #define EMU_REG_ADDRWIDTH     0x0038
 #define EMU_REG_READFIFOA     0x0040  /* TX: flags | chan | dest        */
