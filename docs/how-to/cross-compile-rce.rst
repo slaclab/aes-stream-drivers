@@ -60,7 +60,7 @@ After a successful ``make rce``, the compiled modules are placed in:
 
 .. code-block:: text
 
-   install/<kernel_version>.arm/rce_stream.ko
+   install/<kernel_version>.arm/rcestream.ko
    install/<kernel_version>.arm/rce_memmap.ko
 
 The ``<kernel_version>`` string is determined from the Xilinx kernel source
