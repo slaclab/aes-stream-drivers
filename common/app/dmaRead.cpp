@@ -147,7 +147,7 @@ int main(int argc, char **argv) {
    if (args.idxEn) {
       if ( (dmaBuffers = dmaMapDma(s, &dmaCount, &dmaSize)) == NULL ) {
          printf("Failed to map dma buffers!\n");
-         return 0;
+         return 1;
       }
       if (args.verbose) {
          printf("Mapped %u buffers of %u bytes (%.2f MB total)\n",
@@ -156,7 +156,7 @@ int main(int argc, char **argv) {
    } else {
       if ((rxData = malloc(maxSize)) == NULL) {
          printf("Failed to allocate rxData!\n");
-         return 0;
+         return 1;
       }
    }
 
