@@ -260,8 +260,12 @@ Shell-Based Test Harness
 ------------------------
 
 The ``tests/`` directory contains shell scripts that compose the C++
-applications into higher-level integration tests. Each script is invoked
-by ``scripts/ci/test-cpu.sh`` or ``scripts/ci/test-gpu.sh`` during CI.
+applications into higher-level integration tests. Most scripts are invoked
+during CI, either directly by ``scripts/ci/test-cpu.sh`` /
+``scripts/ci/test-gpu.sh`` or through the ``run_tests.sh`` master runner.
+Three scripts have no CI caller and are manual-only: ``test_dma_rate.sh``,
+``test_gpu_ioctls.sh`` (CI runs the ``dmaGpuIoctlTest`` binary directly
+instead) and ``test_reload_segfault.sh``.
 
 .. list-table::
    :header-rows: 1
