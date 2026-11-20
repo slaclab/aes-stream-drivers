@@ -31,6 +31,9 @@ NC='\033[0m'
 echo_step() { echo -e "${GREEN}==>${NC} $1"; }
 echo_fail() { echo -e "${RED}FAIL:${NC} $1"; }
 
+# shellcheck source=scripts/ci/type-limits-gate.sh
+source "$(dirname "${BASH_SOURCE[0]}")/type-limits-gate.sh"
+
 # Determine kernel version to build against. install-deps.sh writes this to
 # $GITHUB_ENV and /tmp/ci_kver; fall back to uname -r for local runs.
 if [ -z "${CI_KVER:-}" ] && [ -f /tmp/ci_kver ]; then
@@ -48,6 +51,9 @@ echo_step "Building against kernel ${KVER}"
 GITV=emulator
 export GITV
 echo_step "Git version: ${GITV}"
+
+echo_step "Checking pgpcard driver for -Wtype-limits warnings"
+type_limits_gate pgpcard/driver GITV="$GITV"
 
 echo_step "Building pgpcard driver"
 make -C pgpcard/driver clean

@@ -816,7 +816,7 @@ ssize_t Dma_Write(struct file *filp, __user const char *buffer, size_t count, lo
    // Validate destination
    destByte = wr.dest / 8;
    destBit = 1 << (wr.dest % 8);
-   if ((wr.dest > DMA_MAX_DEST) || ((destBit & dev->destMask[destByte]) == 0)) {
+   if ((wr.dest >= DMA_MAX_DEST) || ((destBit & dev->destMask[destByte]) == 0)) {
       dev_warn(dev->device, "Write: Invalid destination. Byte %i, Got=0x%x. Mask=0x%x.\n",
                destByte, destBit, dev->destMask[destByte]);
       return -1;

@@ -44,11 +44,11 @@ static char   args_doc[] = "lane vc";
 static char   doc[]      = "   Lane and VC are passed as integers.";
 
 static struct argp_option options[] = {
-   { "path",    'p', "PATH",   OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
-   { "prbsdis", 'd', 0,        OPTION_ARG_OPTIONAL, "Disable PRBS generation.", 0},
-   { "size",    's', "SIZE",   OPTION_ARG_OPTIONAL, "Size of data to generate. Default=1000", 0},
-   { "count",   'c', "COUNT",  OPTION_ARG_OPTIONAL, "Number of frames to generate. Default=1", 0},
-   { "indexen", 'i', 0,        OPTION_ARG_OPTIONAL, "Use index based transmit buffers.", 0},
+   { "path",    'p', "PATH",   0, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
+   { "prbsdis", 'd', 0,        0, "Disable PRBS generation.", 0},
+   { "size",    's', "SIZE",   0, "Size of data to generate. Default=1000", 0},
+   { "count",   'c', "COUNT",  0, "Number of frames to generate. Default=1", 0},
+   { "indexen", 'i', 0,        0, "Use index based transmit buffers.", 0},
    {0}
 };
 

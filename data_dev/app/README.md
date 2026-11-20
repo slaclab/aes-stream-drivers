@@ -60,8 +60,8 @@ To run rdmaTest over 10, 128KB events, dumping the header of each:
 $ sudo ./bin/rdmaTest -s 0x20000 -c 10 -vv
 ```
 
-To send data from the GPU back to the FPGA, add `-r`. This will introduce some delay to the application,
+To send data from the GPU back to the FPGA, add `-l`. This will introduce some delay to the application,
 but latency measurements are still accurate.
 ```bash
-$ sudo ./bin/rdmaTest -s 0x20000 -r
+$ sudo ./bin/rdmaTest -s 0x20000 -l
 ```

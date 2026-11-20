@@ -53,7 +53,7 @@ struct PrgArgs {
 };
 
 // Default program arguments
-static struct PrgArgs DefArgs = { DEFAULT_AXI_DEVICE, 0, 1000, -1, 1, 0 };
+static struct PrgArgs DefArgs = { DEFAULT_AXI_DEVICE, 0, 1000, -1, 0, 0 };
 
 // Documentation for arguments
 static char args_doc[] = "dest";

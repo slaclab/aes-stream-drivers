@@ -85,10 +85,10 @@ void PgpCard_Exit(void) {
 // Create and init device
 int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    struct DmaDevice *dev;
-   struct pci_device_id *id;
    struct hardware_functions *hfunc;
 
    int32_t x;
+   int32_t slot;
    int32_t ret;
 
    if (cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM) {
@@ -106,26 +106,24 @@ int PgpCard_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
          break;
    }
 
-   id = (struct pci_device_id *) dev_id;
-
-   // We keep device instance number in id->driver_data
-   id->driver_data = -1;
-
-   // Find empty structure
+   // Find empty structure. Track the result in a signed local rather than
+   // id->driver_data: that field is kernel_ulong_t, so storing -1 there
+   // yields ULONG_MAX and a "< 0" check can never fire.
+   slot = -1;
    for (x = 0; x < MAX_DMA_DEVICES; x++) {
       if (gDmaDevices[x].baseAddr == 0) {
-         id->driver_data = x;
+         slot = x;
          break;
       }
    }
 
    // Overflow
-   if (id->driver_data < 0) {
+   if (slot < 0) {
       pr_warn("%s: Probe: Too Many Devices.\n", MOD_NAME);
       return (-1);
    }
-   dev = &gDmaDevices[id->driver_data];
-   dev->index = id->driver_data;
+   dev = &gDmaDevices[slot];
+   dev->index = slot;
 
    // Create a device name
    snprintf(dev->devName, sizeof(dev->devName), "%s_%i", MOD_NAME, dev->index);

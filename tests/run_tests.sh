@@ -30,7 +30,13 @@
 #               (default: data_dev/app/bin)
 #   TESTS_DIR   Directory containing individual test_*.sh scripts
 #               (default: directory containing this script)
-#   DATADEV_KO  Path to datadev.ko (used by test_params.sh only)
+#   DATADEV_KO  Path to datadev.ko (used by test_backpressure.sh and
+#               test_irq_modes.sh; default: data_dev/driver/datadev.ko,
+#               relative to the cwd, so pass an absolute path when not
+#               running from the repo root)
+#   EMULATOR_KO Path to datadev_emulator.ko (used by test_irq_modes.sh;
+#               default: emulator/driver/datadev_emulator.ko, same
+#               cwd caveat)
 #   CUSTOM_TX   Custom cfgTxCount (used by test_params.sh only)
 #   CUSTOM_RX   Custom cfgRxCount (used by test_params.sh only)
 #   CUSTOM_SIZE Custom cfgSize (used by test_params.sh only)
@@ -111,16 +117,34 @@ drain_stale_frames() {
 # creation, and initstate polling stay in one place.  The BASELINE dmesg
 # marker injected at first load is preserved so check-dmesg.sh continues to
 # scan the original window and any kernel error from either attempt is
-# captured.  Returns 0 on success, non-zero when the helper scripts are not
-# present (e.g. local bare-metal runs) -- caller falls back to drain.
+# captured.
+#
+# Every prerequisite of load-modules-cpu.sh is checked BEFORE the unload
+# runs.  The unload always succeeds, so an unload followed by a refused load
+# would leave the retry (and every later test) running against a device
+# that no longer exists.  The load script refuses when kernel headers for
+# the running kernel are absent and insmods the .ko files by repo-relative
+# path, so both helpers are run from the repo root (run_local_ci.sh's VM
+# invokes run_tests.sh from a cwd that is not the repo root).  Returns 0 on
+# success, non-zero when any prerequisite is missing (helper scripts absent
+# on bare-metal runs, no headers in the stock VM image, .ko not built) --
+# caller falls back to drain.
 reload_modules() {
-   local script_dir="${TESTS_DIR}/../scripts/ci"
+   local repo_root="${TESTS_DIR}/.."
+   local script_dir="$repo_root/scripts/ci"
    [ -x "$script_dir/unload-modules-cpu.sh" ] || return 1
    [ -x "$script_dir/load-modules-cpu.sh" ]   || return 1
+   [ -e "/lib/modules/$(uname -r)/build" ]    || return 1
+   local ko
+   for ko in emulator/gpu_stub/nvidia_p2p_stub.ko \
+             emulator/driver/datadev_emulator.ko \
+             data_dev/driver/datadev.ko; do
+      [ -r "$repo_root/$ko" ] || return 1
+   done
    local saved_marker=""
    [ -r /tmp/ci_dmesg_marker ] && saved_marker=$(cat /tmp/ci_dmesg_marker)
-   bash "$script_dir/unload-modules-cpu.sh" >/dev/null 2>&1 || true
-   bash "$script_dir/load-modules-cpu.sh"   >/dev/null 2>&1 || return 1
+   ( cd "$repo_root" && bash scripts/ci/unload-modules-cpu.sh ) >/dev/null 2>&1 || true
+   ( cd "$repo_root" && bash scripts/ci/load-modules-cpu.sh )   >/dev/null 2>&1 || return 1
    [ -n "$saved_marker" ] && echo "$saved_marker" > /tmp/ci_dmesg_marker
    return 0
 }

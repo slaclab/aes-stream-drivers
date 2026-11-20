@@ -116,7 +116,7 @@ all: rc.local
 	@$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(HOME) modules
 
 # construct a rc.local file for the location of this driver
-rc.local:
+rc.local: rc.local.in
 	sed 's|DRIVER_LOCATION|$(HOME)|' rc.local.in > rc.local
 	chmod +x rc.local
 

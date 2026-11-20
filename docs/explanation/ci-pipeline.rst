@@ -35,7 +35,8 @@ Phase 2 passes:
        5 distros in parallel
    * - 3b
      - pgpcard Testing
-     - Build the legacy pgpcard driver and load/unload it across 5
+     - Build the legacy pgpcard driver and its applications, check
+       application argument parsing, and load/unload the module across 5
        distros (no traffic tests, since CI has no PGP card)
    * - 4
      - Release Generation
@@ -87,26 +88,50 @@ kernel regardless of the userspace distribution.
      - Yes
      - Rawhide gcc/glibc; most aggressive compiler warnings
 
-All five distros run the full build + load + test + unload + DKMS
-sequence in both phases. Load/test is gated at runtime on
+All five distros run the build + load + test + unload sequence in both
+phases, followed by a DKMS smoke test. Load/test is gated at runtime on
 ``CI_HOST_MATCH=1`` (container has the running host's kernel headers,
-either via bind-mount or package install); distros that cannot satisfy
-that condition fall back to a DKMS smoke path (``dkms ldtarball`` with
-``--no-prepare-kernel``) in the same cell.
+either via bind-mount or package install). The DKMS step runs on every
+cell regardless of that gate, but it is a smoke test only
+(``test-dkms-cpu-smoke.sh`` / ``test-dkms-gpu-smoke.sh``): build the
+tarball, ``dkms ldtarball``, confirm the package shows as ``added`` in
+``dkms status``, then ``dkms remove``. It does not run ``dkms build`` or
+``dkms install``, which need kernel headers matching the running kernel.
+The full install/remove cycle (``test-dkms-cpu.sh`` /
+``test-dkms-gpu.sh``) is exercised only by the local KVM harness; see
+`Local CI Testing`_ below.
 
 
 Phase 2: CPU Test Coverage
 --------------------------
 
 Each CPU load-test cell executes the following sequence after building
-the emulator, datadev driver, and test applications:
+the emulator, datadev driver, and test applications. The build step
+(``build-cpu.sh``) also compiles ``emulator/driver/src/prbs.c`` as a
+userspace binary against ``emulator/driver/tests/kernel_shim/`` and runs
+``make -C emulator/driver/tests test``, which fails the build if the
+emulator PRBS and ``common/app_lib/PrbsData.cpp`` ever disagree
+byte-for-byte. This gate needs no kernel headers, so it runs in every cell
+including those that skip the load/test steps.
+
+The build step also compiles the driver once with ``-Wtype-limits``
+(``type-limits-gate.sh``) and fails on any such warning located in this
+repository's sources; the same warning from kernel headers is ignored.
+Kbuild disables it by default, which hides comparisons that can never be
+true, such as an unsigned value tested against ``< 0``. ``build-gpu.sh``
+and ``build-pgp.sh`` apply the same gate to the GPU build and to pgpcard.
 
 **Module loading** (``load-modules-cpu.sh``):
 
 1. ``insmod nvidia_p2p_stub.ko``
 2. ``insmod datadev_emulator.ko``
-3. ``insmod datadev.ko cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgDebug=1``
+3. ``insmod datadev.ko cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgDebug=1 cfgMode=2``
 4. Verify ``/dev/datadev_0`` and ``/proc/datadev_0`` exist
+
+The baseline load uses ``cfgMode=2`` (BUFF_STREAM), so Tests 1 and 2
+below run against streaming DMA buffers. Test 3 reloads the module
+without ``cfgMode`` and therefore runs with the driver default,
+``cfgMode=1`` (BUFF_COHERENT).
 
 **Test execution** (``test-cpu.sh``):
 
@@ -133,8 +158,10 @@ the emulator, datadev driver, and test applications:
        verify /proc reflects the new values
    * - 4
      - cfgMode=2 reload
-     - Unload/reload with BUFF_STREAM mode, run data integrity check
-       (>= 100 transfers, zero PRBS errors)
+     - Full unload/reload with an explicit ``cfgMode=2`` (same BUFF_STREAM
+       mode as the baseline load), run data integrity check (>= 100
+       transfers, zero PRBS errors), then reload with ``cfgMode=1``
+       (BUFF_COHERENT) before cleanup
    * - 5
      - rmmod-under-load
      - Start ``dmaLoopTest`` in background, ``rmmod datadev`` while DMA
@@ -143,9 +170,10 @@ the emulator, datadev driver, and test applications:
      - Load/unload cycles
      - 3 rapid insmod/rmmod cycles to detect use-after-free races
    * - 7
-     - DKMS
-     - Build DKMS tarball, ``dkms ldtarball``, ``dkms install``, verify
-       module is installed, ``dkms remove``
+     - DKMS (smoke)
+     - Build DKMS tarball, ``dkms ldtarball``, verify the package is
+       registered in ``dkms status``, ``dkms remove``. No ``dkms build``
+       or ``dkms install`` in GitHub CI.
 
 **Post-test** (``check-dmesg.sh``):
 
@@ -177,22 +205,31 @@ tests:
      - Test
      - What it validates
    * - 1
+     - Stub mmap smoke
+     - ``emulator/driver/tests/stub_mmap_test`` (built by ``build-gpu.sh``)
+       opens ``/dev/nvidia_p2p_stub_mem``, reserves a 64 KiB buffer via
+       ``STUB_RESERVE_BUF``, maps it with ``mmap()`` and verifies a
+       write/readback pattern; the smallest check that the stub's userspace
+       surface works before the ioctl and loopback tests depend on it
+   * - 2
      - GPU ioctl test
-     - All 6 GPU ioctls: ``GPU_Is_Gpu_Async_Supp`` (returns 1),
+     - 7 of the 9 GPU ioctls: ``GPU_Is_Gpu_Async_Supp`` (returns 1),
        ``GPU_Get_Gpu_Async_Ver``, ``GPU_Get_Max_Buffers``,
        ``GPU_Add_Nvidia_Memory``, ``GPU_Set_Write_Enable``,
-       ``GPU_Rem_Nvidia_Memory``
-   * - 2
+       ``GPU_Set_Write_Enable_Bulk``, ``GPU_Rem_Nvidia_Memory``
+       (``GPU_Enable_Tx`` and ``GPU_Enable_Rx`` are not covered)
+   * - 3
      - GPU proc interface
      - Validates GPU-specific fields in ``/proc/datadev_0``
-   * - 3
+   * - 4
      - GPU DMA loopback
      - ``rdmaTestEmu`` sweep + 10k-frame soak + ``dmaGpuToggleTest``
        (enable-toggle and max-buffers 4→2 mid-stream), all through the
        emulator's GPU Async V4 engine
-   * - 4
-     - GPU DKMS
-     - Full DKMS build/install/remove cycle for GPU variant
+   * - 5
+     - GPU DKMS (smoke)
+     - Same ``dkms ldtarball`` / ``dkms status`` / ``dkms remove`` smoke
+       test for the GPU tarball
 
 
 Emulator Architecture
@@ -312,8 +349,11 @@ The pipeline produces two DKMS tarballs for distribution:
 - ``datadev-dkms-<version>.tar.gz``: CPU-only driver (no NVIDIA dependency)
 - ``datadev-gpu-dkms-<version>.tar.gz``: GPU driver (requires NVIDIA kernel modules)
 
-Both are tested via ``dkms ldtarball`` / ``dkms install`` / ``dkms remove``
-in CI. On tagged releases, the tarballs are uploaded to the GitHub Release page.
+In GitHub CI both are smoke tested via ``dkms ldtarball`` / ``dkms status`` /
+``dkms remove`` on every distro cell. The full ``dkms install`` / ``dkms remove``
+cycle (``scripts/ci/test-dkms-cpu.sh``, ``scripts/ci/test-dkms-gpu.sh``) runs
+only in the local KVM harness. On tagged releases, the tarballs are uploaded to
+the GitHub Release page.
 
 
 Local CI Testing
@@ -347,7 +387,10 @@ is essential for iterating on kernel module changes before pushing to GitHub.
 
 Each local KVM runs the same Azure kernel family as the GitHub Actions
 runner, the same Docker container images, and the same ``scripts/ci/*.sh``
-test scripts. Results are directly comparable.
+test scripts. Results are directly comparable, with one difference: on
+load-test cells the local harness runs the full ``test-dkms-cpu.sh`` /
+``test-dkms-gpu.sh`` install/remove cycle after the module tests pass,
+where GitHub CI runs only the ``*-smoke.sh`` variants.
 
 See ``scripts/ci-local/AI_LOCAL_CI_TESTING.md`` for the complete local
 CI reference, including VM provisioning, virtiofs repo sync, and
@@ -374,8 +417,9 @@ The combined Phase 2 + Phase 3 coverage across all distributions:
      - 28
      - 24 DMA + 2 AXIS + 1 AxiVersion + 1 GPU readiness ioctls validated
    * - GPU ioctls
-     - 6
-     - All 6 GPU async ioctls including memory registration
+     - 7
+     - 7 of 9 GPU async ioctls including memory registration and bulk
+       write enable (``GPU_Enable_Tx`` / ``GPU_Enable_Rx`` not covered)
    * - File operations
      - 8
      - open, multi-open, select(read), select(write), mmap, read, ioctl,
@@ -404,9 +448,9 @@ The combined Phase 2 + Phase 3 coverage across all distributions:
      - BUFF_COHERENT (cfgMode=1), BUFF_STREAM (cfgMode=2)
    * - DKMS packaging
      - 2
-     - CPU build/install/remove, GPU build/install/remove (full
-       tarball cycle on every distro with matching kernel headers;
-       ``dkms ldtarball`` smoke fallback when headers can't be matched)
+     - CPU and GPU tarball smoke tests on every distro (``dkms ldtarball``,
+       ``dkms status``, ``dkms remove``); the full ``dkms install`` cycle
+       runs only in the local KVM harness
    * - GPU DMA loopback
      - 3
      - ``rdmaTestEmu --sweep`` payload sweep, 10000-frame soak at 64 KiB,
@@ -432,4 +476,4 @@ The combined Phase 2 + Phase 3 coverage across all distributions:
      - Trailing whitespace, tab detection, cpplint
 
 **Total: ~95 individual test checks across 5 distributions x 2 test phases = 10 CI cells,
-plus 5 pgpcard build/load cells in Phase 3b.**
+plus 5 pgpcard build/argument-parsing/load cells in Phase 3b.**

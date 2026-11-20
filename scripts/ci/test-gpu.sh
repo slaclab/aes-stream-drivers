@@ -4,8 +4,9 @@
 # -----------------------------------------------------------------------------
 # Description:
 #    Run GPU test suite. Executes only the tests that exercise the emulated
-#    GPU interface (gpu_ioctls, gpu_proc, gpu_dma_loopback) and the GPU-stack
-#    load/unload cycle that validates the nvidia_p2p_stub drain_cb dependency.
+#    GPU interface (stub_mmap, gpu_ioctls, gpu_proc, gpu_dma_loopback) and
+#    the GPU-stack load/unload cycle that validates the nvidia_p2p_stub
+#    drain_cb dependency.
 #    General DMA/ioctl/proc/load-unload coverage is handled by test-cpu.sh.
 # -----------------------------------------------------------------------------
 # This file is part of the aes_stream_drivers package. It is subject to the
@@ -43,6 +44,7 @@ fi
 # Configuration
 DEV="${DEV:-/dev/datadev_0}"
 APP_BIN="${APP_BIN:-data_dev/app/bin}"
+EMU_TESTS_BIN="${EMU_TESTS_BIN:-emulator/driver/tests}"
 TIMEOUT_SEC="${TIMEOUT_SEC:-15}"
 INSMOD_TIMEOUT_SEC="${INSMOD_TIMEOUT_SEC:-120}"
 TESTS_DIR="${TESTS_DIR:-tests}"
@@ -87,6 +89,10 @@ run_gpu_test() {
 # ============================================================================
 echo_step "Running GPU-specific tests"
 
+# stub_mmap runs first: it is the smallest check that /dev/nvidia_p2p_stub_mem
+# accepts STUB_RESERVE_BUF and mmap(), which every later GPU test depends on.
+# Built by build-gpu.sh via make -C emulator/driver/tests all.
+run_gpu_test "stub_mmap"        "$EMU_TESTS_BIN/stub_mmap_test"
 run_gpu_test "gpu_ioctls"       "$APP_BIN/dmaGpuIoctlTest" -p "$DEV"
 run_gpu_test "gpu_proc"         bash "$TESTS_DIR/test_gpu_proc.sh"
 run_gpu_test "gpu_dma_loopback" bash "$TESTS_DIR/test_gpu_dma_loopback.sh"

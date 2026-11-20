@@ -46,7 +46,7 @@ static char   args_doc[] = "promFile";
 static char   doc[]      = "\n   PromFile is the appropriate .mcs file for the card.";
 
 static struct argp_option options[] = {
-   { "path", 'p', "PATH", OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
+   { "path", 'p', "PATH", 0, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
    {0}
 };
 
@@ -94,7 +94,8 @@ int main(int argc, char **argv) {
    switch (info.type & 0xF) {
       case PGP_GEN3: gen3 = true; break;
       case PGP_GEN2:
-         if (info.promPrgEn) {
+         if (!info.promPrgEn) {
+            printf("PROM programming not supported by this card\n");
             ::close(fd);
             return(-1);
          }

@@ -461,7 +461,7 @@ int32_t PgpCardG3_Command(struct DmaDevice *dev, uint32_t cmd, uint64_t arg) {
 
          // Debug
          if (dev->debug > 0) dev_info(dev->device, "Set local data for %i to %i\n", tempLane, tempVal);
-         return(-1);
+         return(0);
          break;
 
       // Read card info
@@ -647,7 +647,7 @@ void PgpCardG3_SeqShow(struct seq_file *s, struct DmaDevice *dev) {
       seq_printf(s, "            runStatus : %i\n", evrStatus.runStatus);
       seq_printf(s, "           evrSeconds : %i\n", evrStatus.evrSeconds);
       seq_printf(s, "           runCounter : %i\n", evrStatus.runCounter);
-      seq_printf(s, "        acceptCounter : %i\n", evrStatus.runCounter);
+      seq_printf(s, "        acceptCounter : %i\n", evrStatus.acceptCounter);
    }
 }
 

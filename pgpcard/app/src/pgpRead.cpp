@@ -41,10 +41,10 @@ static char   args_doc[] = "";
 static char   doc[]      = "";
 
 static struct argp_option options[] = {
-   { "path",    'p', "PATH",   OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
-   { "lane",    'l', "MASK",   OPTION_ARG_OPTIONAL, "Mask of lanes for read. 1 bit per lane in hex. i.e. 0xFF.", 0},
-   { "prbsdis", 'd', 0,        OPTION_ARG_OPTIONAL, "Disable PRBS checking.", 0},
-   { "indexen", 'i', 0,        OPTION_ARG_OPTIONAL, "Use index based receive buffers.", 0},
+   { "path",    'p', "PATH",   0, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
+   { "lane",    'l', "MASK",   0, "Mask of lanes for read. 1 bit per lane in hex. i.e. 0xFF.", 0},
+   { "prbsdis", 'd', 0,        0, "Disable PRBS checking.", 0},
+   { "indexen", 'i', 0,        0, "Use index based receive buffers.", 0},
    {0}
 };
 
@@ -80,6 +80,9 @@ int main(int argc, char **argv) {
    uint32_t      dmaSize;
    uint32_t      dmaCount;
    uint32_t      dmaIndex;
+   uint32_t      mask;
+   uint32_t      lane;
+   uint32_t      vc;
 
    struct PgpInfo info;
    struct PrgArgs args;
@@ -95,7 +98,17 @@ int main(int argc, char **argv) {
    }
    pgpGetInfo(s, &info);
 
-   dmaSetMask(s, args.lane & info.laneMask);
+   // dmaSetMask takes one bit per destination (dest = lane*4 + vc),
+   // so expand the per-lane mask across every VC the card supports.
+   mask = 0;
+   for (lane = 0; lane < 8; lane++) {
+      if (args.lane & info.laneMask & (1u << lane)) {
+         for (vc = 0; vc < 4; vc++) {
+            if (info.vcPerMask & (1u << vc)) mask |= 1u << (lane*4 + vc);
+         }
+      }
+   }
+   dmaSetMask(s, mask);
 
    maxSize = 1024*1024*2;
 

@@ -8,7 +8,7 @@ repository runs the full suite across five Linux distributions on real
 kernel modules loaded against the emulator.
 
 All applications link against ``include/DmaDriver.h``, ``include/AxisDriver.h``,
-and the PRBS library (``data_dev/app/src/PrbsData.cpp``). They are built by
+and the PRBS library (``common/app_lib/PrbsData.cpp``). They are built by
 ``make -C data_dev/app`` and placed in ``data_dev/app/bin/``.
 
 
@@ -49,8 +49,8 @@ Used by CI in two modes: 30-second sustained throughput (Test 1) and
 dmaRate
 ^^^^^^^
 
-Multi-threaded DMA throughput benchmark. Measures raw transfer rate with
-configurable iteration count.
+Single-threaded bulk-read DMA throughput benchmark. Measures raw transfer
+rate with configurable iteration count.
 
 .. code-block:: text
 
@@ -208,8 +208,9 @@ steps in :doc:`/explanation/ci-pipeline` for the full load sequence.
 dmaGpuIoctlTest
 ^^^^^^^^^^^^^^^
 
-Exercises all six GPU ioctl commands defined in ``GpuAsync.h``, validating
-GPU async support detection, version queries, and buffer management.
+Exercises seven of the nine GPU ioctl commands defined in ``GpuAsync.h``
+(``GPU_Enable_Tx`` and ``GPU_Enable_Rx`` are not covered), validating GPU
+async support detection, version queries, and buffer management.
 
 .. code-block:: text
 
@@ -217,7 +218,8 @@ GPU async support detection, version queries, and buffer management.
 
 Tests: ``GPU_Is_Gpu_Async_Supp``, ``GPU_Get_Gpu_Async_Ver``,
 ``GPU_Get_Max_Buffers``, ``GPU_Add_Nvidia_Memory``,
-``GPU_Set_Write_Enable``, ``GPU_Rem_Nvidia_Memory``.
+``GPU_Set_Write_Enable``, ``GPU_Set_Write_Enable_Bulk``,
+``GPU_Rem_Nvidia_Memory``.
 
 rdmaTestEmu
 ^^^^^^^^^^^
@@ -290,7 +292,9 @@ by ``scripts/ci/test-cpu.sh`` or ``scripts/ci/test-gpu.sh`` during CI.
    * - ``test_concurrent_open.sh``
      - Two ``dmaLoopTest`` instances on different destinations simultaneously
    * - ``test_idx_loopback.sh``
-     - Index-based zero-copy loopback (``dmaLoopTest -i``)
+     - Index-based zero-copy loopback (``dmaLoopTest -i``), then ``dmaRead -i``
+       consuming more ``dmaWrite`` frames than ``cfgRxCount`` to check the bulk
+       index return path (no RX stall, no "Invalid index posted" in dmesg)
    * - ``test_frame_sizes.sh``
      - ``dmaLoopTest`` at 12 / 4096 / 32768 / 65536 bytes plus oversized
        (``cfgSize+1``) rejection assertion
@@ -300,7 +304,8 @@ by ``scripts/ci/test-cpu.sh`` or ``scripts/ci/test-gpu.sh`` during CI.
        axisSetFlags / axisGetFuser / axisGetLuser
    * - ``test_params.sh``
      - Module parameter validation: loads with custom cfgTxCount/cfgRxCount/cfgSize,
-       verifies ``/proc/datadev_0`` reflects the new values
+       verifies ``/proc/datadev_0`` reflects the new values, then load/unload
+       cycles with cfgTxCount=0 and cfgRxCount=0
    * - ``test_proc.sh``
      - Validates ``/proc/datadev_0`` fields: buffer count, buffer size,
        Desc128En, IRQ, API version, buffer mode
@@ -322,3 +327,23 @@ by ``scripts/ci/test-cpu.sh`` or ``scripts/ci/test-gpu.sh`` during CI.
        (enable-toggle + maxBuffers 4→2 mid-stream reduction)
    * - ``test_gpu_proc.sh``
      - GPU-specific ``/proc`` field validation
+
+A second, kernel-header-free harness lives in ``emulator/driver/tests/``
+and is driven by ``scripts/ci/build-cpu.sh`` and ``build-gpu.sh``:
+
+.. list-table::
+   :header-rows: 1
+   :widths: 28 72
+
+   * - Binary
+     - Coverage
+   * - ``prbs_cross_validate``
+     - Compiles ``emulator/driver/src/prbs.c`` against the
+       ``kernel_shim/`` headers and links it with ``PrbsData.cpp``; runs
+       a 1M-iteration LFSR equivalence loop plus a byte-for-byte frame
+       layout comparison. ``make -C emulator/driver/tests test`` exits
+       non-zero on any divergence and fails the build step
+   * - ``stub_mmap_test``
+     - ``/dev/nvidia_p2p_stub_mem`` reserve + ``mmap()`` + pattern
+       readback smoke test; run by ``scripts/ci/test-gpu.sh`` once the
+       GPU stack is loaded

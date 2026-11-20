@@ -248,7 +248,8 @@ bool PciCardProm::bufferedWriteBootProm() {
    if (bufSize != 0) {
       // Pad the end of the block with ones
       for (i = bufSize; i < 256; i++){
-         bufData[bufSize] = 0xFFFF;
+         bufAddr[i] = address + (i - bufSize);
+         bufData[i] = 0xFFFF;
       }
       // Send the last block program
       bufferedProgramCommand(bufAddr, bufData, 256);
@@ -277,7 +278,7 @@ bool PciCardProm::verifyBootProm() {
    if (!mcsReader.open(_filePath)) {
       mcsReader.close();
       cout << "mcsReader.close() = file path error" << endl;
-      return(1);
+      return false;
    }
 
    // reset the flags

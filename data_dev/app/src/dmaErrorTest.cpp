@@ -3,11 +3,12 @@
  * Company    : SLAC National Accelerator Laboratory
  *-----------------------------------------------------------------------------
  * Description:
- *    Error-path sanity test for the datadev driver. Exercises three failure
+ *    Error-path sanity test for the datadev driver. Exercises four failure
  *    modes that must be handled gracefully without a kernel panic:
  *      1. Buffer exhaustion via dmaGetIndex until no TX buffers remain
  *      2. Oversized write exceeding cfgSize
  *      3. Returning an invalid buffer index via DMA_Ret_Index
+ *      4. Write to a destination one past the end of the destination mask
  *    Exits 0 if every case behaves as expected, 1 otherwise.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
@@ -55,7 +56,7 @@ struct PrgArgs {
 static struct PrgArgs DefArgs = { DEFAULT_AXI_DEVICE };
 
 static char args_doc[] = "";
-static char doc[]      = "Exercise datadev error paths: buffer exhaustion, oversized write, invalid buffer index.";
+static char doc[]      = "Exercise datadev error paths: buffer exhaustion, oversized write, invalid buffer index, out-of-range destination.";
 
 static struct argp_option options[] = {
    { "path", 'p', "PATH", 0, "Path of datadev device to use. Default=" DEFAULT_AXI_DEVICE ".", 0 },
@@ -216,6 +217,29 @@ int main(int argc, char **argv) {
          passed++;
       } else {
          printf("FAIL: invalid index %u returned 0 (expected non-zero)\n", bad_idx);
+         errors++;
+      }
+   }
+
+   // -------------------------------------------------------------------------
+   // Test 4 -- Out-of-range destination
+   //   The destination mask holds 8 * DMA_MASK_SIZE bits, so the last valid
+   //   destination is 8 * DMA_MASK_SIZE - 1. A write to exactly
+   //   8 * DMA_MASK_SIZE must be rejected by the bound check in Dma_Write;
+   //   if the check lets it through, the mask lookup indexes one byte past
+   //   the end of the destination mask array.
+   // -------------------------------------------------------------------------
+   {
+      uint8_t  payload[16];
+      uint32_t badDest = 8 * DMA_MASK_SIZE;
+
+      memset(payload, 0, sizeof(payload));
+      ssize_t ret = dmaWrite(fd, payload, sizeof(payload), 0, badDest);
+      if (ret < 0) {
+         printf("PASS: write to dest %u rejected (ret=%zd errno=%d)\n", badDest, ret, errno);
+         passed++;
+      } else {
+         printf("FAIL: write to dest %u returned %zd (expected < 0)\n", badDest, ret);
          errors++;
       }
    }

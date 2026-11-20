@@ -35,14 +35,14 @@ struct PrgArgs {
    uint32_t     data;
 };
 
-static struct PrgArgs DefArgs = { "/dev/pgpcard_0", 0x0, 0x00 };
+static struct PrgArgs DefArgs = { "/dev/pgpcard_0", 0xFF, 0x00 };
 
 static char   args_doc[] = "data";
 static char   doc[]      = "\n   data is passed as a hex value. i.e. 0xAB.";
 
 static struct argp_option options[] = {
-   { "path", 'p', "PATH", OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
-   { "lane", 'l', "MASK", OPTION_ARG_OPTIONAL, "Mask of lanes to set. 1 bit per lane in hex. i.e. 0xFF.", 0},
+   { "path", 'p', "PATH", 0, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
+   { "lane", 'l', "MASK", 0, "Mask of lanes to set. 1 bit per lane in hex. i.e. 0xFF.", 0},
    {0}
 };
 
@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
    pgpGetInfo(s, &info);
 
    for (x = 0; x < 8; x++) {
-      if (((1 << x) & info.laneMask) != 0) {
+      if (((1 << x) & info.laneMask & args.lane) != 0) {
          printf("Setting lane %i data to 0x%.2x\n", x, args.data);
          pgpSetData(s, x, args.data);
       }

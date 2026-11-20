@@ -48,12 +48,12 @@ static char   args_doc[] = "";
 static char   doc[]      = "";
 
 static struct argp_option options[] = {
-   { "path",    'p', "PATH",   OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
-   { "vcmask",  'v', "MASK",   OPTION_ARG_OPTIONAL, "Mask of vcs for test. 1 bit per vc in hex. i.e. 0xFF.", 0},
-   { "prbsdis", 'd', 0,        OPTION_ARG_OPTIONAL, "Disable PRBS checking.", 0},
-   { "size",    's', "SIZE",   OPTION_ARG_OPTIONAL, "Size for transmitted frames.", 0},
-   { "indexen", 'i', 0,        OPTION_ARG_OPTIONAL, "Use index based receive buffers.", 0},
-   { "time",    't', "TIME",   OPTION_ARG_OPTIONAL, "Pause time between writes in uSec. Default=0", 0},
+   { "path",    'p', "PATH",   0, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
+   { "vcmask",  'v', "MASK",   0, "Mask of vcs for test. 1 bit per vc in hex. i.e. 0xFF.", 0},
+   { "prbsdis", 'd', 0,        0, "Disable PRBS checking.", 0},
+   { "size",    's', "SIZE",   0, "Size for transmitted frames.", 0},
+   { "indexen", 'i', 0,        0, "Use index based receive buffers.", 0},
+   { "time",    't', "TIME",   0, "Pause time between writes in uSec. Default=0", 0},
    {0}
 };
 
@@ -245,6 +245,11 @@ void *runRead(void *t) {
    usleep(100*(lane*4+vc));
    if (dmaSetMask(fd, mask) != 0) {
       printf("Error setting mask. lane=%i, vc=%i, mask=0x%.8lx\n", lane, vc, mask);
+      if (rxData->idxEn)
+         dmaUnMapDma(fd, dmaBuffers);
+      else
+         free(data);
+      rxData->running = false;
       close(fd);
       return NULL;
    }

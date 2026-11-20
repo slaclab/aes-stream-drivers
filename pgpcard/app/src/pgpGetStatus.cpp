@@ -35,7 +35,7 @@ struct PrgArgs {
 static struct PrgArgs DefArgs = { "/dev/pgpcard_0" };
 
 static struct argp_option options[] = {
-   { "path", 'p', "PATH", OPTION_ARG_OPTIONAL, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
+   { "path", 'p', "PATH", 0, "Path of pgpcard device to use. Default=/dev/pgpcard_0.", 0},
    {0}
 };
 

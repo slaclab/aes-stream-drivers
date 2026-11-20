@@ -31,6 +31,9 @@ NC='\033[0m'
 echo_step() { echo -e "${GREEN}==>${NC} $1"; }
 echo_fail() { echo -e "${RED}FAIL:${NC} $1"; }
 
+# shellcheck source=scripts/ci/type-limits-gate.sh
+source "$(dirname "${BASH_SOURCE[0]}")/type-limits-gate.sh"
+
 # Determine kernel version to build against. install-deps.sh writes this to
 # $GITHUB_ENV and /tmp/ci_kver; fall back to uname -r for local runs.
 if [ -z "${CI_KVER:-}" ] && [ -f /tmp/ci_kver ]; then
@@ -62,6 +65,9 @@ echo_step "Building emulator module"
 make -C emulator/driver clean
 make -C emulator/driver
 
+echo_step "Checking datadev driver (GPU) for -Wtype-limits warnings"
+type_limits_gate data_dev/driver NVIDIA_DRIVERS=$(pwd)/emulator/gpu_stub GITV="$GITV"
+
 echo_step "Building datadev driver with GPU support"
 make -C data_dev/driver clean
 make -C data_dev/driver NVIDIA_DRIVERS=$(pwd)/emulator/gpu_stub GITV="$GITV"
@@ -69,6 +75,15 @@ make -C data_dev/driver NVIDIA_DRIVERS=$(pwd)/emulator/gpu_stub GITV="$GITV"
 echo_step "Building test applications"
 make -C data_dev/app clean
 make -C data_dev/app
+
+# Userspace cross-validation of emulator/driver/src/prbs.c against
+# common/app_lib/PrbsData.cpp (see build-cpu.sh). The same Makefile also
+# produces stub_mmap_test, the /dev/nvidia_p2p_stub_mem reserve+mmap smoke
+# harness that test-gpu.sh runs once the GPU stack is loaded.
+echo_step "Cross-validating emulator PRBS against PrbsData"
+make -C emulator/driver/tests clean
+make -C emulator/driver/tests all
+make -C emulator/driver/tests test
 
 echo_step "Verifying build artifacts (including GPU)"
 test -f emulator/driver/datadev_emulator.ko || {
@@ -113,6 +128,16 @@ test -f data_dev/app/bin/dmaErrorTest || {
 
 test -f data_dev/app/bin/dmaGpuIoctlTest || {
    echo_fail "data_dev/app/bin/dmaGpuIoctlTest not found"
+   exit 1
+}
+
+test -f emulator/driver/tests/prbs_cross_validate || {
+   echo_fail "emulator/driver/tests/prbs_cross_validate not found"
+   exit 1
+}
+
+test -f emulator/driver/tests/stub_mmap_test || {
+   echo_fail "emulator/driver/tests/stub_mmap_test not found"
    exit 1
 }
 
