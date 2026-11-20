@@ -131,8 +131,33 @@ else
    FAILED=$((FAILED + 1))
 fi
 
+# Oversized dmaWrite with a finite count: the write error must terminate the
+# loop with a non-zero exit status instead of retrying until the timeout
+# fires (rc=124).
+echo "  Testing oversized dmaWrite -c 1 ($OVERSIZE > cfgSize=$CFG_SIZE)..."
+WR_OUT=$(mktemp)
+trap 'rm -f "$OVER_OUT" "$WR_OUT"' EXIT
+timeout "$DURATION" "$APP_BIN/dmaWrite" -p "$DEV" -s "$OVERSIZE" -c 1 0 > "$WR_OUT" 2>&1
+WR_RC=$?
+
+if [ "$WR_RC" -eq 124 ]; then
+   echo "FAIL: oversized dmaWrite did not terminate on write error (timed out)"
+   dump_log "$WR_OUT"
+   FAILED=$((FAILED + 1))
+elif [ "$WR_RC" -eq 0 ]; then
+   echo "FAIL: oversized dmaWrite exited 0 (write error not reported)"
+   dump_log "$WR_OUT"
+   FAILED=$((FAILED + 1))
+elif ! grep -q "Write error" "$WR_OUT"; then
+   echo "FAIL: oversized dmaWrite exited $WR_RC without a Write error message"
+   dump_log "$WR_OUT"
+   FAILED=$((FAILED + 1))
+else
+   echo "  Oversized dmaWrite correctly exited $WR_RC on write error"
+fi
+
 if [ "$FAILED" -eq 0 ]; then
-   echo "PASS: frame_sizes -- valid sizes:$PASSED_SIZES; oversized rejected"
+   echo "PASS: frame_sizes -- valid sizes:$PASSED_SIZES; oversized rejected (dmaLoopTest and dmaWrite)"
    exit 0
 else
    echo "FAIL: frame_sizes -- $FAILED case(s) failed"
