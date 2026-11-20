@@ -20,7 +20,7 @@
 #include "dma_buffer.h"
 
 struct RceHpReg {
-   uint32_t spare[100];      // skip  0x0 - 0x3FF
+   uint32_t spare[256];      // skip  0x0 - 0x3FF
    uint32_t enable;          // 0x00400
    uint32_t bufferClear;     // 0x00404
    uint32_t bufferSize;      // 0x00408
