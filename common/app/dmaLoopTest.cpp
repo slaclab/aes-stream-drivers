@@ -446,7 +446,7 @@ int main(int argc, char **argv) {
       totTx = 0;
       totTxRate = 0;
       for (x=0; x < dCount; x++) {
-         double rate = ((double)(txData[x]->count-lastTx[x]) * 8.0 * (double)args.size) / (double)(c_tme-l_tme);
+         double rate = ((double)(txData[x]->count-lastTx[x]) * (double)txData[x]->size) / (double)(c_tme-l_tme);
          printf(" %15e (%.2f MB/s)", rate, rate / 1000000);
          lastTx[x] = txData[x]->count;
          totTx    += txData[x]->count;
@@ -472,7 +472,7 @@ int main(int argc, char **argv) {
       totRx     = 0;
       totPrb    = 0;
       for (x=0; x < dCount; x++) {
-         rxRate = ((double)(rxData[x]->count-lastRx[x]) * 8.0 * (double)args.size) / (double)(c_tme-l_tme);
+         rxRate = ((double)(rxData[x]->count-lastRx[x]) * (double)rxData[x]->size) / (double)(c_tme-l_tme);
          printf(" %15e (%.2f MB/s)", rxRate, rxRate / 1000000);
          totRxFreq += (rxData[x]->count-lastRx[x]);
          lastRx[x] = rxData[x]->count;
