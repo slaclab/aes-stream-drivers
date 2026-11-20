@@ -184,7 +184,12 @@ run_test_with_retry() {
    echo "--- RUN: $name ---"
    local attempt rc=0
    for attempt in 1 2; do
-      if "$@"; then
+      # Capture the exit status directly: $? after an "if cmd; then ... fi"
+      # whose condition was false is always 0, which hid the real exit code
+      # (e.g. 124 for a timeout) from the RETRY/FAIL messages.
+      "$@"
+      rc=$?
+      if [ "$rc" -eq 0 ]; then
          if [ "$attempt" -gt 1 ]; then
             echo "[RETRY-PASS] $name (passed on attempt $attempt)"
          fi
@@ -193,7 +198,6 @@ run_test_with_retry() {
          echo
          return
       fi
-      rc=$?
       if [ "$attempt" -lt 2 ]; then
          # Tier-2 reset: nuke and reload the modules so the retry starts
          # against pristine kernel state. drain_stale_frames alone cannot
