@@ -171,7 +171,7 @@ void emu_bar0_init_regs(struct emu_bar0 *bar, u32 max_buffers)
 
    /* --- AXIS Gen2 registers (at base + EMU_AGEN2_OFF) --- */
 
-   /* enableVer (0x0000): version 3, 128-bit desc, enable bits */
+   /* enableVer (0x0000): version 4, 128-bit desc, enable bits */
    iowrite32(EMU_REG_ENABLEVER_INIT, base + EMU_AGEN2_OFF + 0x0000);
 
    /* maxSize (0x0028): 128KB max transfer */
