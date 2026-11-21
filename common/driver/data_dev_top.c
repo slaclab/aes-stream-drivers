@@ -132,6 +132,12 @@ int32_t DataDev_Init(void) {
    gCl = NULL;
    gDmaDevCount = 0;
 
+   /* Validate buffer mode configuration */
+   if ( cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM ) {
+      pr_err("%s: Init: Invalid buffer mode = %i.\n", MOD_NAME, cfgMode);
+      return -EINVAL;
+   }
+
    /* Register PCI driver */
    ret = pci_register_driver(&DataDevDriver);
    if (probeReturn != 0) {
@@ -242,12 +248,6 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    uint32_t axiWidth;
    int ret;
    uint32_t axiGen2Offset, phyOffset, axiSysMonOffset;
-
-   // Validate buffer mode configuration
-   if ( cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM ) {
-      pr_err("%s: Probe: Invalid buffer mode = %i.\n", MOD_NAME, cfgMode);
-      return -EINVAL;  // Return directly with an error code
-   }
 
    // Initialize hardware function pointers
    hfunc = &(DataDev_functions);

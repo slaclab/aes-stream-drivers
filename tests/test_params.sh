@@ -22,6 +22,9 @@
 # cfgRxCount=0. A zero count leaves the DmaBufferList indexed array NULL,
 # and dmaFreeBuffers() must tolerate that on rmmod.
 #
+# Also attempts a load with an unsupported cfgMode, which must fail the
+# insmod and leave no module loaded.
+#
 # Finally reloads with cfgSize=262144 and loops a 200000-byte frame. The
 # emulator must bound TX frames by the maxSize register the driver wrote
 # (cfgSize), not its 128 KiB reset constant, or the frame is dropped with
@@ -193,6 +196,31 @@ zero_count_cycle() {
 
 zero_count_cycle 0 "$CUSTOM_RX"
 zero_count_cycle "$CUSTOM_TX" 0
+
+# --- Invalid cfgMode must fail the module load ---
+# cfgMode=4 (BUFF_ARM_ACP) is not supported on PCIe.
+echo "Invalid cfgMode cycle: cfgMode=4 (expect insmod failure)"
+$SUDO rmmod datadev 2>/dev/null || true
+for _ in $(seq 1 15); do
+   [ ! -e /sys/module/datadev ] && break
+   sleep 0.5
+done
+
+if timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod "$DATADEV_KO" cfgMode=4 2>/dev/null; then
+   echo "FAIL: insmod with cfgMode=4 unexpectedly succeeded"
+   ERRORS=$((ERRORS + 1))
+   $SUDO rmmod datadev 2>/dev/null || true
+else
+   echo "PASS: insmod with cfgMode=4 rejected"
+fi
+
+if grep -q '^datadev ' /proc/modules; then
+   echo "FAIL: datadev still listed in /proc/modules after rejected cfgMode=4 load"
+   ERRORS=$((ERRORS + 1))
+   $SUDO rmmod datadev 2>/dev/null || true
+else
+   echo "PASS: datadev not loaded after rejected cfgMode=4 load"
+fi
 
 # --- Large-frame loopback above the emulator's 128 KiB reset maxSize ---
 # AxisG2_Init writes cfgSize into the maxSize register (offset 0x0028). The
