@@ -23,10 +23,10 @@ struct FpgaProm_Reg {
    uint32_t promTest;
 };
 
-// Prom Read
+// Prom Write
 int32_t FpgaProm_Write(struct DmaDevice *dev, void * base, uint64_t arg);
 
-// Prom write
+// Prom Read
 int32_t FpgaProm_Read(struct DmaDevice *dev, void * base, uint64_t arg);
 
 #endif
