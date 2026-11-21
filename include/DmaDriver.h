@@ -139,7 +139,7 @@
  * information about the data to be written, the destination, and various
  * control flags.
  *
- * @param data Physical address of the data to be written.
+ * @param data User-space virtual address of the data to be written (0 selects index mode).
  * @param dest Destination address within the device.
  * @param flags Flags to control the write operation.
  * @param index Index of the buffer to be used for the write operation.
@@ -165,7 +165,7 @@ struct DmaWriteData {
  * information about where to store the read data, the source of the data,
  * and various control flags.
  *
- * @param data Physical address where the read data will be stored.
+ * @param data User-space virtual address where the read data will be stored (0 selects index mode).
  * @param dest Source address within the device.
  * @param flags Flags to control the read operation.
  * @param index Index of the buffer to be used for the read operation.
