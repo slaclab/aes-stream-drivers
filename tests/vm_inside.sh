@@ -183,6 +183,14 @@ if printf '%s\n' "$DELTA" | grep -iE 'WARNING:'; then
    echo "FAIL: Kernel warnings detected in driver-induced dmesg delta"
    record_rc 1
 fi
+# Emulator BAR0 fallback gate: mirrors scripts/ci/check-dmesg.sh. The
+# emulator starts at min(EMU_BAR0_ORDER, MAX_PAGE_ORDER), so this warning
+# only appears on a genuine fragmentation fallback or a regression in the
+# starting order.
+if printf '%s\n' "$DELTA" | grep -F 'emu: BAR0 reduced to'; then
+   echo "FAIL: Emulator BAR0 fell back to a reduced order"
+   record_rc 1
+fi
 
 if [ "$EXIT_CODE" -eq 0 ]; then
    echo "=== VM: ALL PASS ==="

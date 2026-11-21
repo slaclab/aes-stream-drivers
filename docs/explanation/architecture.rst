@@ -97,17 +97,19 @@ For the data_dev PCIe driver, BAR0 maps the following regions:
 
 .. code-block:: c
 
-   /* data_dev_top.h */
-   #define AGEN2_OFF   0x00000000   /* DMAv2 Engine (64 kB) */
-   #define PHY_OFF     0x00010000   /* PCIe PHY (64 kB) */
-   #define AVER_OFF    0x00020000   /* AxiVersion (64 kB) */
-   #define PROM_OFF    0x00030000   /* PROM (320 kB) */
-   #define USER_OFF    0x00800000   /* User Space (8 MB) */
+   /* axi_pcie_regmap.c (register map version 0) */
+   #define AGEN2_OFF_V0   0x00000000   /* DMAv2 Engine (64 kB) */
+   #define PHY_OFF_V0     0x00010000   /* PCIe PHY (64 kB) */
+   #define AVER_OFF_V0    0x00020000   /* AxiVersion (64 kB) */
+   #define PROM_OFF_V0    0x00030000   /* PROM (320 kB) */
+   #define USER_OFF_V0    0x00800000   /* User Space (8 MB) */
 
-The DMAv2 engine at offset 0 is the AxisG2 IP core. The AxiVersion block at ``AVER_OFF``
+The DMAv2 engine at offset 0 is the AxisG2 IP core. The AxiVersion block at ``AVER_OFF_V0``
 (0x20000) provides firmware version and build information readable via ``/proc/datadev_N``.
-The user space region at ``USER_OFF`` (0x800000) is application firmware; its layout is
-design-specific and not interpreted by the driver.
+The user space region at ``USER_OFF_V0`` (0x800000) is application firmware; its layout is
+design-specific and not interpreted by the driver. These offsets are resolved at probe time
+through ``AxiRegMap_GetOffset()``; ``data_dev_top.h`` keeps only ``AVER_OFF`` and ``USER_OFF``
+(plus their sizes), which are needed before the register map version is known.
 
 PCI Device Identification
 -------------------------

@@ -6,7 +6,8 @@
  *    BAR0 memory allocation, register initialization, and cleanup for the
  *    virtual PCI device emulator.
  *
- *    Allocates 16MB of physically contiguous memory, marks it uncacheable
+ *    Allocates the largest physically contiguous block the buddy allocator
+ *    can provide (MAX_PAGE_ORDER, 4MB on x86-64), marks it uncacheable
  *    for ioremap coherency, and pre-populates AXIS Gen2 and AxiVersion
  *    registers so the real datadev driver can probe successfully.
  * ----------------------------------------------------------------------------
@@ -36,6 +37,14 @@
 #define IORESOURCE_SYSRAM  0x02000000
 #endif
 
+/* MAX_PAGE_ORDER: introduced in Linux 6.8 (commit 5e0a760b4441). On older
+ * kernels the equivalent value is (MAX_ORDER - 1) because pre-6.8 MAX_ORDER
+ * was "one past the max" while MAX_PAGE_ORDER is the inclusive maximum.
+ * Same shim as emulator/gpu_stub/src/emu_gpu_addr_table.c. */
+#ifndef MAX_PAGE_ORDER
+#define MAX_PAGE_ORDER (MAX_ORDER - 1)
+#endif
+
 /**
  * emu_bar0_alloc - Allocate physically contiguous BAR0 memory
  * @bar: Pointer to emu_bar0 structure to fill in
@@ -51,22 +60,30 @@
 int emu_bar0_alloc(struct emu_bar0 *bar)
 {
    struct page *pages = NULL;
-   unsigned int order;
+   unsigned int order, max_order;
    unsigned long nr_pages, i;
 
-   /* Request the full 16MB first.  On runners whose memory is fragmented
-    * (common for long-running VMs), order-12 contiguous allocations can
-    * fail with -ENOMEM even when total free memory is ample.  Fall back
-    * to progressively smaller orders down to EMU_BAR0_MIN_ORDER, which
-    * still covers every register region the driver touches at probe and
-    * during normal operation.  Use __GFP_NORETRY | __GFP_NOWARN so the
-    * kernel does not log intimidating allocation warnings when a larger
-    * order fails and we retry at a smaller one.
+   /* Request the largest order the buddy allocator can satisfy.  The
+    * nominal EMU_BAR0_ORDER (16MB) exceeds MAX_PAGE_ORDER (order 10, 4MB
+    * on x86-64), and alloc_pages() unconditionally returns NULL above
+    * MAX_PAGE_ORDER, so starting the loop at EMU_BAR0_ORDER would just
+    * burn two guaranteed failures and then misreport the 4MB result as a
+    * fragmentation fallback.  Clamp the starting order instead.
+    *
+    * On runners whose memory is fragmented (common for long-running VMs),
+    * even the order-10 allocation can fail with -ENOMEM when total free
+    * memory is ample.  Fall back to progressively smaller orders down to
+    * EMU_BAR0_MIN_ORDER, which still covers every register region the
+    * driver touches at probe and during normal operation.  Use
+    * __GFP_NORETRY | __GFP_NOWARN so the kernel does not log intimidating
+    * allocation warnings when a larger order fails and we retry at a
+    * smaller one.
     *
     * Do NOT request __GFP_COMP: we need to set PageReserved on every
     * page individually (see below), and SetPageReserved's page-flag
     * policy is PF_NO_COMPOUND. */
-   for (order = EMU_BAR0_ORDER; order >= EMU_BAR0_MIN_ORDER; order--) {
+   max_order = min_t(unsigned int, EMU_BAR0_ORDER, MAX_PAGE_ORDER);
+   for (order = max_order; order >= EMU_BAR0_MIN_ORDER; order--) {
       pages = alloc_pages(GFP_KERNEL | __GFP_ZERO |
                           __GFP_NORETRY | __GFP_NOWARN, order);
       if (pages)
@@ -89,9 +106,12 @@ int emu_bar0_alloc(struct emu_bar0 *bar)
     * above the order that the buddy allocator actually returned. */
    BUG_ON(bar->size < EMU_BAR0_MIN_SIZE);
 
-   if (order < EMU_BAR0_ORDER) {
-      pr_warn("emu: BAR0 reduced to %luKB (requested %uKB) due to memory fragmentation\n",
-              bar->size / 1024, EMU_BAR0_SIZE / 1024);
+   /* Only a genuine fallback below the clamped starting order is a
+    * fragmentation event.  scripts/ci/check-dmesg.sh fails the dmesg gate
+    * if this message appears after a clean emulator load. */
+   if (order < max_order) {
+      pr_warn("emu: BAR0 reduced to %luKB (requested %luKB) due to memory fragmentation\n",
+              bar->size / 1024, ((unsigned long)PAGE_SIZE << max_order) / 1024);
    }
 
    /* Mark every page PageReserved so __ioremap_check_ram (called by the

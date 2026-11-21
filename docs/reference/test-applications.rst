@@ -165,7 +165,8 @@ dmaErrorTest
 ^^^^^^^^^^^^
 
 Validates driver behavior under error conditions: buffer pool exhaustion,
-oversized write rejection, and invalid buffer index handling.
+oversized write rejection, invalid buffer index handling, and out-of-range
+destination rejection.
 
 .. code-block:: text
 
@@ -177,9 +178,11 @@ Tests:
    returns -1 when the pool is empty and ``DMA_Get_TxBuffinUser_Count``
    matches the held count.
 2. **Oversized write**: attempts a write larger than ``cfgSize``, expects
-   rejection (``errno = EINVAL``).
+   rejection.
 3. **Invalid index**: returns an out-of-range buffer index, expects
    rejection.
+4. **Out-of-range destination**: writes to dest 4096 (one past the
+   destination mask), expects rejection.
 
 dmaSmallFrameTest
 ^^^^^^^^^^^^^^^^^
@@ -225,7 +228,7 @@ rdmaTestEmu
 ^^^^^^^^^^^
 
 End-to-end GPUDirect RDMA loopback test using the emulator. A CUDA-free
-C++17 port that allocates GPU-like memory via ``nvidia_p2p_stub``, registers
+C++11 port that allocates GPU-like memory via ``nvidia_p2p_stub``, registers
 it with the driver, and performs DMA loopback transfers through the
 emulator's GPU async V4 engine.
 
@@ -260,8 +263,12 @@ Shell-Based Test Harness
 ------------------------
 
 The ``tests/`` directory contains shell scripts that compose the C++
-applications into higher-level integration tests. Each script is invoked
-by ``scripts/ci/test-cpu.sh`` or ``scripts/ci/test-gpu.sh`` during CI.
+applications into higher-level integration tests. Most scripts are invoked
+during CI, either directly by ``scripts/ci/test-cpu.sh`` /
+``scripts/ci/test-gpu.sh`` or through the ``run_tests.sh`` master runner.
+Three scripts have no CI caller and are manual-only: ``test_dma_rate.sh``,
+``test_gpu_ioctls.sh`` (CI runs the ``dmaGpuIoctlTest`` binary directly
+instead) and ``test_reload_segfault.sh``.
 
 .. list-table::
    :header-rows: 1
@@ -343,6 +350,11 @@ and is driven by ``scripts/ci/build-cpu.sh`` and ``build-gpu.sh``:
        a 1M-iteration LFSR equivalence loop plus a byte-for-byte frame
        layout comparison. ``make -C emulator/driver/tests test`` exits
        non-zero on any divergence and fails the build step
+   * - ``pgp_setmask_test``
+     - Compiles ``pgpcard/include/PgpDriver.h`` as a userspace TU with
+       ``ioctl()`` redirected to a recording shim and checks the mask value
+       ``pgpSetMask()`` passes to ``dmaSetMask()`` for every (lane, VC);
+       run by ``make -C emulator/driver/tests test``
    * - ``stub_mmap_test``
      - ``/dev/nvidia_p2p_stub_mem`` reserve + ``mmap()`` + pattern
        readback smoke test; run by ``scripts/ci/test-gpu.sh`` once the

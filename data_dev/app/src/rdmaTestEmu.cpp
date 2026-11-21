@@ -5,7 +5,7 @@
  * Description:
  *    RDMA loopback test against the FPGA-less emulator.
  *
- *    A CUDA-free C++17 port of rdmaTest.cu::runSimpleLoop with three
+ *    A CUDA-free C++11 port of rdmaTest.cu::runSimpleLoop with three
  *    cross-language substitutions:
  *       cudaMalloc                -> gpuEmuAllocBuf (stub miscdevice + mmap)
  *       cudaMemcpyAsync           -> std::memcpy

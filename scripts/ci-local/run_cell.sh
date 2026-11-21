@@ -259,7 +259,7 @@ elif [ "$PHASE" = "gpu" ]; then
              bash scripts/ci/build-gpu.sh && \
              { bash scripts/ci/load-modules-gpu.sh && bash scripts/ci/test-gpu.sh; rc=$?; \
                bash scripts/ci/unload-modules-gpu.sh; \
-               [ $rc -eq 0 ] && bash scripts/ci/test-dkms-gpu.sh; \
+               if [ $rc -eq 0 ]; then bash scripts/ci/test-dkms-gpu.sh; rc=$?; fi; \
                exit $rc; } ; rc=$? ; \
              bash scripts/ci/check-dmesg.sh ; \
              exit $rc'
@@ -275,7 +275,7 @@ else
              bash scripts/ci/build-cpu.sh && \
              { bash scripts/ci/load-modules-cpu.sh && bash scripts/ci/test-cpu.sh; rc=$?; \
                bash scripts/ci/unload-modules-cpu.sh; \
-               [ $rc -eq 0 ] && bash scripts/ci/test-dkms-cpu.sh; \
+               if [ $rc -eq 0 ]; then bash scripts/ci/test-dkms-cpu.sh; rc=$?; fi; \
                exit $rc; } ; rc=$? ; \
              bash scripts/ci/check-dmesg.sh ; \
              exit $rc'

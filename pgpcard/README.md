@@ -127,7 +127,7 @@ is the one we most need to see.
 ## 0. Build
 
 ```bash
-git clone -b pgpcard-Rocky9 https://github.com/slaclab/aes-stream-drivers.git
+git clone https://github.com/slaclab/aes-stream-drivers.git
 cd aes-stream-drivers
 make -C pgpcard/driver
 make -C pgpcard/app
@@ -207,7 +207,7 @@ fine, just tell us which you see.
 ## 4. Read status through the application
 
 ```bash
-sudo pgpcard/app/bin/pgpGetStatus /dev/pgpcard_0
+sudo pgpcard/app/bin/pgpGetStatus -p /dev/pgpcard_0
 ```
 
 Expected: serial number, firmware version, lane count and per-lane link state,

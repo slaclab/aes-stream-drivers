@@ -48,7 +48,7 @@ Optionally, load the module automatically at boot:
 
 .. code-block:: bash
 
-   echo 'KERNEL_MODULE_AUTOLOAD += "axistreamdma"' >> $proj_dir/conf/layer.conf
+   echo 'KERNEL_MODULE_AUTOLOAD += "axi_stream_dma"' >> $proj_dir/conf/layer.conf
 
 Step 4: Set Buffer Parameters
 -----------------------------

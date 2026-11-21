@@ -35,7 +35,8 @@ PASSED_SIZES=""
 # (kernel returns ret=-1 when the user buffer is smaller than the frame, and
 # runRead breaks out on the resulting "Read Error" -- see data_dev/app/src/
 # dmaLoopTest.cpp), so we use cfgSize as the drain size in every sub-test.
-CFG_SIZE=$(cat /sys/module/datadev/parameters/cfgSize 2>/dev/null || echo 65536)
+CFG_SIZE=$(awk -F: '/Buffer Size/ {gsub(/[^0-9]/,"",$2); print $2; exit}' "/proc/$(basename "$DEV")" 2>/dev/null)
+CFG_SIZE="${CFG_SIZE:-65536}"
 
 echo "=== Frame-size sweep test ==="
 echo "DEV=$DEV cfgSize=$CFG_SIZE"
