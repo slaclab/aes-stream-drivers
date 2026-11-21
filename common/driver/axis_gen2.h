@@ -64,7 +64,8 @@
  * @spareC: Spare registers C (0x0074 - 0x007C).
  * @forceInt: Force interrupt register (0x0080).
  * @irqHoldOff: IRQ hold-off time register (0x0084).
- * @spareD: Spare registers D (0x0088 - 0x008C).
+ * @timeout: DMA write timeout register (0x0088).
+ * @spareD: Spare register D (0x008C).
  * @bgThold: Background threshold registers (0x0090 - 0x00AC).
  * @bgCount: Background count registers (0x00B0 - 0x00CC).
  * @spareE: Spare registers E (0x00D0 - 0x3FFC).
