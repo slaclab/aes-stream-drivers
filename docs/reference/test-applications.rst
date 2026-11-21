@@ -165,7 +165,8 @@ dmaErrorTest
 ^^^^^^^^^^^^
 
 Validates driver behavior under error conditions: buffer pool exhaustion,
-oversized write rejection, and invalid buffer index handling.
+oversized write rejection, invalid buffer index handling, and out-of-range
+destination rejection.
 
 .. code-block:: text
 
@@ -177,9 +178,11 @@ Tests:
    returns -1 when the pool is empty and ``DMA_Get_TxBuffinUser_Count``
    matches the held count.
 2. **Oversized write**: attempts a write larger than ``cfgSize``, expects
-   rejection (``errno = EINVAL``).
+   rejection.
 3. **Invalid index**: returns an out-of-range buffer index, expects
    rejection.
+4. **Out-of-range destination**: writes to dest 4096 (one past the
+   destination mask), expects rejection.
 
 dmaSmallFrameTest
 ^^^^^^^^^^^^^^^^^
