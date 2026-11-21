@@ -55,9 +55,15 @@ PGP_BIN := pgp_setmask_test
 PGP_OBJS := pgp_setmask_test.o
 PGP_INCLUDES := -I$(REPO_ROOT)/include -I$(REPO_ROOT)/pgpcard/include
 
+# Compile-time regression test for the version-selecting offset macros in
+# include/GpuAsyncRegs.h. All checks are static_asserts; main() only prints.
+GPU_REGS_BIN := gpu_async_regs_test
+GPU_REGS_OBJS := gpu_async_regs_test.o
+GPU_REGS_INCLUDES := -I$(REPO_ROOT)/include
+
 .PHONY: all test clean
 
-all: $(BIN) $(STUB_BIN) $(PGP_BIN)
+all: $(BIN) $(STUB_BIN) $(PGP_BIN) $(GPU_REGS_BIN)
 
 prbs_cross_validate.o: prbs_cross_validate.c
 	$(CC) $(CFLAGS) $(CFLAGS_SHIM) -c $< -o $@
@@ -84,9 +90,16 @@ pgp_setmask_test.o: pgp_setmask_test.cpp
 $(PGP_BIN): $(PGP_OBJS)
 	$(CXX) $(CXXFLAGS) $(PGP_OBJS) -o $@ $(LDFLAGS)
 
-test: $(BIN) $(PGP_BIN)
+gpu_async_regs_test.o: gpu_async_regs_test.cpp
+	$(CXX) $(CXXFLAGS) $(GPU_REGS_INCLUDES) -c $< -o $@
+
+$(GPU_REGS_BIN): $(GPU_REGS_OBJS)
+	$(CXX) $(CXXFLAGS) $(GPU_REGS_OBJS) -o $@ $(LDFLAGS)
+
+test: $(BIN) $(PGP_BIN) $(GPU_REGS_BIN)
 	./$(BIN)
 	./$(PGP_BIN)
+	./$(GPU_REGS_BIN)
 
 clean:
-	rm -f $(BIN) $(OBJS) $(STUB_BIN) $(STUB_OBJS) $(PGP_BIN) $(PGP_OBJS)
+	rm -f $(BIN) $(OBJS) $(STUB_BIN) $(STUB_OBJS) $(PGP_BIN) $(PGP_OBJS) $(GPU_REGS_BIN) $(GPU_REGS_OBJS)
