@@ -343,6 +343,11 @@ and is driven by ``scripts/ci/build-cpu.sh`` and ``build-gpu.sh``:
        a 1M-iteration LFSR equivalence loop plus a byte-for-byte frame
        layout comparison. ``make -C emulator/driver/tests test`` exits
        non-zero on any divergence and fails the build step
+   * - ``pgp_setmask_test``
+     - Compiles ``pgpcard/include/PgpDriver.h`` as a userspace TU with
+       ``ioctl()`` redirected to a recording shim and checks the mask value
+       ``pgpSetMask()`` passes to ``dmaSetMask()`` for every (lane, VC);
+       run by ``make -C emulator/driver/tests test``
    * - ``stub_mmap_test``
      - ``/dev/nvidia_p2p_stub_mem`` reserve + ``mmap()`` + pattern
        readback smoke test; run by ``scripts/ci/test-gpu.sh`` once the
