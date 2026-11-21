@@ -50,10 +50,11 @@ struct PrgArgs {
    long        count;
    uint32_t    prbsEn;
    uint32_t    idxEn;
+   uint32_t    flags;
 };
 
 // Default program arguments
-static struct PrgArgs DefArgs = { DEFAULT_AXI_DEVICE, 0, 1000, -1, 0, 0 };
+static struct PrgArgs DefArgs = { DEFAULT_AXI_DEVICE, 0, 1000, -1, 0, 0, 0 };
 
 // Documentation for arguments
 static char args_doc[] = "dest";
@@ -66,6 +67,7 @@ static struct argp_option options[] = {
    { "size",    's', "SIZE",   0, "Size of data to generate. Default=1000", 0 },
    { "count",   'c', "COUNT",  0, "Number of frames to generate, if -1, run forever. Default=-1", 0 },
    { "indexen", 'i', 0,        0, "Use index based transmit buffers.", 0 },
+   { "flags",   'f', "FLAGS",  0, "Raw AXIS flags word for each frame (decimal or 0x hex). Default=0", 0 },
    { 0 }
 };
 
@@ -79,6 +81,7 @@ error_t parseArgs(int key, char *arg, struct argp_state *state) {
       case 's': args->size = strtol(arg, NULL, 10); break;
       case 'c': args->count = strtol(arg, NULL, 10); break;
       case 'i': args->idxEn = 1; break;
+      case 'f': args->flags = strtoul(arg, NULL, 0); break;
       case ARGP_KEY_ARG:
          if (state->arg_num == 0) {
             args->dest = strtol(arg, NULL, 10);
@@ -181,9 +184,9 @@ int main(int argc, char **argv) {
 
          // Perform the write operation, using DMA if enabled
          if (args.idxEn) {
-            ret = dmaWriteIndex(s, dmaIndex, args.size, 0, args.dest);
+            ret = dmaWriteIndex(s, dmaIndex, args.size, args.flags, args.dest);
          } else {
-            ret = dmaWrite(s, txData, args.size, 0, args.dest);
+            ret = dmaWrite(s, txData, args.size, args.flags, args.dest);
          }
 
          // On successful write, reset prbValid flag and increment count

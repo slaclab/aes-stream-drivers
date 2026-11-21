@@ -174,9 +174,10 @@ inline void AxisG2_WriteTx(struct DmaBuffer *buff, __iomem struct AxisG2Reg *reg
    uint32_t dest;
    uint32_t chan;
 
-   // Configure buffer flags for transmission
+   // Configure buffer flags for transmission. The TX descriptor has no timeout
+   // bit: bits[7:4] carry the channel (128-bit) or buffer index (64-bit), so
+   // flags[17] (RX timeout) must not be forwarded here.
    rdData[0]  = (buff->flags >> 13) & 0x00000008;  // bit[3] = continue = flags[16]
-   rdData[0] |= (buff->flags >> 13) & 0x00000010;  // bit[4] = timeout = flags[17]
    rdData[0] |= (buff->flags <<  8) & 0x00FF0000;  // Bits[23:16] = lastUser = flags[15:8]
    rdData[0] |= (buff->flags << 24) & 0xFF000000;  // Bits[31:24] = firstUser = flags[7:0]
 
