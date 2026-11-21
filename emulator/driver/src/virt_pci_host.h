@@ -21,6 +21,7 @@
 #define __EMU_VIRT_PCI_HOST_H__
 
 #include <linux/pci.h>
+#include <linux/numa.h>
 #include "bar0_regs.h"
 
 /* Must match data_dev_top.h */
@@ -29,6 +30,15 @@
 
 /* PCI config space layout */
 #define EMU_PCI_CFG_SIZE     256   /* Standard PCI config space */
+
+/*
+ * PCI domain (segment) of the emulated root bus on x86. Fixed so the device
+ * name is stable across module loads, and well above the ACPI _SEG values
+ * that firmware assigns on multi-segment hosts so it cannot collide with a
+ * real root bus. pci_register_host_bridge() rejects a duplicate domain:bus
+ * with -EEXIST if it ever does.
+ */
+#define EMU_PCI_DOMAIN       0xE000
 
 /* Config space field offsets (standard PCI) */
 #define EMU_CFG_VENDOR_ID    0x00
@@ -78,6 +88,8 @@ enum emu_irq_mode {
 
 /**
  * struct emu_pci_host - Virtual PCI host bridge state
+ * @sysdata:   x86 only: struct pci_sysdata handed to the PCI core as
+ *             bus->sysdata; see emu_pci_host_from_bus() in virt_pci_host.c
  * @bridge:    PCI host bridge allocated by pci_alloc_host_bridge()
  * @bus:       root PCI bus created during bus scan
  * @cfg_space: emulated PCI configuration space (256 bytes)
@@ -88,6 +100,9 @@ enum emu_irq_mode {
  * @msi_domain: PCI-MSI domain attached to enumerated devices when irq_mode != INTX
  */
 struct emu_pci_host {
+#ifdef CONFIG_X86
+   struct pci_sysdata sysdata;
+#endif
    struct pci_host_bridge *bridge;
    struct pci_bus *bus;
    uint8_t cfg_space[EMU_PCI_CFG_SIZE];

@@ -17,7 +17,7 @@ cp -rfL /path/to/my/aes-stream-drivers/Yocto/recipes-kernel/axistreamdma $proj_d
 echo "MACHINE_ESSENTIAL_EXTRA_RRECOMMENDS += \"axistreamdma\"" >> $proj_dir/conf/layer.conf
 
 # Step 4 (Optional) - Enable automatic loading of kernel module
-echo "KERNEL_MODULE_AUTOLOAD += \"axistreamdma\"" >> $proj_dir/conf/layer.conf
+echo "KERNEL_MODULE_AUTOLOAD += \"axi_stream_dma\"" >> $proj_dir/conf/layer.conf
 
 # Step 5 - add module to device tree
 # Note: example below assume module's base address assigned to 0xb0000000 in Xilinx IP core
@@ -54,7 +54,7 @@ cp -rfL /path/to/my/aes-stream-drivers/Yocto/recipes-kernel/aximemorymap $proj_d
 echo "MACHINE_ESSENTIAL_EXTRA_RRECOMMENDS += \"aximemorymap\"" >> $proj_dir/conf/layer.conf
 
 # Step 4 (Optional) - Enable automatic loading of kernel module
-echo "KERNEL_MODULE_AUTOLOAD += \"aximemorymap\"" >> $proj_dir/conf/layer.conf
+echo "KERNEL_MODULE_AUTOLOAD += \"axi_memory_map\"" >> $proj_dir/conf/layer.conf
 
 # Step 5 - No action required for device tree
 # Note: axi_memory_map does NOT require an entry for the device-tree

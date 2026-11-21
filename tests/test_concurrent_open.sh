@@ -40,7 +40,8 @@ FAILED=0
 # Drain at cfgSize so any leftover frame fits in the drain's read buffer
 # (runRead allocates size*2; a too-small buffer causes the kernel to drop the
 # frame with ret=-1 after one read, prematurely ending the drain).
-CFG_SIZE=$(cat /sys/module/datadev/parameters/cfgSize 2>/dev/null || echo 65536)
+CFG_SIZE=$(awk -F: '/Buffer Size/ {gsub(/[^0-9]/,"",$2); print $2; exit}' "/proc/$(basename "$DEV")" 2>/dev/null)
+CFG_SIZE="${CFG_SIZE:-65536}"
 
 echo "=== Concurrent-process access test ==="
 echo "DEV=$DEV SIZE=$SIZE DURATION=${DURATION}s cfgSize=$CFG_SIZE"

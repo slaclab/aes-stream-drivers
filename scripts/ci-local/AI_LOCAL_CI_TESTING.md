@@ -147,8 +147,10 @@ bash scripts/ci-local/run_cell.sh --container ubuntu:24.04 --load-test 1 --phase
 ```
 
 This builds the modules inside a Docker container on the KVM guest
-(kernel 6.17+ Azure), loads them via insmod, runs the test suite
-(ioctl / file-ops / error-paths / multichannel / proc / data_integrity),
+(kernel 6.17+ Azure), loads them via insmod, runs the 13-test suite
+(ioctl_test / file_ops_test / error_paths / multichannel / proc_interface /
+data_integrity / dmaLoopTest_idxEn / tuser_sweep / frame_sizes /
+small_frames / concurrent_open / backpressure / irq_modes),
 and checks dmesg for oops/panic/warnings. Takes ~5-10 minutes.
 
 ## Quick validation — GPU phase
@@ -198,10 +200,10 @@ and fail only here.
 | Concern | CPU phase | GPU phase |
 |---|---|---|
 | Module load order | `nvidia_p2p_stub` then `datadev_emulator` then `datadev` (stub still required — emulator's `module_init` eagerly resolves `emu_gpu_register_drain_cb`) | `nvidia_p2p_stub` then `datadev_emulator` then `datadev-gpu` |
-| Key dmesg success marker | `datadev_emulator: emulator loaded successfully` | Same + `emu: BAR0 GPU Async V4 initialized (version=4, maxBuffers=N)` + `gpu engine poll thread starting` |
+| Key dmesg success marker | `datadev_emulator: emulator loaded successfully` | Same + `emu: BAR0 GPU Async V5 initialized (version=5, maxBuffers=N)` + `gpu engine poll thread starting` |
 | ioctl probe | `GPU_Is_Gpu_Async_Supp = 0` | `GPU_Is_Gpu_Async_Supp = 1` |
 | Driver node | `/dev/datadev_0` | `/dev/datadev_0` + `/dev/nvidia_p2p_stub_mem` (miscdevice) |
-| Success indicator in log | `=== Results: 6 passed, 0 failed ===` | `ALL GPU TESTS PASSED` |
+| Success indicator in log | `=== Results: 13 passed, 0 failed ===` | `ALL GPU TESTS PASSED` |
 | Typical runtime | 5-10 min | 8-15 min |
 
 ## Post-run verification
@@ -376,7 +378,7 @@ the GPU-phase template above (after `insmod` + mknod):
 ./data_dev/app/bin/rdmaTestEmu -c 100              # single-size loopback
 ./data_dev/app/bin/rdmaTestEmu -c 100 -b 4         # 4-buffer round-robin
 ./data_dev/app/bin/rdmaTestEmu -c 100 --sweep      # payload matrix (order=8 at 1MB)
-# Fault-injection: modprobe datadev_emulator emu_gpu_poll_interval_us_min=10000000,
+# Fault-injection: modprobe datadev_emulator emu_gpu_poll_interval_us=10000000,
 # then run `rdmaTestEmu -c 100` and expect RC=1 with stderr containing
 # "rx doorbell timeout buf=N elapsed=10.0s" within ~10s (not a hang).
 ```

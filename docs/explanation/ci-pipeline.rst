@@ -170,6 +170,11 @@ without ``cfgMode`` and therefore runs with the driver default,
      - Load/unload cycles
      - 3 rapid insmod/rmmod cycles to detect use-after-free races
    * - 7
+     - cfgBgThold reload
+     - Reload with ``cfgBgThold0=16 cfgBgThold1=8`` (buffer group
+       thresholds), run ``dmaLoopTest`` on channels 0 and 1, verify zero
+       PRBS errors and a clean dmesg delta
+   * - 8
      - DKMS (smoke)
      - Build DKMS tarball, ``dkms ldtarball``, verify the package is
        registered in ``dkms status``, ``dkms remove``. No ``dkms build``
@@ -185,17 +190,18 @@ marker against known-benign patterns. Fails on any ``oops``, ``panic``,
 Phase 3: GPU Test Coverage
 --------------------------
 
-Each GPU load-test cell executes the full CPU test suite **plus** GPU-specific
-tests:
+Each GPU load-test cell runs only the GPU-specific tests below, followed by
+the GPU-stack load/unload cycles; general DMA, ioctl, /proc, and module
+lifecycle coverage comes from the CPU phase (``test-cpu.sh``):
 
 **Module loading** (``load-modules-gpu.sh``):
 
 1. ``insmod nvidia_p2p_stub.ko``
-2. ``insmod datadev_emulator.ko``
-3. ``insmod datadev.ko`` (GPU build with ``NVIDIA_DRIVERS`` path)
-4. Create ``/dev/nvidia_p2p_stub_mem`` miscdevice node
+2. Create ``/dev/nvidia_p2p_stub_mem`` miscdevice node
+3. ``insmod datadev_emulator.ko``
+4. ``insmod datadev.ko`` (GPU build with ``NVIDIA_DRIVERS`` path)
 
-**Additional GPU tests** (``test-gpu.sh``):
+**GPU tests** (``test-gpu.sh``):
 
 .. list-table::
    :header-rows: 1
@@ -425,8 +431,9 @@ The combined Phase 2 + Phase 3 coverage across all distributions:
      - open, multi-open, select(read), select(write), mmap, read, ioctl,
        close
    * - Error handling
-     - 3
-     - Buffer exhaustion, oversized write, invalid index
+     - 4
+     - Buffer exhaustion, oversized write, invalid index, out-of-range
+       destination
    * - Channel routing
      - 3
      - Multi-destination (0, 7, 8), cross-contamination check
@@ -435,8 +442,10 @@ The combined Phase 2 + Phase 3 coverage across all distributions:
      - ``emu_irq_mode`` {intx, msi, msix} sweep (CPU phase). Each mode
        runs cfgIrqHold=1, cfgIrqHold=100000, and polled (cfgIrqDis=1),
        plus a probe-cascade assertion that ``datadev`` selected the
-       matching INTx / MSI / MSI-X path. GPU phase runs the single-mode
-       legacy pass
+       matching INTx / MSI / MSI-X path. Not run in the GitHub GPU phase
+       (``test-gpu.sh``); the local ``tests/vm_inside_gpu.sh`` runner
+       invokes ``run_tests.sh`` with ``GPU_ENABLED=1``, which runs the
+       single-mode legacy pass
    * - Module lifecycle
      - 4
      - 3 rapid reload cycles, rmmod-under-load, cfgMode=1/2 transitions

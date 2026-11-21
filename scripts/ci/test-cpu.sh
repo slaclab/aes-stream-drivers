@@ -164,15 +164,15 @@ CUSTOM_SIZE=65536 \
   bash $TESTS_DIR/test_params.sh 2>&1 | tee "$PARAMS_LOG"
 PARAMS_RC=${PIPESTATUS[0]}
 
-TOTAL_PASS=$(grep -c '^\[PASS\]' "$PARAMS_LOG" || true)
-TOTAL_FAIL=$(grep -c '^\[FAIL\]' "$PARAMS_LOG" || true)
+TOTAL_PASS=$(grep -c '^PASS:' "$PARAMS_LOG" || true)
+TOTAL_FAIL=$(grep -c '^FAIL:' "$PARAMS_LOG" || true)
 echo "Module Parameter Validation Summary:"
 echo "  PASS: ${TOTAL_PASS:-0}"
 echo "  FAIL: ${TOTAL_FAIL:-0}"
 
 if [ "$PARAMS_RC" -ne 0 ]; then
    echo_fail "${PARAMS_RC} param check(s) failed"
-   grep '^\[FAIL\]' "$PARAMS_LOG" || true
+   grep '^FAIL:' "$PARAMS_LOG" || true
    $SUDO dmesg | tail -100
    FAILED=$((FAILED + PARAMS_RC))
 fi
@@ -247,7 +247,8 @@ if [ "$GAP1_FAILED" -eq 0 ]; then
 
    # Restore cfgMode=1 before cleanup
    $SUDO rmmod datadev 2>/dev/null || true
-   for _ in $(seq 1 15); do [ ! -e "$DEV" ] && break; sleep 0.5; done
+   $SUDO rm -f "$DEV"
+   for _ in $(seq 1 15); do [ ! -e /sys/module/datadev ] && break; sleep 0.5; done
    timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod "$DATADEV_KO" cfgMode=1 cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgDebug=1
    timeout $TIMEOUT_SEC bash -c "until [ \"\$(cat /sys/module/datadev/initstate 2>/dev/null)\" = live ]; do sleep 0.5; done" || true
    if [ ! -e "$DEV" ]; then
@@ -306,7 +307,8 @@ if [ "$GAP5_FAILED" -eq 0 ]; then
    wait $LOOP_PID 2>/dev/null || true
 
    timeout 30 $SUDO rmmod datadev || { echo_fail "rmmod datadev failed/timed-out after kill"; FAILED=$((FAILED + 1)); GAP5_FAILED=1; }
-   for _ in $(seq 1 15); do [ ! -e "$DEV" ] && break; sleep 0.5; done
+   $SUDO rm -f "$DEV"
+   for _ in $(seq 1 15); do [ ! -e /sys/module/datadev ] && break; sleep 0.5; done
 
    timeout 30 $SUDO rmmod datadev_emulator || { echo_fail "rmmod datadev_emulator failed/timed-out"; FAILED=$((FAILED + 1)); GAP5_FAILED=1; }
 

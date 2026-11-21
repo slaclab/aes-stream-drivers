@@ -37,22 +37,33 @@ local shims or forks.
 | 4 | hang_repro.sh | Reproduces ubuntu:24.04 insmod hang for diagnosis |
 | 5 | run_matrix.sh --phase cpu | Runs all CPU distro cells |
 | 6 | run_matrix.sh --phase gpu | Runs all GPU distro cells |
-| 7 | run_matrix.sh --phase pgp | Runs all pgpcard distro cells (build plus load and unload; no traffic, no PGP emulator exists) |
+| 7 | run_matrix.sh --phase pgp | Runs all pgpcard distro cells, build-only (no load, no traffic; see the `PGP_CELLS` comment in run_matrix.sh) |
 
 ### Matrix Cells
 
-Mirrors `.github/workflows/ci_pipeline.yml` exactly. All cells declare
-`load_test: true`; the actual load/test/unload steps only fire on the
-cell whose kernel matches the parity VM host (driven by
-`CI_HOST_MATCH=1`). Other cells stop at build + DKMS tarball smoke.
+The container list matches `.github/workflows/ci_pipeline.yml`, but the
+load flag does not. The workflow declares `load_test: true` on every cell
+and gates the load/test/unload steps at runtime on `CI_HOST_MATCH`. The
+local harness instead pins the flag per cell: each entry in `CPU_CELLS`,
+`GPU_CELLS` and `PGP_CELLS` in `scripts/ci-local/run_matrix.sh` ends in
+`|1` (load-test) or `|0` (build-only).
 
-| Container | CPU | GPU | Load/test gating |
-|-----------|-----|-----|------------------|
-| ubuntu:24.04 | yes | yes | Runs load+test when `CI_HOST_MATCH=1` (normally the matching cell) |
-| ubuntu:22.04 | yes | yes | Build + DKMS smoke unless `CI_HOST_MATCH=1` |
-| rockylinux:9 | yes | yes | Build + DKMS smoke unless `CI_HOST_MATCH=1` |
-| debian:experimental | yes | yes | Build + DKMS smoke unless `CI_HOST_MATCH=1` |
-| fedora:rawhide | yes | yes | Build + DKMS smoke unless `CI_HOST_MATCH=1` |
+- **load-test** cells run install-deps, build, load, test, unload, DKMS
+  install and the dmesg check. They only pass when the built module
+  matches the guest kernel.
+- **build-only** cells run install-deps, build and the dmesg check, then
+  stop.
+
+| Container | CPU | GPU | PGP |
+|-----------|-----|-----|-----|
+| ubuntu:24.04 | build-only and load-test (two cells) | build-only and load-test (two cells) | build-only |
+| ubuntu:22.04 | load-test | build-only | build-only |
+| rockylinux:9 | load-test | build-only | build-only |
+| debian:experimental | load-test | load-test | build-only |
+| fedora:rawhide | load-test | load-test | build-only |
+
+Every pgpcard cell is build-only on purpose; the `PGP_CELLS` comment in
+`run_matrix.sh` explains why.
 
 ## Common Flags
 
@@ -98,3 +109,4 @@ See `scripts/ci-local/README.md` for:
 | 30 | Hang reproduced (diagnostics captured) |
 | 40+ | CPU matrix failure |
 | 50+ | GPU matrix failure |
+| 60+ | pgpcard matrix failure |

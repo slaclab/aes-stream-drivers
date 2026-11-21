@@ -68,7 +68,7 @@ struct AxiVersion {
     * @param fd   File descriptor for the device.
     * @param aVer Pointer to AxiVersion structure to fill with data.
     *
-    * @return The number of bytes read on success or an error code on failure.
+    * @return 0 on success, -1 with errno set on failure.
     */
    static inline ssize_t axiVersionGet(int32_t fd, struct AxiVersion *aVer) {
       return(ioctl(fd, AVER_Get, aVer));
