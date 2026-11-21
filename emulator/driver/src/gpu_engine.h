@@ -92,6 +92,11 @@ struct emu_gpu_engine {
     u32 next_write_idx;
     u32 next_read_idx;
 
+    /* readEnable as sampled on the previous TX tick. Detects the 1->0
+     * edge on which the TX half-FSM zeroes readReqSize[] (VHDL:
+     * readReqList := 0 while readEnable = '0'). */
+    bool read_was_enabled;
+
     /* PRBS generator sequence for the RX direction. Fed as the seed into
      * emu_prbs_gen_data() on every RX tick and incremented by the engine
      * after each successful frame so consecutive frames produce a

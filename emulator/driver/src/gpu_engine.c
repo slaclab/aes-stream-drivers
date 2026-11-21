@@ -343,7 +343,8 @@ static void emu_gpu_rx_tick(struct emu_gpu_engine *eng)
  * TX half-FSM
  * ----------------------------------------------------------------
  *
- * On readEnable=0: reset nextReadIdx (VHDL disable reset).
+ * On readEnable=0: reset nextReadIdx and, on the 1->0 edge, zero every
+ *   readReqSize[] slot (VHDL disable reset of nextReadIdx + readReqList).
  * On readCount=0: WARN_ON_ONCE and skip.
  * On readReqSize[idx]==0: nothing pending at this slot, retry next tick.
  * On emu_gpu_addr_lookup()==NULL: skip with rate-limited info
@@ -364,6 +365,7 @@ static void emu_gpu_tx_tick(struct emu_gpu_engine *eng)
    void *kva;
    u32 cnt;
    u32 one = 1;
+   u32 nbuf, i;
    int ret;
 
    emu_gpu_read_ctrl(eng, &wen, &wcnt, &ren, &rcnt);
@@ -371,11 +373,24 @@ static void emu_gpu_tx_tick(struct emu_gpu_engine *eng)
    spin_lock_irqsave(&eng->lock, flags);
 
    if (!ren) {
-      /* VHDL: nextReadIdx := 0 when readEnable = '0'. */
+      /* VHDL: nextReadIdx := 0 and readReqList := 0 when readEnable = '0'.
+       * The firmware drops the pending-request list every cycle while
+       * disabled, so a request left pending at disable never fires after
+       * re-enable. The emulator keeps that state in the readReqSize[]
+       * slots, so zero them. Doing it once on the 1->0 edge rather than
+       * on every tick avoids rewriting up to maxBuffers slots per poll
+       * interval while the engine sits disabled. */
       eng->next_read_idx = 0;
+      if (eng->read_was_enabled) {
+         nbuf = ioread32(eng->reg_base + EMU_GPU_REG_MAX_BUFFERS) & 0x7FF;
+         for (i = 0; i < nbuf; i++)
+            iowrite32(0, eng->reg_base + EMU_GPU_READREQ_BASE + i * 4);
+         eng->read_was_enabled = false;
+      }
       spin_unlock_irqrestore(&eng->lock, flags);
       return;
    }
+   eng->read_was_enabled = true;
 
    /* rcnt is the 0-based last-valid-index (matches wcnt semantics).
     * Number of active read buffers = rcnt + 1; iterate 0..rcnt. */
