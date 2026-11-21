@@ -176,7 +176,7 @@ AxisDriver.h Commands
    * - ``AXIS_Write_ReqMissed``
      - ``0x2002``
      - none (pass 0)
-     - write
+     - read
      - :c:func:`axisWriteReqMissed`
 
 

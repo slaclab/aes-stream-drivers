@@ -320,8 +320,8 @@ int main(int argc, char **argv) {
    time_t        c_tme;
    time_t        l_tme;
    uint          vcCount;
-   uint          lastRx[32];
-   uint          lastTx[32];
+   uint          lastRx[32] = {};
+   uint          lastTx[32] = {};
    double        totRxRate;
    uint64_t      totRx;
    uint64_t      totTx;

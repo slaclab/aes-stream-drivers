@@ -1,8 +1,8 @@
 # Local CI Parity Harness
 
-Reproducible Azure-kernel KVM guest for running the GitHub Actions CPU matrix
-locally. One command, same kernel family as the GitHub runner, same Docker
-version, same matrix container images.
+Reproducible Azure-kernel KVM guest for running the GitHub Actions CPU, GPU
+and pgpcard matrices locally. One command, same kernel family as the GitHub
+runner, same Docker version, same matrix container images.
 
 ## One-Command Contract
 
@@ -81,11 +81,20 @@ prints the commands to run rather than elevating silently.
 7. **CPU matrix execution** (`--matrix`) — runs the GitHub Actions CPU
    matrix cell-by-cell inside the parity VM over SSH + `docker run
    --privileged --security-opt label=disable -v /mnt/aes-stream-drivers:/work`.
-   The current configuration ships **one container** (`ubuntu:24.04`) in both build-only
-   (`load_test=false`) and load-test (`load_test=true`) modes, proving the
-   virtiofs mount + docker passthrough mechanism. Each cell's
+   The matrix (`CPU_CELLS[]` in `run_matrix.sh`) spans five distros:
+   `ubuntu:24.04` in both build-only (`load_test=0`) and load-test
+   (`load_test=1`) modes, plus `ubuntu:22.04`, `rockylinux:9`,
+   `debian:experimental` and `fedora:rawhide` in load-test mode. Each cell's
    stdout+stderr is teed into
-   `logs/<YYYYMMDD-HHMMSS>/<sanitized-container>/cpu-<mode>.log`.
+   `logs/<YYYYMMDD-HHMMSS>/<sanitized-container>/<phase>-<mode>.log`.
+8. **GPU matrix execution** (`--matrix`): the same five distros
+   (`GPU_CELLS[]`) through the GPU script chain, after the CPU matrix
+   completes. `ubuntu:24.04` runs in both modes, `debian:experimental` and
+   `fedora:rawhide` in load-test mode, `ubuntu:22.04` and `rockylinux:9`
+   build-only.
+9. **pgpcard matrix execution** (`--matrix`): the same five distros
+   (`PGP_CELLS[]`), all build-only. See the `PGP_CELLS` comment in
+   `run_matrix.sh` for why no pgpcard cell loads modules.
 
 ## Flags
 
@@ -95,10 +104,12 @@ prints the commands to run rather than elevating silently.
 - `--no-hang-repro` — skip the hang-reproduction step (useful when you just
   want a running guest to SSH into)
 - `--matrix` — after provisioning (and hang-repro, unless
-  `--no-hang-repro`), execute the CPU matrix via
-  `scripts/ci-local/run_matrix.sh`. Per-cell logs land under
-  `logs/<ts>/<sanitized-container>/cpu-<mode>.log`. One failing cell does
-  not abort the rest (`fail-fast: false` parity with GitHub Actions).
+  `--no-hang-repro`), execute the CPU, GPU and pgpcard matrices in order
+  (Stages 5-7) via `scripts/ci-local/run_matrix.sh --phase cpu|gpu|pgp`.
+  Per-cell logs land under `logs/<ts>/<sanitized-container>/<phase>-<mode>.log`.
+  One failing cell does not abort the rest of its matrix (`fail-fast: false`
+  parity with GitHub Actions); a failing matrix does stop the harness before
+  the next phase runs.
 
 ## Running the Matrix
 
@@ -106,9 +117,25 @@ prints the commands to run rather than elevating silently.
 ./scripts/run_ci_parity.sh --matrix
 ```
 
-Runs Stages 1-5 end-to-end: preflight -> host-deps -> provision -> hang-repro ->
-CPU matrix. If the VM is already provisioned with a current user-data hash,
-Stages 1-3 idempotent-skip in seconds.
+Runs Stages 1-7 end-to-end: preflight -> host-deps -> provision -> hang-repro ->
+CPU matrix -> GPU matrix -> pgpcard matrix. If the VM is already provisioned
+with a current user-data hash, Stages 1-3 idempotent-skip in seconds.
+
+To run one matrix on its own against the running `aes-ci` guest, or to run
+its load-test cells concurrently, call `run_matrix.sh` directly:
+
+```
+bash scripts/ci-local/run_matrix.sh --phase gpu
+bash scripts/ci-local/run_matrix.sh --phase cpu --parallel
+```
+
+`--parallel` provisions one KVM guest per load-test cell (`aes-ci-0`,
+`aes-ci-1`, ...) so insmod/rmmod in one cell cannot affect another;
+build-only cells share slot 0. Each guest gets `AES_CI_VM_MEMORY` /
+`AES_CI_VM_VCPUS` (default 4096 MB / 4 vCPUs); set
+`AES_CI_PARALLEL_VM_MEMORY` / `AES_CI_PARALLEL_VM_VCPUS` to use smaller
+guests when the host cannot fit N full-size VMs. Slots 1 and up are shut
+down when the matrix finishes; slot 0 stays up for follow-up work.
 
 ### Expected Runtime
 
@@ -118,12 +145,15 @@ Stages 1-3 idempotent-skip in seconds.
   Docker install + cloud-init completion). This is the correct, documented
   behavior — see the troubleshooting entry on "First run after upgrading
   takes 15-20 min" below.
-- **First matrix cell after provisioning:** +2-5 min for `docker pull
-  ubuntu:24.04` cold-start. Subsequent cells reuse the cached image.
+- **First cell on each container image:** +2-5 min for the `docker pull`
+  cold-start. Later cells on the same image reuse the cache.
 - **Per-cell wall-clock budget:** 15 min (the `timeout 900s` outer belt on
   `run_cell.sh`). A hang trips this budget with exit 124 or 137.
-- **Steady-state matrix (cached image, provisioned VM):** ~3-5 min for the
-  ubuntu:24.04 build-only cell, ~5-10 min for the load-test cell.
+- **Steady-state matrix (cached images, provisioned VM):** ~3-5 min per
+  build-only cell, ~5-10 min per load-test cell. The matrices run
+  sequentially by default (6 CPU, 6 GPU and 5 pgpcard cells), so total
+  wall-clock scales with the cell count; `run_matrix.sh --parallel` runs
+  the load-test cells of one matrix concurrently.
 
 Skip re-provisioning if you already have a VM: run
 `bash scripts/ci-local/enable_virtiofs.sh` once to hot-add virtiofs
@@ -360,10 +390,11 @@ invocation.
 - `scripts/ci-local/capture_diag.sh` — sysrq-t, dmesg, `/proc/<pid>/stack`
   collector
 - `scripts/ci-local/run_cell.sh` — per-cell primitive (one `docker run`
-  on the guest; takes `--container IMG --load-test 0|1`)
-- `scripts/ci-local/run_matrix.sh` — sequential matrix loop over
-  `CELLS[]`; bitwise-OR exit-code aggregation; `--parallel`
-  stub exits 1
+  on the guest; takes `--container IMG --load-test 0|1 [--phase cpu|gpu|pgp]`)
+- `scripts/ci-local/run_matrix.sh`: matrix loop over `CPU_CELLS[]`,
+  `GPU_CELLS[]` or `PGP_CELLS[]` (`--phase cpu|gpu|pgp`); bitwise-OR
+  exit-code aggregation; `--parallel` provisions one VM per load-test cell
+  and runs them concurrently (exit 3 if any VM fails to provision)
 - `scripts/ci-local/enable_virtiofs.sh` — migration tool: retrofits
   virtiofs onto an existing VM without the 15-min re-provision
   cost. New contributors do not need this

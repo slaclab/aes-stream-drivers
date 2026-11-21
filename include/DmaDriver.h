@@ -107,7 +107,7 @@
 /** @brief ioctl command code: get the count of TX buffers in the software queue. */
 #define DMA_Get_TxBuffinSWQ_Count    0x1012
 
-/** @brief ioctl command code: get the TX buffer allocation miss count (buffers requested but unavailable). */
+/** @brief ioctl command code: get the number of TX buffers currently unaccounted for: not held by user space, not in hardware and not in any queue. Normally 0; a nonzero value indicates a leaked or lost buffer. */
 #define DMA_Get_TxBuffMiss_Count     0x1013
 
 /** @brief ioctl command code: get the count of RX buffers currently held in user space. */
@@ -122,7 +122,7 @@
 /** @brief ioctl command code: get the count of RX buffers in the software queue. */
 #define DMA_Get_RxBuffinSWQ_Count    0x1017
 
-/** @brief ioctl command code: get the RX buffer allocation miss count (buffers requested but unavailable). */
+/** @brief ioctl command code: get the number of RX buffers currently unaccounted for: not held by user space, not in hardware and not in any queue. Normally 0; a nonzero value indicates a leaked or lost buffer. */
 #define DMA_Get_RxBuffMiss_Count     0x1018
 
 /** @brief ioctl command code: get the driver git version string into a caller-supplied char[32] buffer. */
@@ -139,7 +139,7 @@
  * information about the data to be written, the destination, and various
  * control flags.
  *
- * @param data Physical address of the data to be written.
+ * @param data User-space virtual address of the data to be written (0 selects index mode).
  * @param dest Destination address within the device.
  * @param flags Flags to control the write operation.
  * @param index Index of the buffer to be used for the write operation.
@@ -165,7 +165,7 @@ struct DmaWriteData {
  * information about where to store the read data, the source of the data,
  * and various control flags.
  *
- * @param data Physical address where the read data will be stored.
+ * @param data User-space virtual address where the read data will be stored (0 selects index mode).
  * @param dest Source address within the device.
  * @param flags Flags to control the read operation.
  * @param index Index of the buffer to be used for the read operation.
@@ -458,7 +458,7 @@ static inline ssize_t dmaReadIndex(int32_t fd, uint32_t* index, uint32_t* flags,
  * @param flags Buffer to store flags of the DMA read operations.
  * @param error Buffer to store error codes of the DMA read operations.
  * @param dest Buffer to store destination addresses of the DMA read operations.
- * @return The number of bytes read.
+ * @return The number of frames read (entries filled in the output arrays), or a negative value on failure.
  */
 static inline ssize_t dmaReadBulkIndex(int32_t fd,
                                        uint32_t count,
@@ -616,7 +616,10 @@ static inline ssize_t dmaGetRxBuffinSwQCount(int32_t fd) {
  * @brief Get the receive buffer missing count
  *
  * @details
- * This function retrieves the count of receive buffer missing
+ * This function retrieves the number of receive buffers currently
+ * unaccounted for: not held by user space, not in hardware and not in
+ * any queue. This is not an allocation miss counter; it is normally 0
+ * and a nonzero value indicates a leaked or lost buffer.
  *
  * @param fd File descriptor to use.
  * @return The count of receive buffers missing
@@ -694,7 +697,10 @@ static inline ssize_t dmaGetTxBuffinSwQCount(int32_t fd) {
  * @brief Get the transmit buffer missing count
  *
  * @details
- * This function retrieves the count of transmit buffer missing
+ * This function retrieves the number of transmit buffers currently
+ * unaccounted for: not held by user space, not in hardware and not in
+ * any queue. This is not an allocation miss counter; it is normally 0
+ * and a nonzero value indicates a leaked or lost buffer.
  *
  * @param fd File descriptor to use.
  * @return The count of transmit buffers missing

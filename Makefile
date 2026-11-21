@@ -87,9 +87,10 @@ driver_gpu: gpu_stub
 # from the driver target because pgpcard is not part of the datadev product and
 # has no GPU or emulator variant.
 #
-# .PHONY is required: a pgpcard/ directory exists, so without it make treats
-# the target as an up-to-date file and silently does nothing.
-.PHONY: pgpcard
+# .PHONY is required for every top-level target: pgpcard/ and emulator/
+# directories exist, so without it make treats those targets as up-to-date
+# files and silently does nothing.
+.PHONY: all app driver emulator gpu_stub driver_gpu pgpcard rce
 pgpcard:
 	@echo "Building pgpcard driver for all kernel versions..."
 	@mkdir -p $(MAKE_HOME)/install

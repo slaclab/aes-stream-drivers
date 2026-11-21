@@ -9,12 +9,13 @@
  *    and runs two half-FSMs:
  *      - RX: drains writeFreeList[], generates a PRBS frame into the
  *        per-buffer kernel-virtual-address returned by
- *        emu_gpu_addr_lookup(), writes the descriptor / size doorbell,
- *        clears the free-list bit, advances nextWriteIdx, bumps
- *        rxFrameCnt.
+ *        emu_gpu_addr_lookup(), clears the free-list bit, advances
+ *        nextWriteIdx, bumps rxFrameCnt, then writes the descriptor /
+ *        size doorbell as the last store.
  *      - TX: drains readReqSize[], verifies the egress PRBS payload,
- *        writes 1 (TX ACK doorbell) at remoteReadAddr + 0, clears the
- *        request word, advances nextReadIdx, bumps txFrameCnt.
+ *        clears the request word, advances nextReadIdx, bumps
+ *        txFrameCnt, then writes 1 (TX ACK doorbell) at
+ *        remoteReadAddr + 0 as the last store.
  *
  *    Address translation uses an opaque `extern void *emu_gpu_addr_lookup
  *    (u64 fake_dma)`.  The real definition is supplied via nvidia_p2p_stub;
@@ -90,6 +91,11 @@ struct emu_gpu_engine {
     /* Round-robin cursors (VHDL: nextWriteIdx, nextReadIdx). */
     u32 next_write_idx;
     u32 next_read_idx;
+
+    /* readEnable as sampled on the previous TX tick. Detects the 1->0
+     * edge on which the TX half-FSM zeroes readReqSize[] (VHDL:
+     * readReqList := 0 while readEnable = '0'). */
+    bool read_was_enabled;
 
     /* PRBS generator sequence for the RX direction. Fed as the seed into
      * emu_prbs_gen_data() on every RX tick and incremented by the engine

@@ -148,6 +148,18 @@ if printf '%s\n' "$DELTA" | grep -iE 'WARNING:'; then
    exit 1
 fi
 
+# --- Emulator BAR0 fallback check -----------------------------------------
+# emu_bar0_alloc() starts at min(EMU_BAR0_ORDER, MAX_PAGE_ORDER) and prints
+# this warning only when the buddy allocator could not satisfy that order.
+# A clean emulator load must land on the first attempt; the warning in the
+# delta means either real host fragmentation or a regression in the starting
+# order (see emulator/driver/src/bar0_regs.c). No-op for cells that do not
+# load the emulator (the string never appears).
+if printf '%s\n' "$DELTA" | grep -F 'emu: BAR0 reduced to'; then
+   echo_fail "Emulator BAR0 fell back to a reduced order"
+   exit 1
+fi
+
 # --- Verify ISR was exercised (informational, reads from delta) -----------
 if printf '%s\n' "$DELTA" | grep -q "Irq: Called"; then
    echo "PASS: ISR invocation confirmed (interrupt-driven path)"

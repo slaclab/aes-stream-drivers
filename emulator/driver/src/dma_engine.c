@@ -96,8 +96,9 @@ static void emu_enforce_enablever_ro(struct emu_dma_engine *eng)
    uint32_t target;
 
    /* 0->1 edge on the enable bit is a new driver activation; bump the
-    * enableCnt field (8-bit, wraps at 256 to match the VHDL width). */
-   if (enable_bit && !eng->prev_enable)
+    * enableCnt field.  The VHDL (AxiStreamDmaV2Desc) saturates the 8-bit
+    * counter at 0xFF rather than wrapping, so mirror that here. */
+   if (enable_bit && !eng->prev_enable && eng->enable_cnt != 0xFF)
       eng->enable_cnt++;
    eng->prev_enable = enable_bit;
 
@@ -158,10 +159,21 @@ static bool emu_free_pool_pop(struct emu_dma_engine *eng,
  * Ring buffer capture
  * ---------------------------------------------------------------- */
 
+/*
+ * AxisG2_Init programs each 64-bit ring base as two separate 32-bit
+ * writel() calls (low word, then high word), read ring first and write
+ * ring last.  A poll that lands between the two halves of a base sees a
+ * non-zero but torn value (low word only).  Accept the bases only when
+ * two consecutive polls read identical non-zero values; the driver
+ * completes the pair on its very next writel(), so a torn read does not
+ * survive to the following poll.  Costs one extra poll period before
+ * the rings become valid.
+ */
 static void emu_capture_rings(struct emu_dma_engine *eng)
 {
    uint64_t wr_dma, rd_dma;
    uint32_t addr_width;
+   bool stable;
 
    wr_dma  = (uint64_t)emu_reg_read(eng, EMU_REG_WRBASEHIGH) << 32;
    wr_dma |= (uint64_t)emu_reg_read(eng, EMU_REG_WRBASELOW);
@@ -169,27 +181,28 @@ static void emu_capture_rings(struct emu_dma_engine *eng)
    rd_dma  = (uint64_t)emu_reg_read(eng, EMU_REG_RDBASEHIGH) << 32;
    rd_dma |= (uint64_t)emu_reg_read(eng, EMU_REG_RDBASELOW);
 
+   stable = (wr_dma == eng->prev_wr_dma) && (rd_dma == eng->prev_rd_dma);
+   eng->prev_wr_dma = wr_dma;
+   eng->prev_rd_dma = rd_dma;
+
+   if (!stable || wr_dma == 0 || rd_dma == 0)
+      return;
+
    addr_width = emu_reg_read(eng, EMU_REG_ADDRWIDTH);
    if (addr_width > 0 && addr_width <= 16)
       eng->addr_count = 1 << addr_width;
    else
       eng->addr_count = 4096;
 
-   if (wr_dma != 0)
-      eng->wr_ring = (uint32_t *)phys_to_virt((phys_addr_t)wr_dma);
+   eng->wr_ring = (uint32_t *)phys_to_virt((phys_addr_t)wr_dma);
+   eng->rd_ring = (uint32_t *)phys_to_virt((phys_addr_t)rd_dma);
+   eng->rings_valid = true;
 
-   if (rd_dma != 0)
-      eng->rd_ring = (uint32_t *)phys_to_virt((phys_addr_t)rd_dma);
+   emu_reg_write(eng, EMU_REG_HWWRINDEX, 0);
+   emu_reg_write(eng, EMU_REG_HWRDINDEX, 0);
 
-   eng->rings_valid = (wr_dma != 0) && (rd_dma != 0);
-
-   if (eng->rings_valid) {
-      emu_reg_write(eng, EMU_REG_HWWRINDEX, 0);
-      emu_reg_write(eng, EMU_REG_HWRDINDEX, 0);
-
-      pr_info("emu: DMA rings captured: wr=%p rd=%p count=%u\n",
-              eng->wr_ring, eng->rd_ring, eng->addr_count);
-   }
+   pr_info("emu: DMA rings captured: wr=%p rd=%p count=%u\n",
+           eng->wr_ring, eng->rd_ring, eng->addr_count);
 }
 
 /* ----------------------------------------------------------------
@@ -254,7 +267,7 @@ static bool emu_capture_free_one(struct emu_dma_engine *eng)
 static int emu_process_tx(struct emu_dma_engine *eng)
 {
    uint32_t fifo_a, fifo_b, fifo_c, fifo_d;
-   uint32_t index, size;
+   uint32_t index, size, max_size;
    uint8_t fuser, luser, dest, chan, cont;
    dma_addr_t tx_handle, rx_handle;
    void *tx_virt, *rx_virt;
@@ -305,16 +318,18 @@ static int emu_process_tx(struct emu_dma_engine *eng)
    if (validity == 0)
       validity = 0x10000;
 
-   /* Bound the memcpy by the maxSize register the driver read at init
-    * (mirrors the VHDL: the hardware FIFO can't accept oversized TX). A
-    * size above EMU_REG_MAXSIZE_INIT means a driver bug — emit a frame-
-    * rejection completion (size=0) and skip the copy rather than walk
-    * off the end of the RX buffer (the rx pages were allocated for
-    * cfgSize <= maxSize). The TX buffer still returns via rd_ring so
+   /* Bound the memcpy by the live maxSize register. AxisG2_Init writes
+    * dev->cfgSize into maxSize (0x0028), so the register, not the reset
+    * constant EMU_REG_MAXSIZE_INIT, is what the RX buffers were sized
+    * for (mirrors the VHDL: the hardware FIFO can't accept oversized
+    * TX). A size above it means a driver bug: emit a frame-rejection
+    * completion (size=0) and skip the copy rather than walk off the end
+    * of the RX buffer. The TX buffer still returns via rd_ring so
     * AxisG2_MapReturn's invariants stay intact. */
-   if (size > EMU_REG_MAXSIZE_INIT) {
+   max_size = emu_reg_read(eng, EMU_REG_MAXSIZE);
+   if (size > max_size) {
       pr_warn_ratelimited("emu: TX size=%u exceeds maxSize=%u, dropping frame (tx_idx=%u)\n",
-                          size, EMU_REG_MAXSIZE_INIT, index);
+                          size, max_size, index);
       emu_free_pool_push(eng, rx_index, rx_handle);
 
       ptr = eng->rd_ring + (eng->rd_ring_idx * 4);
@@ -334,11 +349,19 @@ static int emu_process_tx(struct emu_dma_engine *eng)
    rx_virt = phys_to_virt((phys_addr_t)rx_handle);
    memcpy(rx_virt, tx_virt, size);
 
-   /* Write RX completion to write ring (128-bit: 4 words) */
+   /* Write RX completion to write ring (128-bit: 4 words).
+    *
+    * Bits 15:8 of ptr[0] are the frame's tId (AxisG2_MapReturn ret->id),
+    * not its dest, which travels in ptr[3].  With a non-zero cfgBgThold
+    * the driver uses that id unmasked as the buffer group: it tests
+    * bgEnable >> id and writes bgCount[id].  The firmware counts groups on
+    * tId(2:0), so present the low three dest bits as the tId.  That keeps
+    * the id inside the eight bgCount registers and puts each of dest 0..7
+    * in its own group. */
    ptr = eng->wr_ring + (eng->wr_ring_idx * 4);
    ptr[0] = ((uint32_t)fuser << 24) |
             ((uint32_t)luser << 16) |
-            ((uint32_t)dest  << 8)  |
+            ((uint32_t)(dest & 0x7) << 8) |
             ((uint32_t)cont  << 3);
    ptr[1] = rx_index;
    ptr[2] = size;
@@ -614,6 +637,8 @@ int emu_dma_init(struct emu_dma_engine *eng, struct emu_bar0 *bar,
    eng->free_count = 0;
    eng->enabled = false;
    eng->rings_valid = false;
+   eng->prev_wr_dma = 0;
+   eng->prev_rd_dma = 0;
    eng->init_polling = false;
    eng->tx_count = 0;
    eng->rx_count = 0;

@@ -203,8 +203,9 @@ int emu_gpu_init(struct emu_gpu_engine *eng, struct emu_bar0 *bar)
  * On freeList[idx]==0: nothing pending at this slot, retry next tick.
  * On emu_gpu_addr_lookup()==NULL: skip with rate-limited info
  *   (never deref NULL).
- * On success: fill PRBS payload @ +DATA_BYTES_C, write size doorbell
- *   at +4, smp_wmb, clear freeList bit, advance cursor, bump rxFrameCnt.
+ * On success: fill PRBS payload @ +DATA_BYTES_C, clear freeList bit,
+ *   advance cursor, bump rxFrameCnt, smp_wmb, then write the size
+ *   doorbell at +4 as the last store.
  */
 static void emu_gpu_rx_tick(struct emu_gpu_engine *eng)
 {
@@ -260,12 +261,17 @@ static void emu_gpu_rx_tick(struct emu_gpu_engine *eng)
       return;
    }
 
-   /* Frame size: honor RemoteWriteMaxSize; default to 4096 if zero. */
+   /* Frame size: honor RemoteWriteMaxSize; default to 4096 if zero.
+    * The payload is written at kva + EMU_GPU_DATA_BYTES_C, so the clamp
+    * must leave room for the header. Gpu_AddNvidia programs
+    * RemoteWriteMaxSize = mapSize (the whole buffer); a caller that
+    * registers a 64 KiB buffer and never overrides the register would
+    * otherwise get a 65536-byte fill that ends 16 bytes past the buffer. */
    size = ioread32(eng->reg_base + EMU_GPU_REG_RW_MAX_SIZE);
    if (size == 0)
       size = 4096;
-   if (size > 65536)
-      size = 65536;
+   if (size > 65536 - EMU_GPU_DATA_BYTES_C)
+      size = 65536 - EMU_GPU_DATA_BYTES_C;
 
    /* Fill PRBS payload at kva + DATA_BYTES_C. emu_prbs_gen_data() returns
     * 0 on success or -EINVAL; rx_prbs_seq is advanced by the engine on the
@@ -279,62 +285,75 @@ static void emu_gpu_rx_tick(struct emu_gpu_engine *eng)
       return;
    }
 
+   /* Reacquire spinlock for state mutation (free-list ack, cursor advance,
+    * counter bump).  Re-check free to guard against a concurrent tick that
+    * may have processed this same slot during the lock-dropped window.
+    *
+    * The free-list bit MUST be cleared before the doorbell is published.
+    * This mirrors AxiPcieGpuAsyncControl.vhd, which clears writeFreeList
+    * when it starts the transaction and signals completion afterwards.
+    * If the doorbell were posted first and this thread were preempted
+    * before the clear, user space could consume the frame and re-arm the
+    * same slot; the late clear would then erase that fresh request while
+    * the cursor has already moved on, so the slot never fires again. */
+   spin_lock_irqsave(&eng->lock, flags);
+   free = ioread32(eng->reg_base + EMU_GPU_FREELIST_BASE + idx * 4);
+   if (free == 0) {
+      /* Slot already consumed; do not post a doorbell for it. */
+      spin_unlock_irqrestore(&eng->lock, flags);
+      return;
+   }
+
+   /* Clear the free-list bit (ack this slot). */
+   iowrite32(0, eng->reg_base + EMU_GPU_FREELIST_BASE + idx * 4);
+
+   /* Advance round-robin cursor. wcnt is 0-based idx max, so the
+    * wrap width is wcnt + 1 (matches the read at line 218). */
+   eng->next_write_idx = (idx + 1) % (wcnt + 1);
+
+   /* Advance the PRBS sequence for the next frame (RMW under the
+    * engine lock). Wraps naturally at 2^32. */
+   eng->rx_prbs_seq++;
+
+   /* Per-frame RX instrumentation. Gated on emu_gpu_debug_sc2
+    * (module_param in emu_main.c, default 0). Literal prefix
+    * "emu_gpu: " is load-bearing: the shell wrapper greps for it.
+    * No rate limiting. pr_info under spinlock is safe per kernel
+    * conventions. */
+   if (emu_gpu_debug_sc2)
+      pr_info("emu_gpu: buf=%u rx_seq=0x%08x\n",
+              idx, eng->rx_prbs_seq);
+
+   cnt = ioread32(eng->reg_base + EMU_GPU_REG_RX_FRAME_CNT);
+   iowrite32(cnt + 1, eng->reg_base + EMU_GPU_REG_RX_FRAME_CNT);
+   spin_unlock_irqrestore(&eng->lock, flags);
+
    /* Descriptor layout (V4, per rdmaTest.cu:327 -- GPU polls +4):
     *   [+0..+3] : AxiWrDesc64_t header word (reserved)
     *   [+4..+7] : size (doorbell; non-zero completes cuStreamWaitValue32)
-    */
+    *
+    * Payload, header, and the free-list clear must all be visible before
+    * the doorbell, which is the last store of this tick. */
    memcpy((u8 *)kva + 0, &hdr0, sizeof(hdr0));
-   memcpy((u8 *)kva + 4, &size, sizeof(size));
-
-   /* Payload + header must be visible before the free-list clear. */
    smp_wmb();
-
-   /* Reacquire spinlock for state mutation (free-list ack, cursor advance,
-    * counter bump).  Re-check free to guard against a concurrent tick that
-    * may have processed this same slot during the lock-dropped window. */
-   spin_lock_irqsave(&eng->lock, flags);
-   free = ioread32(eng->reg_base + EMU_GPU_FREELIST_BASE + idx * 4);
-   if (free != 0) {
-      /* Clear the free-list bit (ack this slot). */
-      iowrite32(0, eng->reg_base + EMU_GPU_FREELIST_BASE + idx * 4);
-
-      /* Advance round-robin cursor. wcnt is 0-based idx max, so the
-       * wrap width is wcnt + 1 (matches the read at line 218). */
-      eng->next_write_idx = (idx + 1) % (wcnt + 1);
-
-      /* Advance the PRBS sequence for the next frame (RMW under the
-       * engine lock). Wraps naturally at 2^32. */
-      eng->rx_prbs_seq++;
-
-      /* Per-frame RX instrumentation. Gated on emu_gpu_debug_sc2
-       * (module_param in emu_main.c, default 0). Literal prefix
-       * "emu_gpu: " is load-bearing — the shell wrapper greps for it.
-       * No rate limiting. pr_info under spinlock is safe per kernel
-       * conventions. */
-      if (emu_gpu_debug_sc2)
-         pr_info("emu_gpu: buf=%u rx_seq=0x%08x\n",
-                 idx, eng->rx_prbs_seq);
-
-      cnt = ioread32(eng->reg_base + EMU_GPU_REG_RX_FRAME_CNT);
-      iowrite32(cnt + 1, eng->reg_base + EMU_GPU_REG_RX_FRAME_CNT);
-   }
-   spin_unlock_irqrestore(&eng->lock, flags);
+   memcpy((u8 *)kva + 4, &size, sizeof(size));
 }
 
 /* ----------------------------------------------------------------
  * TX half-FSM
  * ----------------------------------------------------------------
  *
- * On readEnable=0: reset nextReadIdx (VHDL disable reset).
+ * On readEnable=0: reset nextReadIdx and, on the 1->0 edge, zero every
+ *   readReqSize[] slot (VHDL disable reset of nextReadIdx + readReqList).
  * On readCount=0: WARN_ON_ONCE and skip.
  * On readReqSize[idx]==0: nothing pending at this slot, retry next tick.
  * On emu_gpu_addr_lookup()==NULL: skip with rate-limited info
  *   (never deref NULL).
  * On success: call emu_prbs_process_data on payload @ +DATA_BYTES_C
  *   (log but do not abort on PRBS mismatch so the ack still fires),
- *   write 1 to kva+0 (TX ACK doorbell -- rdmaTest.cu
- *   cuStreamWaitValue32(txBuffs, 1, GEQ)), smp_wmb, clear request word,
- *   advance cursor mod rcnt, bump txFrameCnt.
+ *   clear request word, advance cursor mod rcnt, bump txFrameCnt,
+ *   smp_wmb, then write 1 to kva+0 (TX ACK doorbell -- rdmaTest.cu
+ *   cuStreamWaitValue32(txBuffs, 1, GEQ)) as the last store.
  */
 static void emu_gpu_tx_tick(struct emu_gpu_engine *eng)
 {
@@ -346,6 +365,7 @@ static void emu_gpu_tx_tick(struct emu_gpu_engine *eng)
    void *kva;
    u32 cnt;
    u32 one = 1;
+   u32 nbuf, i;
    int ret;
 
    emu_gpu_read_ctrl(eng, &wen, &wcnt, &ren, &rcnt);
@@ -353,11 +373,24 @@ static void emu_gpu_tx_tick(struct emu_gpu_engine *eng)
    spin_lock_irqsave(&eng->lock, flags);
 
    if (!ren) {
-      /* VHDL: nextReadIdx := 0 when readEnable = '0'. */
+      /* VHDL: nextReadIdx := 0 and readReqList := 0 when readEnable = '0'.
+       * The firmware drops the pending-request list every cycle while
+       * disabled, so a request left pending at disable never fires after
+       * re-enable. The emulator keeps that state in the readReqSize[]
+       * slots, so zero them. Doing it once on the 1->0 edge rather than
+       * on every tick avoids rewriting up to maxBuffers slots per poll
+       * interval while the engine sits disabled. */
       eng->next_read_idx = 0;
+      if (eng->read_was_enabled) {
+         nbuf = ioread32(eng->reg_base + EMU_GPU_REG_MAX_BUFFERS) & 0x7FF;
+         for (i = 0; i < nbuf; i++)
+            iowrite32(0, eng->reg_base + EMU_GPU_READREQ_BASE + i * 4);
+         eng->read_was_enabled = false;
+      }
       spin_unlock_irqrestore(&eng->lock, flags);
       return;
    }
+   eng->read_was_enabled = true;
 
    /* rcnt is the 0-based last-valid-index (matches wcnt semantics).
     * Number of active read buffers = rcnt + 1; iterate 0..rcnt. */
@@ -395,33 +428,47 @@ static void emu_gpu_tx_tick(struct emu_gpu_engine *eng)
       pr_info("%s: gpu tx: prbs verify failed idx=%u size=%u ret=%d\n",
               EMU_GPU_MOD, idx, reqsz, ret);
 
-   /* TX ACK doorbell: write 1 at remoteReadAddr + 0.
-    * rdmaTest.cu:339 waits cuStreamWaitValue32(txBuffs, 1, GEQ). */
-   memcpy((u8 *)kva, &one, sizeof(one));
-   smp_wmb();
-
    /* Reacquire spinlock for state mutation (request-word clear, cursor
     * advance, counter bump).  Re-check reqsz to guard against a
     * concurrent tick that may have processed this slot during the
-    * lock-dropped window. */
+    * lock-dropped window.
+    *
+    * The request word MUST be cleared before the ack is published.
+    * This mirrors AxiPcieGpuAsyncControl.vhd, which clears readReqList
+    * when it starts the transaction and signals completion afterwards.
+    * If the ack were posted first and this thread were preempted before
+    * the clear, user space could see the ack and re-arm the same slot
+    * with a new remoteReadSize; the late clear would then erase that
+    * fresh request while the cursor has already moved on. */
    spin_lock_irqsave(&eng->lock, flags);
    reqsz = ioread32(eng->reg_base + EMU_GPU_READREQ_BASE + idx * 4);
-   if (reqsz != 0) {
-      /* Clear the request word (ack this slot). */
-      iowrite32(0, eng->reg_base + EMU_GPU_READREQ_BASE + idx * 4);
-
-      /* Advance round-robin cursor. rcnt is 0-based idx max, so the
-       * wrap width is rcnt + 1 (matches the read at line 344). */
-      eng->next_read_idx = (idx + 1) % (rcnt + 1);
-
-      /* Bump txFrameCnt. No per-direction PRBS sequence is tracked here:
-       * emu_prbs_process_data is stateless and extracts the expected
-       * sequence from the frame header itself (data32[0]), so there is
-       * nothing meaningful to accumulate in the engine struct. */
-      cnt = ioread32(eng->reg_base + EMU_GPU_REG_TX_FRAME_CNT);
-      iowrite32(cnt + 1, eng->reg_base + EMU_GPU_REG_TX_FRAME_CNT);
+   if (reqsz == 0) {
+      /* Slot already consumed; do not post an ack for it. */
+      spin_unlock_irqrestore(&eng->lock, flags);
+      return;
    }
+
+   /* Clear the request word (ack this slot). */
+   iowrite32(0, eng->reg_base + EMU_GPU_READREQ_BASE + idx * 4);
+
+   /* Advance round-robin cursor. rcnt is 0-based idx max, so the
+    * wrap width is rcnt + 1 (matches the read at line 344). */
+   eng->next_read_idx = (idx + 1) % (rcnt + 1);
+
+   /* Bump txFrameCnt. No per-direction PRBS sequence is tracked here:
+    * emu_prbs_process_data is stateless and extracts the expected
+    * sequence from the frame header itself (data32[0]), so there is
+    * nothing meaningful to accumulate in the engine struct. */
+   cnt = ioread32(eng->reg_base + EMU_GPU_REG_TX_FRAME_CNT);
+   iowrite32(cnt + 1, eng->reg_base + EMU_GPU_REG_TX_FRAME_CNT);
    spin_unlock_irqrestore(&eng->lock, flags);
+
+   /* TX ACK doorbell: write 1 at remoteReadAddr + 0.
+    * rdmaTest.cu:339 waits cuStreamWaitValue32(txBuffs, 1, GEQ).
+    * The request-word clear must be visible before the ack, which is the
+    * last store of this tick. */
+   smp_wmb();
+   memcpy((u8 *)kva, &one, sizeof(one));
 }
 
 /* ----------------------------------------------------------------

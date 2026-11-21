@@ -33,6 +33,38 @@
  * Set by emu_pci_notifier_init(), cleared by emu_pci_notifier_destroy(). */
 static struct emu_pci_host *g_emu_host;
 
+/*
+ * On x86 the PCI core does not treat bus->sysdata as opaque: pci_domain_nr(),
+ * pcibus_to_node(), pci_root_bus_fwnode() and is_vmd() all cast it to
+ * struct pci_sysdata (arch/x86/include/asm/pci.h). Installing the emulator
+ * state directly made the PCI domain the low 32 bits of a heap pointer, so
+ * the device was named differently on every load, and aliased the bridge,
+ * bus and cfg_space bytes onto the node, companion, fwnode and vmd_dev
+ * fields. Hand the core a real pci_sysdata embedded at the start of
+ * struct emu_pci_host and recover the host with container_of(). Other
+ * architectures keep sysdata opaque, so the host pointer is used directly.
+ */
+static void *emu_pci_host_sysdata(struct emu_pci_host *host)
+{
+#ifdef CONFIG_X86
+   host->sysdata.domain = EMU_PCI_DOMAIN;
+   host->sysdata.node   = NUMA_NO_NODE;
+   return &host->sysdata;
+#else
+   return host;
+#endif
+}
+
+static struct emu_pci_host *emu_pci_host_from_bus(struct pci_bus *bus)
+{
+#ifdef CONFIG_X86
+   return container_of((struct pci_sysdata *)bus->sysdata,
+                       struct emu_pci_host, sysdata);
+#else
+   return bus->sysdata;
+#endif
+}
+
 /* Helper: write a 16-bit value into config space byte array (little-endian) */
 static void cfg_write16(uint8_t *cfg, int offset, uint16_t val)
 {
@@ -181,7 +213,7 @@ static void emu_pci_init_cfg_space(struct emu_pci_host *host)
 static int emu_pci_read(struct pci_bus *bus, unsigned int devfn,
                         int where, int size, u32 *val)
 {
-   struct emu_pci_host *host = bus->sysdata;
+   struct emu_pci_host *host = emu_pci_host_from_bus(bus);
    uint8_t *cfg = host->cfg_space;
 
    /* Only respond to device 0, function 0 */
@@ -235,7 +267,7 @@ static int emu_pci_read(struct pci_bus *bus, unsigned int devfn,
 static int emu_pci_write(struct pci_bus *bus, unsigned int devfn,
                          int where, int size, u32 val)
 {
-   struct emu_pci_host *host = bus->sysdata;
+   struct emu_pci_host *host = emu_pci_host_from_bus(bus);
    uint8_t *cfg = host->cfg_space;
 
    /* Only respond to device 0, function 0 */
@@ -252,10 +284,10 @@ static int emu_pci_write(struct pci_bus *bus, unsigned int devfn,
     * (BAR_SIZE - 1) ORed with type bits (0x04 = 64-bit memory).
     * After sizing, the core writes the actual address back.
     *
-    * Use host->bar->size (the actually-allocated size, which may be smaller
-    * than the nominal 16MB if emu_bar0_alloc() fell back to a reduced order
-    * under memory fragmentation) so the PCI core ioremap()s exactly the
-    * pages we own.
+    * Use host->bar->size (the actually-allocated size: at most
+    * MAX_PAGE_ORDER pages, 4MB on x86-64, and smaller still if
+    * emu_bar0_alloc() fell back to a reduced order under memory
+    * fragmentation) so the PCI core ioremap()s exactly the pages we own.
     */
    if (where == EMU_CFG_BAR0 && size == 4) {
       if (val == 0xFFFFFFFF) {
@@ -384,7 +416,7 @@ int emu_pci_host_create(struct emu_pci_host *host,
 
    /* Configure the host bridge */
    host->bridge->ops     = &emu_pci_ops;
-   host->bridge->sysdata = host;
+   host->bridge->sysdata = emu_pci_host_sysdata(host);
    host->bridge->busnr   = 0;
    INIT_LIST_HEAD(&host->bridge->windows);
    pci_add_resource(&host->bridge->windows, &host->mem_res);

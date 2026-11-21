@@ -27,7 +27,7 @@
 /** @brief ioctl command code used to acknowledge a completed AXIS read. */
 #define AXIS_Read_Ack 0x2001  // NOLINT
 
-/** @brief ioctl command code used to signal a missed AXIS write request. */
+/** @brief ioctl command code: return the DMA engine's missed write-request count. */
 #define AXIS_Write_ReqMissed 0x2002  // NOLINT
 
 // Only define the following if not compiling for kernel space
@@ -106,11 +106,12 @@ static inline void axisReadAck(int32_t fd) {
 }
 
 /**
- * @brief Issues AXIS missed-write-request ioctl command.
+ * @brief Issues the AXIS missed-write-request count query.
  *
  * @details
- * Calls `ioctl(fd, AXIS_Write_ReqMissed, 0)` to notify the driver that a write
- * request was missed and recovery/diagnostic handling may be required.
+ * Calls `ioctl(fd, AXIS_Write_ReqMissed, 0)`, which returns the DMA engine's
+ * missed write-request counter. This `void` wrapper discards the returned
+ * count; call `ioctl()` directly to read it.
  *
  * @param fd File descriptor for the AXIS device.
  */

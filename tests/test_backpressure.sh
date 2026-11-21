@@ -66,7 +66,8 @@ DMESG_BEFORE=$($SUDO dmesg | wc -l)
 
 # Unconditional rmmod to establish known state before reload.
 $SUDO rmmod datadev 2>/dev/null || true
-for _ in $(seq 1 15); do [ ! -e "$DEV" ] && break; sleep 0.5; done
+$SUDO rm -f "$DEV"
+for _ in $(seq 1 15); do [ ! -e /sys/module/datadev ] && break; sleep 0.5; done
 
 # Reload with low buffer counts to trigger backpressure paths.
 timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod "$DATADEV_KO" cfgTxCount=4 cfgRxCount=4 cfgSize=65536 cfgDebug=1
@@ -140,7 +141,8 @@ fi
 
 # --- Cleanup: restore default parameters ---
 $SUDO rmmod datadev 2>/dev/null || true
-for _ in $(seq 1 15); do [ ! -e "$DEV" ] && break; sleep 0.5; done
+$SUDO rm -f "$DEV"
+for _ in $(seq 1 15); do [ ! -e /sys/module/datadev ] && break; sleep 0.5; done
 timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod "$DATADEV_KO" cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgDebug=1 2>/dev/null || true
 if [ ! -e "$DEV" ]; then
    DATADEV_MAJOR=$(awk '$2 == "datadev_0" { print $1 }' /proc/devices)

@@ -180,13 +180,19 @@ static void emu_msi_parent_free(struct irq_domain *d, unsigned int virq,
                                 unsigned int nr_irqs)
 {
    struct emu_msi *m = d->host_data;
-   struct irq_data *irqd = irq_get_irq_data(virq);
+   struct irq_data *irqd = irq_domain_get_irq_data(d, virq);
    unsigned long flags;
    unsigned int i;
 
    /* Return the contiguous hwirq run to the pool. The run is laid out
     * hw_base..hw_base+nr_irqs by alloc, so the first virq's hwirq is the
-    * base. Recover it before irq_domain_reset_irq_data() clears it. */
+    * base. Recover it before irq_domain_reset_irq_data() clears it.
+    *
+    * Look up the irq_data at this domain's level of the hierarchy.
+    * irq_get_irq_data() would return the outermost irq_data, which
+    * belongs to the PCI-MSI child domain and carries the child's hwirq,
+    * not the pool index that alloc stored here with irq_domain_set_info().
+    */
    if (m != NULL && irqd != NULL) {
       spin_lock_irqsave(&m->hwirq_lock, flags);
       bitmap_clear(m->hwirq_map, irqd->hwirq, nr_irqs);
@@ -194,7 +200,7 @@ static void emu_msi_parent_free(struct irq_domain *d, unsigned int virq,
    }
 
    for (i = 0; i < nr_irqs; i++)
-      irq_domain_reset_irq_data(irq_get_irq_data(virq + i));
+      irq_domain_reset_irq_data(irq_domain_get_irq_data(d, virq + i));
 
    if (m != NULL && m->alloc_virq >= virq && m->alloc_virq < virq + nr_irqs)
       m->alloc_virq = 0;

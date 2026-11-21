@@ -40,7 +40,8 @@ or persistently via ``/etc/modprobe.d/``.
        high-throughput read workloads at the cost of memory.
    * - ``cfgSize``
      - ``0x20000`` (131072 = 128 kB)
-     - Size in bytes of each DMA buffer. Must be a power of two.
+     - Size in bytes of each DMA buffer. Should be a multiple of the page
+       size (4096), which ``dmaMapDma()`` requires.
        Larger values reduce ioctl overhead for large transfers;
        smaller values reduce memory waste for small transfers.
    * - ``cfgMode``
