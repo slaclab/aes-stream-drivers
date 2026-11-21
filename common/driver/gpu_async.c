@@ -226,14 +226,14 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
    if (dat.write) {
       if (data->writeBuffers.count >= data->maxBuffers) {
          dev_warn(dev->device, "Gpu_AddNvidia: Too many write buffers: max %u\n", data->maxBuffers);
-         atomic64_set(&data->tgid, 0);
+         if (pid == 0) atomic64_set(&data->tgid, 0);
          return -EINVAL;
       }
       buffer = &(data->writeBuffers.list[data->writeBuffers.count]);
    } else {
       if (data->readBuffers.count >= data->maxBuffers) {
          dev_warn(dev->device, "Gpu_AddNvidia: Too many read buffers: max %u\n", data->maxBuffers);
-         atomic64_set(&data->tgid, 0);
+         if (pid == 0) atomic64_set(&data->tgid, 0);
          return -EINVAL;
       }
       buffer = &(data->readBuffers.list[data->readBuffers.count]);
@@ -294,7 +294,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
             if (minSize > 1 && minSize != mapSize) {
                dev_warn(dev->device, "Gpu_AddNvidia: mapSize=%zu does not match last configured mapSize of %zu. Write buffers must all be identically sized\n",
                   minSize, mapSize);
-               atomic64_set(&data->tgid, 0);
+               if (pid == 0) atomic64_set(&data->tgid, 0);
                return -EINVAL;
             }
 
@@ -329,7 +329,7 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
       }
    } else {
       dev_warn(dev->device, "Gpu_AddNvidia: failed to pin memory with address=0x%llx. ret=%i\n", dat.address, ret);
-      atomic64_set(&data->tgid, 0);
+      if (pid == 0) atomic64_set(&data->tgid, 0);
       return -1;
    }
 
