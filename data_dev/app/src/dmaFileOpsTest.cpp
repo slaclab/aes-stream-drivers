@@ -19,6 +19,7 @@
 
 #include <sys/types.h>
 #include <sys/select.h>
+#include <sys/mman.h>
 #include <sys/time.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -168,7 +169,29 @@ int main(int argc, char **argv) {
       }
    }
 
-   // 6. read with no data pending -- return >= 0 acceptable (0 means no data ready)
+   // 6. oversized mmap -- a request longer than one buffer must be rejected.
+   //    In stream/ACP mode the length is passed straight to io_remap_pfn_range(),
+   //    so without the bound in Dma_Mmap this would map memory past buffer 0.
+   {
+      ssize_t bSize = dmaGetBuffSize(fd);
+      if (bSize <= 0) {
+         printf("FAIL: oversized mmap: dmaGetBuffSize = %zd\n", bSize);
+         errors++;
+      } else {
+         size_t len = 2 * (size_t)bSize;
+         void * ptr = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+         if (ptr == MAP_FAILED) {
+            printf("PASS: oversized mmap(%zu) rejected\n", len);
+            passed++;
+         } else {
+            printf("FAIL: oversized mmap(%zu) succeeded, expected MAP_FAILED\n", len);
+            errors++;
+            munmap(ptr, len);
+         }
+      }
+   }
+
+   // 7. read with no data pending -- return >= 0 acceptable (0 means no data ready)
    {
       size_t sz = 131072;
       void * buf = malloc(sz);
@@ -194,7 +217,7 @@ int main(int argc, char **argv) {
       }
    }
 
-   // 7. ioctl -- covered more thoroughly by dmaIoctlTest; do one here
+   // 8. ioctl -- covered more thoroughly by dmaIoctlTest; do one here
    {
       ssize_t rv = dmaGetBuffSize(fd);
       if (rv > 0) {
@@ -206,7 +229,7 @@ int main(int argc, char **argv) {
       }
    }
 
-   // 8. close -- verify clean teardown
+   // 9. close -- verify clean teardown
    {
       int ret = close(fd);
       if (ret == 0) {
