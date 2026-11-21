@@ -284,10 +284,10 @@ static int emu_pci_write(struct pci_bus *bus, unsigned int devfn,
     * (BAR_SIZE - 1) ORed with type bits (0x04 = 64-bit memory).
     * After sizing, the core writes the actual address back.
     *
-    * Use host->bar->size (the actually-allocated size, which may be smaller
-    * than the nominal 16MB if emu_bar0_alloc() fell back to a reduced order
-    * under memory fragmentation) so the PCI core ioremap()s exactly the
-    * pages we own.
+    * Use host->bar->size (the actually-allocated size: at most
+    * MAX_PAGE_ORDER pages, 4MB on x86-64, and smaller still if
+    * emu_bar0_alloc() fell back to a reduced order under memory
+    * fragmentation) so the PCI core ioremap()s exactly the pages we own.
     */
    if (where == EMU_CFG_BAR0 && size == 4) {
       if (val == 0xFFFFFFFF) {

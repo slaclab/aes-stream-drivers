@@ -312,9 +312,10 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    // user region: rwBase = base + PHY_OFF, rwSize = 2*USER_SIZE - PHY_OFF). A
    // BAR0 *larger* than this means the firmware was built with a different
    // address map, so reject it with a clear message instead of letting the
-   // mismatch surface later. A smaller BAR0 is tolerated: the emulator shrinks
-   // its BAR when it cannot reserve 16 MB of contiguous memory, and only the
-   // lower register regions are exercised in that configuration.
+   // mismatch surface later. A smaller BAR0 is tolerated: the emulator's BAR0
+   // is capped at MAX_PAGE_ORDER (4 MB on x86-64) and can shrink further under
+   // memory fragmentation, and only the lower register regions are exercised
+   // in that configuration.
    if ( dev->baseSize > (2 * USER_SIZE) ) {
       dev_err(&pcidev->dev,
               "%s: Probe: BAR0 size 0x%x exceeds expected 0x%x (16 MB); "
@@ -349,7 +350,7 @@ int DataDev_Probe(struct pci_dev *pcidev, const struct pci_device_id *dev_id) {
    // allocation failing with -ENOMEM.
    //
    // Guarded by a bounds check because Dma_MapReg() ioremaps exactly baseSize
-   // bytes, and the emulator can shrink BAR0 under memory fragmentation.
+   // bytes, and the emulator's BAR0 is smaller than the full register map.
    if ( dev->baseSize >= (AVER_OFF + sizeof(struct AxiVersion_Reg)) ) {
       if ( AxiVersion_GetUpTime(dev->base + AVER_OFF) == 0xFFFFFFFF ) {
          dev_err(dev->device,
