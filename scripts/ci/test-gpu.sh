@@ -169,8 +169,12 @@ for i in $(seq 1 $CYCLES); do
    # into nvidia_p2p_stub, so the stub must come last.
    $SUDO rmmod datadev
 
-   timeout $TIMEOUT_SEC bash -c 'while [ -e /dev/datadev_0 ]; do sleep 0.5; done' || {
-      echo_warn "/dev/datadev_0 still present after rmmod datadev on cycle $i"
+   # Remove device node (udev won't clean it up in Docker/container environments).
+   $SUDO rm -f /dev/datadev_0
+
+   # Wait for datadev module to fully unload before removing emulator.
+   timeout $TIMEOUT_SEC bash -c 'while [ -e /sys/module/datadev ]; do sleep 0.5; done' || {
+      echo_warn "datadev module still present after rmmod on cycle $i"
    }
 
    $SUDO rmmod datadev_emulator

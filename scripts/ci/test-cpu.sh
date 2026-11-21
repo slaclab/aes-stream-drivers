@@ -247,7 +247,8 @@ if [ "$GAP1_FAILED" -eq 0 ]; then
 
    # Restore cfgMode=1 before cleanup
    $SUDO rmmod datadev 2>/dev/null || true
-   for _ in $(seq 1 15); do [ ! -e "$DEV" ] && break; sleep 0.5; done
+   $SUDO rm -f "$DEV"
+   for _ in $(seq 1 15); do [ ! -e /sys/module/datadev ] && break; sleep 0.5; done
    timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod "$DATADEV_KO" cfgMode=1 cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgDebug=1
    timeout $TIMEOUT_SEC bash -c "until [ \"\$(cat /sys/module/datadev/initstate 2>/dev/null)\" = live ]; do sleep 0.5; done" || true
    if [ ! -e "$DEV" ]; then
@@ -306,7 +307,8 @@ if [ "$GAP5_FAILED" -eq 0 ]; then
    wait $LOOP_PID 2>/dev/null || true
 
    timeout 30 $SUDO rmmod datadev || { echo_fail "rmmod datadev failed/timed-out after kill"; FAILED=$((FAILED + 1)); GAP5_FAILED=1; }
-   for _ in $(seq 1 15); do [ ! -e "$DEV" ] && break; sleep 0.5; done
+   $SUDO rm -f "$DEV"
+   for _ in $(seq 1 15); do [ ! -e /sys/module/datadev ] && break; sleep 0.5; done
 
    timeout 30 $SUDO rmmod datadev_emulator || { echo_fail "rmmod datadev_emulator failed/timed-out"; FAILED=$((FAILED + 1)); GAP5_FAILED=1; }
 
