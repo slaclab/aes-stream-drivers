@@ -241,6 +241,7 @@ run_test_with_retry "tuser_sweep"   bash "$TESTS_DIR/test_tuser_sweep.sh"
 run_test_with_retry "frame_sizes"   bash "$TESTS_DIR/test_frame_sizes.sh"
 run_test_with_retry "small_frames"  bash "$TESTS_DIR/test_small_frames.sh"
 run_test_with_retry "concurrent_open" bash "$TESTS_DIR/test_concurrent_open.sh"
+run_test_with_retry "dma_rate"       bash "$TESTS_DIR/test_dma_rate.sh"
 run_test_with_retry "backpressure"   bash "$TESTS_DIR/test_backpressure.sh"
 run_test "irq_modes"      bash "$TESTS_DIR/test_irq_modes.sh"
 

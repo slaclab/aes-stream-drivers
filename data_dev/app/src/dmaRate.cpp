@@ -104,6 +104,11 @@ int main(int argc, char **argv) {
    memcpy(&args, &DefArgs, sizeof(struct PrgArgs));
    argp_parse(&argp, argc, argv, 0, 0, &args);
 
+   // dmaRate never exits on its own, so line-buffer stdout: when it is piped
+   // or redirected, each result line must be written before the process is
+   // killed rather than being lost in a block buffer
+   setvbuf(stdout, NULL, _IOLBF, 0);
+
    printf("  maxCnt           size      count   duration       rate         bw     Read uS   Return uS\n");
 
    // Initialize DMA mask
@@ -121,6 +126,10 @@ int main(int argc, char **argv) {
       printf("Failed to map dma buffers!\n");
       return 0;
    }
+
+   // The driver rejects a bulk read larger than its RX + TX buffer total
+   // (readScratchCount), so never request more entries than exist
+   if (getCnt > dmaCount) getCnt = dmaCount;
 
    // Set DMA mask
    if (dmaSetMaskBytes(s, mask) != 0) {
