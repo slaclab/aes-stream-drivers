@@ -102,7 +102,8 @@ verify_rings_empty() {
 # module reload.
 drain_stale_frames() {
    local drain_size
-   drain_size=$(cat /sys/module/datadev/parameters/cfgSize 2>/dev/null || echo 65536)
+   drain_size=$(awk -F: '/Buffer Size/ {gsub(/[^0-9]/,"",$2); print $2; exit}' "/proc/$(basename "$DEV")" 2>/dev/null)
+   drain_size="${drain_size:-65536}"
    timeout 5 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$drain_size" -r 1 -d > /dev/null 2>&1 || true
    timeout 5 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 1 -s "$drain_size" -r 1 -d > /dev/null 2>&1 || true
    sleep 1
