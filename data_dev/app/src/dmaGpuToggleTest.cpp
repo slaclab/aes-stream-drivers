@@ -4,7 +4,7 @@
  *-----------------------------------------------------------------------------
  * Description:
  *    Mid-stream state-transition test for the GPU-async data path emulator.
- *    Three subtests:
+ *    Four subtests:
  *      1. toggle_disable: gpuEnableTx(0)+gpuEnableRx(0) mid-run;
  *         100ms quiesce + countReset + 100ms settle; assert
  *         rxFrameCnt==0 && txFrameCnt==0 (race-immune zero baseline).
@@ -13,6 +13,11 @@
  *      3. maxbuffers_4to2: while traffic flowing, setWriteCount(2)+setReadCount(2)
  *         (reduces 4->2 active buffers); run 100 more frames; assert no
  *         dmesg WARN/KASAN and no PRBS mismatch.
+ *      4. rwmaxsize_default_clamp: register one 64 KiB write buffer carved
+ *         out of a 128 KiB stub entry, leave RemoteWriteMaxSize at the
+ *         driver-programmed mapSize, run one RX frame; assert hdr.size
+ *         fits below the buffer end and the guard bytes past 64 KiB are
+ *         untouched.
  *
  *    Exit code: 0 if all subtests pass, 1 otherwise.
  *    Assumes modules pre-loaded (matches tests/test_gpu_ioctls.sh precedent).
@@ -61,6 +66,7 @@ static constexpr int         kPreambleFrames  = 100;
 static constexpr int         kResumeFrames    = 4;
 static constexpr int         kPostReduceFrames = 100;
 static constexpr int         kPollDeadlineSec = 10;
+static constexpr uint8_t     kGuardByte       = 0xA5;
 
 /*
  * AxiWrDesc64_t: 128-bit frame header at buffer offset 0.
@@ -356,6 +362,88 @@ static void armBuffers(GpuAsyncCoreRegs &regs, int fd, int bufCnt,
 
    gpuEnableTx(fd, 1);
    gpuEnableRx(fd, 1);
+}
+
+/* ---------------------------------------------------------------------------
+ * runRwMaxSizeDefaultClamp: Subtest 4 (rwmaxsize_default_clamp)
+ *
+ * Gpu_AddNvidia programs RemoteWriteMaxSize = mapSize, the whole buffer,
+ * while the emulator RX tick writes the payload at +dmaDataBytes(). Every
+ * other path in this file overrides the register with bufSize -
+ * dmaDataBytes() in armBuffers; this subtest deliberately does not, so the
+ * emulator's own clamp is the only thing keeping the fill inside the
+ * buffer. Without the clamp accounting for the header, a 64 KiB buffer is
+ * overrun by dmaDataBytes() bytes.
+ *
+ * Detection from userspace: reserve a 2*kBufSize stub entry but register
+ * only the first kBufSize bytes. The stub resolves the registered address
+ * to the start of the entry, so bytes [kBufSize, 2*kBufSize) are kernel-
+ * writable guard space that the emulator must never touch. Fill them with
+ * kGuardByte, run one RX frame, then check both hdr.size and the guard.
+ *
+ * Must run after the four-buffer configuration has been removed via
+ * gpuRemNvidiaMemory (which also zeroes RemoteWriteMaxSize, so the
+ * driver's identical-size check does not reject the new registration).
+ * Only the TX direction (FPGA -> GPU, write buffers) is enabled.
+ * -------------------------------------------------------------------------*/
+
+static void runRwMaxSizeDefaultClamp(GpuAsyncCoreRegs &regs, int fd,
+                                     int stub_fd) {
+   const uint32_t dmaHeaderSize = regs.dmaDataBytes();
+   const size_t   entrySize     = 2 * static_cast<size_t>(kBufSize);
+   uint32_t bufId = 0;
+   char detail[128];
+
+   uint8_t *buf = static_cast<uint8_t *>(
+      gpuEmuAllocBuf(stub_fd, entrySize, &bufId));
+   if (!buf) {
+      report("rwmaxsize_default_clamp", false, "(stub alloc failed)");
+      return;
+   }
+
+   std::memset(buf, 0, kBufSize);
+   std::memset(buf + kBufSize, kGuardByte, entrySize - kBufSize);
+
+   if (gpuAddNvidiaMemory(fd, 1,
+         reinterpret_cast<uint64_t>(buf), kBufSize) < 0) {
+      snprintf(detail, sizeof(detail),
+         "(gpuAddNvidiaMemory failed: %s)", std::strerror(errno));
+      report("rwmaxsize_default_clamp", false, detail);
+      gpuEmuFreeBuf(buf, entrySize);
+      return;
+   }
+
+   /* No setRemoteWriteMaxSize() here: the register keeps the value
+    * Gpu_AddNvidia wrote (mapSize == kBufSize). */
+   regs.writeReg(regs.freeListOffset(0), 1);
+   gpuEnableTx(fd, 1);
+
+   emu_wait_value32_with_deadline(
+      reinterpret_cast<uint32_t *>(buf + 4), 1,
+      std::chrono::seconds(kPollDeadlineSec),
+      "rx doorbell (default clamp)", 0);
+
+   /* The tick cleared freeList[0], so no further fill can happen; stop
+    * the engine before inspecting the buffer anyway. */
+   gpuEnableTx(fd, 0);
+
+   AxiWrDesc64_t hdr;
+   std::memcpy(&hdr, buf, sizeof(hdr));
+
+   size_t guardClobbered = 0;
+   for (size_t i = kBufSize; i < entrySize; ++i) {
+      if (buf[i] != kGuardByte) ++guardClobbered;
+   }
+
+   const bool sizeOk = (dmaHeaderSize <= kBufSize) &&
+                       (hdr.size <= kBufSize - dmaHeaderSize);
+   snprintf(detail, sizeof(detail),
+      "(hdr.size=%u max=%u guard_clobbered=%zu)",
+      hdr.size, kBufSize - dmaHeaderSize, guardClobbered);
+   report("rwmaxsize_default_clamp", sizeOk && guardClobbered == 0, detail);
+
+   gpuRemNvidiaMemory(fd);
+   gpuEmuFreeBuf(buf, entrySize);
 }
 
 /* ---------------------------------------------------------------------------
@@ -684,15 +772,22 @@ int main(int argc, char **argv) {
       }
    }
 
-   /* Teardown. Disarm atexit first so the normal close sequence below is
-    * the single source of truth for fd lifetime; the atexit handler becomes
-    * a safety net only used on std::exit(1) paths from runOneFrame. */
-   s_atexit_armed = false;
+   /* Release the four-buffer configuration. atexit stays armed through
+    * the next subtest, which registers its own buffer and can still hit
+    * the std::exit(1) timeout path. */
    gpuRemNvidiaMemory(fd);
    for (int i = 0; i < kBufCnt; ++i) {
       gpuEmuFreeBuf(rxBuffs[i], kBufSize);
       gpuEmuFreeBuf(txBuffs[i], kBufSize);
    }
+
+   /* ---- Subtest 4: rwmaxsize_default_clamp ---- */
+   runRwMaxSizeDefaultClamp(regs, fd, stub_fd);
+
+   /* Teardown. Disarm atexit first so the normal close sequence below is
+    * the single source of truth for fd lifetime; the atexit handler becomes
+    * a safety net only used on std::exit(1) paths. */
+   s_atexit_armed = false;
    ::close(stub_fd);
    dmaUnMapRegister(fd, bar0, GPU_ASYNC_CORE_SIZE);
    ::close(fd);

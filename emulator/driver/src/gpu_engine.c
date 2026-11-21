@@ -260,12 +260,17 @@ static void emu_gpu_rx_tick(struct emu_gpu_engine *eng)
       return;
    }
 
-   /* Frame size: honor RemoteWriteMaxSize; default to 4096 if zero. */
+   /* Frame size: honor RemoteWriteMaxSize; default to 4096 if zero.
+    * The payload is written at kva + EMU_GPU_DATA_BYTES_C, so the clamp
+    * must leave room for the header. Gpu_AddNvidia programs
+    * RemoteWriteMaxSize = mapSize (the whole buffer); a caller that
+    * registers a 64 KiB buffer and never overrides the register would
+    * otherwise get a 65536-byte fill that ends 16 bytes past the buffer. */
    size = ioread32(eng->reg_base + EMU_GPU_REG_RW_MAX_SIZE);
    if (size == 0)
       size = 4096;
-   if (size > 65536)
-      size = 65536;
+   if (size > 65536 - EMU_GPU_DATA_BYTES_C)
+      size = 65536 - EMU_GPU_DATA_BYTES_C;
 
    /* Fill PRBS payload at kva + DATA_BYTES_C. emu_prbs_gen_data() returns
     * 0 on success or -EINVAL; rx_prbs_seq is advanced by the engine on the

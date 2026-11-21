@@ -246,10 +246,12 @@ dmaGpuToggleTest
 ^^^^^^^^^^^^^^^^
 
 Mid-stream state-transition test for the emulator's GPU async data path.
-Three subtests: disable TX/RX mid-run and verify the frame counters settle
-at zero, re-enable and verify PRBS-clean frames, then reduce the active
-buffer count from 4 to 2 while traffic flows and verify no dmesg warnings
-or PRBS mismatches.
+Four subtests: disable TX/RX mid-run and verify the frame counters settle
+at zero, re-enable and verify PRBS-clean frames, reduce the active buffer
+count from 4 to 2 while traffic flows and verify no dmesg warnings or PRBS
+mismatches, then register a single 64 KiB write buffer without overriding
+``RemoteWriteMaxSize`` and verify the emulator's RX fill stays inside the
+buffer (guard bytes past the registered window are checked from userspace).
 
 .. code-block:: text
 
