@@ -31,6 +31,7 @@ int  emu_gpu_addr_table_alloc_and_register(u64 length,
                                            struct emu_gpu_addr_entry **out);
 void emu_gpu_addr_table_get(struct emu_gpu_addr_entry *entry);
 void emu_gpu_addr_table_release(struct emu_gpu_addr_entry *entry);
+void emu_gpu_addr_table_disarm_free_cb(struct emu_gpu_addr_entry *entry);
 struct emu_gpu_addr_entry *emu_gpu_addr_table_find_by_idx(u32 idx);
 bool emu_gpu_addr_is_stub_vma(const struct vm_area_struct *vma);
 

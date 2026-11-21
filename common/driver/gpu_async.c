@@ -267,6 +267,12 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
 
       if (ret != 0) {
          dev_warn(dev->device, "Gpu_AddNvidia: error mapping page tables ret=%i\n", ret);
+         // Release the pin taken by nvidia_p2p_get_pages. Nothing was registered, so the
+         // slot must not be left with pinned pages or a live free callback.
+         nvidia_p2p_put_pages(0, 0, virt_start, buffer->pageTable);
+         buffer->pageTable = 0;
+         atomic64_set(&data->tgid, 0);
+         return -1;
       } else {
          // Determine how much memory is contiguous
          mapSize = 0;
@@ -293,7 +299,12 @@ int32_t Gpu_AddNvidia(struct DmaDevice *dev, uint64_t arg) {
             minSize = readGpuAsyncReg(data->base, &GpuAsyncReg_RemoteWriteMaxSizeV4);
             if (minSize > 1 && minSize != mapSize) {
                dev_warn(dev->device, "Gpu_AddNvidia: mapSize=%zu does not match last configured mapSize of %zu. Write buffers must all be identically sized\n",
-                  minSize, mapSize);
+                  mapSize, minSize);
+               // Undo the DMA mapping and the pin before rejecting the buffer
+               nvidia_p2p_dma_unmap_pages(dev->pcidev, buffer->pageTable, buffer->dmaMapping);
+               buffer->dmaMapping = 0;
+               nvidia_p2p_put_pages(0, 0, virt_start, buffer->pageTable);
+               buffer->pageTable = 0;
                atomic64_set(&data->tgid, 0);
                return -EINVAL;
             }

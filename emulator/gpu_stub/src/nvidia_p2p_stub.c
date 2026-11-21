@@ -30,6 +30,16 @@
 #include "emu_gpu_addr_table.h"
 #include "emu_gpu_addr_table_priv.h"
 
+/* Fault injection: number of upcoming nvidia_p2p_dma_map_pages calls that
+ * fail with -EIO. Decremented on each injected failure so a test that
+ * writes 1 gets exactly one failure and cannot leave the stub wedged.
+ * Writable at runtime via /sys/module/nvidia_p2p_stub/parameters/fail_dma_map
+ * so dmaGpuIoctlTest can drive the Gpu_AddNvidia error path. */
+static unsigned int fail_dma_map;
+module_param(fail_dma_map, uint, 0644);
+MODULE_PARM_DESC(fail_dma_map,
+                 "Fail the next N nvidia_p2p_dma_map_pages calls with -EIO (default 0)");
+
 int nvidia_p2p_get_pages(uint64_t p2p_token, uint32_t va_space,
                          uint64_t virtual_address, uint64_t length,
                          struct nvidia_p2p_page_table **page_table,
@@ -127,13 +137,30 @@ int nvidia_p2p_put_pages(uint64_t p2p_token, uint32_t va_space,
                          uint64_t virtual_address,
                          struct nvidia_p2p_page_table *page_table)
 {
+   struct emu_gpu_addr_entry *entry;
+
    (void)p2p_token;
    (void)va_space;
    (void)virtual_address;
-   (void)page_table;
-   /* No-op: real put_pages is an alternate release path; stub uses
-    * free_page_table exclusively. Exporting the symbol keeps linkage
-    * intact for any future consumer that calls put_pages directly. */
+
+   if (!page_table)
+      return -EINVAL;
+
+   /* Mirror the real driver: put_pages releases the pin AND frees the
+    * page table, and free_callback is never invoked for it afterwards.
+    * The datadev driver calls this from the Gpu_AddNvidia error paths
+    * (dma_map failure, V4 size mismatch) where the buffer slot is about
+    * to be abandoned, so disarm the callback before dropping the
+    * driver-holder reference. */
+   entry = (struct emu_gpu_addr_entry *)page_table->gpu_uuid;
+   page_table->gpu_uuid = NULL;
+   kfree(page_table);
+
+   if (entry) {
+      emu_gpu_addr_table_disarm_free_cb(entry);
+      emu_gpu_addr_table_release(entry);
+   }
+
    return 0;
 }
 EXPORT_SYMBOL(nvidia_p2p_put_pages);
@@ -154,6 +181,13 @@ int nvidia_p2p_dma_map_pages(struct pci_dev *peer,
    entry = (struct emu_gpu_addr_entry *)page_table->gpu_uuid;
    if (!entry)
       return -EINVAL;
+
+   if (fail_dma_map) {
+      fail_dma_map--;
+      pr_info("nvidia_p2p_stub: injecting dma_map_pages failure (%u remaining)\n",
+              fail_dma_map);
+      return -EIO;
+   }
 
    m = kzalloc(sizeof(*m), GFP_KERNEL);
    if (!m)
