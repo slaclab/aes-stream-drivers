@@ -735,9 +735,14 @@ void AxisG2_Clear(struct DmaDevice *dev) {
       dma_free_coherent(dev->device, size, hwData->readAddr, hwData->readHandle);
    }
 
-   // Free the buffer list if descriptor 128-bit mode is enabled.
+   // Free the buffer list and software queues if descriptor 128-bit
+   // mode is enabled. These are allocated in AxisG2_Init and were
+   // previously only released on the Init error path, leaking roughly
+   // 1.6 MB per device on every unload.
    if (hwData->desc128En) {
       kfree(hwData->buffList);
+      dmaQueueFree(&hwData->rdQueue);
+      dmaQueueFree(&hwData->wrQueue);
    }
 
    // Finally, free the hardware data structure itself.
