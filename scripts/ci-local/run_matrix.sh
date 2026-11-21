@@ -288,10 +288,16 @@ if [ "$PARALLEL" -eq 1 ]; then
    if [ ${#BUILD_ONLY_CELLS[@]} -gt 0 ]; then
       (
          export AES_CI_DOMAIN="aes-ci-0"
+         # The subshell inherits set -e, which would end the batch at the
+         # first failing cell. Run every cell and OR the exit codes instead.
+         set +e
+         batch_rc=0
          for cell_spec in "${BUILD_ONLY_CELLS[@]}"; do
             CONTAINER="${cell_spec%|*}"
             bash "$SCRIPT_DIR/run_cell.sh" --container "$CONTAINER" --load-test 0 --phase "$PHASE"
+            batch_rc=$((batch_rc | $?))
          done
+         exit $batch_rc
       ) &
       CELL_PIDS+=($!)
       CELL_LABELS+=("build-only-batch@aes-ci-0")
