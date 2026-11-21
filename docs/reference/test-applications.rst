@@ -225,7 +225,7 @@ rdmaTestEmu
 ^^^^^^^^^^^
 
 End-to-end GPUDirect RDMA loopback test using the emulator. A CUDA-free
-C++17 port that allocates GPU-like memory via ``nvidia_p2p_stub``, registers
+C++11 port that allocates GPU-like memory via ``nvidia_p2p_stub``, registers
 it with the driver, and performs DMA loopback transfers through the
 emulator's GPU async V4 engine.
 
