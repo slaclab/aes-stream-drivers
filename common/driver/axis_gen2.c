@@ -232,6 +232,7 @@ uint32_t AxisG2_Process(struct DmaDevice * dev, __iomem struct AxisG2Reg *reg, s
    struct AxisG2Return ret;
 
    uint32_t x;
+   uint32_t bg;
    uint32_t bCnt;
    uint32_t rCnt;
    uint32_t handleCount;
@@ -321,9 +322,11 @@ uint32_t AxisG2_Process(struct DmaDevice * dev, __iomem struct AxisG2Reg *reg, s
                 dmaQueuePushIrq(&(hwData->wrQueue), buff);
             }
 
-            // Background operation handling
-            if ( (hwData->bgEnable >> buff->id) & 0x1 ) {
-               writel(0x1, &(reg->bgCount[buff->id]));
+            // Background operation handling. buff->id is the full 8-bit
+            // tId, but the firmware counts buffer groups on tId[2:0].
+            bg = buff->id & 0x7;
+            if ( (hwData->bgEnable >> bg) & 0x1 ) {
+               writel(0x1, &(reg->bgCount[bg]));
             }
 
          // Lane/VC is open; add to RX queue
@@ -762,6 +765,7 @@ void AxisG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t
    __iomem struct AxisG2Reg *reg;
    struct AxisG2Data *hwData;
    uint32_t x;
+   uint32_t bg;
 
    reg = (__iomem struct AxisG2Reg *)dev->reg;
    hwData = (struct AxisG2Data *)dev->hwData;
@@ -783,11 +787,13 @@ void AxisG2_RetRxBuffer(struct DmaDevice *dev, struct DmaBuffer **buff, uint32_t
    if (hwData->desc128En) {
       dmaQueuePushList(&(hwData->wrQueue), buff, count);
 
-      // Handle buffer group credits if background operation is enabled
+      // Handle buffer group credits if background operation is enabled.
+      // The firmware counts buffer groups on tId[2:0], so mask the id.
       if (hwData->bgEnable != 0) {
          for (x = 0; x < count; x++) {
-            if ((hwData->bgEnable >> buff[x]->id) & 0x1) {
-               writel(0x1, &(reg->bgCount[buff[x]->id]));
+            bg = buff[x]->id & 0x7;
+            if ((hwData->bgEnable >> bg) & 0x1) {
+               writel(0x1, &(reg->bgCount[bg]));
             }
          }
       }
