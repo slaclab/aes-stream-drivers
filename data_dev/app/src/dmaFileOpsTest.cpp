@@ -168,6 +168,45 @@ int main(int argc, char **argv) {
       }
    }
 
+   // 5b. register mmap bounds -- Dma_Mmap must reject a register window that
+   //     starts past the end of BAR0 or whose length runs past it, and must
+   //     still accept a window inside the read/write region. The register
+   //     map is a fixed 16 MB (2 * USER_SIZE), so 0x01000000 is the first byte past
+   //     the end and 0x00FFF000 + 8192 straddles it. The in-range probe uses
+   //     the AxiVersion block at 0x00020000, which is inside the smallest BAR0
+   //     the emulator falls back to.
+   {
+      void * p = dmaMapRegister(fd, 0x01000000, 4096);
+      if (p == MAP_FAILED) {
+         printf("PASS: dmaMapRegister(offset past BAR0) = MAP_FAILED\n");
+         passed++;
+      } else {
+         printf("FAIL: dmaMapRegister(offset past BAR0) succeeded (%p)\n", p);
+         errors++;
+         dmaUnMapRegister(fd, p, 4096);
+      }
+
+      p = dmaMapRegister(fd, 0x00FFF000, 8192);
+      if (p == MAP_FAILED) {
+         printf("PASS: dmaMapRegister(length past BAR0) = MAP_FAILED\n");
+         passed++;
+      } else {
+         printf("FAIL: dmaMapRegister(length past BAR0) succeeded (%p)\n", p);
+         errors++;
+         dmaUnMapRegister(fd, p, 8192);
+      }
+
+      p = dmaMapRegister(fd, 0x00020000, 4096);
+      if (p != MAP_FAILED) {
+         printf("PASS: dmaMapRegister(in range) = %p\n", p);
+         passed++;
+         dmaUnMapRegister(fd, p, 4096);
+      } else {
+         printf("FAIL: dmaMapRegister(in range) = MAP_FAILED errno=%d\n", errno);
+         errors++;
+      }
+   }
+
    // 6. read with no data pending -- return >= 0 acceptable (0 means no data ready)
    {
       size_t sz = 131072;
