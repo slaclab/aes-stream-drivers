@@ -1,3 +1,4 @@
 prbs_cross_validate
 stub_mmap_test
+dma_addmask_test
 *.o
