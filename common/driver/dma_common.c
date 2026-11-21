@@ -938,6 +938,8 @@ static ssize_t Dma_Ret_Indexes(struct file *filp, uint32_t cmd, __user void* arg
          }
       } else {
          dev_warn(dev->device, "Command: Invalid index posted: %i.\n", desc->indexScratch[x]);
+         // Hand back the RX buffers this call already claimed
+         dev->hwFunc->retRxBuffer(dev, desc->buffListScratch, bCnt);
          // Clear the entries used by this call for subsequent operations, just in case.
          memset(desc->buffListScratch, 0, sizeof(struct DmaBuffer*) * bCnt);
          memset(desc->indexScratch, 0, sizeof(uint32_t) * cnt);
