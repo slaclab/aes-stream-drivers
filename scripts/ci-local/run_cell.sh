@@ -242,47 +242,47 @@ if [ "$PHASE" = "pgp" ]; then
    if [ "$LOAD_TEST" = "1" ]; then
       STEPS="${COPY_STEP}"'bash scripts/ci/install-deps.sh && \
              bash scripts/ci/build-pgp.sh && \
-             { bash scripts/ci/load-modules-pgp.sh; rc=$?; \
+             ( bash scripts/ci/load-modules-pgp.sh; rc=$?; \
                bash scripts/ci/unload-modules-pgp.sh; \
-               exit $rc; } ; rc=$? ; \
-             bash scripts/ci/check-dmesg.sh ; \
+               exit $rc ) ; rc=$? ; \
+             bash scripts/ci/check-dmesg.sh || { [ $rc -ne 0 ] || rc=1; } ; \
              exit $rc'
    else
       STEPS="${COPY_STEP}"'bash scripts/ci/install-deps.sh && \
              bash scripts/ci/build-pgp.sh ; rc=$? ; \
-             bash scripts/ci/check-dmesg.sh ; \
+             bash scripts/ci/check-dmesg.sh || { [ $rc -ne 0 ] || rc=1; } ; \
              exit $rc'
    fi
 elif [ "$PHASE" = "gpu" ]; then
    if [ "$LOAD_TEST" = "1" ]; then
       STEPS="${COPY_STEP}"'bash scripts/ci/install-deps.sh && \
              bash scripts/ci/build-gpu.sh && \
-             { bash scripts/ci/load-modules-gpu.sh && bash scripts/ci/test-gpu.sh; rc=$?; \
+             ( bash scripts/ci/load-modules-gpu.sh && bash scripts/ci/test-gpu.sh; rc=$?; \
                bash scripts/ci/unload-modules-gpu.sh; \
                if [ $rc -eq 0 ]; then bash scripts/ci/test-dkms-gpu.sh; rc=$?; fi; \
-               exit $rc; } ; rc=$? ; \
-             bash scripts/ci/check-dmesg.sh ; \
+               exit $rc ) ; rc=$? ; \
+             bash scripts/ci/check-dmesg.sh || { [ $rc -ne 0 ] || rc=1; } ; \
              exit $rc'
    else
       STEPS="${COPY_STEP}"'bash scripts/ci/install-deps.sh && \
              bash scripts/ci/build-gpu.sh ; rc=$? ; \
-             bash scripts/ci/check-dmesg.sh ; \
+             bash scripts/ci/check-dmesg.sh || { [ $rc -ne 0 ] || rc=1; } ; \
              exit $rc'
    fi
 else
    if [ "$LOAD_TEST" = "1" ]; then
       STEPS="${COPY_STEP}"'bash scripts/ci/install-deps.sh && \
              bash scripts/ci/build-cpu.sh && \
-             { bash scripts/ci/load-modules-cpu.sh && bash scripts/ci/test-cpu.sh; rc=$?; \
+             ( bash scripts/ci/load-modules-cpu.sh && bash scripts/ci/test-cpu.sh; rc=$?; \
                bash scripts/ci/unload-modules-cpu.sh; \
                if [ $rc -eq 0 ]; then bash scripts/ci/test-dkms-cpu.sh; rc=$?; fi; \
-               exit $rc; } ; rc=$? ; \
-             bash scripts/ci/check-dmesg.sh ; \
+               exit $rc ) ; rc=$? ; \
+             bash scripts/ci/check-dmesg.sh || { [ $rc -ne 0 ] || rc=1; } ; \
              exit $rc'
    else
       STEPS="${COPY_STEP}"'bash scripts/ci/install-deps.sh && \
              bash scripts/ci/build-cpu.sh ; rc=$? ; \
-             bash scripts/ci/check-dmesg.sh ; \
+             bash scripts/ci/check-dmesg.sh || { [ $rc -ne 0 ] || rc=1; } ; \
              exit $rc'
    fi
 fi
