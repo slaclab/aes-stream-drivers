@@ -170,6 +170,11 @@ without ``cfgMode`` and therefore runs with the driver default,
      - Load/unload cycles
      - 3 rapid insmod/rmmod cycles to detect use-after-free races
    * - 7
+     - cfgBgThold reload
+     - Reload with ``cfgBgThold0=16 cfgBgThold1=8`` (buffer group
+       thresholds), run ``dmaLoopTest`` on channels 0 and 1, verify zero
+       PRBS errors and a clean dmesg delta
+   * - 8
      - DKMS (smoke)
      - Build DKMS tarball, ``dkms ldtarball``, verify the package is
        registered in ``dkms status``, ``dkms remove``. No ``dkms build``
@@ -191,9 +196,9 @@ tests:
 **Module loading** (``load-modules-gpu.sh``):
 
 1. ``insmod nvidia_p2p_stub.ko``
-2. ``insmod datadev_emulator.ko``
-3. ``insmod datadev.ko`` (GPU build with ``NVIDIA_DRIVERS`` path)
-4. Create ``/dev/nvidia_p2p_stub_mem`` miscdevice node
+2. Create ``/dev/nvidia_p2p_stub_mem`` miscdevice node
+3. ``insmod datadev_emulator.ko``
+4. ``insmod datadev.ko`` (GPU build with ``NVIDIA_DRIVERS`` path)
 
 **Additional GPU tests** (``test-gpu.sh``):
 
