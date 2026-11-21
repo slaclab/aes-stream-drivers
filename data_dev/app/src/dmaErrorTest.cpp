@@ -8,7 +8,8 @@
  *      1. Buffer exhaustion via dmaGetIndex until no TX buffers remain
  *      2. Oversized write exceeding cfgSize
  *      3. Returning an invalid buffer index via DMA_Ret_Index
- *      4. Write to a destination one past the end of the destination mask
+ *      4. Writes to out-of-range destinations (one past the mask, and
+ *         0xFFFFFFFF), with the device still usable afterwards
  *    Exits 0 if every case behaves as expected, 1 otherwise.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
@@ -227,19 +228,36 @@ int main(int argc, char **argv) {
    //   destination is 8 * DMA_MASK_SIZE - 1. A write to exactly
    //   8 * DMA_MASK_SIZE must be rejected by the bound check in Dma_Write;
    //   if the check lets it through, the mask lookup indexes one byte past
-   //   the end of the destination mask array.
+   //   the end of the destination mask array. A write to 0xFFFFFFFF covers
+   //   the rejection path itself: the warning emitted for a rejected
+   //   destination must not index the mask with the user value, which for
+   //   this dest points about 512 MB past the array. The device must remain
+   //   usable after both rejections.
    // -------------------------------------------------------------------------
    {
       uint8_t  payload[16];
-      uint32_t badDest = 8 * DMA_MASK_SIZE;
+      uint32_t badDests[] = { 8 * DMA_MASK_SIZE, 0xFFFFFFFF };
 
       memset(payload, 0, sizeof(payload));
-      ssize_t ret = dmaWrite(fd, payload, sizeof(payload), 0, badDest);
-      if (ret < 0) {
-         printf("PASS: write to dest %u rejected (ret=%zd errno=%d)\n", badDest, ret, errno);
+      for (size_t i = 0; i < sizeof(badDests) / sizeof(badDests[0]); i++) {
+         uint32_t badDest = badDests[i];
+         ssize_t  ret     = dmaWrite(fd, payload, sizeof(payload), 0, badDest);
+         if (ret < 0) {
+            printf("PASS: write to dest %u rejected (ret=%zd errno=%d)\n", badDest, ret, errno);
+            passed++;
+         } else {
+            printf("FAIL: write to dest %u returned %zd (expected < 0)\n", badDest, ret);
+            errors++;
+         }
+      }
+
+      // The device must still answer ioctls after the rejected writes.
+      ssize_t postSize = dmaGetBuffSize(fd);
+      if (postSize == buffSize) {
+         printf("PASS: device still usable after bad-dest writes (buffSize=%zd)\n", postSize);
          passed++;
       } else {
-         printf("FAIL: write to dest %u returned %zd (expected < 0)\n", badDest, ret);
+         printf("FAIL: dmaGetBuffSize after bad-dest writes returned %zd, expected %zd\n", postSize, buffSize);
          errors++;
       }
    }
