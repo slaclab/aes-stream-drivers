@@ -159,10 +159,21 @@ static bool emu_free_pool_pop(struct emu_dma_engine *eng,
  * Ring buffer capture
  * ---------------------------------------------------------------- */
 
+/*
+ * AxisG2_Init programs each 64-bit ring base as two separate 32-bit
+ * writel() calls (low word, then high word), read ring first and write
+ * ring last.  A poll that lands between the two halves of a base sees a
+ * non-zero but torn value (low word only).  Accept the bases only when
+ * two consecutive polls read identical non-zero values; the driver
+ * completes the pair on its very next writel(), so a torn read does not
+ * survive to the following poll.  Costs one extra poll period before
+ * the rings become valid.
+ */
 static void emu_capture_rings(struct emu_dma_engine *eng)
 {
    uint64_t wr_dma, rd_dma;
    uint32_t addr_width;
+   bool stable;
 
    wr_dma  = (uint64_t)emu_reg_read(eng, EMU_REG_WRBASEHIGH) << 32;
    wr_dma |= (uint64_t)emu_reg_read(eng, EMU_REG_WRBASELOW);
@@ -170,27 +181,28 @@ static void emu_capture_rings(struct emu_dma_engine *eng)
    rd_dma  = (uint64_t)emu_reg_read(eng, EMU_REG_RDBASEHIGH) << 32;
    rd_dma |= (uint64_t)emu_reg_read(eng, EMU_REG_RDBASELOW);
 
+   stable = (wr_dma == eng->prev_wr_dma) && (rd_dma == eng->prev_rd_dma);
+   eng->prev_wr_dma = wr_dma;
+   eng->prev_rd_dma = rd_dma;
+
+   if (!stable || wr_dma == 0 || rd_dma == 0)
+      return;
+
    addr_width = emu_reg_read(eng, EMU_REG_ADDRWIDTH);
    if (addr_width > 0 && addr_width <= 16)
       eng->addr_count = 1 << addr_width;
    else
       eng->addr_count = 4096;
 
-   if (wr_dma != 0)
-      eng->wr_ring = (uint32_t *)phys_to_virt((phys_addr_t)wr_dma);
+   eng->wr_ring = (uint32_t *)phys_to_virt((phys_addr_t)wr_dma);
+   eng->rd_ring = (uint32_t *)phys_to_virt((phys_addr_t)rd_dma);
+   eng->rings_valid = true;
 
-   if (rd_dma != 0)
-      eng->rd_ring = (uint32_t *)phys_to_virt((phys_addr_t)rd_dma);
+   emu_reg_write(eng, EMU_REG_HWWRINDEX, 0);
+   emu_reg_write(eng, EMU_REG_HWRDINDEX, 0);
 
-   eng->rings_valid = (wr_dma != 0) && (rd_dma != 0);
-
-   if (eng->rings_valid) {
-      emu_reg_write(eng, EMU_REG_HWWRINDEX, 0);
-      emu_reg_write(eng, EMU_REG_HWRDINDEX, 0);
-
-      pr_info("emu: DMA rings captured: wr=%p rd=%p count=%u\n",
-              eng->wr_ring, eng->rd_ring, eng->addr_count);
-   }
+   pr_info("emu: DMA rings captured: wr=%p rd=%p count=%u\n",
+           eng->wr_ring, eng->rd_ring, eng->addr_count);
 }
 
 /* ----------------------------------------------------------------
@@ -615,6 +627,8 @@ int emu_dma_init(struct emu_dma_engine *eng, struct emu_bar0 *bar,
    eng->free_count = 0;
    eng->enabled = false;
    eng->rings_valid = false;
+   eng->prev_wr_dma = 0;
+   eng->prev_rd_dma = 0;
    eng->init_polling = false;
    eng->tx_count = 0;
    eng->rx_count = 0;
