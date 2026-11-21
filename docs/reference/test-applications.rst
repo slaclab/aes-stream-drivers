@@ -281,7 +281,7 @@ instead) and ``test_reload_segfault.sh``.
    * - ``run_tests.sh``
      - Master test runner: ioctl, file-ops, error-paths, multichannel, proc,
        data-integrity, idx-loopback, tuser-sweep, frame-sizes, small-frames,
-       concurrent-open, backpressure, irq-modes
+       concurrent-open, dma-rate, backpressure, irq-modes
    * - ``test_data_integrity.sh``
      - Runs ``dmaLoopTest`` for 60s, requires >= 100 transfers with zero
        PRBS mismatches
@@ -323,7 +323,9 @@ instead) and ``test_reload_segfault.sh``.
        fires when ``datadev`` is rebound in ``BUFF_COHERENT`` mode after a
        prior ``BUFF_STREAM`` cycle while the emulator stays loaded
    * - ``test_dma_rate.sh``
-     - ``dmaRate`` throughput benchmark
+     - ``dmaRate`` consuming ``dmaWrite`` loopback frames; asserts at least
+       one completed batch and no "attempted to read too many buffers" in
+       dmesg (bulk read request clamped to the mapped buffer count)
    * - ``test_small_frames.sh``
      - ``dmaSmallFrameTest`` 1-4 byte payload sweep with random bytes and
        per-frame memcmp; exercises sub-word DMA transfers that PRBS
