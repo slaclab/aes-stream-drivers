@@ -56,9 +56,15 @@ PGP_BIN := pgp_setmask_test
 PGP_OBJS := pgp_setmask_test.o
 PGP_INCLUDES := -I$(REPO_ROOT)/include -I$(REPO_ROOT)/pgpcard/include
 
+# Userspace regression test for dmaAddMaskBytes() in DmaDriver.h. Pure
+# header-only arithmetic on the mask byte array; no ioctl, no kernel module.
+DMA_BIN := dma_addmask_test
+DMA_OBJS := dma_addmask_test.o
+DMA_INCLUDES := -I$(REPO_ROOT)/include
+
 .PHONY: all test clean
 
-all: $(BIN) $(STUB_BIN) $(PGP_BIN)
+all: $(BIN) $(STUB_BIN) $(PGP_BIN) $(DMA_BIN)
 
 # prbs_cross_validate.c #includes ../src/prbs.c directly, so the kernel
 # source, its header, and the shim headers are real prerequisites.
@@ -87,9 +93,16 @@ pgp_setmask_test.o: pgp_setmask_test.cpp $(REPO_ROOT)/pgpcard/include/PgpDriver.
 $(PGP_BIN): $(PGP_OBJS)
 	$(CXX) $(CXXFLAGS) $(PGP_OBJS) -o $@ $(LDFLAGS)
 
-test: $(BIN) $(PGP_BIN)
+dma_addmask_test.o: dma_addmask_test.cpp
+	$(CXX) $(CXXFLAGS) $(DMA_INCLUDES) -c $< -o $@
+
+$(DMA_BIN): $(DMA_OBJS)
+	$(CXX) $(CXXFLAGS) $(DMA_OBJS) -o $@ $(LDFLAGS)
+
+test: $(BIN) $(PGP_BIN) $(DMA_BIN)
 	./$(BIN)
 	./$(PGP_BIN)
+	./$(DMA_BIN)
 
 clean:
-	rm -f $(BIN) $(OBJS) $(STUB_BIN) $(STUB_OBJS) $(PGP_BIN) $(PGP_OBJS)
+	rm -f $(BIN) $(OBJS) $(STUB_BIN) $(STUB_OBJS) $(PGP_BIN) $(PGP_OBJS) $(DMA_BIN) $(DMA_OBJS)
