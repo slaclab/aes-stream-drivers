@@ -349,11 +349,19 @@ static int emu_process_tx(struct emu_dma_engine *eng)
    rx_virt = phys_to_virt((phys_addr_t)rx_handle);
    memcpy(rx_virt, tx_virt, size);
 
-   /* Write RX completion to write ring (128-bit: 4 words) */
+   /* Write RX completion to write ring (128-bit: 4 words).
+    *
+    * Bits 15:8 of ptr[0] are the frame's tId (AxisG2_MapReturn ret->id),
+    * not its dest, which travels in ptr[3].  With a non-zero cfgBgThold
+    * the driver uses that id unmasked as the buffer group: it tests
+    * bgEnable >> id and writes bgCount[id].  The firmware counts groups on
+    * tId(2:0), so present the low three dest bits as the tId.  That keeps
+    * the id inside the eight bgCount registers and puts each of dest 0..7
+    * in its own group. */
    ptr = eng->wr_ring + (eng->wr_ring_idx * 4);
    ptr[0] = ((uint32_t)fuser << 24) |
             ((uint32_t)luser << 16) |
-            ((uint32_t)dest  << 8)  |
+            ((uint32_t)(dest & 0x7) << 8) |
             ((uint32_t)cont  << 3);
    ptr[1] = rx_index;
    ptr[2] = size;

@@ -173,7 +173,9 @@ without ``cfgMode`` and therefore runs with the driver default,
      - cfgBgThold reload
      - Reload with ``cfgBgThold0=16 cfgBgThold1=8`` (buffer group
        thresholds), run ``dmaLoopTest`` on channels 0 and 1, verify zero
-       PRBS errors and a clean dmesg delta
+       PRBS errors and a clean dmesg delta, and assert ``BG Enable : 0x3``
+       plus the ``BG 0``/``BG 1`` threshold and count lines in
+       ``/proc/datadev_0``
    * - 8
      - DKMS (smoke)
      - Build DKMS tarball, ``dkms ldtarball``, verify the package is

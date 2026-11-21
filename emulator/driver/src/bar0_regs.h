@@ -92,8 +92,17 @@
  *
  * Desc128En is hard-wired to 1 in the emulator; 64-bit descriptor mode is
  * not emulated and is not a supported driver configuration.
+ *
+ * Version 4 is the first one with buffer groups: AxisG2_Init programs
+ * bgThold[0..7] (0x0090) from cfgBgThold and sets bgEnable only when the
+ * version is >= 4, after which the driver writes 1 to bgCount[id] (0x00B0)
+ * for every RX buffer it returns.  Both register banks are plain BAR0 RAM
+ * here: no per-group count is kept and no pause is generated, so bgCount
+ * reads back the driver's last credit write (1) instead of the firmware's
+ * outstanding-buffer count.  The timeout register and descriptor flag
+ * (version 5) are not emulated.
  */
-#define EMU_REG_ENABLEVER_VERSION    0x03U           /* bits 31:24 */
+#define EMU_REG_ENABLEVER_VERSION    0x04U           /* bits 31:24 */
 #define EMU_REG_ENABLEVER_DESC128    (1U << 16)      /* bit 16        */
 #define EMU_REG_ENABLEVER_ENABLE_BIT (1U << 0)       /* bit 0 (R/W)   */
 #define EMU_REG_ENABLEVER_ENABLE_MASK 0xFFU          /* bits 7:0      */
