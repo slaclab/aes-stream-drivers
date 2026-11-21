@@ -1309,8 +1309,16 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
       relMap = offset - base;
       physical = dev->baseAddr + relMap;
 
-      // Validate mapping range
-      if ((dev->base + relMap) < dev->rwBase) {
+      // Validate mapping range: the window must lie entirely inside the
+      // read/write region (same bounds as Dma_RegPtr()) and inside BAR0
+      // itself. rwSize is derived from the fixed register map rather than
+      // the probed BAR length, so a device with a smaller BAR0 (the emulator
+      // under memory pressure) is bounded by baseSize as well. The baseSize
+      // term is only evaluated once relMap is known to be inside the
+      // read/write window, so relMap + vsize cannot overflow.
+      if (((dev->base + relMap) < dev->rwBase) ||
+          ((dev->base + relMap + vsize) > (dev->rwBase + dev->rwSize)) ||
+          ((relMap + vsize) > (off_t)dev->baseSize)) {
          dev_warn(dev->device, "map: Bad map range. start 0x%.8lx, end 0x%.8lx, offset %li, size %li, relMap %li\n",
                   vma->vm_start, vma->vm_end, offset, vsize, relMap);
          return -1;
