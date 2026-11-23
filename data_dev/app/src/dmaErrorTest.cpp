@@ -3,12 +3,14 @@
  * Company    : SLAC National Accelerator Laboratory
  *-----------------------------------------------------------------------------
  * Description:
- *    Error-path sanity test for the datadev driver. Exercises four failure
+ *    Error-path sanity test for the datadev driver. Exercises five failure
  *    modes that must be handled gracefully without a kernel panic:
  *      1. Buffer exhaustion via dmaGetIndex until no TX buffers remain
  *      2. Oversized write exceeding cfgSize
  *      3. Returning an invalid buffer index via DMA_Ret_Index
  *      4. Write to a destination one past the end of the destination mask
+ *      5. Batch index return with a trailing invalid index must not strand
+ *         the RX buffers named ahead of it
  *    Exits 0 if every case behaves as expected, 1 otherwise.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
@@ -49,6 +51,9 @@ const  char * argp_program_bug_address = "rherbst@slac.stanford.edu";
 // cfgTxCount defaults to 1024; we size the holding array with generous margin.
 #define MAX_HELD_INDICES 4096
 
+// Number of loopback frames held by index in the batch return test.
+#define RET_BATCH_FRAMES 4
+
 struct PrgArgs {
    const char * path;
 };
@@ -56,7 +61,7 @@ struct PrgArgs {
 static struct PrgArgs DefArgs = { DEFAULT_AXI_DEVICE };
 
 static char args_doc[] = "";
-static char doc[]      = "Exercise datadev error paths: buffer exhaustion, oversized write, invalid buffer index, out-of-range destination.";
+static char doc[]      = "Exercise datadev error paths: buffer exhaustion, oversized write, invalid buffer index, out-of-range destination, partially invalid index batch.";
 
 static struct argp_option options[] = {
    { "path", 'p', "PATH", 0, "Path of datadev device to use. Default=" DEFAULT_AXI_DEVICE ".", 0 },
@@ -241,6 +246,78 @@ int main(int argc, char **argv) {
       } else {
          printf("FAIL: write to dest %u returned %zd (expected < 0)\n", badDest, ret);
          errors++;
+      }
+   }
+
+   // -------------------------------------------------------------------------
+   // Test 5 -- Batch index return with a trailing invalid index
+   //   Loop a few frames back, hold them by index, then return them in one
+   //   dmaRetIndexes() call that ends with an out-of-range index. The call
+   //   must fail, and the RX buffers named ahead of the bad entry must still
+   //   go back to the hardware: Dma_Ret_Indexes has already cleared their
+   //   userHas by the time it reaches the bad entry, so bailing out without
+   //   retRxBuffer() leaves them owned by nobody, which shows up as a
+   //   non-zero DMA_Get_RxBuffMiss_Count.
+   // -------------------------------------------------------------------------
+   {
+      uint8_t  mask[DMA_MASK_SIZE];
+      uint8_t  payload[64];
+      uint32_t indexes[RET_BATCH_FRAMES + 1];
+      uint32_t held = 0;
+      fd_set   fds;
+      struct timeval timeout;
+
+      memset(payload, 0xA5, sizeof(payload));
+      dmaInitMaskBytes(mask);
+      dmaAddMaskBytes(mask, 0);
+
+      if (dmaSetMaskBytes(fd, mask) != 0) {
+         printf("FAIL: batch return -- dmaSetMaskBytes failed (errno=%d)\n", errno);
+         errors++;
+      } else {
+         while (held < RET_BATCH_FRAMES) {
+            if (dmaWrite(fd, payload, sizeof(payload), axisSetFlags(0x2, 0x0, 0), 0) < 0) break;
+
+            FD_ZERO(&fds);
+            FD_SET(fd, &fds);
+            timeout.tv_sec  = 5;
+            timeout.tv_usec = 0;
+            if (select(fd + 1, &fds, NULL, NULL, &timeout) <= 0) break;
+
+            if (dmaReadIndex(fd, &indexes[held], NULL, NULL, NULL) <= 0) break;
+            held++;
+         }
+
+         if (held != RET_BATCH_FRAMES) {
+            printf("FAIL: batch return -- looped back %u / %d frames\n", held, RET_BATCH_FRAMES);
+            errors++;
+            if (held > 0) dmaRetIndexes(fd, held, indexes);
+         } else {
+            // TX indexes run 0..txCount-1 and RX indexes follow, so the total
+            // buffer count is the first index that names no buffer.
+            indexes[held] = static_cast<uint32_t>(dmaGetBuffCount(fd));
+
+            ssize_t missBefore = dmaGetRxBuffMissCount(fd);
+            ssize_t ret        = dmaRetIndexes(fd, held + 1, indexes);
+            ssize_t missAfter  = dmaGetRxBuffMissCount(fd);
+
+            if (ret < 0) {
+               printf("PASS: batch with invalid index %u rejected (ret=%zd errno=%d)\n", indexes[held], ret, errno);
+               passed++;
+            } else {
+               printf("FAIL: batch with invalid index %u returned %zd (expected < 0)\n", indexes[held], ret);
+               errors++;
+            }
+
+            if (missAfter == missBefore) {
+               printf("PASS: DMA_Get_RxBuffMiss_Count unchanged at %zd after rejected batch\n", missAfter);
+               passed++;
+            } else {
+               printf("FAIL: DMA_Get_RxBuffMiss_Count went %zd -> %zd after rejected batch (RX buffers stranded)\n",
+                      missBefore, missAfter);
+               errors++;
+            }
+         }
       }
    }
 

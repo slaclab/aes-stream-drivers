@@ -165,8 +165,8 @@ dmaErrorTest
 ^^^^^^^^^^^^
 
 Validates driver behavior under error conditions: buffer pool exhaustion,
-oversized write rejection, invalid buffer index handling, and out-of-range
-destination rejection.
+oversized write rejection, invalid buffer index handling, out-of-range
+destination rejection, and a batch index return that ends in an invalid index.
 
 .. code-block:: text
 
@@ -183,6 +183,9 @@ Tests:
    rejection.
 4. **Out-of-range destination**: writes to dest 4096 (one past the
    destination mask), expects rejection.
+5. **Partially invalid index batch**: holds a few loopback frames by index,
+   returns them in one ``dmaRetIndexes`` call that ends with an out-of-range
+   index, expects rejection and an unchanged ``DMA_Get_RxBuffMiss_Count``.
 
 dmaSmallFrameTest
 ^^^^^^^^^^^^^^^^^
