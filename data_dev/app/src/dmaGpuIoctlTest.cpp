@@ -44,6 +44,7 @@
 #include <errno.h>
 
 #include <iostream>
+#include <vector>
 
 #include <AxisDriver.h>
 #include <GpuAsync.h>
@@ -285,7 +286,44 @@ int main(int argc, char **argv) {
       report("GPU_Set_Write_Enable_Bulk(idx=[0,1], negative)", rc < 0 && errno == EINVAL, detail);
    }
 
-   /* 7) GPU_Rem_Nvidia_Memory -> teardown */
+   /* 6d) Fill the remaining write slots so writeBuffers.count == maxBuffers.
+    *     Each Add is a separate stub reservation (see step 4). */
+   std::vector<void *> extraWbuf;
+   for (uint32_t i = 1; i < maxb; i++) {
+      uint32_t id = 0;
+      void *b = stubAllocBuf(stub_fd, 65536, &id);
+      if (b == nullptr) {
+         for (void *p : extraWbuf) stubFreeBuf(p, 65536);
+         stubFreeBuf(wbuf, 65536);
+         dmaUnMapRegister(fd, bar0, GPU_ASYNC_CORE_SIZE);
+         close(stub_fd);
+         close(fd);
+         return 1;
+      }
+      memset(b, 0, 65536);
+      extraWbuf.push_back(b);
+
+      rc = gpuAddNvidiaMemory(fd, 1, reinterpret_cast<uint64_t>(b), 65536);
+      char name[64];
+      char detail[64];
+      snprintf(name, sizeof(name), "GPU_Add_Nvidia_Memory(write=1, idx=%u)", i);
+      snprintf(detail, sizeof(detail), "(rc=%zd, expected 0)", rc);
+      report(name, rc == 0, detail);
+   }
+
+   /* 6e) One write buffer beyond maxBuffers must be rejected. The count check
+    *     runs before any pinning, so reusing wbuf's address is safe. The
+    *     rejected Add must not drop this process's GpuAsyncCore ownership:
+    *     step 7 below has to succeed with all maxBuffers slots registered. */
+   rc = gpuAddNvidiaMemory(fd, 1, reinterpret_cast<uint64_t>(wbuf), 65536);
+   {
+      char detail[80];
+      snprintf(detail, sizeof(detail), "(rc=%zd, expected <0 for count>=maxBuffers)", rc);
+      report("GPU_Add_Nvidia_Memory(write=1, overflow)", rc < 0, detail);
+   }
+
+   /* 7) GPU_Rem_Nvidia_Memory -> teardown. Returns -EBUSY if the rejected
+    *    Add in 6e cleared tgid while this process still owned the buffers. */
    rc = gpuRemNvidiaMemory(fd);
    {
       char detail[64];
@@ -352,6 +390,7 @@ int main(int argc, char **argv) {
    }
 
    stubFreeBuf(wbuf, 65536);
+   for (void *p : extraWbuf) stubFreeBuf(p, 65536);
    for (uint32_t i = 0; i < kReadBufs; i++) stubFreeBuf(rbuf[i], 65536);
    dmaUnMapRegister(fd, bar0, GPU_ASYNC_CORE_SIZE);
    /* Closing the stub fd releases the reservations and fires the driver's
