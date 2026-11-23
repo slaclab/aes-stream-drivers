@@ -305,6 +305,26 @@ static void stub_fire_free_cb_once(struct emu_gpu_addr_entry *entry)
 }
 
 /* ----------------------------------------------------------------------- */
+/* Internal API: emu_gpu_addr_table_disarm_free_cb                           */
+/* ----------------------------------------------------------------------- */
+
+/* Called from nvidia_p2p_put_pages. The real NVIDIA driver does not invoke
+ * free_callback for pages the peer has already released with put_pages, so
+ * claim the one-shot here: a later stub_vm_close / stub_release must not run
+ * Gpu_FreeNvidia against a driver buffer slot that has since been reused. */
+void emu_gpu_addr_table_disarm_free_cb(struct emu_gpu_addr_entry *entry)
+{
+   unsigned long flags;
+
+   if (!entry)
+      return;
+
+   spin_lock_irqsave(&addr_ht_lock, flags);
+   entry->free_cb_fired = true;
+   spin_unlock_irqrestore(&addr_ht_lock, flags);
+}
+
+/* ----------------------------------------------------------------------- */
 /* Internal API: emu_gpu_addr_table_find_by_idx                              */
 /* ----------------------------------------------------------------------- */
 

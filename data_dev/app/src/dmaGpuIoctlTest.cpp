@@ -158,6 +158,28 @@ static void stubFreeBuf(void *va, size_t size) {
     * which is also where the driver's free_callback is fired. */
 }
 
+/* Arm (or clear) the stub's nvidia_p2p_dma_map_pages fault injection. The
+ * parameter is a countdown: 1 fails exactly the next dma_map call. Returns
+ * false if the sysfs node is missing or the write fails. */
+static const char *kFailDmaMapPath = "/sys/module/nvidia_p2p_stub/parameters/fail_dma_map";
+
+static bool stubSetFailDmaMap(unsigned int count) {
+   char buf[16];
+   int n = snprintf(buf, sizeof(buf), "%u\n", count);
+   int sfd = open(kFailDmaMapPath, O_WRONLY);
+   if (sfd < 0) {
+      fprintf(stderr, "stubSetFailDmaMap: open(%s) failed: %s\n", kFailDmaMapPath, strerror(errno));
+      return false;
+   }
+   ssize_t w = write(sfd, buf, n);
+   close(sfd);
+   if (w != n) {
+      fprintf(stderr, "stubSetFailDmaMap: write(%s) failed: %s\n", kFailDmaMapPath, strerror(errno));
+      return false;
+   }
+   return true;
+}
+
 /* ----------------------------------------------------------------------------
  * main
  * --------------------------------------------------------------------------*/
@@ -217,6 +239,43 @@ int main(int argc, char **argv) {
       char buf[64];
       snprintf(buf, sizeof(buf), "(got %u, expected 4)", maxb);
       report("GPU_Get_Max_Buffers", maxb == 4, buf);
+   }
+
+   /* 3a) GPU_Add_Nvidia_Memory with nvidia_p2p_dma_map_pages forced to fail.
+    *     Gpu_AddNvidia must report the failure (negative rc), leave the
+    *     write-buffer address register unprogrammed, and release the pages
+    *     it pinned so the slot is clean for the real add in step 4. The
+    *     stub reservation itself is released when the stub fd is closed. */
+   {
+      uint32_t fbufId = 0;
+      void *fbuf = stubAllocBuf(stub_fd, 65536, &fbufId);
+      if (fbuf == nullptr) {
+         dmaUnMapRegister(fd, bar0, GPU_ASYNC_CORE_SIZE);
+         close(stub_fd);
+         close(fd);
+         return 1;
+      }
+      memset(fbuf, 0, 65536);
+
+      bool armed = stubSetFailDmaMap(1);
+      report("fail_dma_map armed", armed, armed ? "" : "(sysfs write failed)");
+
+      errno = 0;
+      ssize_t frc = armed ? gpuAddNvidiaMemory(fd, 1, reinterpret_cast<uint64_t>(fbuf), 65536) : 0;
+      int ferrno = errno;
+      char detail[80];
+      snprintf(detail, sizeof(detail), "(rc=%zd, errno=%d, expected <0)", frc, ferrno);
+      report("GPU_Add_Nvidia_Memory(dma_map fails)", armed && frc < 0, detail);
+
+      /* Clear the countdown in case the injected call never reached dma_map. */
+      stubSetFailDmaMap(0);
+
+      uint32_t lo = regs.readReg((ver < 4) ? GPU_ASYNC_REG_WRITE_ADDR_L_OFFSET_V1(0) : GPU_ASYNC_REG_WRITE_ADDR_L_OFFSET_V4(0));
+      uint32_t hi = regs.readReg((ver < 4) ? GPU_ASYNC_REG_WRITE_ADDR_H_OFFSET_V1(0) : GPU_ASYNC_REG_WRITE_ADDR_H_OFFSET_V4(0));
+      snprintf(detail, sizeof(detail), "(hi=0x%08x lo=0x%08x, expected 0)", hi, lo);
+      report("WriteAddr[0] untouched after failed Add", lo == 0 && hi == 0, detail);
+
+      stubFreeBuf(fbuf, 65536);
    }
 
    /* 4) GPU_Add_Nvidia_Memory (write=1) with a stub-reserved 64KB buffer.

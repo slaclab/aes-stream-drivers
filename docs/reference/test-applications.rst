@@ -224,6 +224,11 @@ Tests: ``GPU_Is_Gpu_Async_Supp``, ``GPU_Get_Gpu_Async_Ver``,
 ``GPU_Set_Write_Enable``, ``GPU_Set_Write_Enable_Bulk``,
 ``GPU_Rem_Nvidia_Memory``.
 
+Also arms the stub's ``fail_dma_map`` module parameter
+(``/sys/module/nvidia_p2p_stub/parameters/fail_dma_map``) to force one
+``nvidia_p2p_dma_map_pages`` failure and checks that ``GPU_Add_Nvidia_Memory``
+returns an error without programming a buffer address register.
+
 rdmaTestEmu
 ^^^^^^^^^^^
 
