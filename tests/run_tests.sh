@@ -102,7 +102,8 @@ verify_rings_empty() {
 # module reload.
 drain_stale_frames() {
    local drain_size
-   drain_size=$(cat /sys/module/datadev/parameters/cfgSize 2>/dev/null || echo 65536)
+   drain_size=$(awk -F: '/Buffer Size/ {gsub(/[^0-9]/,"",$2); print $2; exit}' "/proc/$(basename "$DEV")" 2>/dev/null)
+   drain_size="${drain_size:-65536}"
    timeout 5 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0 -s "$drain_size" -r 1 -d > /dev/null 2>&1 || true
    timeout 5 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 1 -s "$drain_size" -r 1 -d > /dev/null 2>&1 || true
    sleep 1
@@ -184,7 +185,12 @@ run_test_with_retry() {
    echo "--- RUN: $name ---"
    local attempt rc=0
    for attempt in 1 2; do
-      if "$@"; then
+      # Capture the exit status directly: $? after an "if cmd; then ... fi"
+      # whose condition was false is always 0, which hid the real exit code
+      # (e.g. 124 for a timeout) from the RETRY/FAIL messages.
+      "$@"
+      rc=$?
+      if [ "$rc" -eq 0 ]; then
          if [ "$attempt" -gt 1 ]; then
             echo "[RETRY-PASS] $name (passed on attempt $attempt)"
          fi
@@ -193,7 +199,6 @@ run_test_with_retry() {
          echo
          return
       fi
-      rc=$?
       if [ "$attempt" -lt 2 ]; then
          # Tier-2 reset: nuke and reload the modules so the retry starts
          # against pristine kernel state. drain_stale_frames alone cannot
@@ -236,6 +241,7 @@ run_test_with_retry "tuser_sweep"   bash "$TESTS_DIR/test_tuser_sweep.sh"
 run_test_with_retry "frame_sizes"   bash "$TESTS_DIR/test_frame_sizes.sh"
 run_test_with_retry "small_frames"  bash "$TESTS_DIR/test_small_frames.sh"
 run_test_with_retry "concurrent_open" bash "$TESTS_DIR/test_concurrent_open.sh"
+run_test_with_retry "dma_rate"       bash "$TESTS_DIR/test_dma_rate.sh"
 run_test_with_retry "backpressure"   bash "$TESTS_DIR/test_backpressure.sh"
 run_test "irq_modes"      bash "$TESTS_DIR/test_irq_modes.sh"
 

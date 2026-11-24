@@ -6,8 +6,11 @@
  *    BAR0 memory layout constants, register initialization values, and
  *    function prototypes for the virtual PCI device emulator.
  *
- *    The emulator allocates a 16MB physically contiguous region to serve as
- *    BAR0.  Region offsets match data_dev_top.h so the real datadev driver
+ *    The emulator allocates a physically contiguous region to serve as
+ *    BAR0.  The nominal size is 16MB (the datadev driver's register map),
+ *    but a single alloc_pages() call is capped at MAX_PAGE_ORDER (order 10,
+ *    4MB on x86-64), so the largest BAR0 the emulator can actually present
+ *    is 4MB.  Region offsets match data_dev_top.h so the real datadev driver
  *    can probe and initialize against emulated registers.
  * ----------------------------------------------------------------------------
  * This file is part of the aes_stream_drivers package. It is subject to
@@ -30,16 +33,21 @@
  * BAR0 region constants -- must match data_dev_top.h
  * ---------------------------------------------------------------- */
 
-#define EMU_BAR0_SIZE       0x01000000  /* 16MB total BAR0 */
-#define EMU_BAR0_ORDER      12          /* get_order(16MB) = 12 */
+/* Nominal BAR0 size: the datadev driver's full register map (2 * USER_SIZE
+ * in data_dev_top.h).  This is an upper bound, not the size allocated.
+ * emu_bar0_alloc() starts at min(EMU_BAR0_ORDER, MAX_PAGE_ORDER); the buddy
+ * allocator cannot hand out a block larger than MAX_PAGE_ORDER (order 10,
+ * 4MB on x86-64), so BAR0 is at most 4MB and the USER region at
+ * EMU_USER_OFF (0x00800000) is never emulated.  Everything the driver
+ * touches at probe and during normal operation sits below 0x40000. */
+#define EMU_BAR0_SIZE       0x01000000  /* 16MB nominal (driver register map) */
+#define EMU_BAR0_ORDER      12          /* get_order(EMU_BAR0_SIZE) */
 
-/* Minimum fallback order when the buddy allocator cannot satisfy the full
- * 16MB request due to fragmentation (observed on long-running GH Actions
- * runners).  Order 6 = 256KB covers the AGEN2/PHY/AVER/GPU_ASYNC register
- * regions the datadev driver actively accesses (highest offset = 0x30000).
- * The optional USER region (starts at 0x00800000) is not emulated in the
- * fallback path; CI tests must not mmap/ioctl into the USER region when a
- * fallback allocation is in effect. */
+/* Minimum fallback order when the buddy allocator cannot satisfy the
+ * MAX_PAGE_ORDER request due to fragmentation.  Order 6 = 256KB covers the
+ * AGEN2/PHY/AVER/GPU_ASYNC register regions the datadev driver actively
+ * accesses (highest offset = 0x30000) plus the MSI-X table/PBA pages at
+ * 0x38000/0x39000 (see virt_pci_host.h). */
 #define EMU_BAR0_MIN_ORDER  6
 
 /* Minimum BAR0 size derived from EMU_BAR0_MIN_ORDER.  Used in a BUG_ON
@@ -84,8 +92,17 @@
  *
  * Desc128En is hard-wired to 1 in the emulator; 64-bit descriptor mode is
  * not emulated and is not a supported driver configuration.
+ *
+ * Version 4 is the first one with buffer groups: AxisG2_Init programs
+ * bgThold[0..7] (0x0090) from cfgBgThold and sets bgEnable only when the
+ * version is >= 4, after which the driver writes 1 to bgCount[id] (0x00B0)
+ * for every RX buffer it returns.  Both register banks are plain BAR0 RAM
+ * here: no per-group count is kept and no pause is generated, so bgCount
+ * reads back the driver's last credit write (1) instead of the firmware's
+ * outstanding-buffer count.  The timeout register and descriptor flag
+ * (version 5) are not emulated.
  */
-#define EMU_REG_ENABLEVER_VERSION    0x03U           /* bits 31:24 */
+#define EMU_REG_ENABLEVER_VERSION    0x04U           /* bits 31:24 */
 #define EMU_REG_ENABLEVER_DESC128    (1U << 16)      /* bit 16        */
 #define EMU_REG_ENABLEVER_ENABLE_BIT (1U << 0)       /* bit 0 (R/W)   */
 #define EMU_REG_ENABLEVER_ENABLE_MASK 0xFFU          /* bits 7:0      */

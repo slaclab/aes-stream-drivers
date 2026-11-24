@@ -53,6 +53,7 @@
 #define EMU_REG_RDBASELOW     0x0018
 #define EMU_REG_RDBASEHIGH    0x001C
 #define EMU_REG_FIFORESET     0x0020
+#define EMU_REG_MAXSIZE       0x0028
 #define EMU_REG_ONLINE        0x002C
 #define EMU_REG_ADDRWIDTH     0x0038
 #define EMU_REG_READFIFOA     0x0040  /* TX: flags | chan | dest        */
@@ -105,6 +106,13 @@ struct emu_dma_engine {
    bool enabled;
    bool rings_valid;
    bool init_polling;
+
+   /* Ring bases read by the previous emu_capture_rings() call.  The
+    * bases are accepted only when two consecutive polls agree, so a
+    * poll landing between the driver's low/high writel() pair cannot
+    * latch a torn 64-bit address. */
+   uint64_t prev_wr_dma;
+   uint64_t prev_rd_dma;
 
    /* enableVer R/O field enforcement state (see emu_enforce_enablever_ro).
     * prev_enable mirrors the last-observed bit 0 so the poll thread can

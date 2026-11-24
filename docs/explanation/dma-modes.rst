@@ -38,18 +38,18 @@ rce_stream driver. **The data_dev PCIe driver explicitly rejects cfgMode=4**, as
 Why cfgMode=4 Is Rejected for data_dev
 --------------------------------------
 
-The ``data_dev_top.c`` probe function explicitly validates the mode parameter:
+``DataDev_Init`` in ``data_dev_top.c`` validates the mode parameter before registering the driver:
 
 .. code-block:: c
 
    /* data_dev_top.c */
    if (cfgMode != BUFF_COHERENT && cfgMode != BUFF_STREAM) {
-       pr_err("%s: Probe: Invalid buffer mode = %i.\n", MOD_NAME, cfgMode);
+       pr_err("%s: Init: Invalid buffer mode = %i.\n", MOD_NAME, cfgMode);
        return -EINVAL;
    }
 
 The ARM ACP port is a hardware feature of the Xilinx Zynq SoC; it does not exist on x86 PCIe
-systems. Passing ``cfgMode=4`` on an x86 ``insmod`` command will cause the driver probe to
+systems. Passing ``cfgMode=4`` on an x86 ``insmod`` command will cause the module init to
 return ``-EINVAL`` and the module load to fail immediately.
 
 Buffer Pool Pre-Allocation

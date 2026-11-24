@@ -35,6 +35,7 @@ LDFLAGS   ?=
 # Shim path MUST come first so <linux/types.h> etc. resolve to the
 # stubs under kernel_shim/linux/ instead of the real kernel headers.
 CFLAGS_SHIM := -I$(SHIM_DIR)
+SHIM_HDRS   := $(wildcard $(SHIM_DIR)/linux/*.h)
 CXX_INCLUDES := -I$(APP_LIB)
 
 BIN := prbs_cross_validate
@@ -55,38 +56,53 @@ PGP_BIN := pgp_setmask_test
 PGP_OBJS := pgp_setmask_test.o
 PGP_INCLUDES := -I$(REPO_ROOT)/include -I$(REPO_ROOT)/pgpcard/include
 
+# Userspace regression test for dmaAddMaskBytes() in DmaDriver.h. Pure
+# header-only arithmetic on the mask byte array; no ioctl, no kernel module.
+DMA_BIN := dma_addmask_test
+DMA_OBJS := dma_addmask_test.o
+DMA_INCLUDES := -I$(REPO_ROOT)/include
+
 .PHONY: all test clean
 
-all: $(BIN) $(STUB_BIN) $(PGP_BIN)
+all: $(BIN) $(STUB_BIN) $(PGP_BIN) $(DMA_BIN)
 
-prbs_cross_validate.o: prbs_cross_validate.c
+# prbs_cross_validate.c #includes ../src/prbs.c directly, so the kernel
+# source, its header, and the shim headers are real prerequisites.
+prbs_cross_validate.o: prbs_cross_validate.c ../src/prbs.c ../src/prbs.h $(SHIM_HDRS)
 	$(CC) $(CFLAGS) $(CFLAGS_SHIM) -c $< -o $@
 
-prbs_cross_validate_cxx.o: prbs_cross_validate_cxx.cpp
+prbs_cross_validate_cxx.o: prbs_cross_validate_cxx.cpp $(APP_LIB)/PrbsData.h
 	$(CXX) $(CXXFLAGS) $(CXX_INCLUDES) -c $< -o $@
 
-PrbsData.o: $(APP_LIB)/PrbsData.cpp
+PrbsData.o: $(APP_LIB)/PrbsData.cpp $(APP_LIB)/PrbsData.h
 	$(CXX) $(CXXFLAGS) $(CXX_INCLUDES) -c $< -o $@
 
 $(BIN): $(OBJS)
 	$(CXX) $(CXXFLAGS) $(OBJS) -o $@ $(LDFLAGS)
 
 # Userspace C compile, no shim.
-stub_mmap_test.o: stub_mmap_test.c
+stub_mmap_test.o: stub_mmap_test.c $(REPO_ROOT)/emulator/gpu_stub/src/emu_gpu_addr_table.h
 	$(CC) $(CFLAGS) $(STUB_INCLUDES) -c $< -o $@
 
 $(STUB_BIN): $(STUB_OBJS)
 	$(CC) $(CFLAGS) $(STUB_OBJS) -o $@ $(LDFLAGS)
 
-pgp_setmask_test.o: pgp_setmask_test.cpp
+pgp_setmask_test.o: pgp_setmask_test.cpp $(REPO_ROOT)/pgpcard/include/PgpDriver.h $(REPO_ROOT)/include/DmaDriver.h
 	$(CXX) $(CXXFLAGS) $(PGP_INCLUDES) -c $< -o $@
 
 $(PGP_BIN): $(PGP_OBJS)
 	$(CXX) $(CXXFLAGS) $(PGP_OBJS) -o $@ $(LDFLAGS)
 
-test: $(BIN) $(PGP_BIN)
+dma_addmask_test.o: dma_addmask_test.cpp
+	$(CXX) $(CXXFLAGS) $(DMA_INCLUDES) -c $< -o $@
+
+$(DMA_BIN): $(DMA_OBJS)
+	$(CXX) $(CXXFLAGS) $(DMA_OBJS) -o $@ $(LDFLAGS)
+
+test: $(BIN) $(PGP_BIN) $(DMA_BIN)
 	./$(BIN)
 	./$(PGP_BIN)
+	./$(DMA_BIN)
 
 clean:
-	rm -f $(BIN) $(OBJS) $(STUB_BIN) $(STUB_OBJS) $(PGP_BIN) $(PGP_OBJS)
+	rm -f $(BIN) $(OBJS) $(STUB_BIN) $(STUB_OBJS) $(PGP_BIN) $(PGP_OBJS) $(DMA_BIN) $(DMA_OBJS)

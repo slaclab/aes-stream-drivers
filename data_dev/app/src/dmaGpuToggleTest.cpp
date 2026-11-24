@@ -4,15 +4,24 @@
  *-----------------------------------------------------------------------------
  * Description:
  *    Mid-stream state-transition test for the GPU-async data path emulator.
- *    Three subtests:
+ *    Five subtests:
  *      1. toggle_disable: gpuEnableTx(0)+gpuEnableRx(0) mid-run;
  *         100ms quiesce + countReset + 100ms settle; assert
  *         rxFrameCnt==0 && txFrameCnt==0 (race-immune zero baseline).
- *      2. toggle_resume:  gpuEnableTx(1)+gpuEnableRx(1); run 4 frames
- *         (one full round-robin at bufCnt=4); assert PRBS clean on first frame.
- *      3. maxbuffers_4to2: while traffic flowing, setWriteCount(2)+setReadCount(2)
+ *      2. stale_readreq_dropped: a read request parked on slot 0 before
+ *         the disable must not fire after re-enable (firmware clears
+ *         readReqList while readEnable=0); assert txFrameCnt==0 and the
+ *         slot-0 ack doorbell untouched 100ms after re-enable.
+ *      3. toggle_resume:  run 4 frames (one full round-robin at
+ *         bufCnt=4); assert PRBS clean on first frame.
+ *      4. maxbuffers_4to2: while traffic flowing, setWriteCount(2)+setReadCount(2)
  *         (reduces 4->2 active buffers); run 100 more frames; assert no
  *         dmesg WARN/KASAN and no PRBS mismatch.
+ *      5. rwmaxsize_default_clamp: register one 64 KiB write buffer carved
+ *         out of a 128 KiB stub entry, leave RemoteWriteMaxSize at the
+ *         driver-programmed mapSize, run one RX frame; assert hdr.size
+ *         fits below the buffer end and the guard bytes past 64 KiB are
+ *         untouched.
  *
  *    Exit code: 0 if all subtests pass, 1 otherwise.
  *    Assumes modules pre-loaded (matches tests/test_gpu_ioctls.sh precedent).
@@ -61,6 +70,7 @@ static constexpr int         kPreambleFrames  = 100;
 static constexpr int         kResumeFrames    = 4;
 static constexpr int         kPostReduceFrames = 100;
 static constexpr int         kPollDeadlineSec = 10;
+static constexpr uint8_t     kGuardByte       = 0xA5;
 
 /*
  * AxiWrDesc64_t: 128-bit frame header at buffer offset 0.
@@ -258,11 +268,16 @@ static uint32_t emu_wait_value32_with_deadline(
  * IMPORTANT: does NOT call regs.countReset() — the subtest-level
  * quiesce-and-reset in toggle_disable owns the counter-reset lifecycle;
  * runOneFrame must not interfere with that baseline.
+ *
+ * rearm=false consumes the frame without handing the buffer back to the
+ * RX engine (step 8 skips the free-list write), so the engine cannot
+ * generate another frame into it.
  * -------------------------------------------------------------------------*/
 
 static int runOneFrame(GpuAsyncCoreRegs &regs, int bufCnt, int curBuff,
                        uint8_t **rxBuffs, uint8_t **txBuffs,
-                       uint32_t bufSize, PrbsData *prbs, bool verify) {
+                       uint32_t bufSize, PrbsData *prbs, bool verify,
+                       bool rearm = true) {
    (void)bufCnt;
    const uint32_t dmaHeaderSize = regs.dmaDataBytes();
 
@@ -317,7 +332,7 @@ static int runOneFrame(GpuAsyncCoreRegs &regs, int bufCnt, int curBuff,
 
    /* (8) Clear GPU-side RX doorbell; re-arm FPGA free-list slot. */
    *reinterpret_cast<volatile uint32_t *>(rxBuffs[curBuff] + 4) = 0;
-   regs.writeReg(regs.freeListOffset(curBuff), 1);
+   if (rearm) regs.writeReg(regs.freeListOffset(curBuff), 1);
 
    return 0;
 }
@@ -356,6 +371,88 @@ static void armBuffers(GpuAsyncCoreRegs &regs, int fd, int bufCnt,
 
    gpuEnableTx(fd, 1);
    gpuEnableRx(fd, 1);
+}
+
+/* ---------------------------------------------------------------------------
+ * runRwMaxSizeDefaultClamp: Subtest 5 (rwmaxsize_default_clamp)
+ *
+ * Gpu_AddNvidia programs RemoteWriteMaxSize = mapSize, the whole buffer,
+ * while the emulator RX tick writes the payload at +dmaDataBytes(). Every
+ * other path in this file overrides the register with bufSize -
+ * dmaDataBytes() in armBuffers; this subtest deliberately does not, so the
+ * emulator's own clamp is the only thing keeping the fill inside the
+ * buffer. Without the clamp accounting for the header, a 64 KiB buffer is
+ * overrun by dmaDataBytes() bytes.
+ *
+ * Detection from userspace: reserve a 2*kBufSize stub entry but register
+ * only the first kBufSize bytes. The stub resolves the registered address
+ * to the start of the entry, so bytes [kBufSize, 2*kBufSize) are kernel-
+ * writable guard space that the emulator must never touch. Fill them with
+ * kGuardByte, run one RX frame, then check both hdr.size and the guard.
+ *
+ * Must run after the four-buffer configuration has been removed via
+ * gpuRemNvidiaMemory (which also zeroes RemoteWriteMaxSize, so the
+ * driver's identical-size check does not reject the new registration).
+ * Only the TX direction (FPGA -> GPU, write buffers) is enabled.
+ * -------------------------------------------------------------------------*/
+
+static void runRwMaxSizeDefaultClamp(GpuAsyncCoreRegs &regs, int fd,
+                                     int stub_fd) {
+   const uint32_t dmaHeaderSize = regs.dmaDataBytes();
+   const size_t   entrySize     = 2 * static_cast<size_t>(kBufSize);
+   uint32_t bufId = 0;
+   char detail[128];
+
+   uint8_t *buf = static_cast<uint8_t *>(
+      gpuEmuAllocBuf(stub_fd, entrySize, &bufId));
+   if (!buf) {
+      report("rwmaxsize_default_clamp", false, "(stub alloc failed)");
+      return;
+   }
+
+   std::memset(buf, 0, kBufSize);
+   std::memset(buf + kBufSize, kGuardByte, entrySize - kBufSize);
+
+   if (gpuAddNvidiaMemory(fd, 1,
+         reinterpret_cast<uint64_t>(buf), kBufSize) < 0) {
+      snprintf(detail, sizeof(detail),
+         "(gpuAddNvidiaMemory failed: %s)", std::strerror(errno));
+      report("rwmaxsize_default_clamp", false, detail);
+      gpuEmuFreeBuf(buf, entrySize);
+      return;
+   }
+
+   /* No setRemoteWriteMaxSize() here: the register keeps the value
+    * Gpu_AddNvidia wrote (mapSize == kBufSize). */
+   regs.writeReg(regs.freeListOffset(0), 1);
+   gpuEnableTx(fd, 1);
+
+   emu_wait_value32_with_deadline(
+      reinterpret_cast<uint32_t *>(buf + 4), 1,
+      std::chrono::seconds(kPollDeadlineSec),
+      "rx doorbell (default clamp)", 0);
+
+   /* The tick cleared freeList[0], so no further fill can happen; stop
+    * the engine before inspecting the buffer anyway. */
+   gpuEnableTx(fd, 0);
+
+   AxiWrDesc64_t hdr;
+   std::memcpy(&hdr, buf, sizeof(hdr));
+
+   size_t guardClobbered = 0;
+   for (size_t i = kBufSize; i < entrySize; ++i) {
+      if (buf[i] != kGuardByte) ++guardClobbered;
+   }
+
+   const bool sizeOk = (dmaHeaderSize <= kBufSize) &&
+                       (hdr.size <= kBufSize - dmaHeaderSize);
+   snprintf(detail, sizeof(detail),
+      "(hdr.size=%u max=%u guard_clobbered=%zu)",
+      hdr.size, kBufSize - dmaHeaderSize, guardClobbered);
+   report("rwmaxsize_default_clamp", sizeOk && guardClobbered == 0, detail);
+
+   gpuRemNvidiaMemory(fd);
+   gpuEmuFreeBuf(buf, entrySize);
 }
 
 /* ---------------------------------------------------------------------------
@@ -413,30 +510,6 @@ int main(int argc, char **argv) {
 
    printf("=== dmaGpuToggleTest: %s ===\n", args.path);
 
-   /* Defensive cleanup of stale BAR0 per-buffer state from a prior
-    * test instance. test_gpu_dma_loopback.sh's run_with_retry harness
-    * re-invokes this binary on a 10s tx-ack timeout flake, but the
-    * prior instance's gpuRemNvidiaMemory only clears ctrl and
-    * RW_MAX_SIZE — remoteReadSize[] and freeList[] survive. On the
-    * next gpuAddNvidiaMemory(write=0) below, ctrl re-enables RE=1
-    * with rcnt=0; the kernel TX tick immediately reads the stale
-    * remoteReadSize[0]=65520, looks up the freshly-mapped (zero-
-    * filled) TX buffer, and emu_prbs_process_data fires
-    * WARN_ON_ONCE at prbs.c:123 because the new buffer's
-    * data32[1]=0 yields event_length=4 != stale reqsz=65520. Force
-    * a clean slate here. ctrl was already cleared to WE=0/RE=0 by
-    * the prior session's Gpu_RemNvidia, so no engine activity can
-    * race these writes. */
-   gpuEnableTx(fd, 0);
-   gpuEnableRx(fd, 0);
-   {
-      const uint32_t maxBuffersHw = regs.maxBuffers();
-      for (uint32_t i = 0; i < maxBuffersHw; ++i) {
-         regs.setRemoteReadSize(i, 0);
-         regs.writeReg(regs.freeListOffset(i), 0);
-      }
-   }
-
    /* Allocate rx/tx buffer arrays. */
    uint8_t  *rxBuffs[kBufCnt] = {nullptr};
    uint8_t  *txBuffs[kBufCnt] = {nullptr};
@@ -492,16 +565,55 @@ int main(int argc, char **argv) {
        * would advance only on n==0 while the kernel advances every frame,
        * leaving _sequence (kPreambleFrames-1) frames behind by the end of
        * the preamble and causing the toggle_resume first-frame verify to
-       * fail with "PRBS mismatch size=65520 buf=0". */
+       * fail with "PRBS mismatch size=65520 buf=0".
+       *
+       * The last kBufCnt frames are consumed without re-arming the free
+       * list. Every armed buffer is a frame the RX engine will generate and
+       * every generated frame bumps rx_prbs_seq, so leaving buffers armed
+       * across the toggle lets the engine run ahead with frames that the
+       * resume re-arm below discards unverified, and toggle_resume then
+       * fails with "Bad Sequence". Draining here leaves the free list
+       * empty and the RX engine idle with rx_prbs_seq == _sequence, so
+       * sequence continuity across the toggle does not depend on timing. */
       int curBuff = 0;
       for (int n = 0; n < kPreambleFrames; ++n) {
          if (runOneFrame(regs, kBufCnt, curBuff, rxBuffs, txBuffs, kBufSize,
-                         &prbs, /*verify=*/true) != 0) {
+                         &prbs, /*verify=*/true,
+                         /*rearm=*/n < kPreambleFrames - kBufCnt) != 0) {
             fprintf(stderr, "dmaGpuToggleTest: preamble frame %d failed\n", n);
             goto cleanup_fail;
          }
          curBuff = (curBuff + 1) % kBufCnt;
       }
+
+      /* ---- Setup for subtest 2: park a stale read request on slot 0 ----
+       *
+       * The firmware clears readReqList together with nextReadIdx while
+       * readEnable=0, so a read request still pending at disable must never
+       * fire after re-enable. Build that condition deterministically:
+       *   (a) wait for the ack of the last preamble frame (slot 3) so no
+       *       request is in flight and the TX cursor sits at slot 0;
+       *   (b) post a read request on slot 0 and wait for its ack, which
+       *       advances the TX cursor to slot 1. The RX side is drained, so
+       *       this is a TX-only request that resends the frame already in
+       *       txBuffs[0] (the TX verifier is stateless);
+       *   (c) post a second read request on slot 0. The cursor is parked
+       *       on the empty slot 1, so the engine cannot consume slot 0 and
+       *       the request stays pending into the disable below.
+       * Clearing the slot-0 ack doorbell first makes a stale fire
+       * observable: the TX tick would write 1 there and bump txFrameCnt. */
+      emu_wait_value32_with_deadline(
+         reinterpret_cast<uint32_t *>(txBuffs[kBufCnt - 1]), 1,
+         std::chrono::seconds(kPollDeadlineSec),
+         "tx ack (preamble drain)", static_cast<uint32_t>(kBufCnt - 1));
+      *reinterpret_cast<volatile uint32_t *>(txBuffs[0]) = 0;
+      regs.setRemoteReadSize(0, kBufSize - regs.dmaDataBytes());
+      emu_wait_value32_with_deadline(
+         reinterpret_cast<uint32_t *>(txBuffs[0]), 1,
+         std::chrono::seconds(kPollDeadlineSec),
+         "tx ack (stale-request setup)", 0);
+      *reinterpret_cast<volatile uint32_t *>(txBuffs[0]) = 0;
+      regs.setRemoteReadSize(0, kBufSize - regs.dmaDataBytes());
 
       /* ---- Subtest 1: toggle_disable (quiesce-and-reset) ----
        *
@@ -532,12 +644,30 @@ int main(int argc, char **argv) {
          report("toggle_disable", (rxQ == 0) && (txQ == 0), buf);
       }
 
-      /* ---- Subtest 2: toggle_resume ---- */
-      /* Re-enable engine; arm doorbells so round-robin starts from buffer 0.
-       * Observable contract: VHDL-faithful nextWriteIdx resets to
-       * 0 on disable, so the engine resumes from buffer 0 post-enable. */
+      /* ---- Subtest 2: stale_readreq_dropped ----
+       *
+       * Re-enable the engine. nextReadIdx reset to 0 on disable, so if the
+       * request parked on slot 0 above survived the disable it fires on the
+       * first enabled tick: the slot-0 ack doorbell goes to 1 and txFrameCnt
+       * (zeroed in toggle_disable) increments. Give the poll kthread 100ms
+       * and assert neither happened. Neither observable depends on RX
+       * engine activity during the window. */
       gpuEnableTx(fd, 1);
       gpuEnableRx(fd, 1);
+      ::usleep(100000);
+      {
+         uint32_t txS = regs.txFrameCount();
+         uint32_t ack0 = *reinterpret_cast<volatile uint32_t *>(txBuffs[0]);
+         char buf[96];
+         snprintf(buf, sizeof(buf),
+            "(post-enable tx=%u ack0=%u expected=0)", txS, ack0);
+         report("stale_readreq_dropped", (txS == 0) && (ack0 == 0), buf);
+      }
+
+      /* ---- Subtest 3: toggle_resume ---- */
+      /* Arm doorbells so round-robin starts from buffer 0.
+       * Observable contract: VHDL-faithful nextWriteIdx resets to
+       * 0 on disable, so the engine resumes from buffer 0 post-enable. */
 
       /* Re-arm all doorbells for the resumed run (freelist + rx doorbell clear). */
       for (int i = 0; i < kBufCnt; ++i) {
@@ -566,7 +696,7 @@ int main(int argc, char **argv) {
       }
       report("toggle_resume", frameErrors == 0, "");
 
-      /* ---- Subtest 3: maxbuffers_4to2 ---- */
+      /* ---- Subtest 4: maxbuffers_4to2 ---- */
       /* Snapshot the filtered-dmesg line count before the subtest begins so
        * the post-run scan only inspects lines emitted during this subtest.
        * Unscoped `tail -50` over the whole ring buffer would catch boot-time
@@ -684,15 +814,22 @@ int main(int argc, char **argv) {
       }
    }
 
-   /* Teardown. Disarm atexit first so the normal close sequence below is
-    * the single source of truth for fd lifetime; the atexit handler becomes
-    * a safety net only used on std::exit(1) paths from runOneFrame. */
-   s_atexit_armed = false;
+   /* Release the four-buffer configuration. atexit stays armed through
+    * the next subtest, which registers its own buffer and can still hit
+    * the std::exit(1) timeout path. */
    gpuRemNvidiaMemory(fd);
    for (int i = 0; i < kBufCnt; ++i) {
       gpuEmuFreeBuf(rxBuffs[i], kBufSize);
       gpuEmuFreeBuf(txBuffs[i], kBufSize);
    }
+
+   /* ---- Subtest 5: rwmaxsize_default_clamp ---- */
+   runRwMaxSizeDefaultClamp(regs, fd, stub_fd);
+
+   /* Teardown. Disarm atexit first so the normal close sequence below is
+    * the single source of truth for fd lifetime; the atexit handler becomes
+    * a safety net only used on std::exit(1) paths. */
+   s_atexit_armed = false;
    ::close(stub_fd);
    dmaUnMapRegister(fd, bar0, GPU_ASYNC_CORE_SIZE);
    ::close(fd);

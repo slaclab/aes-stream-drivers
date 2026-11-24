@@ -38,13 +38,13 @@ struct PgpCardG3Reg {
    uint32_t pciStat[4];      // Software_Addr = 0x038:0x02C,  Firmware_Addr(13 downto 2) = 0x00E:0x00B
    uint32_t sysSpare1;       // Software_Addr = 0x03C,        Firmware_Addr(13 downto 2) = 0x00F
 
-   uint32_t evrCardStat[5];  // Software_Addr = 0x050:0x040,  Firmware_Addr(13 downto 2) = 0x012:0x010
+   uint32_t evrCardStat[5];  // Software_Addr = 0x050:0x040,  Firmware_Addr(13 downto 2) = 0x014:0x010
    uint32_t evrSpare0[11];   // Software_Addr = 0x07C:0x054,  Firmware_Addr(13 downto 2) = 0x01F:0x013
 
    uint32_t pgpCardStat[2];  // Software_Addr = 0x084:0x080,  Firmware_Addr(13 downto 2) = 0x021:0x020
-   uint32_t pgpSpare0[54];   // Software_Addr = 0x15C:0x088,  Firmware_Addr(13 downto 2) = 0x05F:0x022
+   uint32_t pgpSpare0[54];   // Software_Addr = 0x15C:0x088,  Firmware_Addr(13 downto 2) = 0x057:0x022
 
-   uint32_t syncCode[8];     // Software_Addr = 0x17C:0x160,  Firmware_Addr(13 downto 2) = 0x067:0x060
+   uint32_t syncCode[8];     // Software_Addr = 0x17C:0x160,  Firmware_Addr(13 downto 2) = 0x05F:0x058
    uint32_t runCode[8];      // Software_Addr = 0x19C:0x180,  Firmware_Addr(13 downto 2) = 0x067:0x060
    uint32_t acceptCode[8];   // Software_Addr = 0x1BC:0x1A0,  Firmware_Addr(13 downto 2) = 0x06F:0x068
 

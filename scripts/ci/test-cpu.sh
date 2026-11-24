@@ -164,15 +164,15 @@ CUSTOM_SIZE=65536 \
   bash $TESTS_DIR/test_params.sh 2>&1 | tee "$PARAMS_LOG"
 PARAMS_RC=${PIPESTATUS[0]}
 
-TOTAL_PASS=$(grep -c '^\[PASS\]' "$PARAMS_LOG" || true)
-TOTAL_FAIL=$(grep -c '^\[FAIL\]' "$PARAMS_LOG" || true)
+TOTAL_PASS=$(grep -c '^PASS:' "$PARAMS_LOG" || true)
+TOTAL_FAIL=$(grep -c '^FAIL:' "$PARAMS_LOG" || true)
 echo "Module Parameter Validation Summary:"
 echo "  PASS: ${TOTAL_PASS:-0}"
 echo "  FAIL: ${TOTAL_FAIL:-0}"
 
 if [ "$PARAMS_RC" -ne 0 ]; then
    echo_fail "${PARAMS_RC} param check(s) failed"
-   grep '^\[FAIL\]' "$PARAMS_LOG" || true
+   grep '^FAIL:' "$PARAMS_LOG" || true
    $SUDO dmesg | tail -100
    FAILED=$((FAILED + PARAMS_RC))
 fi
@@ -247,7 +247,8 @@ if [ "$GAP1_FAILED" -eq 0 ]; then
 
    # Restore cfgMode=1 before cleanup
    $SUDO rmmod datadev 2>/dev/null || true
-   for _ in $(seq 1 15); do [ ! -e "$DEV" ] && break; sleep 0.5; done
+   $SUDO rm -f "$DEV"
+   for _ in $(seq 1 15); do [ ! -e /sys/module/datadev ] && break; sleep 0.5; done
    timeout --kill-after=5s "${INSMOD_TIMEOUT_SEC}s" $SUDO insmod "$DATADEV_KO" cfgMode=1 cfgTxCount=64 cfgRxCount=64 cfgSize=65536 cfgDebug=1
    timeout $TIMEOUT_SEC bash -c "until [ \"\$(cat /sys/module/datadev/initstate 2>/dev/null)\" = live ]; do sleep 0.5; done" || true
    if [ ! -e "$DEV" ]; then
@@ -306,7 +307,8 @@ if [ "$GAP5_FAILED" -eq 0 ]; then
    wait $LOOP_PID 2>/dev/null || true
 
    timeout 30 $SUDO rmmod datadev || { echo_fail "rmmod datadev failed/timed-out after kill"; FAILED=$((FAILED + 1)); GAP5_FAILED=1; }
-   for _ in $(seq 1 15); do [ ! -e "$DEV" ] && break; sleep 0.5; done
+   $SUDO rm -f "$DEV"
+   for _ in $(seq 1 15); do [ ! -e /sys/module/datadev ] && break; sleep 0.5; done
 
    timeout 30 $SUDO rmmod datadev_emulator || { echo_fail "rmmod datadev_emulator failed/timed-out"; FAILED=$((FAILED + 1)); GAP5_FAILED=1; }
 
@@ -385,6 +387,24 @@ if [ "$GAP13_FAILED" -eq 0 ]; then
    timeout 30 "$APP_BIN/dmaLoopTest" -p "$DEV" -m 0,1 -s "$SIZE" > "$GAP13_LOOP_LOG" 2>&1
    GAP13_LOOP_RC=$?
 
+   # Without these the step is a plain reload: AxisG2_Init ignores cfgBgThold
+   # unless the DMA engine reports version >= 4. Enable/Threshold prove the
+   # driver programmed both groups; Count proves it took the bgCount credit
+   # path for RX buffers of each group (dest 0 and 1 arrive as id 0 and 1,
+   # and the emulated bgCount latches the driver's last write of 1).
+   GAP13_PROC=$($SUDO cat /proc/datadev_0 2>/dev/null)
+   GAP13_PROC_MISSING=""
+   for GAP13_WANT in 'BG Enable : 0x3' 'BG 0 Threshold : 16' 'BG 1 Threshold : 8' \
+                     'BG 0 Count : 1' 'BG 1 Count : 1'; do
+      if ! grep -qE "^ *${GAP13_WANT}\$" <<< "$GAP13_PROC"; then
+         echo_fail "/proc/datadev_0 is missing '${GAP13_WANT}'"
+         GAP13_PROC_MISSING=1
+      fi
+   done
+   if [ -n "$GAP13_PROC_MISSING" ]; then
+      printf '%s\n' "$GAP13_PROC" | grep -E 'Enable Ver|BG ' || true
+   fi
+
    DMESG_DELTA=$($SUDO dmesg | tail -n "+$((DMESG_BEFORE + 1))")
    GAP13_DMESG_ERRORS=$(printf '%s\n' "$DMESG_DELTA" | grep -iE 'oops|panic|BUG:|WARNING:' || true)
    # Explicit if/else avoids the `grep -q ... && echo X || true` idiom: in a
@@ -403,6 +423,7 @@ if [ "$GAP13_FAILED" -eq 0 ]; then
    fi
 
    if [ -z "$GAP13_PRBS_ERRORS" ] && [ -z "$GAP13_DMESG_ERRORS" ] && \
+      [ -z "$GAP13_PROC_MISSING" ] && \
       { [ "$GAP13_LOOP_RC" -eq 0 ] || [ "$GAP13_LOOP_RC" -eq 124 ]; }; then
       echo "[PASS] bgthold"
    else

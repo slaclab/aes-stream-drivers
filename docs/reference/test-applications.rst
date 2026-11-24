@@ -165,7 +165,8 @@ dmaErrorTest
 ^^^^^^^^^^^^
 
 Validates driver behavior under error conditions: buffer pool exhaustion,
-oversized write rejection, and invalid buffer index handling.
+oversized write rejection, invalid buffer index handling, out-of-range
+destination rejection, and a batch index return that ends in an invalid index.
 
 .. code-block:: text
 
@@ -177,9 +178,14 @@ Tests:
    returns -1 when the pool is empty and ``DMA_Get_TxBuffinUser_Count``
    matches the held count.
 2. **Oversized write**: attempts a write larger than ``cfgSize``, expects
-   rejection (``errno = EINVAL``).
+   rejection.
 3. **Invalid index**: returns an out-of-range buffer index, expects
    rejection.
+4. **Out-of-range destination**: writes to dest 4096 (one past the
+   destination mask), expects rejection.
+5. **Partially invalid index batch**: holds a few loopback frames by index,
+   returns them in one ``dmaRetIndexes`` call that ends with an out-of-range
+   index, expects rejection and an unchanged ``DMA_Get_RxBuffMiss_Count``.
 
 dmaSmallFrameTest
 ^^^^^^^^^^^^^^^^^
@@ -225,7 +231,7 @@ rdmaTestEmu
 ^^^^^^^^^^^
 
 End-to-end GPUDirect RDMA loopback test using the emulator. A CUDA-free
-C++17 port that allocates GPU-like memory via ``nvidia_p2p_stub``, registers
+C++11 port that allocates GPU-like memory via ``nvidia_p2p_stub``, registers
 it with the driver, and performs DMA loopback transfers through the
 emulator's GPU async V4 engine.
 
@@ -246,10 +252,12 @@ dmaGpuToggleTest
 ^^^^^^^^^^^^^^^^
 
 Mid-stream state-transition test for the emulator's GPU async data path.
-Three subtests: disable TX/RX mid-run and verify the frame counters settle
-at zero, re-enable and verify PRBS-clean frames, then reduce the active
-buffer count from 4 to 2 while traffic flows and verify no dmesg warnings
-or PRBS mismatches.
+Four subtests: disable TX/RX mid-run and verify the frame counters settle
+at zero, re-enable and verify PRBS-clean frames, reduce the active buffer
+count from 4 to 2 while traffic flows and verify no dmesg warnings or PRBS
+mismatches, then register a single 64 KiB write buffer without overriding
+``RemoteWriteMaxSize`` and verify the emulator's RX fill stays inside the
+buffer (guard bytes past the registered window are checked from userspace).
 
 .. code-block:: text
 
@@ -260,8 +268,12 @@ Shell-Based Test Harness
 ------------------------
 
 The ``tests/`` directory contains shell scripts that compose the C++
-applications into higher-level integration tests. Each script is invoked
-by ``scripts/ci/test-cpu.sh`` or ``scripts/ci/test-gpu.sh`` during CI.
+applications into higher-level integration tests. Most scripts are invoked
+during CI, either directly by ``scripts/ci/test-cpu.sh`` /
+``scripts/ci/test-gpu.sh`` or through the ``run_tests.sh`` master runner.
+Three scripts have no CI caller and are manual-only: ``test_dma_rate.sh``,
+``test_gpu_ioctls.sh`` (CI runs the ``dmaGpuIoctlTest`` binary directly
+instead) and ``test_reload_segfault.sh``.
 
 .. list-table::
    :header-rows: 1
@@ -272,7 +284,7 @@ by ``scripts/ci/test-cpu.sh`` or ``scripts/ci/test-gpu.sh`` during CI.
    * - ``run_tests.sh``
      - Master test runner: ioctl, file-ops, error-paths, multichannel, proc,
        data-integrity, idx-loopback, tuser-sweep, frame-sizes, small-frames,
-       concurrent-open, backpressure, irq-modes
+       concurrent-open, dma-rate, backpressure, irq-modes
    * - ``test_data_integrity.sh``
      - Runs ``dmaLoopTest`` for 60s, requires >= 100 transfers with zero
        PRBS mismatches
@@ -314,7 +326,9 @@ by ``scripts/ci/test-cpu.sh`` or ``scripts/ci/test-gpu.sh`` during CI.
        fires when ``datadev`` is rebound in ``BUFF_COHERENT`` mode after a
        prior ``BUFF_STREAM`` cycle while the emulator stays loaded
    * - ``test_dma_rate.sh``
-     - ``dmaRate`` throughput benchmark
+     - ``dmaRate`` consuming ``dmaWrite`` loopback frames; asserts at least
+       one completed batch and no "attempted to read too many buffers" in
+       dmesg (bulk read request clamped to the mapped buffer count)
    * - ``test_small_frames.sh``
      - ``dmaSmallFrameTest`` 1-4 byte payload sweep with random bytes and
        per-frame memcmp; exercises sub-word DMA transfers that PRBS
@@ -343,6 +357,11 @@ and is driven by ``scripts/ci/build-cpu.sh`` and ``build-gpu.sh``:
        a 1M-iteration LFSR equivalence loop plus a byte-for-byte frame
        layout comparison. ``make -C emulator/driver/tests test`` exits
        non-zero on any divergence and fails the build step
+   * - ``pgp_setmask_test``
+     - Compiles ``pgpcard/include/PgpDriver.h`` as a userspace TU with
+       ``ioctl()`` redirected to a recording shim and checks the mask value
+       ``pgpSetMask()`` passes to ``dmaSetMask()`` for every (lane, VC);
+       run by ``make -C emulator/driver/tests test``
    * - ``stub_mmap_test``
      - ``/dev/nvidia_p2p_stub_mem`` reserve + ``mmap()`` + pattern
        readback smoke test; run by ``scripts/ci/test-gpu.sh`` once the

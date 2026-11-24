@@ -3,7 +3,7 @@ Your First GPUDirect Transfer
 
 By the end of this tutorial you will have installed the NVIDIA Open Kernel
 Modules, configured GRUB, used ``comp_and_load_drivers.sh`` to build and
-load all required drivers, and run ``rdmaTest`` to confirm that GPU-to-FPGA DMA
+load all required drivers, and run ``rdmaTest`` to confirm that FPGA-to-GPU DMA
 works. This requires an NVIDIA GPU and a PCIe FPGA card (PCI IDs 1a4a:2030)
 installed on the same PCIe bus of a Linux x86_64 host.
 
@@ -187,7 +187,10 @@ With both drivers loaded and GPUDirect support confirmed, build ``rdmaTest``
 .. code-block:: bash
 
    make -C data_dev/app cuda
-   sudo ./data_dev/app/bin/rdmaTest
+   sudo ./data_dev/app/bin/rdmaTest -c 100
+
+``-c 100`` tells ``rdmaTest`` to exit after receiving 100 events. Without
+``-c`` it runs until interrupted with Ctrl-C.
 
 ``rdmaTest`` uses the ``GpuAsyncLib.h`` helpers (``DataGPU``,
 ``CudaContext``, ``gpuMapHostFpgaMem``) and the ``GpuAsyncCoreRegs``
@@ -195,9 +198,12 @@ register wrapper from ``GpuAsyncUser.h`` to handle GPU/FPGA bring-up and
 tear-down. See :doc:`../reference/gpu-async-api` for the complete API
 reference.
 
-Expected output: ``rdmaTest`` prints GPU-to-FPGA transfer statistics and
-exits with status 0. If it exits cleanly the DMA path from the GPU through
-the PCIe bus to the FPGA card is working correctly.
+Expected output: ``rdmaTest`` receives 100 events from the FPGA into GPU
+memory and exits with status 0. It prints a transfer summary only every
+65536 events, so a short run produces no output on success; pass ``-vv`` to
+see each DMA header. If it exits cleanly the FPGA-to-GPU DMA path across
+the PCIe bus is working correctly. To also exercise the GPU-to-FPGA
+direction, add ``-l`` to enable loopback mode (FPGA to GPU to FPGA).
 
 
 Next Steps

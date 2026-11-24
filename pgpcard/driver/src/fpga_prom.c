@@ -16,7 +16,7 @@
 #include <FpgaProm.h>
 #include <dma_common.h>
 
-// Prom Read
+// Prom Write
 int32_t FpgaProm_Write(struct DmaDevice *dev, void * base, uint64_t arg) {
    int32_t  ret;
    uint32_t tempVal;
@@ -45,7 +45,7 @@ int32_t FpgaProm_Write(struct DmaDevice *dev, void * base, uint64_t arg) {
    return(0);
 }
 
-// Prom write
+// Prom Read
 int32_t FpgaProm_Read(struct DmaDevice *dev, void * base, uint64_t arg) {
    int32_t  ret;
    uint32_t tempVal;

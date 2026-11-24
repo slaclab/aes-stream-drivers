@@ -216,7 +216,7 @@ void gpuUnmapFpgaMem(GpuDmaBuffer_t* mem);
  */
 struct GpuBufferState_t {
     uint8_t*       swFpgaRegs;
-    GpuDmaBuffer_t bread;   /**< FPGA -> GPU read buffer (GPU is the destination of FPGA reads). */
+    GpuDmaBuffer_t bread;   /**< GPU -> FPGA read buffer (GPU is the source of FPGA reads). */
     GpuDmaBuffer_t bwrite;  /**< FPGA -> GPU write buffer (GPU is the destination of FPGA writes). */
 };
 
