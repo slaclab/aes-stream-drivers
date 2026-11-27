@@ -1279,8 +1279,10 @@ int Dma_Mmap(struct file *filp, struct vm_area_struct *vma) {
          return -1;
       }
 
-      // Validate size and alignment
-      if ((vsize < dev->cfgSize) || (offset % dev->cfgSize) != 0) {
+      // Validate size and alignment. The upper bound matters for the stream and
+      // ACP paths below: io_remap_pfn_range() maps exactly vsize bytes, so an
+      // oversized request would expose memory beyond this buffer.
+      if ((vsize < dev->cfgSize) || (vsize > PAGE_ALIGN(dev->cfgSize)) || (offset % dev->cfgSize) != 0) {
          dev_warn(dev->device, "map: Invalid map size (%li) and offset (%li). cfgSize=%i\n",
                   vsize, offset, dev->cfgSize);
          return -1;
