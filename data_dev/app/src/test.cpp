@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
    // Allocate memory for DMA data
    if ((txData = malloc(dmaSize)) == NULL) {
       printf("Failed to allocate memory for DMA data\n");
-      return 0;
+      return 1;
    }
 
    count = 0;
@@ -69,7 +69,7 @@ int main(int argc, char **argv) {
 
       if (ret < 0) {
          printf("DMA write error occurred\n");
-         return 0;
+         return 1;
       }
    } while (++count < dmaCount);
 

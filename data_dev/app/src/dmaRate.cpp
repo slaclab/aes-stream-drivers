@@ -124,7 +124,7 @@ int main(int argc, char **argv) {
    // Map DMA buffers
    if ((dmaBuffers = dmaMapDma(s, &dmaCount, &dmaSize)) == NULL) {
       printf("Failed to map dma buffers!\n");
-      return 0;
+      return 1;
    }
 
    // The driver rejects a bulk read larger than its RX + TX buffer total
@@ -135,7 +135,7 @@ int main(int argc, char **argv) {
    if (dmaSetMaskBytes(s, mask) != 0) {
       printf("Failed to get receive dma!\n");
       dmaUnMapDma(s, dmaBuffers);
-      return 0;
+      return 1;
    }
 
    // Main processing loop

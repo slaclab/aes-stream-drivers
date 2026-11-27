@@ -162,6 +162,16 @@ if grep -qE "Read failed|prbs=0" "$RD_OUT"; then
    exit 1
 fi
 
+# -b prints one "Read ret=" header per frame. Require the full count so a
+# dmaRead that exits 0 without reading anything (setup failure before the
+# read loop) cannot pass on exit status alone.
+RD_FRAMES=$(grep -c "^Read ret=" "$RD_OUT")
+if [ "$RD_FRAMES" -ne "$COUNT" ]; then
+   echo "FAIL: dmaRead -i reported $RD_FRAMES frames, expected $COUNT"
+   dump_phase2
+   exit 1
+fi
+
 if [ "$DMESG_OK" -eq 1 ]; then
    DMESG_DELTA=$($SUDO dmesg | tail -n "+$((DMESG_BEFORE + 1))")
    if printf '%s\n' "$DMESG_DELTA" | grep -q "Invalid index posted"; then
