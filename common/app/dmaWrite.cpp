@@ -118,6 +118,7 @@ int main(int argc, char **argv) {
    struct timeval timeout;
    struct PrgArgs args;
    uint64_t totalBytes = 0;
+   int rc = 0;
 
    // Initialize program arguments with default values
    memcpy(&args, &DefArgs, sizeof(struct PrgArgs));
@@ -186,6 +187,15 @@ int main(int argc, char **argv) {
             ret = dmaWrite(s, txData, args.size, 0, args.dest);
          }
 
+         // Stop on write error: the driver rejects oversized frames and
+         // unmasked destinations with -1, so retrying would never succeed.
+         if (ret < 0) {
+            printf("Write error, ret=%li, size=%u, dest=%u\n", ret, args.size, args.dest);
+            if (args.idxEn) dmaRetIndex(s, dmaIndex);
+            rc = 1;
+            break;
+         }
+
          // On successful write, reset prbValid flag and increment count
          if (ret > 0) {
             prbValid = false;
@@ -215,5 +225,5 @@ int main(int argc, char **argv) {
    printResults("Tx", count, totalBytes, duration);
 
    close(s);
-   return 0;
+   return rc;
 }
