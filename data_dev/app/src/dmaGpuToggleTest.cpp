@@ -499,7 +499,7 @@ int main(int argc, char **argv) {
 
    /* Map BAR0 GPU async region. */
    void *bar0 = dmaMapRegister(fd, GPU_ASYNC_CORE_OFFSET, GPU_ASYNC_CORE_SIZE);
-   if (!bar0) {
+   if (bar0 == nullptr || bar0 == MAP_FAILED) {
       fprintf(stderr, "dmaGpuToggleTest: dmaMapRegister failed\n");
       ::close(stub_fd);
       ::close(fd);
