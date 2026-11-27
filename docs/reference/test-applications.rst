@@ -283,8 +283,8 @@ instead) and ``test_reload_segfault.sh``.
      - Coverage
    * - ``run_tests.sh``
      - Master test runner: ioctl, file-ops, error-paths, multichannel, proc,
-       data-integrity, idx-loopback, tuser-sweep, frame-sizes, small-frames,
-       concurrent-open, dma-rate, backpressure, irq-modes
+       data-integrity, idx-loopback, tuser-sweep, tx-flags, frame-sizes,
+       small-frames, concurrent-open, dma-rate, backpressure, irq-modes
    * - ``test_data_integrity.sh``
      - Runs ``dmaLoopTest`` for 60s, requires >= 100 transfers with zero
        PRBS mismatches
@@ -314,6 +314,11 @@ instead) and ``test_reload_segfault.sh``.
      - Two extreme fuser/luser combinations (0x00 + 0xFF, 0xFF + 0x00) via
        ``dmaLoopTest -f/-l`` to catch bit-shifting / masking bugs in
        axisSetFlags / axisGetFuser / axisGetLuser
+   * - ``test_tx_flags.sh``
+     - ``dmaWrite -f 0x20000`` sends frames with the RX timeout bit
+       (flags[17]) set to dest 0 and ``dmaRead -m 0`` must receive every one
+       on dest 0; catches ``AxisG2_WriteTx`` leaking flag bits into the TX
+       descriptor channel field
    * - ``test_params.sh``
      - Module parameter validation: loads with custom cfgTxCount/cfgRxCount/cfgSize,
        verifies ``/proc/datadev_0`` reflects the new values, then load/unload
