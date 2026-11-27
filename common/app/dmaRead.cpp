@@ -141,7 +141,11 @@ int main(int argc, char **argv) {
          tok = strtok(NULL, ",");
       }
    }
-   dmaSetMaskBytes(s, mask);
+   if (dmaSetMaskBytes(s, mask) != 0) {
+      printf("Failed to set destination mask!\n");
+      close(s);
+      return 1;
+   }
    maxSize = 1024*1024*2;
 
    if (args.idxEn) {
